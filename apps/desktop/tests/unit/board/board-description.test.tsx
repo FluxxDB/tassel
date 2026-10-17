@@ -14,7 +14,7 @@ import {
 } from '../../../src/renderer/src/features/session/current-session';
 import { initI18n } from '../../../src/renderer/src/i18n';
 import { ApiProvider } from '../../../src/renderer/src/lib/api';
-import { CORRECT } from './fixtures';
+import { CORRECT, WRONG } from './fixtures';
 
 vi.mock('../../../src/renderer/src/board/layout/client', () => ({
   getLayoutClient: () => ({ layout: () => new Promise(() => {}), dispose: () => {} }),
@@ -95,6 +95,67 @@ describe('BoardDescription', () => {
       'De q1 a qd con 0',
       'De q2 a qd con 1',
       'De qd a qd con 0, 1',
+    ]);
+  });
+
+  it("lists a trace card's steps so far and its verdict, and notes, in the session language (M3)", async () => {
+    await renderFor('es');
+    act(() => {
+      applyBoardAction({
+        kind: 'board.trace',
+        item: 'run',
+        spec: WRONG,
+        input: '100',
+        subject: 'student',
+      });
+      applyBoardAction({ kind: 'board.traceStep', item: 'run', step: 2 });
+      applyBoardAction({ kind: 'board.note', item: 'n1', text: 'Mira q0 con un 1.' });
+    });
+    const name = 'Lo que hay en la pizarra de Ada';
+    // Only the steps Ada has shown.
+    expect(items(name)).toEqual([
+      'Traza · entrada 100',
+      'Paso 1: lee 1, de q0 a q0',
+      'Paso 2: lee 0, de q0 a q1',
+      'Nota: Mira q0 con un 1.',
+    ]);
+    act(() => {
+      applyBoardAction({ kind: 'board.traceStep', item: 'run' });
+      applyBoardAction({
+        kind: 'board.verdict',
+        item: 'run',
+        got: 'reject',
+        note: '¿Empieza con 010? No',
+      });
+    });
+    expect(items(name)).toEqual([
+      'Traza · entrada 100',
+      'Paso 1: lee 1, de q0 a q0',
+      'Paso 2: lee 0, de q0 a q1',
+      'Paso 3: lee 0, sin transición desde q1: rechaza',
+      'Tu AFD: rechaza',
+      '¿Empieza con 010? No',
+      'Nota: Mira q0 con un 1.',
+    ]);
+  });
+
+  it('heads a titled trace with its own title, in English too', async () => {
+    await renderFor('en');
+    act(() => {
+      applyBoardAction({
+        kind: 'board.trace',
+        item: 'run',
+        title: 'Your DFA on 1010',
+        spec: WRONG,
+        input: '1',
+      });
+      applyBoardAction({ kind: 'board.traceStep', item: 'run' });
+      applyBoardAction({ kind: 'board.verdict', item: 'run', got: 'reject' });
+    });
+    expect(items("What's on Ada's board")).toEqual([
+      'Your DFA on 1010',
+      'Step 1: read 1, q0 to q0',
+      'This DFA: reject',
     ]);
   });
 

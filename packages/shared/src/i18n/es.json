@@ -158,7 +158,10 @@
       "states": "Estados: {list}",
       "start": "Inicio: {state}",
       "accepting": "De aceptación: {list}",
-      "transition": "De {from} a {to} con {symbols}"
+      "transition": "De {from} a {to} con {symbols}",
+      "step": "Paso {n}: lee {symbol}, de {from} a {to}",
+      "stuck": "Paso {n}: lee {symbol}, sin transición desde {from}: rechaza",
+      "note": "Nota: {text}"
     },
     "trace": {
       "title": "Traza · entrada {input}",
