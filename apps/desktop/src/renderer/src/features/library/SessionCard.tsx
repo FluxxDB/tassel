@@ -21,6 +21,9 @@ export interface SessionCardProps {
 // Shared with the skeleton, so the loading grid has the real cards' size.
 const CARD = 'flex h-full w-full flex-col gap-4 rounded-card bg-paper p-5';
 
+/** The cards' grid, minmax(280px, 1fr): four columns at 1440 and three at 1024. */
+export const CARD_GRID = 'grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4';
+
 export function SessionCard({ session, dated, showSubject, now, onOpen }: SessionCardProps) {
   const { t, i18n } = useTranslation();
   const id = useId();
