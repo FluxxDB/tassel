@@ -144,5 +144,39 @@
     "network": "Can't reach the server. Check your connection and try again.",
     "server": "Something went wrong on our end. Try again in a moment.",
     "unknown": "Something went wrong. Try again."
+  },
+  "voice": {
+    "settings": {
+      "title": "Audio",
+      "open": "Audio settings",
+      "close": "Close audio settings",
+      "input": "Microphone",
+      "output": "Speaker",
+      "systemDefault": "System default",
+      "presenter": "Presenter mode",
+      "presenterHint": "Ada also plays on a second output, like room speakers. Push-to-talk turns on, because room speakers echo.",
+      "presenterOutput": "Room output",
+      "chooseOutput": "Choose a room output",
+      "noRoomOutput": "Connect a different speaker to use presenter mode.",
+      "pushToTalk": "Push-to-talk",
+      "pushToTalkHint": "Hold Space while you talk.",
+      "sensitivityLabel": "Interruptions",
+      "sensitivity": {
+        "low": "Fewer",
+        "normal": "Normal",
+        "high": "Instant"
+      },
+      "sensitivityHint": "Short replies like “uh-huh” never interrupt Ada, except on Instant."
+    },
+    "device": {
+      "input": "Microphone {n}",
+      "output": "Speaker {n}",
+      "lost": "{device} was disconnected. Using the system default.",
+      "presenterLost": "Room output was disconnected. Choose another speaker.",
+      "unavailable": "Audio devices could not be listed. Try again."
+    },
+    "mic": {
+      "holdSpace": "Hold Space to talk"
+    }
   }
 }

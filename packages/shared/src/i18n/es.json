@@ -144,5 +144,39 @@
     "network": "No se puede conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.",
     "server": "Algo salió mal de nuestro lado. Inténtalo de nuevo en un momento.",
     "unknown": "Algo salió mal. Inténtalo de nuevo."
+  },
+  "voice": {
+    "settings": {
+      "title": "Audio",
+      "open": "Ajustes de audio",
+      "close": "Cerrar ajustes de audio",
+      "input": "Micrófono",
+      "output": "Altavoz",
+      "systemDefault": "Predeterminado del sistema",
+      "presenter": "Modo presentación",
+      "presenterHint": "La voz de Ada también se reproduce en una segunda salida, como los altavoces de la sala. Se activa Pulsar para hablar porque esos altavoces producen eco.",
+      "presenterOutput": "Salida de la sala",
+      "chooseOutput": "Elige una salida para la sala",
+      "noRoomOutput": "Conecta otro altavoz para usar el modo presentación.",
+      "pushToTalk": "Pulsar para hablar",
+      "pushToTalkHint": "Mantén pulsada la barra espaciadora mientras hablas.",
+      "sensitivityLabel": "Interrupciones",
+      "sensitivity": {
+        "low": "Menos",
+        "normal": "Normal",
+        "high": "Al instante"
+      },
+      "sensitivityHint": "Las respuestas breves como «ajá» no interrumpen a Ada, salvo en Al instante."
+    },
+    "device": {
+      "input": "Micrófono {n}",
+      "output": "Altavoz {n}",
+      "lost": "Se desconectó {device}. Se usa el dispositivo predeterminado del sistema.",
+      "presenterLost": "Se desconectó la salida de la sala. Elige otro altavoz.",
+      "unavailable": "No se pudieron mostrar los dispositivos de audio. Inténtalo de nuevo."
+    },
+    "mic": {
+      "holdSpace": "Mantén pulsado Espacio para hablar"
+    }
   }
 }
