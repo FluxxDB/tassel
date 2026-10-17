@@ -158,7 +158,10 @@
       "states": "상태: {list}",
       "start": "시작: {state}",
       "accepting": "수락 상태: {list}",
-      "transition": "{from} → {to}, 입력 {symbols}"
+      "transition": "{from} → {to}, 입력 {symbols}",
+      "step": "{n}단계: {symbol} 읽음, {from} → {to}",
+      "stuck": "{n}단계: {symbol} 읽음, {from}에서 전이 없음: 거부",
+      "note": "메모: {text}"
     },
     "trace": {
       "title": "추적 · 입력 {input}",
@@ -176,6 +179,9 @@
     "kind": {
       "dfa": "DFA",
       "nfa": "NFA"
+    },
+    "state": {
+      "accepting": "{id}, 수락 상태"
     }
   },
   "marks": {

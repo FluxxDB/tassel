@@ -158,7 +158,10 @@
       "states": "States: {list}",
       "start": "Start: {state}",
       "accepting": "Accepting: {list}",
-      "transition": "{from} to {to} on {symbols}"
+      "transition": "{from} to {to} on {symbols}",
+      "step": "Step {n}: read {symbol}, {from} to {to}",
+      "stuck": "Step {n}: read {symbol}, no move from {from}: rejected",
+      "note": "Note: {text}"
     },
     "trace": {
       "title": "Trace · input {input}",
@@ -176,6 +179,9 @@
     "kind": {
       "dfa": "DFA",
       "nfa": "NFA"
+    },
+    "state": {
+      "accepting": "{id}, accepting"
     }
   },
   "marks": {
