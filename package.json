@@ -10,11 +10,13 @@
     "test": "pnpm -r test",
     "check": "biome check . && pnpm -r typecheck",
     "e2e": "node -e \"console.error('e2e: not implemented yet (Task 15)'); process.exit(1)\"",
-    "gen:api": "node -e \"console.error('gen:api: not implemented yet (Task 7)'); process.exit(1)\"",
-    "check:api": "node -e \"console.error('check:api: not implemented yet (Task 7)'); process.exit(1)\"",
+    "gen:api": "uv run --directory services/server python -m tassel.scripts.export_openapi && pnpm --filter @tassel/shared exec openapi-typescript src/api/openapi.json -o src/api/schema.d.ts",
+    "check:api": "node scripts/check-api.mjs",
     "check:i18n": "node packages/shared/scripts/check-i18n.ts"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.15"
+    "@biomejs/biome": "2.5.15",
+    "cross-spawn": "^7.0.6",
+    "openapi-typescript": "^7.13.0"
   }
 }

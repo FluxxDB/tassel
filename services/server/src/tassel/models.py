@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 SessionType = Literal["homework", "studying", "research", "other"]
 Lang = Literal["en", "es", "ko"]
@@ -26,8 +27,9 @@ class SessionPatch(BaseModel):
 
     title: str | None = Field(None, min_length=1, max_length=80)
     subject: str | None = Field(None, max_length=40)
-    type: SessionType | None = None
-    language: Lang | None = None
+    # May be omitted but never null (refused below), so the schema doesn't offer null.
+    type: SessionType | SkipJsonSchema[None] = None
+    language: Lang | SkipJsonSchema[None] = None
 
     @field_validator("subject")
     @classmethod

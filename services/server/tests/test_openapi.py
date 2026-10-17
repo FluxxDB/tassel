@@ -39,6 +39,16 @@ async def test_registration_and_health_need_no_token(openapi):
 
 
 @pytest.mark.asyncio
+async def test_patch_offers_null_only_where_it_clears_a_field(openapi):
+    fields = openapi["components"]["schemas"]["SessionPatch"]["properties"]
+    for clearable in ("title", "subject"):
+        assert {"type": "null"} in fields[clearable]["anyOf"]
+    for required_when_sent in ("type", "language"):
+        assert "anyOf" not in fields[required_when_sent]
+        assert fields[required_when_sent]["type"] == "string"
+
+
+@pytest.mark.asyncio
 async def test_me_types_ui_language_as_a_session_language(openapi):
     ui_language = openapi["components"]["schemas"]["MeOut"]["properties"]["ui_language"]
     assert ui_language["enum"] == ["en", "es", "ko"]

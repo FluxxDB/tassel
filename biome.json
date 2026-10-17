@@ -7,7 +7,14 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!docs", "!graphify-out", "!.impeccable"]
+    "includes": [
+      "**",
+      "!docs",
+      "!graphify-out",
+      "!.impeccable",
+      "!packages/shared/src/api/openapi.json",
+      "!packages/shared/src/api/schema.d.ts"
+    ]
   },
   "formatter": {
     "enabled": true,
