@@ -11,12 +11,12 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from tassel.frames.models import FrameReason, PaperSourceKind
-from tassel.storage.tables import Base, _one_of
+from tassel.storage.tables import Base, one_of
 
 
 class Frame(Base):
     __tablename__ = "frames"
-    __table_args__ = (_one_of("reason", FrameReason), _one_of("source", PaperSourceKind))
+    __table_args__ = (one_of("reason", FrameReason), one_of("source", PaperSourceKind))
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sessions.id", ondelete="CASCADE"))

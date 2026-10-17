@@ -21,7 +21,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from tassel.models import Lang, SessionType, Source, TitleSource
 
 
-def _one_of(name: str, literal: Any) -> CheckConstraint:
+def one_of(name: str, literal: Any) -> CheckConstraint:
     """A CHECK that column ``name`` holds one of the ``Literal`` type's values (or NULL)."""
     return CheckConstraint(column(name).in_(get_args(literal)), name=name)
 
@@ -41,7 +41,7 @@ class Base(DeclarativeBase):
 
 class Learner(Base):
     __tablename__ = "learners"
-    __table_args__ = (_one_of("ui_language", Lang),)
+    __table_args__ = (one_of("ui_language", Lang),)
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
@@ -63,10 +63,10 @@ class TutoringSession(Base):
 
     __tablename__ = "sessions"
     __table_args__ = (
-        _one_of("title_source", TitleSource),
-        _one_of("type", SessionType),
-        _one_of("language", Lang),
-        _one_of("source", Source),
+        one_of("title_source", TitleSource),
+        one_of("type", SessionType),
+        one_of("language", Lang),
+        one_of("source", Source),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
