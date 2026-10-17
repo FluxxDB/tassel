@@ -48,7 +48,7 @@ function renderTutor(client: TutorClient) {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <ApiProvider client={api}>{children}</ApiProvider>
   );
-  return renderHook(() => useTutorSession(SESSION_ID, client), { wrapper });
+  return renderHook(() => useTutorSession(SESSION_ID, client, true), { wrapper });
 }
 
 /** Only tags, nothing to hear: its markers fire when it loads, word-gated player or not. */
