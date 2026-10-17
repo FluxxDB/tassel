@@ -14,8 +14,13 @@ if len(text) > 1990:
     text = text[:1987] + "..."
 print(json.dumps({"username": "Claude · Tassel build", "content": text, "allowed_mentions": {"parse": []}}))' "$msg")"
 
+# HTTP/1.1 and one retry: macOS's LibreSSL curl intermittently fails image uploads with
+# "bad record mac". A failure while reading the reply can mean the post already landed,
+# so a retry may duplicate it; a duplicate beats a missed update.
+curl_opts=(-sS -o /dev/null -w '%{http_code}' --http1.1 --retry 1 --retry-all-errors --retry-delay 2)
+
 if [ "$#" -eq 0 ]; then
-  code=$(curl -sS -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -d "$payload" "$url?wait=true")
+  code=$(curl "${curl_opts[@]}" -H 'Content-Type: application/json' -d "$payload" "$url?wait=true")
 else
   args=(--form-string "payload_json=$payload")
   i=0
@@ -23,7 +28,7 @@ else
     args+=(-F "files[$i]=@$f")
     i=$((i + 1))
   done
-  code=$(curl -sS -o /dev/null -w '%{http_code}' "${args[@]}" "$url?wait=true")
+  code=$(curl "${curl_opts[@]}" "${args[@]}" "$url?wait=true")
 fi
 
 case "$code" in
