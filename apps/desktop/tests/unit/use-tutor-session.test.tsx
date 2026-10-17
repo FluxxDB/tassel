@@ -87,10 +87,10 @@ describe('useTutorSession', () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
       <ApiProvider client={api}>{children}</ApiProvider>
     );
-    const { rerender } = renderHook(
-      ({ ready }) => useTutorSession(SESSION.id, client, ready),
-      { wrapper, initialProps: { ready: false } },
-    );
+    const { rerender } = renderHook(({ ready }) => useTutorSession(SESSION.id, client, ready), {
+      wrapper,
+      initialProps: { ready: false },
+    });
     expect(client.connect).not.toHaveBeenCalled();
     expect(listening()).toBe(0);
     rerender({ ready: true });
