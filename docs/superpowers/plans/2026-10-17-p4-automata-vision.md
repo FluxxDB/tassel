@@ -11,7 +11,7 @@
   2. the decision gate (fake, OpenAI Decisions, or Clef on Vultr) answers four English predicates, at most once per 5 s;
   3. when the gate says it's worth it, Set-of-Mark candidates (circles and ink blobs) are numbered on the page, and the deep check (a fixture fake, or Opus 5.5 with structured output) transcribes the DFA in mark numbers;
   4. snapping turns the answer into a `DfaReading` in page coordinates, and the verifier computes the verdict;
-  5. the policy applies the etiquette and the escalation ladder. At a natural pause it sends the "How I read your DFA" reading to the board, then a compact English note into P2's bot, which the fast model speaks in the session language.
+  5. the policy applies the etiquette and the escalation ladder. At a natural pause it sends a compact English note into P2's bot, which the fast model speaks in the session language. An invited note first puts the "How I read your DFA" reading on the board and splits the stage; an unprompted hint is voice only (P4-R23).
 - **App** (`apps/desktop/src/renderer/src/vision`): the read-back card on the board panel, a developer vision HUD, and the pen activity (from P3's detector) that the etiquette needs.
 
 **Tech Stack:**
@@ -20,7 +20,7 @@
   - `opencv-python-headless==4.14.0.94` (abi3 wheels for macOS arm64 and x86_64 14+, Windows x64 and manylinux; [PyPI](https://pypi.org/project/opencv-python-headless/4.14.0.94/)). It bundles FFmpeg under LGPL-2.1 ([README](https://github.com/opencv/opencv-python/blob/4.x/README.md)). Pinned below 5.x on purpose: 5.0 changes `putText` font metrics.
   - `numpy>=2.5,<3` ([PyPI 2.5.4](https://pypi.org/project/numpy/2.5.4/)).
   - `anthropic==1.15.0`, on `httpx2`, Python ≥ 3.10 ([PyPI](https://pypi.org/project/anthropic/1.15.0/)).
-  - `openai==3.31.0`, which has `client.decisions.create` (added in 3.26.0) and is three days old ([PyPI](https://pypi.org/project/openai/3.31.0/), [CHANGELOG](https://github.com/openai/openai-python/blob/main/CHANGELOG.md)).
+  - `openai>=3.31,<4`, which has `client.decisions.create` (added in 3.26.0) ([PyPI](https://pypi.org/project/openai/3.31.0/), [CHANGELOG](https://github.com/openai/openai-python/blob/main/CHANGELOG.md)). This is a floor, not a pin. Pipecat already pulls openai in, and P2's `uv.lock` on `claude/p2-server` resolves 3.33.0, which an exact pin would downgrade.
   - `httpx2>=2.12,<3`, the transport both SDKs use, which P4 imports directly for Clef and for tests ([PyPI](https://pypi.org/project/httpx2/); the floor is openai-python's own requirement).
 - **Server, from P1 to P3:** Python 3.12, FastAPI, Pydantic v2, pydantic-settings, SQLAlchemy 2, pytest; P2's `pipecat-ai[webrtc,deepgram]==1.12.0` ([PyPI](https://pypi.org/project/pipecat-ai/1.12.0/)); P3's frames API and object store.
 - **Providers:**
@@ -74,17 +74,35 @@ Every task's requirements include this section.
   - `VULTR_INFERENCE_API_KEY` (only for the optional Clef gate, spec §10 item 6's Serverless Inference key).
 
   They never appear in the app, in server events, in client messages, in the vision log or in exception text. Agents never read `.env`: the preflight reports which keys are set, never their values.
-- **`VisionSettings`** reads that file in the app's lifespan, never at import or in `create_app`, the way P2's `VoiceSettings` does (P2 Task 2). `TASSEL_VOICE_ENV_FILE` overrides the path, empty means "read no file", and empty values count as unset.
+- **`VisionSettings`** reads that file in the app's lifespan, never at import or in `create_app`, the way P2's `VoiceSettings` does (P2 Task 2). `TASSEL_VOICE_ENV_FILE` overrides the path, empty means "read no file", and empty values count as unset. As in P2's code, its `model_config` names no env file, so only `load()` reads one. `hide_input_in_errors=True` keeps values out of validation errors.
 - **Provider mode:**
   - `TASSEL_GATE_PROVIDER` and `TASSEL_DEEPCHECK_PROVIDER` are each `fake`, `live` or `auto`, falling back to P2's `TASSEL_PROVIDERS` (default `fake`);
   - `TASSEL_GATE_LIVE` (`openai` by default, or `clef`) picks the live gate;
   - `auto` is live exactly when the key is set, so with `TASSEL_PROVIDERS=auto` the gate and the deep check stay fake until `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` appear;
   - a provider that resolves live without its key fails startup with `"<VAR>=<mode> needs <KEY> in services/server/.env"`.
-- **Tests never reach a live provider:**
-  - an autouse fixture in `tests/vision/conftest.py` clears the three keys and every `TASSEL_GATE_*`, `TASSEL_DEEPCHECK_*`, `TASSEL_FAKE_TRUTH`, `TASSEL_FAKE_READING` and `TASSEL_VISION_*` variable, and sets `TASSEL_VOICE_ENV_FILE=""`;
-  - P2's `e2eServerEnv` strips the three keys too (Task 16);
-  - live runs happen only through `pnpm vision:live-check` (Task 17).
+- **Tests never reach a live provider,** whatever `services/server/.env` or the shell holds. Task 1 puts two autouse fixtures in the **root** `services/server/tests/conftest.py`, so every P1, P2, P3 and P4 test runs under them:
+  - **`scrub_vision_env`**, the same shape as P2's `scrub_voice_env`:
+    - it deletes every `OPENAI_*`, `ANTHROPIC_*`, `VULTR_*`, `TASSEL_*PROVIDER*`, `TASSEL_GATE_*`, `TASSEL_DEEPCHECK_*`, `TASSEL_VISION_*`, `TASSEL_FAKE_TRUTH` and `TASSEL_FAKE_READING` variable (a developer's shell often exports `ANTHROPIC_API_KEY`);
+    - it sets `TASSEL_VOICE_ENV_FILE=""`, so `VisionSettings.load()` reads no file and both kinds resolve to fake.
+  - **`no_provider_network`:** the real `httpx` and `httpx2` transports (`HTTPTransport` and `AsyncHTTPTransport`) refuse any host other than `localhost`, `127.0.0.1` and `::1`.
+    - The refusal is `RuntimeError("tests never reach the network: <host>")`.
+    - Both SDKs and the Clef adapter go through these transports. `MockTransport` and `ASGITransport` are separate classes, so they are untouched.
+
+  A test that wants live settings constructs `VisionSettings(...)` with test values and a `MockTransport`. For the E2E server, Task 16's `visionServerEnv` (built on P2's `e2eServerEnv`) strips the same variables and pins both providers to fake. Live runs happen only through `pnpm vision:live-check` (Task 17).
 - **Real frames to providers:** live mode sends real camera frames to OpenAI, Anthropic or Vultr. Until P9 ships the consent copy, live vision is for the owner's own testing (P3-R8's gate, extended in P4-R20).
+
+**Runtime**
+- **CPU work stays off the event loop.** The server's loop also carries Pipecat's 20 ms audio frames.
+  - The CPU-heavy steps are plain functions with no shared mutable state, so they are safe to call from any thread:
+    - page flattening and marks;
+    - the fixture reader;
+    - snapping;
+    - regex compilation;
+    - the membership check;
+    - `verify` and `one_edit_fixes`.
+  - The orchestrator runs them through `anyio.to_thread.run_sync` (anyio 4.15.1, already locked through FastAPI), under one two-token `CapacityLimiter` shared by every session (Task 13).
+  - OpenCV releases the GIL inside its calls. The pure-Python steps are bounded by Task 2's and Task 4's caps.
+- **Model-produced regexes are bounded** before and during compilation (Task 4), so a regex can only fail, never hang the server.
 
 **Values the spec fixes**
 - **Gate:** at most one call per 5 s. Four predicates, written in English whatever the session language: `diagram_attempt_complete`, `new_work_worth_checking`, `student_seems_stuck`, `not_schoolwork`.
@@ -103,7 +121,11 @@ Every task's requirements include this section.
 
 | Name | Value | Where |
 |---|---|---|
-| `STALL_MS` | 6000 (no ink and no speech before the gate is asked about a stall); `TASSEL_VISION_STALL_MS` overrides it | `vision/ports.py` (Task 1, because Teams A and G both use it) |
+| `STALL_MS` | 6000 (no ink and no speech before the gate is asked about a stall); `TASSEL_VISION_STALL_MS` overrides it | `vision/ports.py` (Task 1, because Team G's `FakeGate` and the converge orchestrator both use it) |
+| `MAX_REGEX_LEN` | 200 characters, counted after whitespace is removed | `domains/dfa/regex.py` |
+| `MAX_NFA_STATES` | 400 (the NFA that automata-lib builds from a regex) | `domains/dfa/regex.py` |
+| `MAX_DFA_STATES` | 512 (subset construction stops here, for a regex or for her own NFA) | `domains/dfa/machine.py` |
+| `DETERMINIZE_BUDGET_S` | 1.0 (a wall-clock limit on one subset construction) | `domains/dfa/machine.py` |
 | `FRESH_FRAME_WAIT_MS` | 6000 (how long a "done" waits for a frame taken after the pen stopped) | `vision/orchestrator.py` |
 | `NOTE_TTL_MS` | 30000 | `vision/policy.py` |
 | `UNPROMPTED_CHECK_INTERVAL_MS` | 15000 (deep checks nobody asked for) | `vision/policy.py` |
@@ -143,15 +165,19 @@ The owner pre-authorized self-approval of plans, so these stand unless the owner
 - **P4-R5. The server flattens the page** at a long side of 1568 px, from P3's `page_quad` (pixels of the uploaded full JPEG, P3-R12), or from its own page finder when the quad is missing or degenerate. *Cost if wrong:* one function.
 - **P4-R6. Where the ladder starts** (spec §5.2 against §9 step 5). The ladder runs hint → guiding question → counterexample → step-by-step → solution, "climbed only when she asks or after a failed attempt". But the demo goes from one stall hint straight to the counterexample.
   - Ruling: hints while she draws (stall or slip) come out of the 2-hint budget and don't climb the ladder.
-  - A completed wrong attempt is the "failed attempt": the first one starts at `counterexample` when the verifier has one, which is itself a question ("try running 1010…"), else at `guiding_question`.
+  - A completed wrong attempt is the "failed attempt": the first one starts at `counterexample`, which is itself a question ("try running 1010…").
+    - A `wrong` verdict always has a counterexample.
+    - An `unsure` verdict without one means she matches an unchecked reference, so it counts as probably correct (Task 5, row 3).
+    - So `plan` never picks `guiding_question`. It stays in `RUNGS` as the spec's name for that rung.
   - Each later failed attempt climbs one rung, up to `walkthrough`.
   - `walkthrough` and `solution` also come when she asks (`explain_dfa`), and `solution` only then.
 
   *Cost if wrong:* one table row in `plan`.
-- **P4-R7. Invited and unprompted.** A note that answers her completion signal or her request is invited, and the 45 s limit doesn't apply to it. Only stall and slip hints are unprompted. Both kinds wait for her pause and her pen. *Cost if wrong:* one flag.
+- **P4-R7. Invited and unprompted.** A note that answers her completion signal or her request is invited, and the 45 s limit doesn't apply to it. Only stall and slip hints are unprompted. Both kinds wait for her pause and her pen. Only invited notes split the stage and show the read-back (P4-R23). *Cost if wrong:* one flag.
 - **P4-R8. Pen stillness comes from the app.** The server sees frames only after the detector's quiet period. So the renderer sends P3's detector `busy` flag as a `pen` client event when it changes (debounced 400 ms on the way to quiet). With no paper source, the pen counts as still. *Cost if wrong:* one client event.
 - **P4-R9. A "done" waits for a fresh frame.** She usually says "I think I'm done" right after her last stroke, and the detector uploads that ink only about 3 s later (1 s stable plus 2 s quiet, P3). A gate call on the speech would then judge the stale frame and might call a wrong DFA right.
   - Ruling: a speech-triggered gate call waits until a frame arrives that the server received after the pen went still, or until 6 s have passed.
+  - P3's `busy` flag measures motion, not ink. So when her hand moves after the last stroke without drawing, the next "done" waits the full 6 s for a frame that never comes. The snapshot and the HUD show that wait (`waiting_for_frame`, Task 13), so the owner can read Ada's pause.
   - *Cost if wrong:* up to 6 s of delay.
 - **P4-R10. The blame step** (spec §5.3 says only "the first transition after which the two disagree"). Every student state is reached first by its shortlex-least access string, and its role is the reference state that string reaches. Along the counterexample's run, the blame is the first step whose student state has a role other than the reference state at that step. If there is none, it is the last state's accept flag.
   - For the demo: q0's role is the reference start; after reading `1` the reference is dead, so step 1, q0's loop on 1, is to blame.
@@ -162,12 +188,14 @@ The owner pre-authorized self-approval of plans, so these stand unless the owner
   - A language the DSL can't express stays untrusted, and Ada says "I think…".
   - The check covers every string up to length 12 for a binary alphabet, as the spec says. A larger alphabet checks fewer lengths, keeping it under 200,000 words (length 10 for three symbols).
   - *Cost if wrong:* the DSL gains an atom.
-- **P4-R12. Notes** are English messages starting with `[vision]` (P2's `is_note`). They carry the computed facts and one line of guidance; the spec's example is a prefix of ours. The role is **`developer`**:
-  - P2's OpenRouter service has no developer role, so Pipecat sends it as `user` on a request copy, and the context keeps `developer` ([openrouter llm.py L40][pc-openrouter], [open_ai_adapter.py L255–264][pc-oa-adapter]);
-  - RTVI echoes only `user` messages to the client ([rtvi observer.py L831–861][pc-rtvi-obs]);
+- **P4-R12. Notes** are English messages starting with `[vision]` (P2's `is_note`). They carry the computed facts and one line of guidance; the spec's example is a prefix of ours. The role is **`developer`**. The planner checked each step below against the installed `pipecat-ai` 1.12.0 wheel (P2's server environment), and the line numbers are the wheel's:
+  - `OpenRouterLLMService.supports_developer_role = False` ([openrouter/llm.py L40][pc-openrouter]);
+  - every request, streamed or `run_inference`, is built by `adapter.get_llm_invocation_params(..., convert_developer_to_user=not self.supports_developer_role)` ([openai/base_llm.py L341–345 and L436–440][pc-base-llm]);
+  - the adapter rewrites copies (`{**msg, "role": "user"}`, under the comment "Copy rather than mutate"), so the context keeps `developer` ([open_ai_adapter.py L255–264][pc-oa-adapter]);
+  - RTVI's `_handle_context` echoes the context's last message only when its role is `user` ([rtvi observer.py L831–865][pc-rtvi-obs]);
   - P2's memory keeps the note, and its titles and metrics ignore it.
 
-  *Cost if wrong:* the role string.
+  Task 15's `test_developer_note_goes_out_as_user_and_stays_developer` pins all of this offline, so a Pipecat upgrade that changes it fails a test rather than the demo. Task 14's `mapRtvi` also drops any user text that starts with `[`. *Cost if wrong:* the role string.
 - **P4-R13. Barge-in-safe injection** (§4.2 says `LLMMessagesAppendFrame(run_llm=True)`). In Pipecat 1.12.0 an interruption drops every queued interruptible frame, including a note that hasn't reached the context yet ([frame_processor.py L1129–1156][pc-frame-processor], [frame_queue.py L74–87][pc-frame-queue]).
   - Ruling: the note goes in as a non-interruptible `LLMMessagesAppendFrame` with no run, followed by an interruptible `LLMRunFrame()`, which is the pattern Pipecat Flows uses ([CHANGELOG][pc-changelog]).
   - If she barges in before Ada speaks, only `LLMRunFrame` is queued again at the next pause, at most twice. The note is never appended twice.
@@ -204,9 +232,14 @@ The owner pre-authorized self-approval of plans, so these stand unless the owner
 - **P4-R22. Uncertain readings.** An element below `CONFIDENCE_FLOOR`, or not snapped to a candidate, is uncertain:
   - the card draws it dashed in iris-ink with a "?";
   - the note asks Ada to have her check that part of the board's reading first;
-  - the verdict is still computed on the reading.
+  - the verdict is still computed on the reading;
+  - an unprompted hint never rests on an uncertain reading, because she can't see a read-back to check it (P4-R23). `plan` gives no hint then, and the invited check after "done" shows the read-back.
 
   *Cost if wrong:* one threshold.
+- **P4-R23. Only invited notes split the stage** (main's ruling, logged in the P4 ledger as "P4-R13"). The stage splits, and the read-back appears, only for an invited note (P4-R7): one that answers her request or her completion signal, which includes Ada stepping in after a failed attempt.
+  - An unprompted stall or slip hint is spoken over the paper view, with no `StageEvent` and no `ReadbackEvent`.
+  - *Why:* spec §5.2 keeps the tutor passive while she draws, and §9 stages the split for later.
+  - *Cost if wrong:* a stall hint stays in the paper view.
 
 **Not in P4,** with the plan that owns each:
 - **P5:** the paper marks and trace animations for `walkthrough`, the board drawing for `solution`, the student's board itself, and Graphviz layout.
@@ -227,7 +260,7 @@ These are the five failure modes a student is most likely to meet that the spec 
    - Expected: the note stays in context, and the LLM reruns once at the next pause. The note is never appended twice and never spoken over her.
    - Tests: Task 13 `test_barge_in_before_speech_reruns_once`; Task 15 `test_bot_channel_appends_then_runs`.
 3. **A misread, low-confidence or refused reading** (wobbly circles, a smudge, an Opus refusal or timeout).
-   - Expected: no confident wrong claim. Uncertain parts show on the read-back and the note asks her to check them; a failed check speaks only when invited ("I can't quite read it"); the HUD shows the failure.
+   - Expected: no confident wrong claim. Uncertain parts show on the read-back and the note asks her to check them; an unprompted hint never rests on an uncertain reading; a failed check speaks only when invited ("I can't quite read it"); the HUD shows the failure.
    - Tests: Task 8 `test_unsnapped_and_low_confidence_are_uncertain`, Task 9 `test_refusal_timeout_and_errors`, Task 5 `test_plan_table`, Task 13 `test_failed_check_speaks_only_when_invited`.
 4. **She keeps talking or drawing while a check finishes.**
    - Expected: Ada waits for a 600 ms pause and 1.5 s of pen stillness. A pending stall hint is dropped once she draws again, and any note expires after 30 s.
@@ -245,6 +278,7 @@ These are the five failure modes a student is most likely to meet that the spec 
 | P3 Task 5 | `POST /v1/sessions/{session_id}/frames` in `tassel/frames/api.py`; `FrameMeta`, `FrameOut`, `Point` (`tassel/frames/models.py`); `ObjectStore`; the `frames` table | 12, 13 |
 | P3 Task 6 | `packages/paper-synth`: variants `dfa-demo`, `dfa-short`, `hand-rests`, `shadow-pass`, `erase`; the CLI `node packages/paper-synth/scripts/gen-clip.ts --variant <v> --out <dir>`, which writes `<v>-960x720-<hash8>.mjpeg` and `.truth.json` and prints one JSON line; `ClipTruth` (states with page-coordinate centers and radii, transitions with `labelAt`) | 1, 7, 9, 12, 16 |
 | P3 Tasks 7, 10, 13, 14 | The detector harness `apps/desktop/tests/unit/paper/detector/harness.ts`; `usePaperStore` (`stats.busy`); `startPaperSession(page, { type, language, uiLang })`, `framesOf`, global setup's clip generation, and `launchApp`'s fake-clip pins; `scripts/dev.mjs`'s fake clip default | 14, 16 |
+| P2 Task 2 (built on `claude/p2-server`) | The root `tests/conftest.py`'s `scrub_voice_env` (an `fnmatchcase` predicate, `monkeypatch.delenv`, then `TASSEL_VOICE_ENV_FILE=""`), which Task 1's `scrub_vision_env` copies in shape; `VoiceSettings.load()`'s env-file rule | 1 |
 | P2 Task 1 | `@tassel/shared/voice` (`ServerEvent`, `ClientEvent`, `parseServerEvent`, `fixtures.json`); `tassel.voice.messages` (`_Message` style with `extra="forbid", strict=True`, `SERVER_EVENTS`, `CLIENT_EVENTS`, `StageEvent`, `is_note`, `envelope`); `TutorEvent`, `VoiceControls` and `TutorClient.voice` in `tutor/types.ts` | 14, 15 |
 | P2 Tasks 4, 6, 7, 8 | `FakeScenario`, `ScriptLang`, `ScriptTool`, `next_turn`, `FakeLLMService` and `SCENARIOS_DIR`; `system_prompt`, `TOOLS` and `FunctionSchema`; `Bot` (`worker`, `context`, `events`), `BotContext`, `build_bot`, `ServerEvents.send`, the client-message handler, `worker.add_observer`; `VoiceRegistry` | 15 |
 | P2 Tasks 13, 15–17 | `mapRtvi`'s server-event table and `LiveTutorClient.voice`; `useVoiceDebug`, `DevConsole` and `LatencyHud`; `useTutorSession`; `launchVoice`, `e2eServerEnv` and `startE2EServer` | 14, 16 |
@@ -259,7 +293,7 @@ Names come from those plans. Where the merged code differs, follow the code and 
 | Team | Tasks, in order | Worktree and branch | Writes (nobody else edits these) |
 |---|---|---|---|
 | **A: automata core** | 2 → 3 → 4 → 5 → 6 | `.claude/worktrees/p4-automata`, `claude/p4-automata` | `services/server/src/tassel/domains/**`, `services/server/tests/domains/**`, `vision/{policy,notes}.py`, `tests/vision/{test_policy,test_notes}.py` |
-| **P: perception** | 7 → 8 → 9 | `.claude/worktrees/p4-perception`, `claude/p4-perception` | `vision/{page,marks,transcription,deepcheck,prompts}.py`, `vision/fakes/{__init__.py,deepcheck.py,problems.json}`, `tests/vision/{test_page,test_marks,test_transcription,test_deepcheck_fixture,test_deepcheck_opus}.py`, `tests/vision/fixtures/opus-*.json` |
+| **P: perception** | 7 → 8 → 9 | `.claude/worktrees/p4-perception`, `claude/p4-perception` | `vision/{page,marks,transcription,deepcheck,prompts}.py`, `vision/fakes/{__init__.py,deepcheck.py,problems.json}`, `tests/vision/{test_page,test_marks,test_transcription,test_deepcheck_fixture,test_deepcheck_opus}.py`, `tests/vision/fixtures/{transcription-demo,opus-*}.json` |
 | **G: gate and card** | 10 → 11 → 12 (Task 12 also needs Task 7 merged) | `.claude/worktrees/p4-gate`, `claude/p4-gate` | `vision/{gate,gate_openai,gate_clef,evalset,gate_eval}.py`, `vision/gate_thresholds.json`, `vision/evalsets/**`, `tests/vision/{test_gate*,test_eval*}.py`, `tests/vision/fixtures/{openai,clef}-*.json`, `apps/desktop/src/renderer/src/vision/readback/**`, `apps/desktop/tests/unit/vision/readback/**`, the `vision.readback.*` keys in `packages/shared/src/i18n/*.json` |
 | **Converge** (one builder) | 13 → 14 → 15 → 16 → 17 | `claude/p4-automata-vision` | everything else P4 touches, including P2's, P3's and P5's files |
 
@@ -283,8 +317,9 @@ Server paths are under `services/server/src/tassel/` and server test paths under
   - `tutor/{types,use-tutor-session}.ts`.
 
   P5's Tasks 13–14 edit the same contract files, for `actions` and `beat`. Those are adjacent edits; keep both.
+- **The root `services/server/tests/conftest.py`** is the one P2 file P4 edits before P2 merges (Task 1, for test isolation). P2 adds `scrub_voice_env` there too. Keep both autouse fixtures side by side: each deletes its own variables, and both set `TASSEL_VOICE_ENV_FILE=""`.
 - **P3's files:**
-  - `frames/api.py`: one hook line after the commit (Task 13);
+  - `frames/api.py`: the hook (Task 13). The route keeps the row `lock_session` returns, which it now discards, and gains a `_vision` dependency. It calls the registry after the commit, inside a `try` that only logs;
   - `packages/paper-synth/src/variants.ts` and the CLI's variant list: one more variant (Task 16);
   - E2E `global-setup.ts` and `fixtures.ts`: additive (Task 16);
   - `scripts/dev.mjs`: the default clip becomes `dfa-demo-hold` (Task 16).
@@ -295,7 +330,7 @@ Server paths are under `services/server/src/tassel/` and server test paths under
 
 | Area | New files |
 |---|---|
-| Contract (Task 1) | `domains/{__init__,base}.py`, `domains/dfa/{__init__,contract}.py`, `vision/{__init__,settings,ports,messages,clips}.py`, `tests/vision/conftest.py`, `packages/shared/src/vision/{contract.ts,fixtures.json}` |
+| Contract (Task 1) | `domains/{__init__,base}.py`, `domains/dfa/{__init__,contract}.py`, `vision/{__init__,settings,ports,messages,clips}.py`, `tests/vision/conftest.py`, `tests/test_isolation.py` (and the two fixtures added to the root `tests/conftest.py`), `packages/shared/src/vision/{contract.ts,fixtures.json}` |
 | Automata (A) | `domains/dfa/{machine,search,regex,reference,fixes,verify,describe,membership}.py`, `domains/dfa/catalog/{starts-with-010,ends-with-01,contains-11,even-zeros}.json`, `vision/{policy,notes}.py`, `tests/domains/**` |
 | Perception (P) | `vision/{page,marks,transcription,deepcheck,prompts}.py`, `vision/fakes/{__init__,deepcheck}.py`, `vision/fakes/problems.json`, `tests/vision/fixtures/{transcription-demo,opus-transcription,opus-refusal,opus-membership}.json` |
 | Gate and card (G) | `vision/{gate,gate_openai,gate_clef,evalset,gate_eval}.py`, `vision/gate_thresholds.json`, `vision/evalsets/synthetic.json`, `tests/vision/fixtures/{openai-decision,clef-systemone}.json`, `renderer/src/vision/readback/{layout.ts,ReadBackCard.tsx}` |
@@ -308,13 +343,14 @@ Renderer paths are under `apps/desktop/src/renderer/src/`.
 ### Task 1: Vision contract, settings and dependencies
 
 **Files:**
-- Modify: `services/server/pyproject.toml` and `uv.lock`, adding the runtime dependencies `"automata-lib==9.2.0"`, `"opencv-python-headless==4.14.0.94"`, `"numpy>=2.5,<3"`, `"anthropic==1.15.0"`, `"openai==3.31.0"` and `"httpx2>=2.12,<3"`
+- Modify: `services/server/pyproject.toml` and `uv.lock`, adding the runtime dependencies `"automata-lib==9.2.0"`, `"opencv-python-headless==4.14.0.94"`, `"numpy>=2.5,<3"`, `"anthropic==1.15.0"`, `"openai>=3.31,<4"` and `"httpx2>=2.12,<3"`
+- Modify: `services/server/tests/conftest.py` (the root one): the autouse fixtures `scrub_vision_env` and `no_provider_network` (Global Constraints). This is the first step of the task, before any code that could read a key.
 - Create: `services/server/src/tassel/domains/__init__.py`, `domains/base.py`, `domains/dfa/__init__.py`, `domains/dfa/contract.py`
 - Create: `services/server/src/tassel/vision/__init__.py` (a docstring only, so importing the contract never loads OpenCV or an SDK), `vision/settings.py`, `vision/ports.py`, `vision/messages.py`, `vision/clips.py`
-- Create: `services/server/tests/vision/conftest.py`
+- Create: `services/server/tests/vision/conftest.py` (the `clip` factory only)
 - Create: `packages/shared/src/vision/contract.ts`, `packages/shared/src/vision/fixtures.json`
 - Modify: `packages/shared/package.json`, adding the exports `"./vision": "./src/vision/contract.ts"` and `"./vision/fixtures.json": "./src/vision/fixtures.json"`
-- Test: `packages/shared/tests/vision-contract.test.ts`, `services/server/tests/vision/test_contract.py`, `tests/vision/test_settings.py`, `tests/vision/test_clips.py`
+- Test: `services/server/tests/test_isolation.py`, `packages/shared/tests/vision-contract.test.ts`, `services/server/tests/vision/test_contract.py`, `tests/vision/test_settings.py`, `tests/vision/test_clips.py`
 
 **Interfaces:**
 - Produces, Python `tassel.domains.dfa.contract`. Every model uses `ConfigDict(extra="forbid", strict=True)`, as P2's messages do. The wire keys are snake_case.
@@ -413,7 +449,8 @@ class DecisionGate(Protocol):
 ```python
 Mode = Literal["fake", "live", "auto"]; VisionKind = Literal["gate", "deepcheck"]
 SERVER_DIR: Path
-class VisionSettings(BaseSettings):   # env_prefix TASSEL_, env_ignore_empty, extra ignore, populate_by_name
+class VisionSettings(BaseSettings):   # env_prefix TASSEL_, env_ignore_empty, extra ignore, populate_by_name,
+                                      # hide_input_in_errors; no env_file in model_config (only load() reads one)
     providers: Mode = "fake"; gate_provider: Mode | None = None; gate_live: Literal["openai", "clef"] = "openai"
     deepcheck_provider: Mode | None = None
     openai_api_key: SecretStr | None = Field(None, validation_alias="OPENAI_API_KEY")       # likewise ANTHROPIC_API_KEY,
@@ -440,8 +477,10 @@ def check_vision_settings(s: VisionSettings) -> list[str]                       
 @dataclass(frozen=True)
 class ClipFiles: variant: str; mjpeg: Path; truth: Path
 REPO_DIR: Path; DEFAULT_CLIPS_DIR: Path        # <repo>/.cache/paper-clips
-def find_clip(variant: str, clips_dir: Path = DEFAULT_CLIPS_DIR) -> ClipFiles | None   # <variant>-960x720-*.mjpeg plus its .truth.json
-def ensure_clip(variant: str, clips_dir: Path = DEFAULT_CLIPS_DIR) -> ClipFiles         # runs P3's CLI with `node` when missing
+class NodeMissing(RuntimeError): ...           # `node` isn't on PATH
+def ensure_clip(variant: str, *, noise: bool = True, clips_dir: Path = DEFAULT_CLIPS_DIR) -> ClipFiles
+    # always runs P3's CLI (`--no-noise` when noise is False); the CLI skips work that exists,
+    # and the paths come from the JSON line it prints, never from a glob
 def split_mjpeg(data: bytes) -> list[bytes]    # each JPEG, SOI to EOI, walking marker segments up to SOS
 def frame_at(mjpeg: Path, t_ms: int, fps: int = 30) -> bytes   # the JPEG at index round(t_ms * fps / 1000)
 def variant_of(truth: Path) -> str             # "dfa-demo-hold" from "dfa-demo-hold-960x720-1a2b3c4d.truth.json"
@@ -489,18 +528,27 @@ def variant_of(truth: Path) -> str             # "dfa-demo-hold" from "dfa-demo-
     - `test_reads_the_env_file_named_by_TASSEL_VOICE_ENV_FILE` (`tmp_path`);
     - `test_empty_values_are_unset`: `OPENAI_API_KEY=` with `auto` stays fake;
     - `test_secrets_never_print`: `repr()` holds no key text.
+  - **`services/server/tests/test_isolation.py`** (it sits at the root, beside the fixtures it checks):
+    - `test_tests_never_see_vision_keys`: no `OPENAI_*`, `ANTHROPIC_*` or `VULTR_*` variable is in `os.environ`; `TASSEL_VOICE_ENV_FILE` is `""`; `VisionSettings.load()` resolves the gate and the deep check to fake, with every key None. It mirrors P2's `test_tests_never_see_developer_keys`.
+    - `test_network_is_refused_in_tests`: real `httpx2.AsyncClient().get("https://api.openai.com/v1/models")`, `httpx2.Client().get("https://api.anthropic.com/v1/messages")` and the same through `httpx` each raise the guard's `RuntimeError` naming the host, and open no socket. A request through `httpx2.MockTransport` still works.
   - **`test_clips.py`:**
     - `split_mjpeg` splits three JPEGs made with `cv2.imencode`, and skips an `FFD9` inside an APP1 segment;
     - `frame_at` picks index 801 for 26700 ms;
     - `variant_of` parses the name;
-    - `ensure_clip("dfa-short")` creates the files (it runs Node), and a second call doesn't rerun the CLI.
+    - `ensure_clip("dfa-short")` creates the files, and a second call returns the same paths without rewriting them (same `mtime`);
+    - `ensure_clip("dfa-short", noise=False)` gives different paths;
+    - these two skip, with the reason "needs Node 22.18+ and `pnpm install` (P3's paper-synth)", when `node` isn't on PATH.
 - [ ] **Step 2: Run them and confirm they fail.**
-  - Run: `pnpm --filter @tassel/shared test vision-contract && uv run --directory services/server pytest tests/vision -v`
-  - Expected: FAIL (modules missing).
+  - Run: `pnpm --filter @tassel/shared test vision-contract && uv run --directory services/server pytest tests/test_isolation.py tests/vision -v`
+  - Expected: FAIL (fixtures and modules missing).
 - [ ] **Step 3: Implement.**
-  - Run `uv add --directory services/server "automata-lib==9.2.0" "opencv-python-headless==4.14.0.94" "numpy>=2.5,<3" "anthropic==1.15.0" "openai==3.31.0" "httpx2>=2.12,<3"`.
+  - **First, the root `tests/conftest.py`:**
+    - add `scrub_vision_env` and `no_provider_network`, both autouse, in the shape of P2's `scrub_voice_env`: a module-level predicate, `monkeypatch.delenv` for each match, and `monkeypatch.setattr` on the four transport methods;
+    - the guard wraps the original method and calls it only for the three loopback hosts;
+    - if P2's fixture is already there, add these beside it.
+  - Run `uv add --directory services/server "automata-lib==9.2.0" "opencv-python-headless==4.14.0.94" "numpy>=2.5,<3" "anthropic==1.15.0" "openai>=3.31,<4" "httpx2>=2.12,<3"`.
   - Check: `uv run --directory services/server python -c "import automata, cv2, numpy, anthropic, openai, httpx2; print(cv2.__version__)"` prints `4.14.0`.
-  - `tests/vision/conftest.py` holds the autouse scrub from Global Constraints, plus a session-scoped `clip` factory fixture over `ensure_clip`.
+  - `tests/vision/conftest.py` holds a session-scoped `clip(variant, noise=True)` factory over `ensure_clip`. It caches by its arguments, and skips the test with the reason above when `ensure_clip` raises `NodeMissing`.
   - `ensure_clip` finds Node with `shutil.which("node")` and runs from the repo root.
 - [ ] **Step 4: Run them and confirm they pass.**
   - Run Step 2's command, then `uv run --directory services/server pytest -v && pnpm check`.
@@ -532,7 +580,12 @@ def machine_from_reading(reading: DfaReading, *, alphabet: Sequence[str] | None 
 def machine_from_spec(spec: MachineSpec) -> Machine
 def to_spec(m: Machine) -> MachineSpec                       # complete; adds "dead" for missing moves when any
 def epsilon_closure(m: Machine, states: Iterable[str]) -> frozenset[str]
-def determinize(m: Machine) -> tuple[Machine, dict[str, frozenset[str]]]
+MAX_DFA_STATES = 512; DETERMINIZE_BUDGET_S = 1.0
+class TooLarge(ValueError): ...
+def determinize(m: Machine, *, max_states: int = MAX_DFA_STATES,
+                budget_s: float = DETERMINIZE_BUDGET_S) -> tuple[Machine, dict[str, frozenset[str]]]
+    # raises TooLarge past max_states subsets, or when time.monotonic() passes the budget
+def machine_from_automata_nfa(nfa: "automata.fa.nfa.NFA") -> Machine   # "" moves become EPSILON
 def reachable(m: Machine) -> frozenset[str]
 def coreachable(m: Machine) -> frozenset[str]                # states from which an accept state is reachable
 def to_automata_dfa(m: Machine) -> "automata.fa.dfa.DFA"     # test oracle
@@ -553,7 +606,8 @@ def to_automata_dfa(m: Machine) -> "automata.fa.dfa.DFA"     # test oracle
   - a subset's name is its sole member, or `"{a,b}"` sorted and comma-joined;
   - the empty subset is never a state: it's DEAD;
   - the returned map gives each name its NFA states;
-  - a machine that is already deterministic comes back unchanged, with singleton subsets.
+  - a machine that is already deterministic comes back unchanged, with singleton subsets;
+  - it counts subsets as it makes them, and checks the clock every 64, so a blow-up (an n-th-from-last pattern has 2ⁿ subsets) stops with `TooLarge` instead of hanging.
 - **`to_automata_dfa`:** `DFA(states=set(...), input_symbols=set(alphabet), transitions={s: {...}} for every state, initial_state=..., final_states=set(...), allow_partial=True)`. Every state is a key and lists go in as sets ([dfa.py][al-dfa]).
 
 - [ ] **Step 1: Write the failing tests.**
@@ -566,6 +620,11 @@ def to_automata_dfa(m: Machine) -> "automata.fa.dfa.DFA"     # test oracle
   - `test_dangling_and_unlabeled`.
   - `test_next_goes_dead_on_a_missing_move`.
   - `test_determinize_matches_automata_lib`: `to_automata_dfa(determinize(nfa)[0]) == DFA.from_nfa(NFA.from_regex("(0|1)*01", input_symbols={"0", "1"}))`. Here `==` is language equivalence, and both sides use the same alphabet; different alphabets would be a silent `False` ([dfa.py][al-dfa]).
+  - `test_determinize_stops_at_the_cap`:
+    - a hand-built NFA for "the 21st symbol from the end is 1" (22 states: q0 loops on 0 and 1, q0 -1-> q1, then each qi -0,1-> qi+1 up to an accepting q21) raises `TooLarge` within 2 s;
+    - with `max_states=2`, `nfa-ends-with-01` raises too;
+    - the 22-state NFA with `budget_s=0` and `max_states=10**6` raises at the first clock check (the 64th subset).
+  - `test_machine_from_automata_nfa`: `NFA.from_regex("0*1|()", input_symbols={"0", "1"})` converts with its `""` moves as `EPSILON`, and determinizes to the original's language.
   - `test_to_spec_completes_with_dead`.
 - [ ] **Step 2: Run them and confirm they fail.** Run: `uv run --directory services/server pytest tests/domains/test_machine.py -v`. Expected: FAIL.
 - [ ] **Step 3: Implement `machine.py`.** Keep `moves` in a `MappingProxyType`; the module imports automata-lib only inside `to_automata_dfa`.
@@ -633,7 +692,7 @@ def find_counterexample(student: Machine, reference: Machine, *, subsets: Mappin
 - Test: `tests/domains/test_regex.py`, `test_reference.py`, `test_fixes.py`, `test_verify.py`, `test_describe.py`
 
 **Interfaces:**
-- Consumes: Tasks 2 and 3; automata-lib `NFA.from_regex(regex, input_symbols=...)`, `DFA.from_nfa(...)` and `.minify()` ([regex docs][al-regex], [parser.py][al-parser]).
+- Consumes: Tasks 2 (with `determinize`'s cap and `machine_from_automata_nfa`) and 3; automata-lib `NFA.from_regex(regex, input_symbols=...)`, `DFA(...)` and `.minify()` ([regex docs][al-regex], [parser.py][al-parser], [postfix.py][al-postfix]).
 - Produces:
 
 ```python
@@ -656,14 +715,19 @@ DFA_VERIFIER: Verifier                                               # subject "
 - **The regex dialect,** which Task 9's prompt asks Opus for:
   - symbols are single characters of the alphabet;
   - `|` is union, concatenation is juxtaposition, `*` is star, `+` is one or more, `?` is optional, parentheses group, `ε` is the empty string, and `Σ` is any one symbol.
-- **`compile_regex`** maps that dialect onto automata-lib:
-  1. remove all whitespace (a space is a literal in 9.2.0);
-  2. map `ε` to `()` and `Σ` to `(` + `|`.join(alphabet) + `)`;
-  3. refuse `[ ] \ & ^ { } .` with `RegexError`. In automata-lib, `^` is shuffle and `.`, `[…]` and escapes can widen the alphabet;
-  4. refuse any symbol outside the alphabet;
-  5. compile with `NFA.from_regex(rx, input_symbols=set(alphabet))`, then `DFA.from_nfa`, then `minify()`;
-  6. rename the states by BFS from the start, call the non-coreachable sink `dead`, and complete the machine;
-  7. catch automata-lib's `RegexException` and `AutomatonException` (separate bases, [exceptions][al-exc]) as `RegexError`.
+- **`compile_regex`** maps that dialect onto automata-lib. The regex usually comes from a model, so every step is bounded:
+  1. Remove all whitespace. 9.2.0's lexer skips no blanks (`Lexer(blank_chars=set())`), so a space would be a literal ([parser.py][al-parser]).
+  2. Refuse a result longer than `MAX_REGEX_LEN` (200) with `RegexError("too long")`.
+  3. Map `ε` to `()` and `Σ` to `(` + `|`.join(alphabet) + `)`. 9.2.0 accepts an empty group: `validate_tokens` doesn't reject `(` before `)` ([postfix.py][al-postfix]), and the parser puts an empty-string token between them ([parser.py][al-parser]).
+  4. Refuse `[ ] \ & ^ { } .` with `RegexError`.
+     - In automata-lib, `^` is shuffle and `&` is intersection, which multiply sizes, and `{m,n}` repeats its operand.
+     - `.`, `[…]` and escapes can widen the alphabet.
+  5. Refuse any symbol outside the alphabet.
+  6. Build `NFA.from_regex(rx, input_symbols=set(alphabet))`. Refuse it with `RegexError("too large")` past `MAX_NFA_STATES` (400).
+  7. Convert it (`machine_from_automata_nfa`) and run Task 2's `determinize` with its cap and budget. `TooLarge` becomes `RegexError("too large")`. automata-lib's own `DFA.from_nfa` has no bound, so it isn't used here.
+  8. Complete the result with a `dead` sink, then minimize it with automata-lib's `minify()` on the complete DFA (Hopcroft, quick at ≤ 513 states).
+  9. Rename the states by BFS from the start, and call the non-coreachable sink `dead`.
+  10. Catch automata-lib's `RegexException` and `AutomatonException` (separate bases, [exceptions][al-exc]) as `RegexError`.
 - **The catalog files** are hand-written, complete DFAs in `MachineSpec` form plus `id`, `title` and `regex`:
   - `starts-with-010`: q0–q3 and `dead`; the demo's reference;
   - `ends-with-01`: `(0|1)*01`;
@@ -673,7 +737,7 @@ DFA_VERIFIER: Verifier                                               # subject "
   1. A reading with no states is `unreadable`, `computed: False`.
   2. Parse with the reference's alphabet, when there is a reference.
   3. With no reference, the status is `unknown`.
-  4. Determinize when needed, keeping the subsets.
+  4. Determinize when needed, keeping the subsets. Her NFA gets the same cap: `TooLarge` gives `unreadable`, `computed: False`.
   5. `status` is `correct` or `wrong` when `reference.trusted`, else `unsure`. `computed` equals `trusted`.
   6. `fixes` come only for a deterministic student with at most 12 states, a counterexample and a trusted reference.
   7. `issues` come from the parse, and `reference` is `reference.info()` with its `MachineSpec`.
@@ -694,8 +758,13 @@ DFA_VERIFIER: Verifier                                               # subject "
     - `"010Σ*"` is equivalent;
     - `" 0 1 0 ( 0 | 1 ) * "` compiles;
     - `"(0+1)*"` means one-or-more, and its language differs from union;
-    - `"0^1"`, `"[01]"`, `"\\d"` and `"012"` raise `RegexError`;
+    - `"0^1"`, `"0&1"`, `"0{3}"`, `"[01]"`, `"\\d"` and `"012"` raise `RegexError`;
+    - **the empty string:** `"ε"` alone accepts only ε, `"ε|0"` accepts ε and 0, and `"(ε)*"` accepts only ε. If `()` ever fails here, `ε` maps to an explicit empty-string NFA instead;
     - states are q0… and `dead`.
+  - **`test_pathological_regex_is_refused`:**
+    - `"(0|1)*1" + "(0|1)" * 20` (107 characters, 2²¹ DFA states) raises `RegexError("too large")` within 2 s;
+    - 201 characters of `0` raise `RegexError("too long")`;
+    - both run in a worker thread in the test, as the orchestrator runs them.
   - **reference:**
     - every catalog entry is complete and equivalent to `compile_regex(entry.regex)`, checked through the oracle;
     - `catalog_match(compile_regex("010(0|1)*", "01")).id == "starts-with-010"`;
@@ -703,7 +772,8 @@ DFA_VERIFIER: Verifier                                               # subject "
   - **verify** (each against `CATALOG["starts-with-010"]`):
     - every Task 1 `expected` entry is reproduced field by field;
     - `test_unreadable_and_unknown`;
-    - `test_untrusted_reference_is_unsure_and_judged`: a `Reference` with `trusted=False` gives `status "unsure"`, `computed False`, and still a counterexample.
+    - `test_untrusted_reference_is_unsure_and_judged`: a `Reference` with `trusted=False` gives `status "unsure"`, `computed False`, and still a counterexample;
+    - `test_untrusted_match_has_no_counterexample`: `demo-correct` against an untrusted copy of the reference is `unsure` with `counterexample None` (Task 5's row 3).
   - **fixes:**
     - `demo-wrong`'s first fix is `Fix(kind="remove_transition", state="q0", symbol="1", target=None)`;
     - `demo-partial` has none (no single edit fixes two missing moves);
@@ -761,17 +831,17 @@ def template_slots(n: ParsedNote) -> dict[str, str]                  # witness, 
 HOLDING_LINES: dict[Lang, str] = {"en": "Let me look at that.", "es": "Déjame mirarlo.", "ko": "잠깐만요, 확인해 볼게요."}
 ```
 
-- **`plan`** (exact; the first row that applies wins; "wrong" includes `unsure`):
+- **`plan`** (exact; the first row that applies wins; "wrong" is `wrong`, or `unsure` with a counterexample, so a wrong verdict always has one):
 
 | # | When | Plan |
 |---|---|---|
 | 1 | `sig.not_schoolwork` | None |
 | 2 | verdict None or `unreadable` | `sig.complete` → `attempt`, rung None; else None |
-| 3 | `correct` | `sig.complete` and not `problem.spoke_correct` → `attempt`, rung None; else None |
+| 3 | `correct`, or `unsure` with no counterexample (she matches an unchecked reference: probably correct) | `sig.complete` and not `problem.spoke_correct` → `attempt`, rung None; else None |
 | 4 | `unknown` | `sig.complete` → `attempt`, rung None; else None |
-| 5 | wrong and `sig.complete` | `attempt`, not unprompted. With `failed_attempts == 0`, the rung is `counterexample` if the verdict has one, else `guiding_question`. Later, it is the rung after `problem.rung`, capped at `walkthrough` |
-| 6 | wrong, with a `nondeterminism`, `epsilon_in_dfa` or `unknown_symbol` issue, and `hints < hints_per_problem` | `slip`, `hint`, unprompted |
-| 7 | wrong, `sig.stuck` and `hints < hints_per_problem` | `stuck`, `hint`, unprompted |
+| 5 | wrong and `sig.complete` | `attempt`, not unprompted. With `failed_attempts == 0`, the rung is `counterexample`. Later, it is the rung after `problem.rung`, capped at `walkthrough` |
+| 6 | wrong, with a `nondeterminism`, `epsilon_in_dfa` or `unknown_symbol` issue, `hints < hints_per_problem`, and `reading.uncertain` empty | `slip`, `hint`, unprompted |
+| 7 | wrong, `sig.stuck`, `hints < hints_per_problem`, and `reading.uncertain` empty | `stuck`, `hint`, unprompted |
 | 8 | otherwise | None |
 
 - **`plan_request`:**
@@ -793,7 +863,7 @@ HOLDING_LINES: dict[Lang, str] = {"en": "Let me look at that.", "es": "Déjame m
   Otherwise it returns `(True, "ok")`.
 - **The note grammar** (exact, English). Sentences come in this order, each ending in ". ", optional ones left out:
   1. `[vision] <EVENT>`, where the event is "DFA attempt complete", "She seems stuck", "Structural slip", "She asked to see it" or "She asked for the answer";
-  2. `Verdict: <V>`, where V is `correct`, `wrong`, `probably wrong (judged)`, `unknown target language` or `unreadable`;
+  2. `Verdict: <V>`, where V is `correct`, `probably correct (judged)`, `wrong`, `probably wrong (judged)`, `unknown target language` or `unreadable`;
   3. the witness: `Accepts <w> but should reject` or `Rejects <w> but should accept`;
   4. the blame, by kind:
      - `Blame: <state> on <symbol> goes to <target>`;
@@ -814,7 +884,7 @@ HOLDING_LINES: dict[Lang, str] = {"en": "Let me look at that.", "es": "Déjame m
      - unknown: "Ask her which strings her DFA should accept."
      - then, when judged: "Say you think so; don't claim to be sure." When uncertain: "Ask her to check the board's reading of <ids> first."
 - **`template_key`:**
-  - an attempt gives its rung (with `walkthrough.<direction>` for walkthrough), or `correct`, `unreadable` or `unknown`;
+  - an attempt gives its rung (with `walkthrough.<direction>` for walkthrough), or `correct` (for a correct or probably correct verdict), `unreadable` or `unknown`;
   - stuck gives `hint.<blame_kind>`, or `hint.missing_transition_start` when the prefix is empty;
   - slip gives `hint.slip`;
   - asked gives `walkthrough.<direction>` or `solution`.
@@ -829,6 +899,8 @@ HOLDING_LINES: dict[Lang, str] = {"en": "Let me look at that.", "es": "Déjame m
     - the demo's "done": `demo-wrong`, complete, no attempts → `attempt`/`counterexample`;
     - a second failed attempt → `walkthrough`;
     - a third → still `walkthrough`, never `solution`;
+    - an `unsure` verdict with no counterexample, complete → `attempt`, rung None, rendered "Verdict: probably correct (judged)" with the judged guidance;
+    - stuck on the `uncertain` fixture, no hints yet → None (P4-R22);
     - 2 hints used → None;
     - not schoolwork wins over everything (Review Focus 3).
   - `test_plan_request`: walkthrough with and without a counterexample; solution with a trusted, an untrusted and no reference.
@@ -962,7 +1034,7 @@ def draw_marks(page: FlatPage, c: Candidates) -> np.ndarray     # the image Opus
   - **Numbering:** circles first, then labels. Each is sorted into rows of 0.15 H, then by x; at most `MAX_MARKS`, keeping the largest labels.
 - **`draw_marks`:** a white number on a filled `#1d4ed8` rounded tag, at `cv2.FONT_HERSHEY_SIMPLEX` scale 0.55·W/1568, thickness 2. A circle's tag sits outside its top-right, at (cx + 0.75r, cy − 0.95r); a label's tag at its box's top-right. No tag overlaps a circle's inner disk (0.9 r). This image is for the model only; the student never sees it.
 
-- [ ] **Step 1: Write the failing tests.** They run on `dfa-demo` frames at 26700, 38500 and 47100 ms, from `clip("dfa-demo")`:
+- [ ] **Step 1: Write the failing tests.** They run on `dfa-demo` frames at 26700, 38500 and 47100 ms, from `clip("dfa-demo")`, which is P3's default clip with noise on:
   - `test_find_page_quad_matches_the_scene`: every corner is within 4 px of the quad computed from P3's scene numbers.
   - `test_flatten_uses_a_given_quad_and_falls_back`: a given quad and `find_page_quad` give flat pages whose circle centers agree within 3 px; a degenerate quad falls back; a frame of plain desk gives `found=False`.
   - `test_page_size_stays_in_the_high_res_tier`: `ceil(w/28)·ceil(h/28) ≤ 4784` and `max(w, h) ≤ 2576`.
@@ -970,9 +1042,9 @@ def draw_marks(page: FlatPage, c: Candidates) -> np.ndarray     # the image Opus
   - `test_labels_cover_every_transition`: at 47.1 s, every truth `labelAt` lies inside some label candidate grown by 0.02 W. At 26.7 s there are labels for the three edges, and none above q0 or q3.
   - `test_numbering_is_deterministic_and_capped`: two runs are identical, circles come first, and there are at most 40 marks.
   - `test_draw_marks_keeps_inner_disks_clear`: no pixel inside 0.9 r of any circle changes.
-  - `test_noise_doesnt_add_circles`: the same with P3's default noise on.
+  - `test_noise_doesnt_change_the_circles`: at 47.1 s, `clip("dfa-demo", noise=False)` and the default clip give the same four circles, with centers within 0.1 r and the same `inner` flags.
 - [ ] **Step 2: Run them and confirm they fail.** Run: `uv run --directory services/server pytest tests/vision/test_page.py tests/vision/test_marks.py -v`. Expected: FAIL.
-- [ ] **Step 3: Implement.** Write the starting values as module constants with one comment each, so tuning on real frames (Task 17, the milestone) changes only constants.
+- [ ] **Step 3: Implement.** Write the starting values as module constants with one comment each, so tuning on real frames (Task 17, the milestone) changes only constants. Every function here is pure (no module state), because the orchestrator calls them from worker threads (Global Constraints, Runtime).
 - [ ] **Step 4: Run them and confirm they pass.** Expected: PASS.
 - [ ] **Step 5: Commit.** `git add services/server && git commit -m "feat(vision): server-side page flattening and Set-of-Mark circle and label candidates"`
 
@@ -1058,6 +1130,7 @@ def prepare(full_jpeg: bytes, quad, crop_jpeg: bytes | None) -> PreparedPage
 @dataclass(frozen=True)
 class TranscriptionResult: status: Literal["ok", "refused", "failed", "timeout"]; transcription: DfaTranscription | None
                            ms: int; detail: str | None = None
+                           reading: DfaReading | None = None   # a ready reading, which the orchestrator uses instead of snap
 class DeepCheck(Protocol):
     name: str
     async def transcribe(self, prepared: PreparedPage, ctx: ProblemContext) -> TranscriptionResult
@@ -1123,7 +1196,13 @@ def render_context(ctx: ProblemContext, prepared: PreparedPage) -> str
     - **a transition is present** when its label box (`labelAt` ± 0.02 W) holds ≥ 3% ink;
   - it answers with a `DfaTranscription`: the nearest circle mark within 0.5 r and the nearest label mark within 0.03 W, symbols from the label split on `,`, confidence 0.95, and the variant's statement and regex;
   - `membership` returns the variant's predicate;
-  - `delay_ms` (for orchestrator tests) sleeps before answering.
+  - `delay_ms` (for orchestrator tests) sleeps before answering;
+  - the pixel sampling runs in a worker thread (`anyio.to_thread.run_sync`), like the rest of the CPU work.
+- **`NamedFixtureDeepCheck`** has no truth to sample, so it can't name marks that exist on the live frame, and a transcription from it would snap nothing.
+  - So it returns `status="ok"`, `transcription=None`, and `reading` set to the named Task 1 fixture reading, with `source="fixture"`.
+  - The orchestrator takes that reading as it is, without `snap`, and stamps the frame's id on it (Task 13).
+  - `"none"` (the default) returns an empty reading, so every check is `unreadable`, and Ada says so only when invited.
+  - This is the fake that `pnpm dev` with a real camera and no keys uses: the card shows a known reading on any page.
 - **`make_deepcheck`:** live gives `OpusDeepCheck`; fake with `fake_truth` gives `FixtureDeepCheck`; otherwise `NamedFixtureDeepCheck(fake_reading)`.
 - **The fixtures** are constructed from the documented Messages response shape. A `thinking` block (empty text, the default "omitted" display) comes before the `text` block, which holds the JSON of `transcription-demo.json`. `opus-refusal.json` has `stop_reason: "refusal"` and `stop_details: {"type": "refusal", "category": null, "explanation": null}` ([refusals][cl-fallback]). Task 17 records real ones next to them.
 
@@ -1135,6 +1214,7 @@ def render_context(ctx: ProblemContext, prepared: PreparedPage) -> str
     - at 3.0 s: `machine_kind "none"`;
     - each `snap`s to a reading whose machine equals the matching Task 1 fixture's.
   - `test_fixture_marks_are_real_candidates`: every `circle_mark` and `label_mark` exists in `prepared.candidates`.
+  - `test_named_fixture_gives_a_ready_reading`: `NamedFixtureDeepCheck("demo-wrong")` gives `reading` equal to the fixture (with `source "fixture"`) and `transcription None`; `"none"` gives a reading with no states; an unknown name raises at construction.
   - **`test_request_shape`:** the exact keys above; images before text; `transformations` on the page image; no `thinking`; `max_tokens` 16000; the betas and `fallbacks`; the system prompt's required phrases.
   - **`test_contract_against_the_documented_response`** (`httpx2.MockTransport`):
     - the handler checks the method, the path `/v1/messages`, the `anthropic-beta` header and the JSON body;
@@ -1225,7 +1305,7 @@ def load_thresholds(path: Path, gate_name: str) -> dict[Predicate, float]
 - **The fixtures** are the documented example shapes: `openai-decision.json` is `{answers: […], model: "gpt-6-luna", usage: {…}}` with one refusal answer; `clef-systemone.json` is `{model, answers: {id: {type: "noul", noul}}, usage}`. Task 17 records real ones.
 
 - [ ] **Step 1: Write the failing tests.**
-  - `test_gate_text`: the exact lines for one `GateInput` of each reason; Korean transcript text passes through unchanged.
+  - `test_gate_text`: the exact lines for one `GateInput` of each reason; a `tutor` line prints as `Ada: …` in time order with the student's; Korean transcript text passes through unchanged.
   - **`test_fake_gate`:**
     - "I think I'm done." 3 s ago gives `complete` 0.9;
     - "다 했어요" with lang ko does too;
@@ -1275,7 +1355,8 @@ export function ReadBackCard(props: { reading: DfaReading | null; lang: Lang }):
   - **Heads:** a 7-unit triangle at the target's edge, along the tangent.
   - **Start arrow:** a 28-unit line into the start state from the left.
   - **`missingMoves`:** some state lacks a move on some alphabet symbol.
-  - **`width` and `height`:** the bounds plus 20.
+  - **Padding:** self-loops and the start arrow reach above and left of row 0, so the last step shifts every point so the bounds' minimum sits at (20, 20).
+  - **`width` and `height`:** the bounds' extent plus 40.
 - **`ReadBackCard`:**
   - a paper card: `rounded-card`, a hairline ring, no shadow, a fixed width of 360 px (clipped, never reflowed), padding 16;
   - a title button, mono uppercase 11 `vision.readback.title`, with `aria-expanded`. It collapses the body so she can move it out of the way;
@@ -1304,12 +1385,12 @@ export function ReadBackCard(props: { reading: DfaReading | null; lang: Lang }):
 
 - [ ] **Step 1: Write the failing tests.**
   - **layout** (`demo-wrong`):
-    - q0–q3 at ranks 0–3 on one row, x 48 apart by 92;
+    - q0–q3 at ranks 0–3 on one row, 92 apart in x;
     - the q0 and q3 loops have their labels above their states;
     - `q0-0-q1` is a straight line;
     - ids map one to one;
     - `missingMoves` is true;
-    - every point lies inside `width × height`.
+    - every point, path control point and label lies inside `width × height`, at least 20 from each edge, and the smallest x and y are exactly 20.
   - `layout: a back edge curves and a two-way pair separates` (a custom reading).
   - `layout: unreachable states go last`.
   - **card** (jsdom):
@@ -1357,21 +1438,46 @@ def main(argv: list[str] | None = None) -> int
 #   python -m tassel.vision.gate_eval export --session <uuid> --out <dir>
 ```
 
-- **`synthetic.json`** holds 24 moments on `dfa-demo`, `shadow-pass`, `hand-rests` and `erase`. The labels are written by hand from P3's timelines; null means "skip this predicate". Each predicate has at least 4 positives and 4 negatives, with at least one positive each in en, es and ko for `diagram_attempt_complete` and `student_seems_stuck`.
-  - `dfa-demo` 3.0 s, blank page after the first line: all false.
-  - 26.7 s, reason `frame`, narration of q0–q3: worth true, the others false.
-  - 31.0 s, reason `stall`, quiet 7300, silent 9000: stuck true, worth false.
-  - 38.5 s and 47.1 s, reason `frame`, narration: worth true.
-  - 48.0 s, reason `speech`, "I think I'm done.": complete true, worth false.
-  - The same in es ("Creo que ya está.") and ko ("다 했어요.").
-  - 47.1 s, "Is it right?": complete true.
-  - The 3.0 s frame with "Did you see the game last night? It was wild.": not schoolwork true.
-  - `shadow-pass` 3.5 s and `hand-rests` 6.0 s: all false (a shadow or a resting hand isn't work).
-  - `erase` 7.0 s, reason `frame`: worth true.
-  - The rest are es and ko variants of the stall and narration moments.
+- **`synthetic.json`** holds exactly the 24 moments below, on `dfa-demo`, `dfa-short`, `shadow-pass`, `hand-rests` and `erase`.
+  - The labels are written by hand from P3's timelines (`dfa-demo` draws 5.6–23.7 s, 31.6–35.5 s and 40.6–44.1 s; `dfa-short` draws only q0, then is still from 8.5 s).
+  - Every label is set (no nulls in the synthetic set), and a predicate not listed as true is false.
+  - The activity follows `FakeGate`'s rules, so the fake's scores are a check on the labels:
+    - a `frame` moment has new ink and 40 changed cells (`erase`: 6);
+    - a `stall` moment has no new ink, quiet 7300 and silent 9000 (`dfa-short`: 7500 and 9000);
+    - a `speech` moment has no new ink and silent 0.
+
+| # | Id | Variant, time | Lang | Reason | Transcript (the last line) | True |
+|---|---|---|---|---|---|---|
+| 1 | `blank-en` | `dfa-demo` 3.0 s | en | speech | "Hi Ada, I'm working on a DFA for binary strings that start with 010." | none |
+| 2 | `chat-en` | `dfa-demo` 3.0 s | en | speech | "Did you see the game last night? It was wild." | `not_schoolwork` |
+| 3 | `q3-en` | `dfa-demo` 26.7 s | en | frame | "…and q three is accepting." | `new_work_worth_checking` |
+| 4 | `stall-en` | `dfa-demo` 31.0 s | en | stall | "…and q three is accepting." (9 s ago) | `student_seems_stuck` |
+| 5 | `loop-en` | `dfa-demo` 38.5 s | en | frame | "Then q three loops on zero and one." | `new_work_worth_checking` |
+| 6 | `q0loop-en` | `dfa-demo` 47.1 s | en | frame | "If it starts with a 1, I'll just wait for a 0." | `new_work_worth_checking` |
+| 7 | `right-en` | `dfa-demo` 47.1 s | en | speech | "Is it right?" | `diagram_attempt_complete` |
+| 8 | `done-en` | `dfa-demo` 48.0 s | en | speech | "I think I'm done." | `diagram_attempt_complete` |
+| 9 | `chat-es` | `dfa-demo` 3.0 s | es | speech | "¿Viste el partido de anoche? Fue increíble." | `not_schoolwork` |
+| 10 | `q3-es` | `dfa-demo` 26.7 s | es | frame | "…y q tres es de aceptación." | `new_work_worth_checking` |
+| 11 | `stall-es` | `dfa-demo` 31.0 s | es | stall | "…y q tres es de aceptación." (9 s ago) | `student_seems_stuck` |
+| 12 | `loop-es` | `dfa-demo` 38.5 s | es | frame | "Luego q tres vuelve a sí mismo con cero y uno." | `new_work_worth_checking` |
+| 13 | `done-es` | `dfa-demo` 48.0 s | es | speech | "Creo que ya está." | `diagram_attempt_complete` |
+| 14 | `chat-ko` | `dfa-demo` 3.0 s | ko | speech | "어제 경기 봤어요? 진짜 재밌었어요." | `not_schoolwork` |
+| 15 | `q3-ko` | `dfa-demo` 26.7 s | ko | frame | "…그리고 q3이 수락 상태예요." | `new_work_worth_checking` |
+| 16 | `stall-ko` | `dfa-demo` 31.0 s | ko | stall | "…그리고 q3이 수락 상태예요." (9 s ago) | `student_seems_stuck` |
+| 17 | `loop-ko` | `dfa-demo` 38.5 s | ko | frame | "q3은 0과 1에서 자기 자신으로 가요." | `new_work_worth_checking` |
+| 18 | `done-ko` | `dfa-demo` 48.0 s | ko | speech | "다 했어요." | `diagram_attempt_complete` |
+| 19 | `short-stall-en` | `dfa-short` 16.0 s | en | stall | "Okay, q zero is my start state." (9 s ago) | `student_seems_stuck` |
+| 20 | `shadow-en` | `shadow-pass` 3.5 s | en | frame (no new ink, 0 cells) | none | none |
+| 21 | `rest-en` | `hand-rests` 6.0 s | en | frame (no new ink, 0 cells) | none | none |
+| 22 | `text-mom-en` | `hand-rests` 6.0 s | en | speech | "Hang on, I need to text my mom back." | `not_schoolwork` |
+| 23 | `erase-en` | `erase` 7.0 s | en | frame | none | `new_work_worth_checking` |
+| 24 | `q0loop-es` | `dfa-demo` 47.1 s | es | frame | "Si empieza con 1, espero un 0." | `new_work_worth_checking` |
+
+  The counts are: `diagram_attempt_complete` 4 true (en, es, ko), `student_seems_stuck` 4 (en, es, ko), `not_schoolwork` 4, and `new_work_worth_checking` 9. Each predicate therefore has at least 4 positives and 4 negatives.
 - **The score:** a prediction is `prob ≥ threshold`, and a refusal counts as false. Balanced accuracy is the mean of the true-positive and true-negative rates. Brier is the mean of `(prob − label)²` over answered items.
 - **`--write-thresholds`** writes each gate's best thresholds into `gate_thresholds.json`, and never drops below 0.5 for live gates.
 - **The printed table:** gate, predicate, n, balanced accuracy at the current threshold, best threshold, Brier, refusals; then p50/p90 latency, and the recommendation: the higher mean balanced accuracy, with ties going to the lower p90 (spec §4.2).
+- **Console encoding:** `main` starts with `sys.stdout.reconfigure(encoding="utf-8")` (and the same for stderr). Otherwise a Windows console on a legacy code page raises `UnicodeEncodeError` on `ε`, `∅` and Korean. Task 17's `smoke` and `read_eval` do the same.
 - **`export`** writes a real session's frames from the object store as `frames/<seq>.jpg` under `--out`, which must be under `.cache/`. It writes a `labels.json` with one moment per frame, null labels and an empty transcript. (Task 17 fills the transcript and activity from the vision log, whose format Task 13 sets.) The owner labels it by hand. Real frames stay local (P3's privacy rules).
 
 - [ ] **Step 1: Write the failing tests.**
@@ -1394,7 +1500,10 @@ def main(argv: list[str] | None = None) -> int
 **Files:**
 - Create: `services/server/src/tassel/vision/orchestrator.py`, `vision/registry.py`, `vision/api.py`, `vision/log.py`
 - Modify:
-  - `services/server/src/tassel/frames/api.py` (P3): after the frame row commits, `request.app.state.vision.on_frame(...)`, which never blocks the 201;
+  - `services/server/src/tassel/frames/api.py` (P3). This is more than one line:
+    - `upload_frame` keeps the `TutoringSession` that `repo.lock_session` returns (it discards it today);
+    - it takes `vision: VisionRegistry | None = Depends(_vision)`, where `_vision(request)` returns `getattr(request.app.state, "vision", None)`, so an app built without the lifespan still uploads;
+    - after `await db.commit()` it calls `vision.on_frame(...)` inside `try/except Exception` that only logs, so nothing in vision can change the 201 or undo the upload;
   - `services/server/src/tassel/app.py`: `create_app` gains `vision_settings: VisionSettings | None = None`, beside P2's `voice_settings` when P2 has merged. The lifespan builds `vision_settings or VisionSettings.load()`, raises `VisionConfigError` on `check_vision_settings` problems, puts `VisionRegistry` on `app.state.vision`, and shuts it down before the engine. `create_app` itself never reads `.env`. The vision router goes under `/v1`;
   - `packages/shared/src/api/{openapi.json,schema.d.ts}` (regenerated).
 - Test: `services/server/tests/vision/test_orchestrator.py`, `tests/vision/test_registry.py`, `tests/vision/test_vision_api.py`
@@ -1417,14 +1526,18 @@ class FrameIn: id: UUID; reason: Literal["ink", "page"]; received_ms: int; full_
 class VisionSnapshot(BaseModel):
     reading: DfaReading | None; verdict: DfaVerdict | None; rung: Rung | None; hints: int; frames_seen: int
     last_gate: GateDebug | None; last_decision: PolicyDebug | None; pen_busy: bool; pending_note: bool
+    waiting_for_frame: bool             # a "done" is waiting for a fresh frame (P4-R9)
+VISION_CPU_TOKENS = 2                   # one CapacityLimiter with this many tokens for all sessions' CPU work
 class VisionSession:
     def __init__(self, *, session_id: UUID, lang: Lang, gate: DecisionGate, deepcheck: DeepCheck,
                  thresholds: Mapping[Predicate, float], title: Callable[[], Awaitable[str | None]],
                  clock: Callable[[], float] = time.monotonic, log: VisionLog | None = None,
-                 etiquette: Etiquette = Etiquette(), stall_ms: int = STALL_MS)
+                 etiquette: Etiquette = Etiquette(), stall_ms: int = STALL_MS,
+                 limiter: anyio.CapacityLimiter | None = None)   # the registry's shared one; else its own, made on first use
     def on_frame(self, f: FrameIn) -> None
-    def on_board_edit(self, reading: DfaReading, image_jpeg: bytes | None) -> None
+    def on_board_edit(self, reading: DfaReading, image: bytes | None) -> None   # PNG from the route (or JPEG); see the table
     def on_user_text(self, text: str, *, typed: bool) -> None
+    def on_tutor_text(self, text: str) -> None   # what Ada said, as she was heard (Task 15's observer)
     def on_user_speaking(self, speaking: bool, *, stopped_ms_ago: int = 0) -> None
     def on_bot(self, *, speaking: bool | None = None, reply: Literal["started", "ended"] | None = None) -> None
     def on_interruption(self) -> None
@@ -1457,17 +1570,20 @@ class BoardEditIn(BaseModel): reading: DfaReading; image_png: str | None   # bas
 |---|---|
 | `on_frame` ink | Keeps it as the latest frame. Requests a `frame` gate call. A pending fresh-frame wait is satisfied when `received_ms > pen_still_since` |
 | `on_frame` page | Starts a new problem: a new `ProblemState`, the reading and verdict cleared, any pending note dropped, `ReadbackEvent(reading=None, verdict=None)` sent. Then as for ink |
-| `on_user_text` | Adds a transcript line (kept 120 s), and adds it to `early_lines` if it has 3 words or more and there are fewer than 3. Typed lines set `user_stopped_at = now`. With a frame present, it requests a `speech` gate call (P4-R9) |
+| `on_user_text` | Adds a `student` transcript line (kept 120 s), and adds it to `early_lines` if it has 3 words or more and there are fewer than 3. Typed lines set `user_stopped_at = now`. With a frame present, it requests a `speech` gate call (P4-R9), and remembers `now` as the speech that may invite a check |
+| `on_tutor_text` | Adds a `tutor` transcript line (kept 120 s), so the gate and Opus see both sides of the conversation (P4-R21) |
 | `on_user_speaking` | Tracks VAD speech; on stop, `user_stopped_at = now − stopped_ms_ago` |
 | `on_bot` | Tracks Ada's audio and her reply in flight. A reply is in flight from `reply="started"` until her audio stops, an interruption, or 1500 ms after `reply="ended"` with no audio (an empty reply). `bot_busy` is audio or a reply in flight. Her audio starting after a note's delivery marks the note spoken, applies the plan, and stamps `last_unprompted_at` when it was unprompted |
 | `on_interruption` | A note delivered but not yet spoken is flagged for a rerun |
 | `on_pen` | busy: drops a pending unprompted note. still: `pen_still_since = now` |
-| `on_board_edit` | Verifies the board reading directly (no deep check, no read-back), then requests a `board` gate call whose result goes straight to `plan` |
+| `on_board_edit` | Verifies the board reading directly (no deep check, no read-back), then requests a `board` gate call whose result goes straight to `plan`. The image is decoded with Task 7's `decode_jpeg` (its `cv2.imdecode` reads PNG too) and re-encoded as a JPEG at `GATE_LONG_SIDE`, in a worker thread |
 | `tick` | Runs, in order: the stall check, gate scheduling, the holding line, delivery, note expiry |
 
 - **Gate scheduling:**
   - one pending reason, with priority frame > board > speech > stall;
   - it runs when a frame or board edit exists, `now − last_gate_at ≥ 5000`, and, for `speech`, the latest frame is fresh or `FRESH_FRAME_WAIT_MS` has passed since the speech. A frame is fresh when it arrived after the pen last went still; with no pen events at all, every frame is fresh;
+  - while a `speech` call waits for a fresh frame, `snapshot().waiting_for_frame` is true, and one `PolicyDebug(action="hold", rung=None, why="waiting for a fresh frame")` goes out, which the HUD shows (P4-R9);
+  - the gate image (`flatten_page`, `resized` to `GATE_LONG_SIDE`, `encode_jpeg`) is made in a worker thread;
   - the stall check requests `stall` once per episode (until new ink or speech), when `now − pen_still_since ≥ stall_ms` and `now − user_stopped_at ≥ stall_ms`. A missing `user_stopped_at` counts as long ago; a missing `pen_still_since` counts from the latest frame's arrival;
   - a `GateError` logs, sends `CheckDebug(status="failed")` and nothing else.
 - **Checks:**
@@ -1475,15 +1591,23 @@ class BoardEditIn(BaseModel): reading: DfaReading; image_png: str | None   # bas
   - if not schoolwork, nothing;
   - else, if complete, worth or stuck, ensure a reading for the latest frame: cached by frame id; one check in flight, coalescing to the newest frame; unprompted checks at least `UNPROMPTED_CHECK_INTERVAL_MS` apart.
   - A reading runs: `prepare` (page and marks) → `deepcheck.transcribe` → `snap` → reference resolution (cached per normalized problem and regex: `compile_regex` + `catalog_match`, else `deepcheck.membership` + `resolve_reference`) → `verify`. Then `plan(verdict, reading, signals, problem)` becomes the pending note, replacing an older one.
+  - **Off the loop:** `prepare`, `snap`, `compile_regex` with `catalog_match`, `resolve_reference` (its `agrees`), and `verify` (with `one_edit_fixes`) each run as `await anyio.to_thread.run_sync(fn, …, limiter=self.limiter)`. The registry makes one `anyio.CapacityLimiter(VISION_CPU_TOKENS)` in the lifespan, where a loop is running, and gives it to every session. Only `transcribe` and `membership`, which are network calls, run on the loop. A `RegexError` (too long or too large included) leaves the reference None, so the verdict is `unknown`.
+  - When the result carries a ready `reading` (Task 9's named fake), it is used as it is, with the frame's id stamped on it, and `snap` is skipped.
   - A failed, refused or timed-out transcription gives a `None` reading, so `plan` row 2 speaks only when invited (Review Focus 3).
-- **The holding line:** when an invited check (complete) is still running `holding_after_ms` after it started, `may_speak(unprompted=False)` holds, and Ada hasn't spoken since the check started: `channel.say(HOLDING_LINES[lang])` once per check, and `PolicyDebug(action="holding-line")`.
+- **The holding line:** `channel.say(HOLDING_LINES[lang])`, once per check, with `PolicyDebug(action="holding-line")`, when all of these hold:
+  - an invited check (complete) is still running `holding_after_ms` after it started;
+  - `may_speak(unprompted=False)` holds;
+  - Ada hasn't spoken since the speech that invited the check, or since the check started when no speech invited it. With a live LLM she usually answers "I think I'm done" at once, and the check can start up to 6 s later (P4-R9), so the check's own start would make her say a second holding line.
 - **Delivery:**
-  1. With a pending note, a channel and `may_speak(moment, unprompted=…)`. When the note concerns a paper reading, send `ReadbackEvent(reading, verdict)` (if not sent since the reading changed) and `StageEvent(view="split")`, so the board shows the reading before Ada critiques it (spec §5.3); her pin still wins. Then `append_note(render_note(plan))` and `run_llm()`.
+  1. With a pending note, a channel and `may_speak(moment, unprompted=…)`:
+     - An **invited** note (P4-R7) that concerns a paper reading with at least one state first sends `ReadbackEvent(reading, verdict)` (if not sent since the reading changed), then `StageEvent(view="split")`, so the board shows the reading before Ada critiques it (spec §5.3). Her pin still wins.
+     - An **unprompted** hint (stuck or slip) sends neither, and the stage stays as it is (P4-R23).
+     - Then `append_note(render_note(plan))` and `run_llm()`.
   2. Then wait for Ada's speech.
   3. After an interruption before she spoke, the next open moment calls `run_llm()` again, at most `MAX_RERUNS` times. The note is never appended twice.
   4. A note older than `NOTE_TTL_MS` is dropped, with `PolicyDebug(action="drop")`.
 - **Debug and log:** every gate call, check and decision sends a `VisionDebugEvent` on the channel (when attached), and writes a record to `VisionLog`. A gate record holds `stage`, `frame_id`, `reason`, `quiet_ms`, `silence_ms`, `new_ink`, `changed_cells`, `transcript` (`[speaker, text, at_ms]` triples), `probs`, `refused`, `ms` and `provider`, which is what labeling real frames needs (Task 17).
-- **Attaching** a channel re-sends the current readback.
+- **Attaching** a channel re-sends the last readback sent, if any. A reading she was never shown stays unsent.
 - **`explain`:** `plan_request` → a pending invited note → `{"ok": True}`; None → `{"ok": False, "reason": "nothing to show"}` or `"no trusted reference"`.
 - **The registry:**
   - creates sessions with `make_gate(settings)` and `make_deepcheck(settings)`, unless they're injected;
@@ -1500,14 +1624,22 @@ class BoardEditIn(BaseModel): reading: DfaReading; image_png: str | None   # bas
   - `test_unprompted_checks_15s_apart`.
   - **`test_done_waits_for_a_fresh_frame`** (Review Focus 1):
     - the 38.5 s frame, then pen busy and still, then "I think I'm done.";
-    - no gate call until the 47.1 s frame arrives; then a counterexample note naming 1010;
+    - no gate call until the 47.1 s frame arrives, and meanwhile `snapshot().waiting_for_frame` is true with one `PolicyDebug(hold, "waiting for a fresh frame")`; then a counterexample note naming 1010;
     - a variant with no new frame gates on the old one after 6 s.
-  - **`test_stall_hint`:** the 26.7 s frame, with the pen still 6 s and no speech. One stall gate call, then a hint note with "after reading 010", delivered with `ReadbackEvent` first.
+  - **`test_stall_hint`:** the 26.7 s frame, with the pen still 6 s and no speech. The 26.7 s frame's own `frame` call, then one gate call with reason `stall`, then a hint note with "after reading 010". The channel records no `ReadbackEvent` and no `StageEvent` (P4-R23).
   - `test_hint_is_dropped_when_she_draws_again` (Review Focus 4).
   - `test_waits_for_her_pause_and_pen` (Review Focus 4): nothing while she speaks; delivery 600 ms after the VAD stop; nothing within 1500 ms of pen stillness.
   - `test_never_over_ada`: a reply in flight or audio playing holds delivery; an empty reply (`ended` with no audio) stops holding it after 1500 ms.
-  - `test_holding_line_after_2s_for_an_invited_check`: once; not for an unprompted check; not when Ada spoke since the check began.
-  - `test_delivery_order`: `send(Readback)`, `send(Stage split)`, `append_note`, `run_llm`.
+  - `test_holding_line_after_2s_for_an_invited_check`: once; not for an unprompted check; not when Ada spoke after the speech that invited the check, even when the check itself started later (the fresh-frame wait).
+  - **`test_delivery_order`**, two variants:
+    - invited (the counterexample): `send(Readback)`, `send(Stage split)`, `append_note`, `run_llm`;
+    - unprompted (the stall hint): `append_note`, `run_llm`, and nothing else.
+  - `test_tutor_lines_reach_the_gate`: after `on_user_text("Hi Ada, …")` and `on_tutor_text("Great, draw it on paper …")`, the next `GateInput.transcript` holds both, oldest first, with speakers `student` and `tutor`.
+  - **`test_checks_never_block_the_loop`** (real event loop, no fake clock for this one):
+    - `orchestrator.prepare` is monkeypatched to a stub that blocks for 300 ms with `time.sleep`;
+    - while a check runs, a probe coroutine that sleeps 10 ms in a loop never sees a gap over 100 ms;
+    - a `compile_regex` stub that blocks the same way gives the same result.
+  - `test_ready_reading_skips_snap`: with `NamedFixtureDeepCheck("demo-wrong")`, the verdict is `demo-wrong`'s, `snap` is never called, and the reading carries the frame's id.
   - **`test_barge_in_before_speech_reruns_once`** (Review Focus 2): an interruption before `BotStarted` gives exactly one more `run_llm` at the next pause and no second `append_note`. After `MAX_RERUNS` it stops.
   - `test_spoken_note_climbs_the_ladder`: after `BotStarted`, `snapshot().rung == "counterexample"`; a second failed attempt gives `walkthrough`.
   - `test_unprompted_rate_limit`: a second stall hint within 45 s waits.
@@ -1517,16 +1649,19 @@ class BoardEditIn(BaseModel): reading: DfaReading; image_png: str | None   # bas
   - `test_failed_check_speaks_only_when_invited` (Review Focus 3): a refusing deep check. A `complete` gate gives the unreadable note; a `worth` gate gives nothing. Each gives `CheckDebug(status="refused")`.
   - `test_reference_resolution_is_cached`: `membership` runs once per problem, and never for the demo regex (catalog).
   - `test_explain`: walkthrough after a wrong verdict gives a note with "Trace:"; solution gives "Solution:"; with nothing to show, `{"ok": False, ...}`.
-  - `test_board_edit_skips_the_deep_check`.
-  - `test_attach_resends_the_readback`.
+  - `test_board_edit_skips_the_deep_check`: a PNG board image reaches the gate as a JPEG at most 1024 px long.
+  - `test_attach_resends_the_readback`: after an invited note, attaching again re-sends it; after only a stall hint, attaching sends nothing.
   - **API** (P3's `app` fixture):
     - `GET` gives a snapshot after one upload through P3's real `POST …/frames` with a `dfa-demo` frame (the hook fed the registry);
+    - an upload still gives 201 when `on_frame` raises (a registry stub), and when the app has no `vision` state;
     - another learner gets 404;
     - `POST …/vision/board` gives 202, then 422 for a bad reading, then 413 for a 3 MiB image;
-    - the app's lifespan with `VisionSettings(_env_file=None, gate_provider="live")` raises naming `OPENAI_API_KEY`.
+    - the app's lifespan with `VisionSettings(_env_file=None, gate_provider="live")` raises naming `OPENAI_API_KEY`;
+    - **`test_lifespan_is_fake_under_the_scrub`** (C1): the default `app` fixture, with `TASSEL_PROVIDERS=auto` set inside the test, builds a `FakeGate` and a fake deep check, because the root fixtures removed every key and the env file.
 - [ ] **Step 2: Run them and confirm they fail.** Run: `uv run --directory services/server pytest tests/vision/test_orchestrator.py tests/vision/test_registry.py tests/vision/test_vision_api.py -v`. Expected: FAIL.
 - [ ] **Step 3: Implement, then regenerate the API types.**
   - Background work runs in tasks the session owns, cancelled by `close()`.
+  - Thread calls pass `abandon_on_cancel=True`, so `close()` never waits on a thread; Task 2's and Task 4's caps bound what an abandoned thread can still do.
   - Exceptions are logged and never reach the upload route.
   - Run `pnpm gen:api`.
 - [ ] **Step 4: Run them and confirm they pass.** Run: `uv run --directory services/server pytest -v && pnpm check:api`. Expected: PASS, then exit 0.
@@ -1543,7 +1678,7 @@ class BoardEditIn(BaseModel): reading: DfaReading; image_png: str | None   # bas
   - `services/server/src/tassel/voice/messages.py`: the same three in `SERVER_EVENTS` and `CLIENT_EVENTS`.
 - Modify (renderer):
   - `tutor/types.ts`: `TutorEvent` gains `{ type: 'readback'; reading: DfaReading | null; verdict: DfaVerdict | null }` and `{ type: 'vision-debug'; debug: VisionDebug }`; `VoiceControls` gains `reportPen(busy: boolean): void`;
-  - `tutor/live/rtvi-map.ts`: `readback` maps to that event, and `vision-debug` likewise;
+  - `tutor/live/rtvi-map.ts`: `readback` maps to that event, and `vision-debug` likewise. A `user-text` input whose text starts with `[` (P2's note convention) is dropped, so a note can never become a student caption, whatever RTVI echoes (P4-R12);
   - `tutor/live/live-client.ts`: `voice.reportPen(busy)` sends `{ kind: 'pen', busy }` in the `tassel` envelope;
   - `tutor/use-tutor-session.ts`: the two events go to `useVisionStore`;
   - `tutor/create-client.ts`: `SCRIPTS['vision-readback']`;
@@ -1564,7 +1699,8 @@ export const useVisionStore: UseBoundStore<StoreApi<{ reading: DfaReading | null
   setReadback(r: DfaReading | null, v: DfaVerdict | null): void; pushDebug(d: VisionDebug): void; reset(): void }>>;
 // use-pen-activity.ts
 export function usePenActivity(client: TutorClient, opts?: { quietAfterMs?: number }): void;   // 400 ms
-// VisionHud.tsx: dev only; Ctrl+Shift+V (Cmd+Shift+V on macOS) toggles it
+// VisionHud.tsx: dev only; Ctrl+Shift+G (Cmd+Shift+G on macOS) toggles it. Not V: Shift+Cmd+V is a
+// paste accelerator and a common clipboard-manager hotkey. Not L: P2's LatencyHud has it.
 export function VisionHud(): JSX.Element | null;
 // board-sink.ts
 export function postBoardEdit(api: ApiClient, sessionId: string, edit: { reading: DfaReading; imagePng: Blob | null }): Promise<void>;
@@ -1579,7 +1715,7 @@ export function postBoardEdit(api: ApiClient, sessionId: string, edit: { reading
 - **`VisionHud`:**
   - shown only when `devTools` is true, read once on mount from `window.tassel.voice.getConfig()` (P2's bridge, which fake-tutor sessions have too); mono 11, on paper with a hairline;
   - stacked under P2's `LatencyHud` at the stage's top-left, overlapping nothing at 1024×680;
-  - three lines with `data-testid` `vision-hud-gate` (`GATE · <reason> · c 0.90 w 0.10 s 0.10 n 0.05 · 3 ms · fake`), `vision-hud-check` (`CHECK · wrong · 1010 · q0 on 1 · 12 ms`) and `vision-hud-policy` (`POLICY · speak · counterexample · ok`).
+  - three lines with `data-testid` `vision-hud-gate` (`GATE · <reason> · c 0.90 w 0.10 s 0.10 n 0.05 · 3 ms · fake`), `vision-hud-check` (`CHECK · wrong · 1010 · q0 on 1 · 12 ms`) and `vision-hud-policy` (`POLICY · speak · counterexample · ok`, or `POLICY · hold · waiting for a fresh frame` during P4-R9's wait).
 - **`board-sink.ts`:** `postBoardEdit` posts to Task 13's route. If P5 has merged, `board-sink.ts` also exports `visionBoardSink(api, sessionId): BoardEditSink`, which converts P5's automaton (from `beats/automaton.ts`) to a `DfaReading` with `source: 'board'` and zero boxes. P5's live wiring uses it (P5-R13). If P5 hasn't merged, only `postBoardEdit` ships, and P5's converge task installs the sink.
 - **`vision-readback.json`** is a P1 fake-tutor script:
   - at 300 ms, stage `split`;
@@ -1590,18 +1726,18 @@ export function postBoardEdit(api: ApiClient, sessionId: string, edit: { reading
 
 - [ ] **Step 1: Write the failing tests.**
   - **Contract:** both sides round-trip the new fixtures; `parseServerEvent` refuses a `readback` whose reading lacks `states`.
-  - **rtvi-map:** rows for `readback` and `vision-debug`.
+  - **rtvi-map:** rows for `readback` and `vision-debug`; a `user-text` of "[vision] DFA attempt complete. …" gives no caption, while "Hi Ada" still does.
   - **live-client:** `reportPen` sends the envelope.
   - **use-tutor-session:** the events reach `useVisionStore`.
   - **pen-activity** (fake timers): busy is sent at once; still is sent after 400 ms, and not if busy returns at 300 ms; no duplicates; nothing without `voice`.
-  - **vision-hud:** hidden unless dev; the shortcut toggles it; the lines read as above.
+  - **vision-hud:** hidden unless dev; Ctrl/Cmd+Shift+G toggles it and Ctrl/Cmd+Shift+V does nothing; the lines read as above, including the waiting line.
   - **stage-readback:** the card mounts in the board panel only with a reading; at 1024×680 its box doesn't intersect the tile (jsdom geometry stubs, then the E2E checks real boxes).
   - **board-sink:** posts JSON with the reading, and with the image base64-encoded.
   - **E2E `vision-readback.spec.ts`:**
     - `launchApp({ TASSEL_FAKE_SCRIPT: 'vision-readback' })` (P1's fake tutor), then `startPaperSession(page, { type: 'homework', language: 'en', uiLang: 'en' })`;
     - the stage goes split; `readback-card` sits inside the board panel; q0–q3 render with `data-accept` on q3 only; the q0 loop's edge exists; the footnote shows;
     - at 1440×900 and 1024×680 its box doesn't intersect the tile, the captions or the dock;
-    - Ctrl/Cmd+Shift+V shows the three HUD lines;
+    - Ctrl/Cmd+Shift+G shows the three HUD lines;
     - a second run with `language: 'ko'` shows "내가 읽은 DFA", and one with `language: 'es'` shows "Así leí tu AFD";
     - `snap('p4-readback-1440')`, `snap('p4-readback-1024-ko')`.
 - [ ] **Step 2: Run them and confirm they fail.**
@@ -1644,7 +1780,8 @@ export function postBoardEdit(api: ApiClient, sessionId: string, edit: { reading
   - `LLMFullResponseStartFrame` and `LLMFullResponseEndFrame`;
   - `InterruptionFrame`;
   - `TranscriptionFrame`;
-  - `BaseObserver.on_push_frame(FramePushed)`, which sees first pushes only ([base_observer.py][pc-observer]).
+  - `TTSTextFrame`, which the TTS service pushes with a `pts` per word. The output transport holds each one and pushes it on at that time, as its audio plays ([base_output.py L399–400 and L1138–1159][pc-base-output]). An interruption cancels that clock task and starts a fresh queue (L575–583, L1126–1130), so unplayed words are never pushed;
+  - `BaseObserver.on_push_frame(FramePushed)`. By default it sees every push of a frame, one per hop, with `data.first_push` on the first and `data.source` naming the pusher; `observe_every_push=False` limits it to first pushes ([base_observer.py][pc-observer]). `VisionSpeechObserver` keeps the default, because it needs the transport's push.
 - Produces:
 
 ```python
@@ -1661,20 +1798,25 @@ VISION_PROMPT: str
 async def explain_dfa_handler(params: FunctionCallParams, session: VisionSession) -> None   # result_callback(..., run_llm=False)
 ```
 
-- **`VisionSpeechObserver`** counts downstream pushes only, once per `frame.id`:
+- **`VisionSpeechObserver`** counts downstream pushes only, once per `frame.id` (its first downstream push), except for `TTSTextFrame`:
   - VAD start and stop → `on_user_speaking(True)` and `on_user_speaking(False, stopped_ms_ago=int(stop_secs * 1000))`;
   - `BotStarted` and `BotStopped` → `on_bot(speaking=…)`;
   - `LLMFullResponseStartFrame` → `on_bot(reply="started")`, and `LLMFullResponseEndFrame` → `on_bot(reply="ended")`. The session decides when the reply is over (Task 13's table);
   - `InterruptionFrame` → `on_interruption()`;
   - `TranscriptionFrame` → `on_user_text(text, typed=False)`;
-  - an `LLMMessagesAppendFrame` from RTVI whose user message isn't a note → `on_user_text(text, typed=True)`.
+  - an `LLMMessagesAppendFrame` from RTVI whose user message isn't a note → `on_user_text(text, typed=True)`;
+  - **Ada's words:**
+    - a downstream `TTSTextFrame` pushed by the output transport (`isinstance(data.source, BaseOutputTransport)`, the moment its audio plays) adds its text to Ada's current line;
+    - the downstream `BotStoppedSpeakingFrame` sends that line to `on_tutor_text(line)` when it isn't empty, then clears it;
+    - so a reply she barged into is cut where she stopped hearing it, and the holding line (`say`) is in the transcript too.
 - **`VISION_PROMPT`** must contain:
   - "Messages that start with [vision] come from your vision system, which watches her paper. They are not from the student";
   - "Never read them out, quote them, or mention the vision system, tags or confidence";
   - "Follow the Escalation line", and one line for each rung's meaning;
   - "When a note says judged, say you think so";
   - "Call explain_dfa with level walkthrough when she says she doesn't understand her DFA's mistake, and with level solution only when she asks for the answer";
-  - "Never give the solution unless she asked".
+  - "Never give the solution unless she asked";
+  - "Say traces and solutions in spoken words, as the spell-out rule above says: q zero on zero goes to q one. Never read out arrows such as -0->". This matches P2's spell-out rule, because live TTS has text normalization off.
 - **The `explain_dfa` handler** awaits `session.explain(level)`, then calls `result_callback(result, properties=FunctionCallResultProperties(run_llm=False))`. The note the session queues does the talking.
 - **`dfa-vision.json`** (exact lines; titles as in `dfa-opening`):
   - **en:**
@@ -1700,7 +1842,6 @@ async def explain_dfa_handler(params: FunctionCallParams, session: VisionSession
 | `hint.transition` | Look again at what {state} does when it reads {symbol}. | Mira otra vez qué hace {state} cuando lee {symbol}. | {state}에서 {symbol} 입력을 읽으면 어디로 가는지 다시 볼래요? |
 | `hint.accept_flag` | Should {state} be an accepting state? | ¿{state} debería ser un estado de aceptación? | {state} 상태는 수락 상태여야 할까요? |
 | `hint.slip` | Can a DFA have two arrows for the same symbol leaving one state? | ¿Puede un AFD tener dos flechas con el mismo símbolo saliendo de un estado? | DFA에서 한 상태에서 같은 기호로 화살표가 두 개 나갈 수 있을까요? |
-| `guiding_question` | Which state are you in after reading {prefix}? | ¿En qué estado estás después de leer {prefix}? | {prefix}까지 읽고 나면 어느 상태에 있어요? |
 | `walkthrough.false_accept` | Let's run {witness} on your paper: {trace}. It ends in {end}, which accepts, but {witness} should be rejected. | Vamos a pasar {witness} por tu papel: {trace}. Termina en {end}, que acepta, pero {witness} debería rechazarse. | {witness} 입력을 종이에서 같이 따라가 볼게요: {trace}. {end}에서 끝나서 받아들여지지만, 이 입력은 거부돼야 해요. |
 | `walkthrough.false_reject` | Let's run {witness} on your paper: {trace}. It ends in {end}, which rejects, but {witness} should be accepted. | Vamos a pasar {witness} por tu papel: {trace}. Termina en {end}, que rechaza, pero {witness} debería aceptarse. | {witness} 입력을 종이에서 같이 따라가 볼게요: {trace}. {end}에서 끝나서 거부되지만, 이 입력은 받아들여져야 해요. |
 | `solution` | Here's a DFA that works: {solution}. | Aquí tienes un AFD que funciona: {solution}. | 이렇게 하면 돼요: {solution}. |
@@ -1708,15 +1849,22 @@ async def explain_dfa_handler(params: FunctionCallParams, session: VisionSession
 | `unreadable` | I can't quite read your DFA. Could you hold the page still for a moment? | No consigo leer bien tu AFD. ¿Puedes dejar la hoja quieta un momento? | DFA가 잘 안 보여요. 종이를 잠깐 가만히 둘래요? |
 | `unknown` | Which strings should your DFA accept? | ¿Qué cadenas debería aceptar tu AFD? | DFA가 어떤 문자열을 받아들여야 해요? |
 
-  The greeting, `after_switch` and `fallback` come from `dfa-opening`.
+  The greeting, `after_switch` and `fallback` come from `dfa-opening`. There is no `guiding_question` row, because `plan` never picks that rung (P4-R6).
 
 - [ ] **Step 1: Write the failing tests.**
   - **`test_bot_channel_appends_then_runs`:** the worker's queued frames are an `LLMMessagesAppendFrame` (role `developer`, `interruptible is False`, `run_llm` None), then an `LLMRunFrame`. `say` queues `TTSSpeakFrame` with `append_to_context=True`.
+  - **`test_developer_note_goes_out_as_user_and_stays_developer`** (P4-R12, offline):
+    - an `LLMContext` holds a system message, the first student line and a `developer` note;
+    - `OpenRouterLLMService(api_key="test-key")` (no network; the root guard refuses any) has `supports_developer_role is False`;
+    - its adapter's `get_llm_invocation_params(context, system_instruction=None, convert_developer_to_user=True)` gives messages in which the note has role `user`, while `context.get_messages()` still holds `developer`;
+    - Pipecat's RTVI observer, fed an `LLMContextFrame` whose last message is the note, sends no user-text message (a stubbed `send_rtvi_message`), and does send one for a `user` message.
   - **`test_observer_maps_frames`:**
     - each frame above, pushed downstream, calls the session method;
     - upstream copies and repeated ids are ignored;
     - a note in an `LLMMessagesAppendFrame` isn't user text;
-    - `LLMFullResponseStartFrame` and `LLMFullResponseEndFrame` report `reply="started"` and `reply="ended"`.
+    - `LLMFullResponseStartFrame` and `LLMFullResponseEndFrame` report `reply="started"` and `reply="ended"`;
+    - two `TTSTextFrame`s ("Try", "running") pushed by a stub `BaseOutputTransport`, then a downstream `BotStoppedSpeakingFrame`, give one `on_tutor_text("Try running")`;
+    - a `TTSTextFrame` pushed only by the TTS service adds nothing, and an empty line sends nothing.
   - `test_prompt_keeps_p2s_rules_and_adds_the_vision_rules`.
   - `test_explain_tool_is_registered_and_never_reruns_the_llm`.
   - `test_pen_client_message_reaches_the_session`.
@@ -1745,11 +1893,14 @@ async def explain_dfa_handler(params: FunctionCallParams, session: VisionSession
 **Files:**
 - Modify (P3):
   - `packages/paper-synth/src/variants.ts` (and its `VariantName` union): the variant `dfa-demo-hold` (P4-R19);
-  - `apps/desktop/tests/e2e/global-setup.ts`: generate `dfa-demo-hold` into `.cache/paper-clips` and set `process.env.TASSEL_E2E_CLIP_DFA_DEMO_HOLD`. The server's env (through P2's `e2eServerEnv`) gains `TASSEL_GATE_PROVIDER=fake`, `TASSEL_DEEPCHECK_PROVIDER=fake`, `TASSEL_FAKE_TRUTH=<its .truth.json>` and `TASSEL_VISION_LOG=<apps/desktop/test-results/vision-log.jsonl>`, and loses `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` and `VULTR_INFERENCE_API_KEY`;
+  - `apps/desktop/tests/e2e/global-setup.ts`: generate `dfa-demo-hold` into `.cache/paper-clips` and set `process.env.TASSEL_E2E_CLIP_DFA_DEMO_HOLD`. The server's env comes from a new exported `visionServerEnv(base, truthPath)`, beside P2's `e2eServerEnv`:
+    - it calls `e2eServerEnv(base, 'fake')` first, which deletes every `TASSEL_*PROVIDER*` variable, so P4's settings go in **after** it: `TASSEL_GATE_PROVIDER=fake`, `TASSEL_DEEPCHECK_PROVIDER=fake`, `TASSEL_FAKE_TRUTH=<its .truth.json>` and `TASSEL_VISION_LOG=<apps/desktop/test-results/vision-log.jsonl>`;
+    - it deletes every `OPENAI_*`, `ANTHROPIC_*` and `VULTR_*` variable;
+    - its test, in P2's `voice-main/e2e-env.test.ts`: a base env with `ANTHROPIC_API_KEY=x` and `TASSEL_GATE_PROVIDER=live` gives no key and both providers `fake`;
   - `apps/desktop/tests/e2e/fixtures.ts`: `launchVision` and `visionSnapshot`;
   - `scripts/dev.mjs`: unless set, `TASSEL_FAKE_CLIP` becomes the `dfa-demo-hold` clip (generated if missing), the server gets `TASSEL_FAKE_TRUTH`, and `TASSEL_FAKE_SCRIPT` becomes `dfa-vision`.
 - Create: `apps/desktop/tests/unit/paper/detector/dfa-demo-hold.test.ts`, `apps/desktop/tests/e2e/vision-demo.spec.ts`, `apps/desktop/tests/e2e/vision-languages.spec.ts`
-- Test: those, plus `packages/paper-synth/tests/truth.test.ts` (extend)
+- Test: those, plus `packages/paper-synth/tests/truth.test.ts` and `apps/desktop/tests/unit/voice-main/e2e-env.test.ts` (extend both)
 
 **Interfaces:**
 - Consumes: Tasks 13–15; P3's harness, `startPaperSession`, `launchApp`, paper-synth; P2's `launchVoice`, `DevConsole` and `e2eServerEnv`.
@@ -1775,19 +1926,19 @@ export function visionSnapshot(page: Page, sessionId: string): Promise<VisionSna
 |---|---|---|
 | ~1 | The dev console types the first student line | Ada's turn 1 caption; the title "Strings that start with 010" |
 | 26.7 | First trigger: a silent check (wrong, incomplete) | the snapshot's `frames_seen ≥ 1` and `verdict.status == "wrong"`; no Ada caption between `t0+20` and `t0+29` |
-| ~31.8 | Stall: the gate (stuck), then the hint | by `t0+40`: the caption "What should happen once you've already read 010?"; the stage is split; `readback-card` shows q0–q3 and no loops |
+| ~31.8 | Stall: the gate (stuck), then the hint, by voice alone (P4-R23) | by `t0+40`: the caption "What should happen once you've already read 010?"; the stage stays in the paper view, and there is no `readback-card` |
 | 46.5 | Loop q3: a silent check (correct) | no new Ada caption by `t0+52` |
 | 54.0 | Typed: "I think I'm done." (before the last trigger: Review Focus 1) | "Okay, let me take a look." |
-| 56.1 | Fresh frame: gate (complete), then check, then the note | by `t0+66`: "Before you move on, try running 1010 through your DFA. Where does it end up?"; the card adds the q0 loop labelled `1`; the snapshot has `counterexample.input == "1010"`, `blame.state == "q0"` and `rung == "counterexample"` |
+| 56.1 | Fresh frame: gate (complete), then check, then the invited note | by `t0+66`: "Before you move on, try running 1010 through your DFA. Where does it end up?"; the stage splits first, and `readback-card` shows q0–q3 with the q3 loop labelled `0,1` and the q0 loop labelled `1`; the snapshot has `counterexample.input == "1010"`, `blame.state == "q0"` and `rung == "counterexample"` |
 | after that caption ends | Typed: "I don't understand, can you show me?" | a caption starting "Let's run 1010 on your paper: q0, q0, q1, q2, q3." |
 | after that one | Typed: "I still don't get it, show me the answer." | a caption starting "Here's a DFA that works: q0 -0-> q1"; the snapshot's rung is `solution` |
 
 - [ ] **Step 1: Write the failing tests.**
-  - `dfa-demo-hold.test.ts`: through P3's detector harness, exactly three ink triggers, at 26.7, 46.5 and 56.1 ± 0.7 s.
+  - `dfa-demo-hold.test.ts`: through P3's detector harness, exactly three ink triggers, at 26.7, 46.5 and 56.1 ± 0.7 s. It runs 600 harness samples (120 s at 5 fps), so it sets `timeout: 120_000` (P3's variant tests budget `60_000` for 280).
   - `truth.test.ts`: `dfa-demo-hold`'s truth DFA equals `dfa-demo`'s.
   - **`vision-demo.spec.ts`** (en, timeout 150 s):
     - `launchVision()`, then `startPaperSession(page, { type: 'homework', language: 'en', uiLang: 'en' })`, then the table above;
-    - the HUD (Ctrl/Cmd+Shift+V) shows `vision-hud-policy` reading `speak · counterexample`;
+    - the HUD (Ctrl/Cmd+Shift+G) shows `vision-hud-policy` reading `speak · counterexample`;
     - at 1024×680 the card, tile, captions and dock don't intersect;
     - `snap('p4-hint')`, `snap('p4-counterexample-readback')`, `snap('p4-walkthrough')`, `snap('p4-1024')`.
   - **`vision-languages.spec.ts`** (es, then ko; 120 s each):
@@ -1795,7 +1946,7 @@ export function visionSnapshot(page: Page, sessionId: string): Promise<VisionSna
     - the card's title is "Así leí tu AFD" or "내가 읽은 DFA";
     - `snap('p4-counterexample-es')`, `snap('p4-counterexample-ko')`.
 - [ ] **Step 2: Run them and confirm they fail.**
-  - Run: `pnpm --filter @tassel/desktop test paper/detector/dfa-demo-hold && pnpm --filter @tassel/paper-synth test && pnpm --filter @tassel/desktop build && pnpm --filter @tassel/desktop e2e vision-`
+  - Run: `pnpm --filter @tassel/desktop test paper/detector/dfa-demo-hold voice-main/e2e-env && pnpm --filter @tassel/paper-synth test && pnpm --filter @tassel/desktop build && pnpm --filter @tassel/desktop e2e vision-`
   - Expected: FAIL.
 - [ ] **Step 3: Implement.** A failure in a spec is a bug in Tasks 5–15: fix it test-first in the owning module, and keep the spec.
 - [ ] **Step 4: Run them and confirm they pass.**
@@ -1820,7 +1971,8 @@ export function visionSnapshot(page: Page, sessionId: string): Promise<VisionSna
 **Interfaces:**
 - Produces:
   - `python -m tassel.vision.smoke [--preflight] [--only gate-openai,gate-clef,deepcheck]`. It prints one line per check, and exits 0 when each check passes or is skipped for a missing key.
-  - `python -m tassel.vision.read_eval --deepcheck fake|live [--clips .cache/paper-clips] [--real <dir>] [--strict]`. For each trigger frame of `dfa-demo` (26.7, 38.5 and 47.1 s, with and without noise) it prints:
+  - Both CLIs start with `sys.stdout.reconfigure(encoding="utf-8")`, as `gate_eval` does (Task 12).
+  - `python -m tassel.vision.read_eval --deepcheck fake|live [--clips .cache/paper-clips] [--real <dir>] [--strict]`. For each trigger frame of `dfa-demo` (26.7, 38.5 and 47.1 s), on both `ensure_clip("dfa-demo")` (noise on, P3's default) and `ensure_clip("dfa-demo", noise=False)`, it prints:
     - state F1, where a match is the same label within 0.3 r;
     - transition F1, matching (source, target, symbol set);
     - start and accept exactness;
@@ -1851,10 +2003,16 @@ export function visionSnapshot(page: Page, sessionId: string): Promise<VisionSna
   - **README:**
     - the three keys go in `services/server/.env`, and `TASSEL_PROVIDERS=auto` turns each provider live as its key appears;
     - `pnpm vision:live-check`;
-    - the HUD shortcut, the vision log, `TASSEL_VISION_STALL_MS`;
+    - the HUD shortcut (Ctrl/Cmd+Shift+G), the vision log, `TASSEL_VISION_STALL_MS`;
+    - that `pnpm dev`'s held clip loops back to a blank page after 120 s. P3's detector reports that as a page event, so the problem resets (Task 13), and that is expected;
     - how to record and label real frames: run a session with `TASSEL_VISION_LOG` set, then `gate_eval export --session <id> --out .cache/gate-eval/real/<name> --log <that file>`;
     - that live vision sends real frames to the providers (P4-R20).
-  - **`CLAUDE.md`:** `pnpm e2e` never reaches a live provider; real frames never leave `.cache/` and are never committed or posted; keys never go in the app.
+  - **`CLAUDE.md`:**
+    - `pnpm e2e` never reaches a live provider;
+    - the root conftest's `scrub_vision_env` and `no_provider_network` stay autouse, and nobody weakens them to make a test pass;
+    - real frames never leave `.cache/`, and are never committed or posted;
+    - keys never go in the app;
+    - CPU work in `vision/` and `domains/` runs off the event loop.
 - [ ] **Step 4: Run them and confirm they pass.** Run: `uv run --directory services/server pytest -v && pnpm check && pnpm test && pnpm e2e`. Expected: PASS, with no live call.
 - [ ] **Step 5: Commit, then push.** `git add services/server scripts package.json README.md CLAUDE.md && git commit -m "feat(vision): live smoke checks, reading evaluation, one-command live check and docs"`, then `git push -u origin claude/p4-automata-vision`.
 
@@ -1881,7 +2039,8 @@ Once Task 17 is committed:
   - With keys, a real Desk View session on the demo worksheet, in each language:
     - the real circles snap (Task 7's constants);
     - the read-back matches her drawing;
-    - Ada's timing feels like a tutor's, not an alarm's.
+    - Ada's timing feels like a tutor's, not an alarm's;
+    - the time from "I think I'm done" to Ada's counterexample. The spec's "~2 s" is a UX target that P4 meets only through her acknowledgement and the holding line, because the gate (~0.8 s) plus Opus at `low` effort can take 5–15 s. Write the measured times in the ledger.
   - Record 20 or more real frames and label them (`gate_eval export`); rerun Task 17's evaluations with `--real`.
 - **Post the milestone screenshots** (synthetic clip only) and the evaluation tables to the team's Discord.
 
@@ -1889,7 +2048,7 @@ Once Task 17 is committed:
 
 ## Sources
 
-Read on 2026-10-17 by the planner and three research helpers. Pipecat paths are at tag `v1.12.0`.
+Read on 2026-10-17 by the planner and three research helpers. Pipecat paths are at tag `v1.12.0`. The revision re-read the Pipecat lines it cites in the installed 1.12.0 wheel, and automata-lib's `parser.py` and `postfix.py` at `v9.2.0`.
 
 [oa-guide]: https://developers.openai.com/api/docs/guides/decisions
 [oa-ref]: https://developers.openai.com/api/reference/resources/decisions/methods/create
@@ -1910,6 +2069,7 @@ Read on 2026-10-17 by the planner and three research helpers. Pipecat paths are 
 [an-sdk]: https://github.com/anthropics/anthropic-sdk-python
 [al-dfa]: https://github.com/caleb531/automata/blob/v9.2.0/automata/fa/dfa.py
 [al-parser]: https://github.com/caleb531/automata/blob/v9.2.0/automata/regex/parser.py
+[al-postfix]: https://github.com/caleb531/automata/blob/v9.2.0/automata/regex/postfix.py
 [al-regex]: https://caleb531.github.io/automata/api/regular-expressions/
 [al-exc]: https://github.com/caleb531/automata/blob/v9.2.0/automata/base/exceptions.py
 [cv-hough]: https://docs.opencv.org/4.x/dd/d1a/group__imgproc__feature.html
@@ -1917,7 +2077,26 @@ Read on 2026-10-17 by the planner and three research helpers. Pipecat paths are 
 [pc-frame-processor]: https://raw.githubusercontent.com/pipecat-ai/pipecat/v1.12.0/src/pipecat/processors/frame_processor.py
 [pc-frame-queue]: https://raw.githubusercontent.com/pipecat-ai/pipecat/v1.12.0/src/pipecat/utils/frame_queue.py
 [pc-observer]: https://raw.githubusercontent.com/pipecat-ai/pipecat/v1.12.0/src/pipecat/observers/base_observer.py
+[pc-base-llm]: https://raw.githubusercontent.com/pipecat-ai/pipecat/v1.12.0/src/pipecat/services/openai/base_llm.py
+[pc-base-output]: https://raw.githubusercontent.com/pipecat-ai/pipecat/v1.12.0/src/pipecat/transports/base_output.py
 [pc-openrouter]: https://raw.githubusercontent.com/pipecat-ai/pipecat/v1.12.0/src/pipecat/services/openrouter/llm.py
 [pc-oa-adapter]: https://raw.githubusercontent.com/pipecat-ai/pipecat/v1.12.0/src/pipecat/adapters/services/open_ai_adapter.py
 [pc-rtvi-obs]: https://raw.githubusercontent.com/pipecat-ai/pipecat/v1.12.0/src/pipecat/processors/frameworks/rtvi/observer.py
 [pc-changelog]: https://github.com/pipecat-ai/pipecat/blob/v1.12.0/CHANGELOG.md
+
+---
+
+## Review response
+
+The review is `.superpowers/sdd/2026-10-17-p4-automata-vision/plan-review.md` (1 Critical, 7 Important, 16 Minor). Every finding is applied in place, except as noted here.
+
+- **Declined: C1's "the registry refuses live providers under pytest".** Production code that checks for pytest is one more path to keep correct. Task 1's root `no_provider_network` guard refuses every non-loopback request from `httpx` and `httpx2` in every suite. That covers the same case, and any client written later. The scrub and the guard land first in Task 1, before any code that reads a key.
+- **M4, applied another way.** The review assumes `verify` always gives a counterexample for `wrong` and `unsure`. That holds for `wrong` only: an `unsure` verdict that matches an unchecked reference has none.
+  - That case now counts as probably correct (Task 5, row 3).
+  - So `plan` never picks `guiding_question`, and its template row is gone (P4-R6).
+- **M7, checked rather than hedged.** automata-lib 9.2.0 accepts `()`: `validate_tokens` has no check against it, and the parser inserts an empty-string token. The fallback stays as one line in the test.
+- **M1:** the chord is Ctrl/Cmd+Shift+G, because L is P2's.
+- **Numbering:** main's split ruling is **P4-R23** here, because P4-R13 already names the barge-in-safe injection that the review and Tasks 13–15 cite. The ledger entry "Ruling P4-R13" for the split should read P4-R23.
+- **Found while revising, outside the review:**
+  - `openai` is now a floor (`>=3.31,<4`), since P2's lock already resolves 3.33.0 through Pipecat.
+  - P5-R12 says P4 draws the read-back as a titled `board.automaton`, while P4-R14 keeps P4's own card in the board panel. Nothing breaks either way, but main should align P5's sentence or P4-R14 at merge.
