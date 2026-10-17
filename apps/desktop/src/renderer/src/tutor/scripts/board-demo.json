@@ -13,6 +13,240 @@
         "type": "state",
         "state": "listening"
       }
+    },
+    {
+      "at": 1500,
+      "event": {
+        "type": "caption",
+        "speaker": "student",
+        "text": "Can you show me a DFA for strings that start with 010?",
+        "lang": "en",
+        "final": true
+      }
+    },
+    {
+      "at": 2500,
+      "event": {
+        "type": "state",
+        "state": "speaking"
+      }
+    },
+    {
+      "at": 2600,
+      "event": {
+        "type": "caption",
+        "speaker": "tutor",
+        "text": "Here's one. We start at q0.",
+        "lang": "en",
+        "final": true
+      }
+    },
+    {
+      "at": 2700,
+      "event": {
+        "type": "actions",
+        "actions": [
+          {
+            "kind": "board.automaton",
+            "item": "fix",
+            "spec": {
+              "kind": "dfa",
+              "states": [
+                {
+                  "id": "q0"
+                },
+                {
+                  "id": "q1"
+                },
+                {
+                  "id": "q2"
+                },
+                {
+                  "id": "q3",
+                  "accept": true
+                },
+                {
+                  "id": "qd"
+                }
+              ],
+              "start": "q0",
+              "transitions": [
+                {
+                  "from": "q0",
+                  "to": "q1",
+                  "symbols": ["0"]
+                },
+                {
+                  "from": "q1",
+                  "to": "q2",
+                  "symbols": ["1"]
+                },
+                {
+                  "from": "q2",
+                  "to": "q3",
+                  "symbols": ["0"]
+                },
+                {
+                  "from": "q3",
+                  "to": "q3",
+                  "symbols": ["0", "1"]
+                },
+                {
+                  "from": "q0",
+                  "to": "qd",
+                  "symbols": ["1"]
+                },
+                {
+                  "from": "q1",
+                  "to": "qd",
+                  "symbols": ["0"]
+                },
+                {
+                  "from": "q2",
+                  "to": "qd",
+                  "symbols": ["1"]
+                },
+                {
+                  "from": "qd",
+                  "to": "qd",
+                  "symbols": ["0", "1"]
+                }
+              ]
+            },
+            "reveal": "none"
+          }
+        ]
+      }
+    },
+    {
+      "at": 3000,
+      "event": {
+        "type": "actions",
+        "actions": [
+          {
+            "kind": "board.reveal",
+            "item": "fix",
+            "els": ["start"]
+          }
+        ]
+      }
+    },
+    {
+      "at": 3600,
+      "event": {
+        "type": "actions",
+        "actions": [
+          {
+            "kind": "board.reveal",
+            "item": "fix",
+            "els": ["edge:q0>q1"]
+          }
+        ]
+      }
+    },
+    {
+      "at": 4200,
+      "event": {
+        "type": "actions",
+        "actions": [
+          {
+            "kind": "board.reveal",
+            "item": "fix",
+            "els": ["edge:q1>q2"]
+          }
+        ]
+      }
+    },
+    {
+      "at": 4800,
+      "event": {
+        "type": "actions",
+        "actions": [
+          {
+            "kind": "board.reveal",
+            "item": "fix",
+            "els": ["edge:q2>q3"]
+          }
+        ]
+      }
+    },
+    {
+      "at": 5400,
+      "event": {
+        "type": "actions",
+        "actions": [
+          {
+            "kind": "board.reveal",
+            "item": "fix",
+            "els": ["edge:q3>q3"]
+          }
+        ]
+      }
+    },
+    {
+      "at": 6000,
+      "event": {
+        "type": "actions",
+        "actions": [
+          {
+            "kind": "board.reveal",
+            "item": "fix",
+            "els": ["state:qd"]
+          },
+          {
+            "kind": "board.pulse",
+            "item": "fix",
+            "el": "state:qd"
+          }
+        ]
+      }
+    },
+    {
+      "at": 6600,
+      "event": {
+        "type": "actions",
+        "actions": [
+          {
+            "kind": "board.reveal",
+            "item": "fix",
+            "els": ["edge:q0>qd", "edge:q1>qd", "edge:q2>qd"]
+          }
+        ]
+      }
+    },
+    {
+      "at": 7200,
+      "event": {
+        "type": "actions",
+        "actions": [
+          {
+            "kind": "board.reveal",
+            "item": "fix",
+            "els": ["edge:qd>qd"]
+          }
+        ]
+      }
+    },
+    {
+      "at": 7800,
+      "event": {
+        "type": "actions",
+        "actions": [
+          {
+            "kind": "board.highlight",
+            "item": "fix",
+            "el": "state:qd",
+            "on": true
+          }
+        ]
+      }
+    },
+    {
+      "at": 8400,
+      "event": {
+        "type": "state",
+        "state": "listening"
+      }
     }
   ]
 }

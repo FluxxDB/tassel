@@ -1,10 +1,27 @@
 /// <reference path="./env.d.ts" />
-// tldraw 5.5.2 in the board panel: the canvas alone, in Tassel's theme, on P1's dotted board.
-// BoardPanel loads this module lazily, so a session that never shows the board never loads
-// tldraw. Only board/tldraw/** imports tldraw (P5-R1).
-import type { JSX } from 'react';
-import { type Editor, type TLComponents, Tldraw, type TldrawOptions } from 'tldraw';
+// tldraw 5.5.2 in the board panel: the canvas alone, in Tassel's theme, on P1's dotted board,
+// with Ada's shapes and effects. BoardPanel loads this module lazily, so a session that never
+// shows the board never loads tldraw, and gets back a BoardEngine, never an Editor: nothing
+// outside board/tldraw/** imports tldraw (P5-R1, review M15).
+import type { Lang } from '@tassel/shared/i18n';
+import { type JSX, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+  ArrowShapeUtil,
+  type TLComponents,
+  type TLShape,
+  Tldraw,
+  type TldrawOptions,
+} from 'tldraw';
+import type { BoardEngine } from '../engine';
+import { prefersReducedMotion } from '../motion';
 import { BOARD_ASSET_URLS } from './assets';
+import { BoardLang } from './board-lang';
+import { AdaEffectsOverlayUtil } from './effects';
+import { createTldrawEngine, type TldrawEngine } from './engine';
+import { NoteShapeUtil } from './shapes/NoteShape';
+import { StateShapeUtil } from './shapes/StateShape';
+import { TraceShapeUtil } from './shapes/TraceShape';
 import { TASSEL_THEME } from './theme';
 import './board.css';
 
@@ -34,31 +51,80 @@ const COMPONENTS: TLComponents = {
   ErrorFallback: PassErrorOn,
 };
 
+const SHAPE_UTILS = [
+  StateShapeUtil,
+  TraceShapeUtil,
+  NoteShapeUtil,
+  // Ada's transitions label in Geist Mono 15, smaller than tldraw's thinnest size sets them.
+  ArrowShapeUtil.configure({
+    getCustomDisplayValues: (_editor, shape) =>
+      shape.meta.ada === true ? { labelFontSize: 15 } : {},
+  }),
+];
+
+const OVERLAY_UTILS = [AdaEffectsOverlayUtil];
+
+/** What Ada hasn't revealed is neither drawn nor hit by the student's tools (P5-R5, I2). */
+function hideUnrevealed(shape: TLShape): 'hidden' | 'inherit' {
+  return shape.meta.hidden === true ? 'hidden' : 'inherit';
+}
+
 /** Accepts pasted or dropped files and links and does nothing with them. */
 function ignore(): void {}
 
-export function TldrawCanvas({ onEditor }: { onEditor(editor: Editor | null): void }): JSX.Element {
+export function TldrawCanvas({
+  lang,
+  onEngine,
+}: {
+  /** The session's language, which Ada's board speaks. */
+  lang: Lang;
+  onEngine(engine: BoardEngine | null): void;
+}): JSX.Element {
+  const { i18n } = useTranslation();
+  const engine = useRef<TldrawEngine | null>(null);
+  // The engine starts in the language of the moment it's made, then follows it.
+  const current = useRef(lang);
+  current.current = lang;
+  useEffect(() => {
+    engine.current?.setLang(lang);
+  }, [lang]);
+
   return (
-    <Tldraw
-      className="board-tldraw"
-      licenseKey={LICENSE_KEY}
-      hideUi
-      autoFocus={false}
-      colorScheme="light"
-      themes={THEMES}
-      initialTheme="tassel"
-      assetUrls={BOARD_ASSET_URLS}
-      options={OPTIONS}
-      components={COMPONENTS}
-      onMount={(editor) => {
-        // M, B and C are the session's (R18); tldraw's single letters would take B and C.
-        editor.user.updateUserPreferences({ areKeyboardShortcutsEnabled: false });
-        // A pasted link would fetch its preview, and a file has nowhere to go.
-        editor.registerExternalContentHandler('files', ignore);
-        editor.registerExternalContentHandler('url', ignore);
-        onEditor(editor);
-        return () => onEditor(null);
-      }}
-    />
+    <BoardLang value={lang}>
+      <Tldraw
+        className="board-tldraw"
+        licenseKey={LICENSE_KEY}
+        hideUi
+        autoFocus={false}
+        colorScheme="light"
+        themes={THEMES}
+        initialTheme="tassel"
+        assetUrls={BOARD_ASSET_URLS}
+        options={OPTIONS}
+        components={COMPONENTS}
+        shapeUtils={SHAPE_UTILS}
+        overlayUtils={OVERLAY_UTILS}
+        getShapeVisibility={hideUnrevealed}
+        onMount={(editor) => {
+          // M, B and C are the session's (R18); tldraw's single letters would take B and C.
+          editor.user.updateUserPreferences({ areKeyboardShortcutsEnabled: false });
+          // A pasted link would fetch its preview, and a file has nowhere to go.
+          editor.registerExternalContentHandler('files', ignore);
+          editor.registerExternalContentHandler('url', ignore);
+          const made = createTldrawEngine(editor, {
+            lang: current.current,
+            t: (key, opts) => i18n.t(key, opts),
+            reducedMotion: prefersReducedMotion,
+          });
+          engine.current = made;
+          onEngine(made);
+          return () => {
+            onEngine(null);
+            made.dispose();
+            if (engine.current === made) engine.current = null;
+          };
+        }}
+      />
+    </BoardLang>
   );
 }

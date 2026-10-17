@@ -8,3 +8,24 @@
 .tl-container.board-tldraw {
   --tl-color-background: var(--color-paper);
 }
+
+/*
+ * Ada's shapes fade in as she reveals them. An unrevealed shape isn't drawn at all (it's hidden
+ * from tldraw, so the student can't hit it either: P5-R5, I2); tldraw mounts it when she reveals
+ * it, and this entry runs then. MOTION.revealMs and MOTION.ease (board/motion.ts).
+ */
+.tl-shape[data-shape-id^="shape:ada."] {
+  animation: ada-reveal 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes ada-reveal {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-shape[data-shape-id^="shape:ada."] {
+    animation: none;
+  }
+}
