@@ -105,3 +105,15 @@ private let rejected = AuthDecision.rejected(closeCode: 4401)
     !originAllowed([(name: "Origin", value: "app://tassel"), (name: "Origin", value: "https://example.com")]))
   #expect(!originAllowed([(name: "Origin", value: "app://tassel"), (name: "origin", value: "app://tassel")]))
 }
+
+@Test func aTokenIs64HexCharacters() {
+  #expect(isWellFormedToken(token))
+  #expect(isWellFormedToken(token.uppercased()))
+  #expect(!isWellFormedToken(""))
+  #expect(!isWellFormedToken(String(token.dropLast())))
+  #expect(!isWellFormedToken(token + "0"))
+  #expect(!isWellFormedToken(String(token.dropLast()) + "g"))
+  #expect(!isWellFormedToken(String(token.dropLast()) + " "))
+  // Non-ASCII digits are not hex, even where Unicode calls them digits.
+  #expect(!isWellFormedToken(String(token.dropLast()) + "٣"))
+}

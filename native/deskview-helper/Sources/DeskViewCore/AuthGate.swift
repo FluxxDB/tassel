@@ -12,6 +12,13 @@ public func originAllowed(_ headers: [(name: String, value: String)]) -> Bool {
   return allowedOrigins.contains(origin.value.trimmingCharacters(in: CharacterSet(charactersIn: " \t")))
 }
 
+/// Whether a per-launch token has the form Electron gives it: 64 hex characters (32 random
+/// bytes). The helper exits 64 at launch otherwise.
+public func isWellFormedToken(_ token: String) -> Bool {
+  token.utf8.count == 64
+    && token.utf8.allSatisfy { (0x30...0x39).contains($0) || (0x41...0x46).contains($0) || (0x61...0x66).contains($0) }
+}
+
 public enum AuthDecision: Equatable, Sendable {
   /// The first message was the right `hello`: answer with `welcome`.
   case accepted

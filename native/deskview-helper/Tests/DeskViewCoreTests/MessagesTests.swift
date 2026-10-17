@@ -106,3 +106,7 @@ private func isBadMessage(_ text: String) -> Bool {
   let parsed = try #require(try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: String])
   #expect(parsed["message"] == "said \"no\"/twice\n")
 }
+
+@Test func readyLineIsTheContractLine() {
+  #expect(readyLine(port: 54_321) == #"{"event":"ready","port":54321,"protocol":1}"#)
+}

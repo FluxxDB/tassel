@@ -87,6 +87,11 @@ public enum ServerMessage: Equatable, Sendable {
   case setup(result: String, message: String?)
 }
 
+/// The helper's first stdout line, once it listens on 127.0.0.1.
+public func readyLine(port: UInt16) -> String {
+  #"{"event":"ready","port":\#(port),"protocol":\#(protocolVersion)}"#
+}
+
 /// Decodes one text message: a JSON object whose `type` names the message. Fields it doesn't
 /// know are ignored.
 public func decodeClientMessage(_ text: String) throws(HelperError) -> ClientMessage {
