@@ -1,5 +1,6 @@
 // Helpers for E2E specs. They drive the built app, so run `pnpm --filter @tassel/desktop build`
 // first.
+
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,6 +10,12 @@ import {
   expect,
   type Page,
 } from '@playwright/test';
+import type { Session, SessionType } from '@tassel/shared/api';
+import type { Lang } from '@tassel/shared/i18n';
+import en from '../../../../packages/shared/src/i18n/en.json';
+import es from '../../../../packages/shared/src/i18n/es.json';
+import ko from '../../../../packages/shared/src/i18n/ko.json';
+import timelines from '../fixtures/audio/timelines.json';
 
 /**
  * The E2E server, which global-setup.ts starts. TASSEL_E2E_PORT moves it off the default 8799,
@@ -41,6 +48,7 @@ export async function launchApp(
       TASSEL_SERVER_URL: E2E_SERVER_URL,
       TASSEL_TOKEN_STORE: 'file',
       TASSEL_FAKE_SPEED: '20',
+      TASSEL_TUTOR: 'fake',
       ...(ownUserData && { TASSEL_USER_DATA: ownUserData }),
       ...env,
     },
@@ -53,6 +61,61 @@ export async function launchApp(
     app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isVisible());
   await expect.poll(isVisible, { timeout: 15_000 }).toBe(true);
   return { app, page };
+}
+
+/** Voice tests always pin a valid fake mic before starting Electron. */
+export type MicFixture = keyof typeof timelines.fixtures;
+export async function launchVoice(
+  opts: { mic?: MicFixture; env?: Record<string, string> } = {},
+): Promise<{ app: ElectronApplication; page: Page }> {
+  const mic = opts.mic ?? 'silence';
+  const file = join(appDir, 'tests', 'fixtures', 'audio', `${mic}.wav`);
+  // Missing fixtures must fail closed in E2E, never fall back to the owner's microphone.
+  if (!existsSync(file)) throw new Error(`Missing voice fixture: ${file}`);
+  const fixture = timelines.fixtures[mic];
+  return launchApp({
+    ...opts.env,
+    TASSEL_TUTOR: 'live',
+    TASSEL_FAKE_MIC: file,
+    TASSEL_FAKE_MIC_LOOP: 'loop' in fixture && fixture.loop ? '1' : '0',
+  });
+}
+
+/** UI creation, always Just talk, then the newest session via the authenticated API. */
+export async function startVoiceSession(
+  page: Page,
+  opts: { language: Lang; type?: SessionType },
+): Promise<string> {
+  const config = await page.evaluate(() => window.tassel.getConfig());
+  const catalog = { en, es, ko }[config.uiLanguage];
+  await page
+    .getByRole('banner')
+    .getByRole('button', { name: catalog.library.newSession, exact: true })
+    .click();
+  const sheet = page.getByRole('dialog', { name: catalog.newSession.title, exact: true });
+  await sheet
+    .getByRole('radio', { name: catalog.newSession.type[opts.type ?? 'homework'], exact: true })
+    .click();
+  await sheet
+    .getByRole('radio', { name: catalog.newSession.language[opts.language], exact: true })
+    .click();
+  await sheet.getByRole('radio', { name: catalog.newSession.source.talk, exact: true }).click();
+  const created = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/v1/sessions' && response.request().method() === 'POST',
+  );
+  await sheet.getByRole('button', { name: catalog.newSession.start, exact: true }).click();
+  expect((await created).ok()).toBe(true);
+  await expect(sheet).toBeHidden();
+  const token = await page.evaluate(() => window.tassel.getToken());
+  const response = await fetch(`${config.serverUrl}/v1/sessions?sort=created`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error(`Session list failed: ${response.status}`);
+  const { items } = (await response.json()) as { items: Session[] };
+  const newest = items[0];
+  if (!newest) throw new Error('New voice session missing from API');
+  return newest.id;
 }
 
 /**
