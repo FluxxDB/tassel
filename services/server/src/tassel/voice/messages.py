@@ -53,7 +53,7 @@ class RouteEvent(_Message):
     kind: Literal["route"] = "route"
     lang: Lang
     stt: SttKind
-    llm: Literal["openrouter", "fake"]
+    llm: Literal["openrouter", "openai", "fake"]
     tts: Literal["elevenlabs", "fake"]
 
 

@@ -2,11 +2,14 @@
 
 Set ``TASSEL_TEST_DATABASE_URL`` to test against another database. The default is
 ``tassel_test`` on the Docker Compose Postgres (``docker compose up -d db``).
+
+Every test runs without the developer's voice settings and keys (``scrub_voice_env``).
 """
 
 import asyncio
 import os
 from collections.abc import AsyncIterator, Iterator
+from fnmatch import fnmatchcase
 from pathlib import Path
 
 import httpx
@@ -27,6 +30,30 @@ TEST_DATABASE_URL = os.environ.get(
     "TASSEL_TEST_DATABASE_URL",
     "postgresql+psycopg://tassel:tassel@127.0.0.1:54329/tassel_test",
 )
+
+
+_VOICE_KEYS = ("DEEPGRAM_API_KEY", "OPENROUTER_API_KEY", "ELEVENLABS_API_KEY", "OPENAI_API_KEY")
+
+
+def _is_voice_setting(name: str) -> bool:
+    return (
+        name in _VOICE_KEYS
+        or fnmatchcase(name, "TASSEL_*PROVIDER*")
+        or fnmatchcase(name, "TASSEL_VOICE_*")
+    )
+
+
+@pytest.fixture(autouse=True)
+def scrub_voice_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test reaches a live provider or reads services/server/.env (P2-R16).
+
+    Deletes every ``TASSEL_*PROVIDER*`` and ``TASSEL_VOICE_*`` variable and the four provider
+    keys, and sets ``TASSEL_VOICE_ENV_FILE`` to empty, so ``VoiceSettings.load()`` reads no file
+    and every provider is fake. A test that wants live settings constructs ``VoiceSettings(...)``.
+    """
+    for name in [name for name in os.environ if _is_voice_setting(name)]:
+        monkeypatch.delenv(name)
+    monkeypatch.setenv("TASSEL_VOICE_ENV_FILE", "")
 
 
 def pytest_asyncio_loop_factories(config, item):

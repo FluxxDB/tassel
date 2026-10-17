@@ -52,6 +52,104 @@
         "title": "HealthOut",
         "type": "object"
       },
+      "IceCandidateIn": {
+        "properties": {
+          "candidate": {
+            "title": "Candidate",
+            "type": "string"
+          },
+          "sdp_mid": {
+            "title": "Sdp Mid",
+            "type": "string"
+          },
+          "sdp_mline_index": {
+            "title": "Sdp Mline Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "candidate",
+          "sdp_mid",
+          "sdp_mline_index"
+        ],
+        "title": "IceCandidateIn",
+        "type": "object"
+      },
+      "IcePatch": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/IceCandidateIn"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "pc_id": {
+            "title": "Pc Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pc_id",
+          "candidates"
+        ],
+        "title": "IcePatch",
+        "type": "object"
+      },
+      "IceServerOut": {
+        "properties": {
+          "credential": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential"
+          },
+          "urls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Urls",
+            "type": "array"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "urls"
+        ],
+        "title": "IceServerOut",
+        "type": "object"
+      },
+      "IceServersOut": {
+        "properties": {
+          "ice_servers": {
+            "items": {
+              "$ref": "#/components/schemas/IceServerOut"
+            },
+            "title": "Ice Servers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ice_servers"
+        ],
+        "title": "IceServersOut",
+        "type": "object"
+      },
       "MeOut": {
         "properties": {
           "learner_id": {
@@ -74,6 +172,115 @@
           "ui_language"
         ],
         "title": "MeOut",
+        "type": "object"
+      },
+      "OfferAnswer": {
+        "properties": {
+          "pc_id": {
+            "title": "Pc Id",
+            "type": "string"
+          },
+          "sdp": {
+            "title": "Sdp",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sdp",
+          "type",
+          "pc_id"
+        ],
+        "title": "OfferAnswer",
+        "type": "object"
+      },
+      "OfferBody": {
+        "additionalProperties": false,
+        "properties": {
+          "pc_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pc Id"
+          },
+          "requestData": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OfferRequestData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "restart_pc": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restart Pc"
+          },
+          "sdp": {
+            "title": "Sdp",
+            "type": "string"
+          },
+          "type": {
+            "const": "offer",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sdp",
+          "type"
+        ],
+        "title": "OfferBody",
+        "type": "object"
+      },
+      "OfferRequestData": {
+        "additionalProperties": false,
+        "description": "The RTVI ``requestData`` of a voice offer.",
+        "properties": {
+          "ptt": {
+            "default": false,
+            "title": "Ptt",
+            "type": "boolean"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          },
+          "sensitivity": {
+            "default": "normal",
+            "enum": [
+              "low",
+              "normal",
+              "high"
+            ],
+            "title": "Sensitivity",
+            "type": "string"
+          }
+        },
+        "title": "OfferRequestData",
         "type": "object"
       },
       "SessionCreate": {
@@ -656,6 +863,151 @@
         "summary": "Patch Session",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/voice/offer": {
+      "patch": {
+        "operationId": "patch_ice_v1_sessions__session_id__voice_offer_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IcePatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "Session or peer connection not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Patch Ice",
+        "tags": [
+          "voice"
+        ]
+      },
+      "post": {
+        "operationId": "offer_v1_sessions__session_id__voice_offer_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfferAnswer"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "Session not found"
+          },
+          "409": {
+            "description": "Peer connection ended or unknown"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "Voice unavailable"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Offer",
+        "tags": [
+          "voice"
+        ]
+      }
+    },
+    "/v1/voice/ice-servers": {
+      "get": {
+        "operationId": "ice_servers_v1_voice_ice_servers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IceServersOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Ice Servers",
+        "tags": [
+          "voice"
         ]
       }
     }
