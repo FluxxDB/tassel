@@ -6,12 +6,16 @@ import type { TokenStore } from './token-store';
 import { isTrustedUrl } from './windows';
 
 export function registerIpc(tokens: TokenStore): void {
-  handle(IPC.getConfig, async () => ({ ...readConfig(), tokenReset: await tokens.wasReset() }));
-  handle(IPC.getToken, () => tokens.getToken());
-  handle(IPC.refreshToken, () => tokens.refreshToken());
+  handleTrusted(IPC.getConfig, async () => ({
+    ...readConfig(),
+    tokenReset: await tokens.wasReset(),
+  }));
+  handleTrusted(IPC.getToken, () => tokens.getToken());
+  handleTrusted(IPC.refreshToken, () => tokens.refreshToken());
 }
 
-function handle(channel: string, respond: () => unknown): void {
+/** Handles an IPC channel, refusing any sender outside the renderer's origin. */
+export function handleTrusted(channel: string, respond: () => unknown): void {
   ipcMain.handle(channel, (event) => {
     if (!isTrustedSender(event)) throw new Error(`Refused ${channel} from an untrusted sender`);
     return respond();

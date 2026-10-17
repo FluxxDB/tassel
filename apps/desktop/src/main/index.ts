@@ -1,15 +1,37 @@
 // The main process: app lifecycle, the single-instance lock and the app:// origin.
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, BrowserWindow, net, safeStorage, session } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  desktopCapturer,
+  net,
+  safeStorage,
+  session,
+  shell,
+  systemPreferences,
+} from 'electron';
 import { handleAppProtocol, registerAppScheme } from './app-protocol';
 import { applyUserDataOverride, readConfig, tokenStoreMode } from './config';
 import { registerIpc } from './ipc';
+import { createCameraAccess } from './paper/camera-access';
+import { readPaperSettings } from './paper/config';
+import { registerDisplayMedia } from './paper/display-media';
+import { helperPath } from './paper/helper-path';
+import { createHelperSupervisor, helperToken } from './paper/helper-supervisor';
+import { registerPaperIpc } from './paper/ipc';
+import { bindHelperToApp } from './paper/lifecycle';
+import { applyPaperSwitches } from './paper/switches';
 import { createTokenStore } from './token-store';
-import { createMainWindow, hardenWebContents, restrictPermissions } from './windows';
+import { createMainWindow, hardenWebContents, isTrustedUrl, restrictPermissions } from './windows';
 
 // First, because the single-instance lock lives in userData: E2E runs, each with its own
 // TASSEL_USER_DATA, never block one another.
 applyUserDataOverride();
+// Paper's settings, and the fake camera's switches, which must be in before the app is ready.
+const paper = readPaperSettings();
+applyPaperSwitches(app.commandLine, paper);
 registerAppScheme();
 app.enableSandbox();
 
@@ -26,6 +48,7 @@ if (!app.requestSingleInstanceLock()) {
     .then(() => {
       handleAppProtocol(join(__dirname, '../renderer'));
       restrictPermissions(session.defaultSession);
+      registerPaper();
       registerIpc(
         createTokenStore({
           dir: app.getPath('userData'),
@@ -45,6 +68,45 @@ if (!app.requestSingleInstanceLock()) {
       console.error('[tassel] Startup failed:', error);
       app.exit(1);
     });
+}
+
+/** Paper (P3): display media for window and screen capture, and the Desk View helper. */
+function registerPaper(): void {
+  const { platform } = process;
+  registerDisplayMedia(session.defaultSession, {
+    platform,
+    macosMajor: platform === 'darwin' ? Number.parseInt(process.getSystemVersion(), 10) : null,
+    fakeDisplay: paper.fakeDisplay,
+    requireFake: paper.requireFake,
+    getSources: (options) => desktopCapturer.getSources(options),
+    isTrusted: isTrustedUrl,
+  });
+  const helper = createHelperSupervisor({
+    path: helperPath(paper, {
+      packaged: app.isPackaged,
+      resourcesPath: process.resourcesPath,
+      startDir: __dirname,
+      platform,
+      exists: existsSync,
+    }),
+    platform,
+    clip: paper.helperClipPath,
+    tag: paper.helperTag,
+    requireFake: paper.requireFake,
+    spawn,
+    randomToken: helperToken,
+    log: (line) => console.log(line),
+  });
+  const camera = createCameraAccess({
+    platform,
+    systemPreferences,
+    openExternal: (url) => shell.openExternal(url),
+    fake: paper.fakeCameraAccess,
+    requireFake: paper.requireFake,
+    log: (line) => console.log(line),
+  });
+  registerPaperIpc({ config: paper.config, helper, camera });
+  bindHelperToApp(app, helper);
 }
 
 function focusMainWindow(): void {

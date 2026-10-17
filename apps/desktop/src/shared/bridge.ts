@@ -1,5 +1,6 @@
 // The typed preload bridge, window.tassel: the renderer's only way into the main process.
 import type { Lang } from '@tassel/shared/i18n';
+import type { PaperBridge } from './paper-bridge';
 
 export type Platform = 'darwin' | 'win32' | 'linux';
 
@@ -21,6 +22,8 @@ export interface TasselBridge {
   getConfig(): Promise<AppConfig>;
   getToken(): Promise<string>;
   refreshToken(): Promise<string>;
+  /** Paper (P3): its source config, the Desk View helper and camera access. */
+  paper: PaperBridge;
 }
 
 /** The IPC channels behind the bridge. src/main/ipc.ts handles each one. */
