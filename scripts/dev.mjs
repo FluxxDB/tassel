@@ -1,15 +1,21 @@
 // `pnpm dev`: the whole local stack in one terminal.
-//   1. Postgres: `docker compose up -d --wait db`.
+//   1. Postgres and local S3 (frames): `docker compose up -d --wait db s3`.
 //   2. The dev database's migrations: `uv run alembic upgrade head` in services/server.
-//   3. The server (`uv run tassel-server`, port 8787), then, once it answers, the desktop app
+//   3. On macOS, the Desk View helper: `node scripts/native.mjs build` (a warning, not a
+//      failure, without Swift).
+//   4. The server (`uv run tassel-server`, port 8787), then, once it answers, the desktop app
 //      (`electron-vite dev` in apps/desktop), side by side with [server] and [app] logs.
-//   4. Ctrl+C, or either one exiting, stops both.
+//   5. Ctrl+C, or either one exiting, stops both.
+// Paper uses the real source (R39): the Desk View camera on macOS. TASSEL_PAPER_SOURCE=fake-clip
+// plays the generated demo clip instead, with real capture refused (scripts/paper-env.mjs).
+// Every TASSEL_* setting in the shell reaches the app.
 // cross-spawn runs docker, uv and node without a shell, so this runs on macOS and Windows.
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import spawn from 'cross-spawn';
+import { devPaperEnv } from './paper-env.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const serverDir = join(root, 'services', 'server');
@@ -38,6 +44,38 @@ function step(task, command, args, cwd = root) {
   if (result.error) throw new Error(`Couldn't ${task}: ${result.error.message}`);
   if (result.status !== 0) {
     throw new Error(`Couldn't ${task} (${result.signal ?? `exit ${result.status}`}).`);
+  }
+}
+
+/** The demo clip (paper-synth's dfa-demo), generated into .cache/paper-clips if it's missing. */
+function demoClip() {
+  console.log('[dev] Getting the demo paper clip…');
+  const genClip = join(root, 'packages', 'paper-synth', 'scripts', 'gen-clip.ts');
+  const clips = join(root, '.cache', 'paper-clips');
+  const result = spawn.sync(process.execPath, [genClip, '--variant', 'dfa-demo', '--out', clips], {
+    cwd: root,
+    encoding: 'utf8',
+  });
+  if (result.error || result.status !== 0) {
+    throw new Error(`Couldn't make the demo clip: ${result.error?.message ?? result.stderr}`);
+  }
+  const { mjpeg } = JSON.parse(result.stdout.trim().split('\n').at(-1) ?? '{}');
+  if (!mjpeg) throw new Error('gen-clip named no demo clip.');
+  return mjpeg;
+}
+
+/** Builds the Desk View helper on macOS. Without Swift, paper says the camera is unavailable. */
+function buildHelper() {
+  if (process.platform !== 'darwin') return;
+  console.log('[dev] Building the Desk View helper…');
+  const result = spawn.sync(process.execPath, [join(root, 'scripts', 'native.mjs'), 'build'], {
+    cwd: root,
+    stdio: 'inherit',
+  });
+  if (result.error || result.status !== 0) {
+    console.warn(
+      "[dev] Warning: the Desk View helper didn't build (is Swift installed? xcode-select --install). Paper will say Desk View is unavailable.",
+    );
   }
 }
 
@@ -133,8 +171,15 @@ async function main() {
   if (await isHealthy()) {
     throw new Error(`Something already answers ${healthUrl}. Stop it, then rerun pnpm dev.`);
   }
-  step('start Postgres', 'docker', ['compose', 'up', '-d', '--wait', 'db']);
+  step('start Postgres and local S3', 'docker', ['compose', 'up', '-d', '--wait', 'db', 's3']);
   step('migrate the dev database', 'uv', ['run', 'alembic', 'upgrade', 'head'], serverDir);
+  buildHelper();
+  const paper = devPaperEnv(process.env, demoClip);
+  console.log(
+    paper.real
+      ? '[dev] Paper: the real source (on macOS, the Desk View camera). For the demo clip instead: TASSEL_PAPER_SOURCE=fake-clip pnpm dev'
+      : `[dev] Paper: ${process.env.TASSEL_PAPER_SOURCE}${paper.add.TASSEL_FAKE_CLIP ? ` on ${paper.add.TASSEL_FAKE_CLIP}` : ''}, no real camera.`,
+  );
 
   // uv passes SIGTERM on to the server, which shuts down cleanly.
   const server = start('server', 'uv', ['run', 'tassel-server'], {
@@ -159,6 +204,7 @@ async function main() {
     stopSignal: 'SIGINT',
     env: {
       ...process.env,
+      ...paper.add,
       // The plaintext token store keeps dev runs free of keychain prompts.
       TASSEL_TOKEN_STORE: process.env.TASSEL_TOKEN_STORE || 'file',
       TASSEL_SERVER_URL: process.env.TASSEL_SERVER_URL || `http://127.0.0.1:${port}`,
