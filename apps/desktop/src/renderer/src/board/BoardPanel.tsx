@@ -10,6 +10,7 @@ import {
   type ReactNode,
   Suspense,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -17,7 +18,7 @@ import {
 import { useStageStore } from '../features/session/stage-store';
 import { BoardDescription } from './BoardDescription';
 import { type BoardState, useBoardStore } from './board-store';
-import type { BoardEngine } from './engine';
+import type { BoardEngine, StageGeometry, StageRect } from './engine';
 import { useSessionLang } from './use-session-lang';
 
 const TldrawCanvas = lazy(() =>
@@ -40,16 +41,42 @@ export function BoardPanel(): JSX.Element {
     return reset;
   }, []);
 
+  const engine = useRef<BoardEngine | null>(null);
   const detach = useRef<(() => void) | null>(null);
-  const onEngine = useCallback((engine: BoardEngine | null) => {
+  const onEngine = useCallback((next: BoardEngine | null) => {
     detach.current?.();
-    detach.current = engine ? useBoardStore.getState().attach(engine) : null;
+    engine.current = next;
+    detach.current = next ? useBoardStore.getState().attach(next) : null;
   }, []);
+
+  // What the stage lays over the board, measured when the camera fits (P5-R9): this panel, the
+  // session's main area, which places the captions, and whether captions are on.
+  const panel = useRef<HTMLDivElement>(null);
+  const stage = useCallback((): StageGeometry | null => {
+    const element = panel.current;
+    if (!element) return null;
+    return {
+      panel: boxOf(element),
+      main: boxOf(element.closest('main') ?? document.documentElement),
+      captions: useStageStore.getState().captionsOn,
+    };
+  }, []);
+
+  // The captions band is kept free whenever captions are on, so the camera fits again when
+  // they're turned on or off, and never as their lines come and go.
+  const captionsOn = useStageStore((state) => state.captionsOn);
+  const captionsFitted = useRef(captionsOn);
+  useEffect(() => {
+    if (captionsFitted.current === captionsOn) return;
+    captionsFitted.current = captionsOn;
+    engine.current?.focus(useBoardStore.getState().scene.focus, { animate: true });
+  }, [captionsOn]);
 
   return (
     // Isolated, so tldraw's own layers (its watermark sits at z-index 248) stay inside the panel.
     // `lang` is the session's: Ada's board speaks it, and Korean sets as Korean (keep-all).
     <div
+      ref={panel}
       data-testid="board-canvas"
       data-layout={layout}
       lang={lang}
@@ -58,13 +85,18 @@ export function BoardPanel(): JSX.Element {
       {wanted && (
         <CanvasBoundary>
           <Suspense fallback={null}>
-            <TldrawCanvas lang={lang} onEngine={onEngine} />
+            <TldrawCanvas lang={lang} onEngine={onEngine} stage={stage} />
           </Suspense>
         </CanvasBoundary>
       )}
       <BoardDescription />
     </div>
   );
+}
+
+function boxOf(element: Element): StageRect {
+  const { x, y, width, height } = element.getBoundingClientRect();
+  return { x, y, w: width, h: height };
 }
 
 /**

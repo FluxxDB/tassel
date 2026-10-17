@@ -25,15 +25,26 @@ const canvas = vi.hoisted(() => ({
     dispose: vi.fn(),
   },
   lang: [] as string[],
+  /** The stage geometry the panel hands the canvas (P5-R9). */
+  stage: null as null | (() => unknown),
 }));
 
 vi.mock('../../../src/renderer/src/board/tldraw/TldrawCanvas', async () => {
   const { createElement, useEffect } = await import('react');
   canvas.loaded();
   return {
-    TldrawCanvas: ({ lang, onEngine }: { lang: string; onEngine(engine: unknown): void }) => {
+    TldrawCanvas: ({
+      lang,
+      onEngine,
+      stage,
+    }: {
+      lang: string;
+      onEngine(engine: unknown): void;
+      stage(): unknown;
+    }) => {
       if (canvas.throws) throw new Error('tldraw failed to start');
       canvas.lang.push(lang);
+      canvas.stage = stage;
       useEffect(() => {
         onEngine(canvas.engine);
         return () => onEngine(null);
@@ -93,6 +104,8 @@ const DRAW: BoardAction = { kind: 'board.automaton', item: 'fix', spec: CORRECT,
 beforeEach(() => {
   canvas.loaded.mockClear();
   canvas.engine.render.mockClear();
+  canvas.engine.focus.mockClear();
+  canvas.stage = null;
   canvas.lang.length = 0;
   canvas.throws = false;
   layout.resolve = null;
@@ -174,6 +187,39 @@ describe('BoardPanel', () => {
     expect(panel).toHaveAttribute('data-layout', 'graphviz');
     act(() => fresh.board.setState({ layoutSources: { fix: 'graphviz', other: 'fallback' } }));
     expect(panel).toHaveAttribute('data-layout', 'fallback');
+  });
+
+  it("hands the canvas the stage's geometry, captions setting and all (P5-R9)", async () => {
+    const fresh = await freshPanel();
+    await renderPanel(fresh);
+    act(() => fresh.stage.getState().requestMode('split'));
+    await screen.findByTestId('tldraw');
+    // jsdom lays nothing out, so every box is empty; the app measures the panel and main.
+    const none = { x: 0, y: 0, w: 0, h: 0 };
+    expect(canvas.stage?.()).toEqual({ panel: none, main: none, captions: true });
+    act(() => fresh.stage.getState().toggleCaptions());
+    expect(canvas.stage?.()).toEqual({ panel: none, main: none, captions: false });
+  });
+
+  it("refits Ada's focus when captions go on or off, not as their lines come and go", async () => {
+    const fresh = await freshPanel();
+    await renderPanel(fresh);
+    act(() => fresh.stage.getState().requestMode('split'));
+    await screen.findByTestId('tldraw');
+    await waitFor(() => expect(canvas.engine.render).toHaveBeenCalled());
+    expect(canvas.engine.focus).not.toHaveBeenCalled();
+
+    act(() => fresh.stage.getState().pushCaption('tutor', "Here's one. We start at q0."));
+    act(() => fresh.stage.getState().pushCaption('student', 'Okay.'));
+    expect(canvas.engine.focus).not.toHaveBeenCalled();
+
+    act(() => fresh.stage.getState().toggleCaptions());
+    expect(canvas.engine.focus).toHaveBeenCalledTimes(1);
+    expect(canvas.engine.focus).toHaveBeenLastCalledWith(null, { animate: true });
+    act(() => fresh.board.getState().apply(DRAW));
+    act(() => fresh.stage.getState().toggleCaptions());
+    expect(canvas.engine.focus).toHaveBeenCalledTimes(2);
+    expect(canvas.engine.focus).toHaveBeenLastCalledWith('fix', { animate: true });
   });
 
   it('describes the board in a visually hidden list', async () => {

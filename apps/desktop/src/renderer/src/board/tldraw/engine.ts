@@ -12,7 +12,7 @@ import {
   type TLShapePartial,
   toRichText,
 } from 'tldraw';
-import type { BoardEngine, StudentBoardEdit } from '../engine';
+import type { BoardEngine, StageGeometry, StudentBoardEdit } from '../engine';
 import type { AutomatonLayout } from '../layout/types';
 import { prefersReducedMotion } from '../motion';
 import { type BoardText, type Box, placeItems } from '../scene/placement';
@@ -46,6 +46,11 @@ export function createTldrawEngine(
     reducedMotion?: () => boolean;
     /** What to watch for size changes; the editor's container by default. */
     container?: HTMLElement;
+    /**
+     * Where the stage lays things over the board (P5-R9), measured when the camera fits. Without
+     * it, or while it's null, the camera makes the plain fit.
+     */
+    stage?: () => StageGeometry | null;
   },
 ): TldrawEngine {
   let lang = opts.lang;
@@ -65,14 +70,23 @@ export function createTldrawEngine(
   /** What the camera fitted last: an item (or null for everything) and its box. */
   let fitted: string | null = null;
 
-  /** The camera on `item`'s box, or on every item's for null; false when there's none yet. */
+  /**
+   * The camera on `item`'s box, or on every item's for null, clear of what the stage lays over the
+   * board; false when there's nothing to fit, or no room yet. The container says how it fitted
+   * (data-fit: clear, no-captions or plain), so specs can tell.
+   */
   const frame = (item: string | null, animate: boolean): boolean => {
     if (!drawn) return false;
     const boxes = placeItems(drawn.scene, drawn.layouts, text());
     const bounds = item === null ? union(Object.values(boxes)) : boxes[item];
     if (!bounds) return false;
     const key = JSON.stringify([item, bounds]);
-    if (!fitCamera(editor, bounds, { animate: animate && !reduced() })) return false;
+    const fit = fitCamera(editor, bounds, {
+      animate: animate && !reduced(),
+      stage: opts.stage?.() ?? null,
+    });
+    if (!fit) return false;
+    editor.getContainer().dataset.fit = fit.stage;
     fitted = key;
     return true;
   };

@@ -6,22 +6,13 @@
 import type { Lang } from '@tassel/shared/i18n';
 import { type JSX, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  ArrowShapeUtil,
-  type TLComponents,
-  type TLShape,
-  Tldraw,
-  type TldrawOptions,
-} from 'tldraw';
-import type { BoardEngine } from '../engine';
+import { type TLComponents, Tldraw, type TldrawOptions } from 'tldraw';
+import type { BoardEngine, StageGeometry } from '../engine';
 import { prefersReducedMotion } from '../motion';
 import { BOARD_ASSET_URLS } from './assets';
 import { BoardLang } from './board-lang';
-import { AdaEffectsOverlayUtil } from './effects';
+import { hideUnrevealed, OVERLAY_UTILS, SHAPE_UTILS } from './editor-config';
 import { createTldrawEngine, type TldrawEngine } from './engine';
-import { NoteShapeUtil } from './shapes/NoteShape';
-import { StateShapeUtil } from './shapes/StateShape';
-import { TraceShapeUtil } from './shapes/TraceShape';
 import { TASSEL_THEME } from './theme';
 import './board.css';
 
@@ -51,40 +42,27 @@ const COMPONENTS: TLComponents = {
   ErrorFallback: PassErrorOn,
 };
 
-const SHAPE_UTILS = [
-  StateShapeUtil,
-  TraceShapeUtil,
-  NoteShapeUtil,
-  // Ada's transitions label in Geist Mono 15, smaller than tldraw's thinnest size sets them.
-  ArrowShapeUtil.configure({
-    getCustomDisplayValues: (_editor, shape) =>
-      shape.meta.ada === true ? { labelFontSize: 15 } : {},
-  }),
-];
-
-const OVERLAY_UTILS = [AdaEffectsOverlayUtil];
-
-/** What Ada hasn't revealed is neither drawn nor hit by the student's tools (P5-R5, I2). */
-function hideUnrevealed(shape: TLShape): 'hidden' | 'inherit' {
-  return shape.meta.hidden === true ? 'hidden' : 'inherit';
-}
-
 /** Accepts pasted or dropped files and links and does nothing with them. */
 function ignore(): void {}
 
 export function TldrawCanvas({
   lang,
   onEngine,
+  stage,
 }: {
   /** The session's language, which Ada's board speaks. */
   lang: Lang;
   onEngine(engine: BoardEngine | null): void;
+  /** Where the stage lays things over the board, for the camera's fit (P5-R9). */
+  stage(): StageGeometry | null;
 }): JSX.Element {
   const { i18n } = useTranslation();
   const engine = useRef<TldrawEngine | null>(null);
   // The engine starts in the language of the moment it's made, then follows it.
   const current = useRef(lang);
   current.current = lang;
+  const stageNow = useRef(stage);
+  stageNow.current = stage;
   useEffect(() => {
     engine.current?.setLang(lang);
   }, [lang]);
@@ -115,6 +93,7 @@ export function TldrawCanvas({
             lang: current.current,
             t: (key, opts) => i18n.t(key, opts),
             reducedMotion: prefersReducedMotion,
+            stage: () => stageNow.current(),
           });
           engine.current = made;
           onEngine(made);

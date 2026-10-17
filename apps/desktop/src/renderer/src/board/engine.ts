@@ -19,6 +19,26 @@ export interface StudentBoardEdit {
   automata: AutomatonSpec[];
 }
 
+/** A box in CSS px: its top left, width and height. */
+export interface StageRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Where the stage lays things over the board, as the board panel measures it (ruling P5-R9): the
+ * panel and the session's main area in window px, and whether captions are on. Her tile, the
+ * panel's TopLine and the captions band follow from these.
+ */
+export interface StageGeometry {
+  panel: StageRect;
+  /** The session's main area: its bottom and width place the captions. */
+  main: StageRect;
+  captions: boolean;
+}
+
 export interface BoardEngine {
   /** Draws `scene`, changing only what changed since the last call. */
   render(scene: BoardScene, layouts: Readonly<Record<string, AutomatonLayout>>): void;
