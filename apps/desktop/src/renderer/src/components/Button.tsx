@@ -5,14 +5,14 @@ import { cn } from '../lib/cn';
 
 export interface ButtonProps extends ComponentPropsWithRef<'button'> {
   variant?: 'primary' | 'ghost';
-  /** Height: sm 36px (title strips), md 40px, lg 48px (sheets and the dock). */
+  /** Height: sm 36px (title strips), md 40px, lg 48px (sheets, the dock and state CTAs). */
   size?: 'sm' | 'md' | 'lg';
 }
 
 const SIZES = {
   sm: 'h-9 px-4 text-sm',
   md: 'h-10 px-5 text-sm',
-  lg: 'h-12 px-6 text-[15px]',
+  lg: 'h-12 px-[22px] text-sm',
 } as const;
 
 const VARIANTS = {
@@ -31,7 +31,8 @@ export function Button({
     <button
       type={type}
       className={cn(
-        'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-pill font-w520 transition-colors duration-150 disabled:pointer-events-none disabled:opacity-40',
+        // Colors only: a transition on outline-color would fade the focus ring in.
+        'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-pill font-w520 transition-[color,background-color] duration-150 disabled:pointer-events-none disabled:opacity-40',
         SIZES[size],
         VARIANTS[variant],
         className,

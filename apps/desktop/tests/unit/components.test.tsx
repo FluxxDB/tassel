@@ -2,6 +2,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
+import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it, vi } from 'vitest';
 import { AppFrame } from '../../src/renderer/src/app/AppFrame';
 import { Button } from '../../src/renderer/src/components/Button';
@@ -21,6 +22,8 @@ import {
 } from '../../src/renderer/src/components/icons';
 import { SegmentedControl } from '../../src/renderer/src/components/SegmentedControl';
 import { Sheet } from '../../src/renderer/src/components/Sheet';
+import { Wordmark } from '../../src/renderer/src/components/Wordmark';
+import { initI18n } from '../../src/renderer/src/i18n';
 
 const SORTS = [
   { value: 'recent', label: 'Recent activity' },
@@ -39,6 +42,20 @@ describe('Button', () => {
     );
   });
 
+  it("lg is a 48px pill on the 14px type scale, with the mock's 22px sides", () => {
+    render(<Button size="lg">End session</Button>);
+    const button = screen.getByRole('button', { name: 'End session' });
+    expect(button).toHaveClass('h-12', 'px-[22px]', 'text-sm');
+    expect(button).not.toHaveClass('text-[15px]');
+  });
+
+  it('transitions only its colors, so the focus ring appears at once', () => {
+    render(<Button>Start</Button>);
+    const button = screen.getByRole('button', { name: 'Start' });
+    expect(button).toHaveClass('transition-[color,background-color]');
+    expect(button).not.toHaveClass('transition-colors');
+  });
+
   it('ghost is a text button with no fill, and never submits a form by default', () => {
     render(<Button variant="ghost">Cancel</Button>);
     const button = screen.getByRole('button', { name: 'Cancel' });
@@ -52,6 +69,11 @@ describe('Chip', () => {
   it('Chip renders mono uppercase', () => {
     render(<Chip>Homework</Chip>);
     expect(screen.getByText('Homework')).toHaveClass('mono', 'bg-paper', 'rounded-pill');
+  });
+
+  it("is 22px tall, as the mock's chips are: 14px lines inside 4px padding", () => {
+    render(<Chip>Homework</Chip>);
+    expect(screen.getByText('Homework')).toHaveClass('leading-[14px]', 'py-1');
   });
 });
 
@@ -132,6 +154,18 @@ describe('SegmentedControl', () => {
     expect(onChange).not.toHaveBeenCalledWith('paper');
   });
 
+  it('keeps the global 2px ring offset on a focused segment, so the ring clears the ink pill', async () => {
+    const user = userEvent.setup();
+    render(<SegmentedControl label="Sort" options={SORTS} value="recent" onChange={() => {}} />);
+    await user.tab();
+    const focused = screen.getByRole('radio', { name: 'Recent activity' });
+    expect(focused).toHaveFocus();
+    expect(focused).toHaveClass('bg-ink');
+    // Nothing on the item may cancel the 2px offset that :focus-visible sets in global.css.
+    expect(focused.className).not.toMatch(/outline-offset/);
+    expect(focused).toHaveClass('transition-[color,background-color]');
+  });
+
   it('jumps to the last and first options with End and Home', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
@@ -153,6 +187,16 @@ describe('IconButton', () => {
     expect(button).toHaveAttribute('aria-label', 'Microphone');
     expect(button).toHaveAttribute('aria-pressed', 'true');
     expect(button).toHaveClass('size-12', 'rounded-pill', 'bg-ink', 'text-paper');
+  });
+
+  it("draws its icon at 22px, as the mock's dock does", () => {
+    render(
+      <IconButton label="Board">
+        <Board />
+      </IconButton>,
+    );
+    const button = screen.getByRole('button', { name: 'Board' });
+    expect(button).toHaveClass('[&>svg]:size-[22px]', 'transition-[color,background-color]');
   });
 
   it('is unfilled when not pressed, and has no aria-pressed when it is not a toggle', () => {
@@ -207,6 +251,57 @@ describe('Sheet', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
+  function SheetOpener({ withCancel = false }: { withCancel?: boolean }) {
+    const [open, setOpen] = useState(false);
+    return (
+      <>
+        <button type="button" onClick={() => setOpen(true)}>
+          Open sheet
+        </button>
+        <Sheet open={open} onOpenChange={setOpen} title="New session">
+          {withCancel && (
+            <button type="button" onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+          )}
+          <button type="button">Start</button>
+        </Sheet>
+      </>
+    );
+  }
+
+  it('returns focus to the control that opened it when Escape closes it', async () => {
+    const user = userEvent.setup();
+    render(<SheetOpener />);
+    const opener = screen.getByRole('button', { name: 'Open sheet' });
+    await user.click(opener);
+    expect(screen.getByRole('dialog')).toContainElement(document.activeElement as HTMLElement);
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(opener).toHaveFocus();
+  });
+
+  it('returns focus to a keyboard opener when a button inside closes it', async () => {
+    const user = userEvent.setup();
+    render(<SheetOpener withCancel />);
+    const opener = screen.getByRole('button', { name: 'Open sheet' });
+    await user.tab();
+    expect(opener).toHaveFocus();
+    await user.keyboard('{Enter}');
+    await user.click(await screen.findByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(opener).toHaveFocus();
+  });
+
+  it('keeps scrolling inside a tall sheet', () => {
+    render(
+      <Sheet open onOpenChange={() => {}} title="New session">
+        <p>Body</p>
+      </Sheet>,
+    );
+    expect(screen.getByRole('dialog')).toHaveClass('overflow-y-auto', 'overscroll-contain');
+  });
+
   it('renders nothing while closed', () => {
     render(
       <Sheet open={false} onOpenChange={() => {}} title="New session">
@@ -225,12 +320,33 @@ describe('AppFrame', () => {
       </AppFrame>,
     );
     const strip = screen.getByRole('banner');
-    expect(strip).toHaveClass('h-[52px]', 'app-drag', 'pl-[84px]');
+    expect(strip).toHaveClass('h-[52px]', 'app-drag', 'pl-[84px]', 'gap-[18px]');
+    // The lights end at x 80 on current macOS: the first item starts 18px past them, at 98.
+    expect(strip).toHaveClass('[&>:first-child]:ml-3.5');
     expect(screen.getByRole('button', { name: 'New session' })).toBeInTheDocument();
   });
 
   it('has no traffic-light inset on Windows', () => {
     render(<AppFrame platform="win32">Tassel</AppFrame>);
-    expect(screen.getByRole('banner')).not.toHaveClass('pl-[84px]');
+    const strip = screen.getByRole('banner');
+    expect(strip).not.toHaveClass('pl-[84px]');
+    expect(strip).not.toHaveClass('[&>:first-child]:ml-3.5');
+    expect(strip).toHaveClass('app-drag-overlay-inset', 'pl-5');
+  });
+});
+
+describe('Wordmark', () => {
+  it('looks the same in every UI language and is never translated', async () => {
+    const i18n = await initI18n('ko');
+    render(
+      <I18nextProvider i18n={i18n}>
+        <Wordmark />
+      </I18nextProvider>,
+    );
+    const name = screen.getByText('Tassel');
+    expect(name).toHaveAttribute('translate', 'no');
+    // Explicit tracking and leading, so :lang(ko) doesn't loosen the Latin name.
+    expect(name).toHaveClass('lowercase', 'tracking-[-0.025em]', 'leading-none');
+    expect(name.parentElement).toHaveClass('gap-[7px]');
   });
 });

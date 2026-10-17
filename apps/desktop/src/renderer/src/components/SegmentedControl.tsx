@@ -53,7 +53,8 @@ export function SegmentedControl<T extends string>({
           disabled={option.disabled}
           onFocus={() => select(option.value)}
           className={cn(
-            'mono h-8 min-w-0 truncate rounded-pill px-3.5 text-xs transition-colors duration-150 focus-visible:outline-offset-0 disabled:cursor-not-allowed disabled:opacity-40',
+            // The global 2px ring offset leaves a gap, so the ring reads around the ink pill.
+            'mono h-8 min-w-0 truncate rounded-pill px-3.5 text-xs transition-[color,background-color] duration-150 disabled:cursor-not-allowed disabled:opacity-40',
             option.value === value
               ? 'bg-ink text-paper'
               : 'text-smoke-text hover:bg-ink/[0.06] hover:text-ink',

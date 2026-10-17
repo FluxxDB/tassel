@@ -1,5 +1,6 @@
-// A 48px round icon control, as in the session dock. `pressed` makes it a toggle: ink fill
-// with a white icon when on. The label is its accessible name, so the icon stays decorative.
+// A 48px round icon control, as in the session dock, drawing its 24-unit icon at 22px as the
+// mock does. `pressed` makes it a toggle: ink fill with a white icon when on. The label is its
+// accessible name, so the icon stays decorative.
 import type { ComponentPropsWithRef, ReactNode } from 'react';
 import { cn } from '../lib/cn';
 
@@ -25,7 +26,7 @@ export function IconButton({
       aria-label={label}
       aria-pressed={pressed}
       className={cn(
-        'grid size-12 shrink-0 place-items-center rounded-pill transition-colors duration-150 disabled:pointer-events-none disabled:opacity-40',
+        'grid size-12 shrink-0 place-items-center rounded-pill transition-[color,background-color] duration-150 disabled:pointer-events-none disabled:opacity-40 [&>svg]:size-[22px]',
         pressed
           ? 'bg-ink text-paper hover:bg-ink/85'
           : 'bg-transparent text-ink hover:bg-ink/[0.06] active:bg-ink/10',

@@ -60,6 +60,9 @@ test('boots the renderer in the UI language with the design system', async () =>
   expect(await strip.evaluate((el) => getComputedStyle(el).getPropertyValue('app-region'))).toBe(
     'drag',
   );
+  // The strip's first item starts 18px past the macOS traffic lights, which end at x 80.
+  const first = await strip.locator(':scope > *').first().boundingBox();
+  expect(first?.x).toBe(process.platform === 'darwin' ? 98 : 20);
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(255, 249, 243)');
   await app.close();
 });

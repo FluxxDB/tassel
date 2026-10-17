@@ -17,7 +17,7 @@ export function Chip({ tone = 'paper', className, ...props }: ChipProps) {
   return (
     <span
       className={cn(
-        'mono inline-block min-w-0 max-w-full truncate rounded-pill px-2.5 py-1 align-middle text-[11px] leading-4',
+        'mono inline-block min-w-0 max-w-full truncate rounded-pill px-2.5 py-1 align-middle text-[11px] leading-[14px]',
         TONES[tone],
         className,
       )}
