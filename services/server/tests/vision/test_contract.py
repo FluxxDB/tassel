@@ -6,8 +6,9 @@ checks the same file against the TypeScript guards.
 """
 
 import json
+import re
 from pathlib import Path
-from typing import Annotated, Any, get_args
+from typing import Annotated, Any, Literal, get_args, get_origin
 
 import pytest
 from pydantic import Field, TypeAdapter, ValidationError
@@ -18,11 +19,17 @@ from tassel.domains.dfa.contract import (
     EPSILON,
     PREDICATE_SCHEMA,
     Blame,
+    Counterexample,
     DfaReading,
     DfaVerdict,
+    Fix,
+    IssueKind,
+    MachineKind,
     MembershipPredicate,
     ReadState,
     ReadTransition,
+    ReferenceInfo,
+    VerdictStatus,
 )
 from tassel.vision.messages import (
     CheckDebug,
@@ -30,9 +37,17 @@ from tassel.vision.messages import (
     PenEvent,
     PolicyDebug,
     ReadbackEvent,
+    Rung,
     VisionDebugEvent,
 )
-from tassel.vision.ports import PREDICATE_QUESTIONS, PREDICATES
+from tassel.vision.ports import (
+    PREDICATE_QUESTIONS,
+    PREDICATES,
+    GateInput,
+    GateReason,
+    Predicate,
+    TranscriptLine,
+)
 
 REPO = Path(__file__).resolve().parents[4]
 FIXTURES = json.loads(
@@ -281,3 +296,62 @@ def test_the_domain_protocol():
     assert isinstance(Echo(), Verifier)
     assert not isinstance(object(), Verifier)
     assert get_args(ClaimKind) == ("computed", "judged")
+
+
+def test_a_gate_input_keeps_the_frame_out_of_its_repr():
+    frame = b"\xff\xd8 a real camera frame \xff\xd9"
+    gi = GateInput(
+        image_jpeg=frame,
+        transcript=(TranscriptLine(speaker="student", text="I think I'm done.", at_ms=26100),),
+        lang="ko",
+        reason="speech",
+        quiet_ms=1800,
+        silence_ms=650,
+        new_ink=False,
+        changed_cells=0,
+    )
+    assert gi.image_jpeg == frame
+    assert "real camera frame" not in repr(gi)
+    assert "I think I'm done." in repr(gi)
+
+
+# Every literal the Python contract accepts, keyed by the TypeScript type its guard checks.
+_TS_LITERALS = {
+    "MachineKind": MachineKind,
+    "DfaReading['source']": DfaReading.model_fields["source"].annotation,
+    "IssueKind": IssueKind,
+    "Blame['kind']": Blame.model_fields["kind"].annotation,
+    "Counterexample['direction']": Counterexample.model_fields["direction"].annotation,
+    "Fix['kind']": Fix.model_fields["kind"].annotation,
+    "ReferenceInfo['source']": ReferenceInfo.model_fields["source"].annotation,
+    "VerdictStatus": VerdictStatus,
+    "Predicate": Predicate,
+    "GateReason": GateReason,
+    "CheckDebug['status']": CheckDebug.model_fields["status"].annotation,
+    "PolicyDebug['action']": PolicyDebug.model_fields["action"].annotation,
+    "Rung": Rung,
+}
+
+
+def _members(annotation) -> set[str]:
+    # A Literal, or a union of Literals.
+    args = get_args(annotation)
+    return (
+        set().union(*(_members(a) for a in args))
+        if get_origin(annotation) is not Literal
+        else set(args)
+    )
+
+
+def test_typescript_guards_know_every_literal():
+    source = (REPO / "packages" / "shared" / "src" / "vision" / "contract.ts").read_text(
+        encoding="utf-8"
+    )
+    guards = {
+        name: set(re.findall(r"'?([\w-]+)'?: true", body))
+        for name, body in re.findall(r"oneOf<([^>\n(]+)>\(\{(.*?)\}\)", source, flags=re.S)
+    }
+    assert {name: guards.get(name) for name in _TS_LITERALS} == {
+        name: _members(annotation) for name, annotation in _TS_LITERALS.items()
+    }
+    assert re.search(r"PREDICATES: readonly Predicate\[\] = \[(.*?)\]", source, flags=re.S)

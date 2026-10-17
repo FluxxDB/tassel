@@ -1,12 +1,22 @@
 """Frames from P3's synthetic clips: splitting an MJPEG, picking a frame, and making the clip."""
 
+import json
+import subprocess
 from pathlib import Path
 
 import cv2
 import numpy as np
 import pytest
 
-from tassel.vision.clips import ClipFiles, ensure_clip, frame_at, split_mjpeg, variant_of
+from tassel.vision import clips
+from tassel.vision.clips import (
+    ClipFiles,
+    NodeMissing,
+    ensure_clip,
+    frame_at,
+    split_mjpeg,
+    variant_of,
+)
 
 
 def _jpeg(value: int, size: tuple[int, int] = (8, 16)) -> bytes:
@@ -106,3 +116,80 @@ def test_variant_of_refuses_other_names():
     ):
         with pytest.raises(ValueError):
             variant_of(Path(name))
+
+
+# ensure_clip without P3's CLI: what it runs, what it reads back, and how it fails.
+
+
+@pytest.fixture
+def fake_cli(monkeypatch, tmp_path):
+    """A stand-in gen-clip.ts and node; returns the calls subprocess.run received."""
+    cli = tmp_path / "gen-clip.ts"
+    cli.write_text("", encoding="utf-8")
+    monkeypatch.setattr(clips, "_GEN_CLIP", cli)
+    monkeypatch.setattr(clips.shutil, "which", lambda name: "/opt/node/bin/node")
+    calls: list[tuple[list[str], dict]] = []
+    replies: list[subprocess.CompletedProcess] = []
+
+    def run(args, **kwargs):
+        calls.append((args, kwargs))
+        return replies.pop(0)
+
+    monkeypatch.setattr(clips.subprocess, "run", run)
+    return cli, calls, replies
+
+
+def _printed(tmp_path: Path, name: str) -> str:
+    return json.dumps(
+        {
+            "mjpeg": str(tmp_path / f"{name}.mjpeg"),
+            "truth": str(tmp_path / f"{name}.truth.json"),
+            "frames": 600,
+            "sha256": "0" * 64,
+        }
+    )
+
+
+def test_ensure_clip_runs_the_cli_and_takes_the_paths_it_prints(fake_cli, tmp_path):
+    cli, calls, replies = fake_cli
+    out = tmp_path / "clips"
+    for name in ("dfa-short-960x720-0c8249e6", "dfa-short-960x720-3f613ad7"):
+        line = _printed(tmp_path, name)
+        replies.append(subprocess.CompletedProcess([], 0, stdout=f"\n{line}\n", stderr=""))
+    noisy = ensure_clip("dfa-short", clips_dir=out)
+    clean = ensure_clip("dfa-short", noise=False, clips_dir=out)
+    assert noisy == ClipFiles(
+        "dfa-short",
+        tmp_path / "dfa-short-960x720-0c8249e6.mjpeg",
+        tmp_path / "dfa-short-960x720-0c8249e6.truth.json",
+    )
+    assert clean.mjpeg == tmp_path / "dfa-short-960x720-3f613ad7.mjpeg"
+    command = ["/opt/node/bin/node", str(cli), "--variant", "dfa-short", "--out", str(out)]
+    assert [args for args, _ in calls] == [command, [*command, "--no-noise"]]
+    assert all(kwargs["cwd"] == clips.REPO_DIR for _, kwargs in calls)
+
+
+def test_ensure_clip_reports_a_failing_cli(fake_cli):
+    _, _, replies = fake_cli
+    refusal = 'gen-clip: --variant must be one of dfa-demo, dfa-short; got "nope"'
+    replies.append(subprocess.CompletedProcess([], 2, stdout="", stderr=refusal + "\n"))
+    with pytest.raises(RuntimeError, match="must be one of"):
+        ensure_clip("nope")
+    replies.append(subprocess.CompletedProcess([], 0, stdout="", stderr=""))
+    with pytest.raises(RuntimeError, match="printed nothing"):
+        ensure_clip("dfa-short")
+
+
+def test_ensure_clip_needs_node_and_the_cli(monkeypatch, tmp_path):
+    monkeypatch.setattr(clips.shutil, "which", lambda name: None)
+    with pytest.raises(NodeMissing):
+        ensure_clip("dfa-short")
+    monkeypatch.setattr(clips.shutil, "which", lambda name: "/opt/node/bin/node")
+    monkeypatch.setattr(clips, "_GEN_CLIP", tmp_path / "missing" / "gen-clip.ts")
+    with pytest.raises(FileNotFoundError, match="paper-synth"):
+        ensure_clip("dfa-short")
+
+
+def test_the_default_clips_dir_is_in_the_repository_cache():
+    assert (clips.REPO_DIR / "services" / "server" / "pyproject.toml").is_file()
+    assert clips.DEFAULT_CLIPS_DIR == clips.REPO_DIR / ".cache" / "paper-clips"
