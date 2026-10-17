@@ -15,6 +15,8 @@ allowBuilds:
 # against electron's checksums.json.)
 minimumReleaseAgeExclude:
   - electron@44.9.0
+  # P2 exact pin; remove after 2026-10-18 UTC, outside the release-age window.
+  - '@pipecat-ai/small-webrtc-transport@1.11.0'
 
 # geist peers on next for its next/font wrapper. Tassel only copies geist's woff2 files,
 # so the peer is optional; otherwise pnpm auto-installs Next, React and sharp.
