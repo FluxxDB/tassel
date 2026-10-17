@@ -1,0 +1,32 @@
+# Dependencies and build output
+node_modules/
+out/
+dist/
+build/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+coverage/
+test-results/
+playwright-report/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+.claude/settings.local.json
+.claude/hooks/.discord-webhook
+.claude/hooks/.last-idle-post
+
+# Tool caches and generated artifacts
+graphify-out/cache/
+docs/graphify-out/
+.impeccable/questions/
+.impeccable/hook.cache.json
+.superpowers/
+.DS_Store
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/.graphify_labels.json

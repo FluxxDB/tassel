@@ -1,0 +1,70 @@
+# Tassel – The AI Tutoring and Learning Platform
+
+> Source: `original/ghh.docx`, converted with wording unchanged. Nesting follows the original list levels; the two whiteboard bullets that sat one level too high are nested under "Whiteboard". The document's one embedded image is `ghh-avatar-reference.png` (the "Avatar style" reference).
+
+**Platform:** Desktop app (MacOS) with translucent overlay widget like claude and cluely, Seamless Electron App? (IMPORTANT NOTE: development team uses a combination of macs and windows machines, so support for both during development is crucial; windows detected → no deskview warning and tell to screen share instead–mac platform for main app and target audience to take advantage of desk view; DO NOT RE-MAKE THIS)
+
+## Flow: creating a tutoring "session"
+
+- "Session" equivalent to chat in a chatbot, just the main unit of organization
+- Session Fields:
+  - AI Generated Title based on first message ("Untitled Session" at first)
+  - AI extracted subject/topic (few words)
+    - Desktop app has a library of sessions
+    - Sessions categorized by last activity, date created, or topic
+  - Date Created & Last Date modified
+  - Type: homework/studying/research/whatever
+
+## Session features
+
+- Conversation: User and AI talk and interrupt each other as needed, since this is a conversation.
+  - **Use (technical details):** try building out a 3 layer voice loop (user speech → text, text inputted into a thinking/tutor LLM → outputed text into Elevenslab TTS), use deepgram instead of whisper and MAYBE Pipecat it that ends up being cheaper in credits, or substantially better.
+    - For WHEN a tutor should interrupt with speech, whiteboard drawing, overlay drawing, etc.:
+    - Have a running frame by frame (or every few frame) comparison to see when things are being written/changed in the camera feed (tune this for handwriting, so it needs to be relatively sensitive). When a change is "detected", capture the frame and send it off to a decision model (OpenAI Decisions API) that can look at the image and determine if it is a proper time to interrupt (pre-processing WILL be needed; whether that is image/color corrections and/or lightweight LLM chain/delegation (decision model classifies complicated work needs checked, llm checks), etc. )
+- Paper view (desk view): student uses macbook desk view to show the work they are doing on their desk, AI sees this feed and can understand it, use it in conversations, ask questions, etc
+  - tutor interaction: can pull up a feed of user's camera (desk view/paper) and overlay on it drawing, etc. or just draw directly over the live feed to highlight mistakes, etc
+  - **Use (technical details):** *(left blank in the source)*
+- Whiteboard: A session always has a whiteboard pulled up for user and tutor to draw things (mainly tutor) as the tutor speaks and explains concepts:
+  - Student needs to be able to draw on whiteboard and ai needs to "see" these changes made
+  - **Use (technical details):** tldraw/excalidraw, Manim tools and endpoints for AI tutor to use NOTE: manim takes seconds to create and are videos. If this doesn't work out, explore alternatives
+- Screenshare view: student can use on main desktop to screenshare, and the desktop app collapses to an overlay bar (inspired by claude desktop app)
+  - Details TBD
+
+## Tutor Features
+
+- Customizable tutor
+  - Change skin color, eyes (color and/or shape), hair style, hair color
+  - Mouth dynamically moves based on sound/vowels being made→lightweight json appended to transcript generated on what words need what mouth shape (generate 1 asset pack for this for all tutors)
+  - This character shows up on the collapsable dock and desktop app like a webcam feed of the tutor.
+  - Tutor voice (elevenslab) is always female with different choice of accent
+  - Avatar should be 2d, and SVG drawn
+    - Mouth animation should be simple (swapping image based on where the speech is on the transcript and compared to the json selection of what mouth to use)
+- Main Models:
+  - If there is an application for deeper thinking and complicated questions, use **opus5.5**
+  - For all other tasks and quick reasoning (seamless live chats), use **openrouter's cerebras qwen3.8 (~550 tokens per second)**
+
+## Resources and additional notes
+
+- Avatar style: *(image: `ghh-avatar-reference.png`)*
+- Use Refero style for the entire app
+  - When things are license blocked, use geist-sans and pick a fitting korean font
+  - Make sure all images and diagrams drawn by manim are of the same fitting style
+- REQUIRED IN TECH STACK: use vultr where needed/possible since this is required by a track and we have free credits for it
+- Build out a basic learning engine
+  - This powers the memories of the tutor
+    - What the user knows
+    - The level of knowledge they have
+    - What the tutor needs to remember, etc.
+- This app MUST support multi-languages
+  - This includes ALL ai's, LLMs, and decision models
+  - For now, build with this finite set of languages:
+    - English, spanish, korean
+  - For example, Jev is trained on English first, but openai's decision model (astra under the hood) has been trained in multiple languages and can support all 3 mentioned above
+- Tune prompts for a demo on my homework:
+  - Walking through an incorrect DFA for some language in Korean
+
+## Pitch Items
+
+- Mission: Getting Women to return to STEM
+- **Multi-lingual Mode:** Yearly, a disproportionate amount of women compared to men don't re-certify (or continue their education in) their engineering or medical degrees because of a language barrier when they immigrate or seek asylum
+- **Tutor Customization:** A recent study from Stanford shows that women are statistically more likely to express interest in STEM when their STEM tutors are women

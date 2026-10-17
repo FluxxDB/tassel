@@ -1,0 +1,43 @@
+{
+  "title": "Choose the session screen's layout",
+  "question": "Three ways to arrange a live session. Each shows the same moment: Ada asks Josephine to run 1010 through her DFA. Lock one, steer it, or re-roll.",
+  "options": [
+    {
+      "id": "notebook",
+      "kind": "assigned",
+      "kicker": "THE ROLL",
+      "label": "Living notebook",
+      "thesis": "The session is a notebook of moments; the live one owns the full width at the bottom.",
+      "palette": ["#ffffff", "#fff9f3", "#222222", "#c094e4", "#fce0ee"],
+      "materials": ["moment cards", "live paper frame", "lab-label mono"],
+      "viewport": "Earlier hints and snapshots stack above; the live paper feed with Ada's markup fills the bottom card, captions beneath, Ada and the controls on a right rail.",
+      "risk": "Reads like a chat app, which Tassel says it isn't, and paper and board can only stack, never sit side by side.",
+      "html": ".impeccable/mocks/decision/notebook.html"
+    },
+    {
+      "id": "stage",
+      "kind": "dealt",
+      "label": "One stage, her work first",
+      "thesis": "Her paper owns the window, and the board slides in beside it when Ada has something to show.",
+      "palette": ["#ffffff", "#fff9f3", "#222222", "#c094e4", "#daf7ee"],
+      "materials": ["full-bleed paper feed", "split stage", "subtitle captions", "pill dock"],
+      "viewport": "Paper left and board right at 50/50 for the counterexample, Ada's tile floating top-right, captions as subtitles, a pill dock at the bottom.",
+      "risk": "Ada is small on screen, so she can read as a sticker rather than a person.",
+      "html": ".impeccable/mocks/decision/stage.html"
+    },
+    {
+      "id": "call",
+      "kind": "dealt",
+      "label": "A call with your tutor",
+      "thesis": "A familiar call layout: Ada is on the call, and whatever she shows takes the main tile.",
+      "palette": ["#ffffff", "#fff9f3", "#222222", "#c094e4", "#ffe9cf"],
+      "materials": ["shared-content tile", "participant filmstrip", "call bar"],
+      "viewport": "Ada's board and markup fill the main tile, a right filmstrip holds Ada (large) and Josephine's paper, and a call bar runs along the bottom.",
+      "risk": "Spends prime space on the avatar and feels like a meeting app rather than a desk.",
+      "html": ".impeccable/mocks/decision/call.html"
+    }
+  ],
+  "reroll": true,
+  "buildPath": { "value": "code" },
+  "steer": true
+}

@@ -1,0 +1,83 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "geist",
+        "createdAt": "2026-10-17T13:09:14.947Z",
+        "reason": "spec-pinned: the user's spec (docs/source/ghh.md) mandates geist-sans when the Refero fonts are license-blocked; Fellix verified license-blocked in docs/research/04"
+      },
+      {
+        "rule": "overused-font",
+        "value": "geist mono",
+        "createdAt": "2026-10-17T13:09:14.962Z",
+        "reason": "Claude's call: mono companion to the spec-pinned Geist, replacing license-blocked PP Fraktion Mono (docs/research/04)"
+      },
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/stage.html"
+        ],
+        "createdAt": "2026-10-17T13:09:14.976Z",
+        "reason": "brief-pinned design system: Bone #fff9f3 is DESIGN.md's surface token (user's Refero/Hume style)"
+      },
+      {
+        "rule": "shape-assembled-illustration",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/stage.html"
+        ],
+        "createdAt": "2026-10-17T13:09:14.990Z",
+        "reason": "decision-round sketch placeholder; the spec requires an SVG-drawn, part-swappable avatar, and the production avatar will be authored paths"
+      },
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/notebook.html"
+        ],
+        "createdAt": "2026-10-17T13:09:15.003Z",
+        "reason": "brief-pinned design system: Bone #fff9f3 is DESIGN.md's surface token (user's Refero/Hume style)"
+      },
+      {
+        "rule": "shape-assembled-illustration",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/notebook.html"
+        ],
+        "createdAt": "2026-10-17T13:09:15.016Z",
+        "reason": "decision-round sketch placeholder; the spec requires an SVG-drawn, part-swappable avatar, and the production avatar will be authored paths"
+      },
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/call.html"
+        ],
+        "createdAt": "2026-10-17T13:09:15.028Z",
+        "reason": "brief-pinned design system: Bone #fff9f3 is DESIGN.md's surface token (user's Refero/Hume style)"
+      },
+      {
+        "rule": "shape-assembled-illustration",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/call.html"
+        ],
+        "createdAt": "2026-10-17T13:09:15.041Z",
+        "reason": "decision-round sketch placeholder; the spec requires an SVG-drawn, part-swappable avatar, and the production avatar will be authored paths"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/notebook.html"
+        ],
+        "createdAt": "2026-10-17T13:09:15.053Z",
+        "reason": "false positive: the SVG is a camera-feed stand-in that fills its frame edge to edge by design"
+      }
+    ]
+  }
+}

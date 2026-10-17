@@ -1,0 +1,131 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title></title>
+  <meta name="Generator" content="Cocoa HTML Writer">
+  <meta name="CocoaVersion" content="2685.7">
+  <style type="text/css">
+    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Times}
+    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px 'Arial Unicode MS'}
+    p.p3 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Times; min-height: 14.0px}
+    li.li1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Times}
+    li.li2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px 'Arial Unicode MS'}
+    span.s1 {font: 12.0px 'Arial Unicode MS'}
+    span.s2 {text-decoration: underline ; color: #1155cc}
+    ul.ul1 {list-style-type: disc}
+  </style>
+</head>
+<body>
+<p class="p1">Tassel – The AI Tutoring and Learning Platform</p>
+<p class="p2">Platform: Desktop app (MacOS) with translucent overlay widget like claude and cluely, Seamless Electron App? (IMPORTANT NOTE: development team uses a combination of macs and windows machines, so support for both during development is crucial; windows detected → no deskview warning and tell to screen share instead–mac platform for main app and target audience to take advantage of desk view; DO NOT RE-MAKE THIS)</p>
+<p class="p1">Flow: creating a tutoring “session”</p>
+<ul class="ul1">
+  <li class="li1">“Session” equivalent to chat in a chatbot, just the main unit of organization</li>
+  <li class="li1">Session Fields:</li>
+  <ul class="ul1">
+    <li class="li1">AI Generated Title based on first message (“Untitled Session” at first)</li>
+    <li class="li1">AI extracted subject/topic (few words)</li>
+    <ul class="ul1">
+      <li class="li1">Desktop app has a library of sessions</li>
+      <li class="li1">Sessions categorized by last activity, date created, or topic</li>
+    </ul>
+    <li class="li1">Date Created &amp; Last Date modified</li>
+    <li class="li1">Type: homework/studying/research/whatever</li>
+  </ul>
+</ul>
+<p class="p1">Session features:</p>
+<ul class="ul1">
+  <li class="li1">Conversation: User and AI talk and interrupt each other as needed, since this is a conversation.<span class="Apple-converted-space"> </span></li>
+  <ul class="ul1">
+    <li class="li1"><b>Use (technical details): </b><span class="s1">try building out a 3 layer voice loop (user speech → text, text inputted into a thinking/tutor LLM → outputed text into Elevenslab TTS), use </span><span class="s2">deepgram</span> instead of whisper and MAYBE <span class="s2">Pipecat</span> it that ends up being cheaper in credits, or substantially better.<span class="Apple-converted-space"> </span></li>
+    <ul class="ul1">
+      <li class="li1">For WHEN a tutor should interrupt with speech, whiteboard drawing, overlay drawing, etc.:</li>
+      <li class="li1">Have a running frame by frame (or every few frame) comparison to see when things are being written/changed in the camera feed (tune this for handwriting, so it needs to be relatively sensitive). When a change is “detected”, capture the frame and send it off to a decision model (<span class="s2">OpenAI Decisions API</span>) that can look at the image and determine if it is a proper time to interrupt (pre-processing WILL be needed; whether that is image/color corrections and/or lightweight LLM chain/delegation (decision model classifies complicated work needs checked, llm checks), etc. )</li>
+    </ul>
+  </ul>
+</ul>
+<ul class="ul1">
+  <li class="li1">Paper view (desk view): student uses macbook desk view to show the work they are doing on their desk, AI sees this feed and can understand it, use it in conversations, ask questions, etc</li>
+  <ul class="ul1">
+    <li class="li1">tutor interaction: can pull up a feed of user’s camera (desk view/paper) and overlay on it drawing, etc. or just draw directly over the live feed to highlight mistakes, etc</li>
+    <li class="li1"><b>Use (technical details):<span class="Apple-converted-space"> </span></b><b></b></li>
+  </ul>
+  <li class="li1">Whiteboard: A session always has a whiteboard pulled up for user and tutor to draw things (mainly tutor) as the tutor speaks and explains concepts:</li>
+</ul>
+<ul class="ul1">
+  <li class="li1">Student needs to be able to draw on whiteboard and ai needs to “see” these changes made</li>
+  <li class="li1"><b>Use (technical details)</b>: tldraw/excalidraw, <span class="s2">Manim</span> tools and endpoints for AI tutor to use NOTE: manim takes seconds to create and are videos. If this doesn’t work out, explore alternatives</li>
+</ul>
+<ul class="ul1">
+  <li class="li1">Screenshare view: student can use on main desktop to screenshare, and the desktop app collapses to an overlay bar (inspired by claude desktop app)</li>
+  <ul class="ul1">
+    <li class="li1">Details TBD</li>
+  </ul>
+</ul>
+<p class="p3"><br></p>
+<p class="p1">Tutor Features:<span class="Apple-converted-space"> </span></p>
+<ul class="ul1">
+  <li class="li1">Customizable tutor</li>
+  <ul class="ul1">
+    <li class="li1">Change skin color, eyes (color and/or shape), hair style, hair color<span class="Apple-converted-space"> </span></li>
+    <li class="li2">Mouth dynamically moves based on sound/vowels being made→lightweight json appended to transcript generated on what words need what mouth shape (generate 1 asset pack for this for all tutors)</li>
+    <li class="li1"> This character shows up on the collapsable dock and desktop app like a webcam feed of the tutor.</li>
+    <li class="li1">Tutor voice (elevenslab) is always female with different choice of accent</li>
+    <li class="li1">Avatar should be 2d, and SVG drawn</li>
+    <ul class="ul1">
+      <li class="li1">Mouth animation should be simple (swapping image based on where the speech is on the transcript and compared to the json selection of what mouth to use)</li>
+    </ul>
+  </ul>
+  <li class="li1">Main Models:</li>
+  <ul class="ul1">
+    <li class="li1">If there is an application for deeper thinking and complicated questions, use <b>opus5.5</b></li>
+    <li class="li1">For all other tasks and quick reasoning (seamless live chats), use <b>openrouter’s cerebras qwen3.8 (~550 tokens per second)</b></li>
+  </ul>
+</ul>
+<p class="p3"><br></p>
+<p class="p1">Resources and additional notes:</p>
+<ul class="ul1">
+  <li class="li1">Avatar style:<span class="Apple-converted-space"> </span></li>
+  <li class="li1"></li>
+</ul>
+<ul class="ul1">
+  <li class="li1">Use <span class="s2">Refero</span> style for the entire app</li>
+  <ul class="ul1">
+    <li class="li1">When things are license blocked, use geist-sans and pick a fitting korean font</li>
+    <li class="li1">Make sure all images and diagrams drawn by manim are of the same fitting style</li>
+  </ul>
+  <li class="li1">REQUIRED IN TECH STACK: use <span class="s2">vultr</span> where needed/possible since this is required by a track and we have free credits for it</li>
+  <li class="li1">Build out a basic learning engine</li>
+  <ul class="ul1">
+    <li class="li1">This powers the memories of the tutor</li>
+    <ul class="ul1">
+      <li class="li1">What the user knows</li>
+      <li class="li1">The level of knowledge they have</li>
+      <li class="li1">What the tutor needs to remember, etc.</li>
+    </ul>
+  </ul>
+  <li class="li1">This app MUST support multi-languages<span class="Apple-converted-space"> </span></li>
+  <ul class="ul1">
+    <li class="li1">This includes ALL ai’s, LLMs, and decision models</li>
+    <li class="li1">For now, build with this finite set of languages:</li>
+    <ul class="ul1">
+      <li class="li1">English, spanish, korean</li>
+    </ul>
+    <li class="li1">For example, Jev is trained on English first, but openai’s decision model (astra under the hood) has been trained in multiple languages and can support all 3 mentioned above</li>
+  </ul>
+  <li class="li1">Tune prompts for a demo on my homework:</li>
+  <ul class="ul1">
+    <li class="li1">Walking through an incorrect DFA for some language in Korean</li>
+  </ul>
+</ul>
+<p class="p1">Pitch Items:</p>
+<ul class="ul1">
+  <li class="li1">Mission: Getting Women to return to STEM</li>
+  <li class="li1"><b>Multi-lingual Mode:</b> Yearly, a disproportionate amount of women compared to men don’t re-certify (or continue their education in) their engineering or medical degrees because of a language barrier when they immigrate or seek asylum</li>
+  <li class="li1"><b>Tutor Customization:</b> A recent <span class="s2">study</span> from Stanford shows that women are statistically more likely to express interest in STEM when their STEM tutors are women</li>
+</ul>
+<p class="p3"><br></p>
+</body>
+</html>

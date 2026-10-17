@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Tassel · stage layout</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@400;500&family=Caveat:wght@500;600&display=swap">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1440px;height:900px;overflow:hidden}
+body{font-family:Geist,system-ui,sans-serif;letter-spacing:-.025em;color:#222;background:#fff9f3;-webkit-font-smoothing:antialiased;position:relative}
+.mono{font-family:'Geist Mono',ui-monospace,monospace;text-transform:uppercase;letter-spacing:.025em;font-size:11px;font-feature-settings:"calt" 0,"liga" 0}
+.bar{height:52px;display:flex;align-items:center;padding:0 20px;gap:18px}
+.lights{display:flex;gap:8px;width:60px}.lights i{width:12px;height:12px;border-radius:50%;background:#ff5f57}.lights i+i{background:#febc2e}.lights i+i+i{background:#28c840}
+.brand{display:flex;align-items:center;gap:7px;font-weight:520;font-size:17px}
+.title{flex:1;display:flex;align-items:center;justify-content:center;gap:10px;font-size:15px;font-weight:520}
+.chip{padding:4px 10px;border-radius:9999px;background:#fff;color:#6b6966}
+.status{display:flex;align-items:center;gap:14px;color:#6b6966}
+.live{display:flex;align-items:center;gap:6px;color:#222}.live i{width:7px;height:7px;border-radius:50%;background:#e5484d}
+.lang{padding:4px 10px;border-radius:9999px;background:#222;color:#fff}
+.stage{position:absolute;top:60px;left:16px;right:16px;bottom:104px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.panel{position:relative;background:#fff;border-radius:16px;overflow:hidden}
+.panel.board{background:#fff radial-gradient(#e6e1da 1.2px,transparent 1.3px) 0 0/22px 22px}
+.panel.paper{background:#cdc4b6}
+.panel>svg{position:absolute;inset:0;width:100%;height:100%}
+.tag{position:absolute;top:14px;left:14px;padding:6px 12px;border-radius:9999px;background:#fff;z-index:2}
+.tag.dark{background:#222;color:#fff}
+.ada{position:absolute;top:14px;right:14px;width:212px;height:176px;border-radius:16px;background:#fce0ee;box-shadow:0 0 0 2px #c094e4;overflow:hidden;z-index:3}
+.ada svg{position:absolute;left:28px;top:6px;width:156px;height:156px}
+.ada .who{position:absolute;left:10px;bottom:10px;display:flex;gap:6px;align-items:center;padding:5px 10px;border-radius:9999px;background:#fff;font-size:13px;font-weight:520}
+.ada .who .mono{font-size:11px;color:#7d4fc4}
+.caps{position:absolute;left:50%;bottom:118px;transform:translateX(-50%);width:880px;background:#222;color:#fff;border-radius:16px;padding:14px 22px 16px;z-index:4}
+.caps .prev{color:#bdb8b4;font-size:15px;margin-bottom:6px}
+.caps .now{font-size:21px;line-height:1.35;font-weight:450}
+.caps .mono{color:#c094e4;margin-right:8px;font-size:11px}
+.dock{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:8px;border-radius:9999px;background:#fff;box-shadow:0 0 0 1px #ece5dc}
+.btn{width:48px;height:48px;border-radius:50%;display:grid;place-items:center}
+.btn svg{width:22px;height:22px;fill:none;stroke:#222;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.btn.on{background:#222}.btn.on svg{stroke:#fff}
+.meter{display:flex;gap:2px;align-items:flex-end;height:18px;margin:0 6px 0 2px}.meter i{width:3px;border-radius:2px;background:#222}
+.sep{width:1px;height:28px;background:#ece5dc;margin:0 4px}
+.end{height:48px;padding:0 22px;border-radius:9999px;background:#222;color:#fff;display:grid;place-items:center;font-size:14px;font-weight:520}
+</style></head><body>
+<header class="bar">
+  <div class="lights"><i></i><i></i><i></i></div>
+  <div class="brand"><svg width="18" height="20" viewBox="0 0 18 20"><path d="M9 0v4" stroke="#222" stroke-width="1.6"/><circle cx="9" cy="6" r="2.6" fill="#222"/><path d="M6 9h6l2 10H4z" fill="#222"/><path d="M7.4 11v7M10.6 11v7" stroke="#fff9f3" stroke-width="1"/></svg>tassel</div>
+  <div class="title">Strings that start with 010<span class="chip mono">Automata · DFA</span><span class="chip mono">Homework</span></div>
+  <div class="status"><span class="live mono"><i></i>Desk View · Live</span><span class="mono">14:32</span><span class="lang mono">EN</span></div>
+</header>
+<main class="stage">
+  <section class="panel paper">
+    <span class="tag mono">Your paper · Desk View</span>
+    <svg viewBox="0 0 700 720" preserveAspectRatio="xMidYMid meet">
+      <rect width="700" height="720" fill="#cdc4b6"/>
+      <g transform="rotate(-1.4 350 360)">
+        <rect x="30" y="26" width="640" height="668" rx="3" fill="#fbfaf6"/>
+        <path d="M30 146H670M30 186H670M30 226H670M30 266H670M30 306H670M30 346H670M30 386H670M30 426H670M30 466H670M30 506H670M30 546H670M30 586H670M30 626H670M30 666H670" stroke="#e4ebf3"/>
+        <path d="M84 26V694" stroke="#f3c9cf" stroke-width="1.2"/>
+        <text x="104" y="118" font-family="Caveat" font-size="29" fill="#3f3f3f">L = { w ∈ {0,1}* : w starts with 010 }</text>
+        <g fill="none" stroke="#474747" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M56 430H90M83 423l8 7-8 7"/>
+          <circle cx="130" cy="430" r="34"/><circle cx="276" cy="430" r="34"/><circle cx="422" cy="430" r="34"/><circle cx="568" cy="430" r="34"/><circle cx="568" cy="430" r="27"/>
+          <path d="M164 430H236M229 423l8 7-8 7M310 430H382M375 423l8 7-8 7M456 430H528M521 423l8 7-8 7"/>
+          <path d="M552 400C532 342 604 342 584 400M577 390l7 10 3-12M114 400C94 342 166 342 146 400M139 390l7 10 3-12"/>
+        </g>
+        <g font-family="Caveat" font-size="27" fill="#3f3f3f"><text x="117" y="439">q0</text><text x="263" y="439">q1</text><text x="409" y="439">q2</text><text x="555" y="439">q3</text><text x="194" y="417">0</text><text x="340" y="417">1</text><text x="486" y="417">0</text><text x="552" y="338">0,1</text><text x="125" y="338">1</text></g>
+        <text x="104" y="580" font-family="Caveat" font-size="26" fill="#5a5a5a">tests: 010 ✓   0100 ✓   0111 ✓</text>
+        <ellipse cx="130" cy="362" rx="56" ry="44" fill="#c094e4" fill-opacity=".2" stroke="#7d4fc4" stroke-width="3"/>
+        <path d="M180 342C200 318 214 290 236 276" fill="none" stroke="#7d4fc4" stroke-width="2.5" stroke-linecap="round"/>
+        <rect x="236" y="250" width="318" height="44" rx="22" fill="#222"/>
+        <text x="256" y="278" font-family="Geist" font-size="17" fill="#fff">A leading 1 loops here, so 1010 gets in</text>
+        <g font-family="Geist Mono" font-size="13" fill="#fff" text-anchor="middle"><circle cx="70" cy="370" r="13" fill="#7d4fc4"/><text x="70" y="375">1</text><circle cx="200" cy="460" r="13" fill="#7d4fc4"/><text x="200" y="465">2</text><circle cx="346" cy="460" r="13" fill="#7d4fc4"/><text x="346" y="465">3</text><circle cx="492" cy="460" r="13" fill="#7d4fc4"/><text x="492" y="465">4</text></g>
+      </g>
+    </svg>
+  </section>
+  <section class="panel board">
+    <span class="tag dark mono">Ada's board</span>
+    <svg viewBox="0 0 640 520" preserveAspectRatio="xMinYMin meet" style="top:150px;left:8px;width:640px;height:520px">
+      <defs><pattern id="d" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.2" fill="#e6e1da"/></pattern></defs>
+      
+      <text x="40" y="86" font-family="Geist Mono" font-size="12" letter-spacing=".4" fill="#6b6966">TRACE · INPUT 1010</text>
+      <g font-family="Geist Mono" font-size="30" fill="#222" text-anchor="middle" stroke="#222" stroke-width="1.5">
+        <rect x="40" y="104" width="62" height="62" rx="10" fill="#fce0ee"/><rect x="110" y="104" width="62" height="62" rx="10" fill="#fff"/><rect x="180" y="104" width="62" height="62" rx="10" fill="#fff"/><rect x="250" y="104" width="62" height="62" rx="10" fill="#fff"/>
+        <g stroke="none"><text x="71" y="146">1</text><text x="141" y="146">0</text><text x="211" y="146">1</text><text x="281" y="146">0</text></g>
+      </g>
+      <g font-family="Geist" font-size="19" fill="#222">
+        <rect x="40" y="194" width="440" height="46" rx="12" fill="#f3eafb"/>
+        <text x="58" y="223"><tspan font-family="Geist Mono" font-size="12" fill="#6b6966">STEP 1</tspan>   read 1   q0 → q0   <tspan fill="#7d4fc4">loops</tspan></text>
+        <text x="58" y="273"><tspan font-family="Geist Mono" font-size="12" fill="#6b6966">STEP 2</tspan>   read 0   q0 → q1</text>
+        <text x="58" y="315"><tspan font-family="Geist Mono" font-size="12" fill="#6b6966">STEP 3</tspan>   read 1   q1 → q2</text>
+        <text x="58" y="357"><tspan font-family="Geist Mono" font-size="12" fill="#6b6966">STEP 4</tspan>   read 0   q2 → q3</text>
+      </g>
+      <path d="M40 386H480" stroke="#e8e2da"/>
+      <rect x="40" y="404" width="190" height="40" rx="20" fill="#222"/><text x="58" y="429" font-family="Geist" font-size="16" fill="#fff">Your DFA: accept</text>
+      <rect x="242" y="404" width="238" height="40" rx="20" fill="#fff" stroke="#222"/><text x="260" y="429" font-family="Geist" font-size="16" fill="#222">Starts with 010? No → reject</text>
+    </svg>
+    <div class="ada">
+      <svg viewBox="0 0 200 200"><defs><linearGradient id="t" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eadcfb"/><stop offset="1" stop-color="#8f74d9"/></linearGradient><radialGradient id="s" cx=".45" cy=".4" r=".7"><stop offset="0" stop-color="#ffe4d1"/><stop offset="1" stop-color="#f4c3a2"/></radialGradient><linearGradient id="h" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7b5149"/><stop offset="1" stop-color="#47302b"/></linearGradient></defs>
+        <path d="M126 50C152 36 176 52 172 84C169 110 156 126 144 140C150 118 148 98 134 84Z" fill="url(#h)"/>
+        <path d="M40 200C40 162 66 148 100 148C134 148 160 162 160 200Z" fill="url(#t)"/>
+        <rect x="88" y="120" width="24" height="34" rx="10" fill="#efb995"/>
+        <path d="M58 94C54 54 80 34 104 34C130 34 150 54 146 94L146 112C138 100 66 100 58 112Z" fill="url(#h)"/>
+        <circle cx="62" cy="98" r="9" fill="#efb995"/><circle cx="142" cy="98" r="9" fill="#efb995"/>
+        <ellipse cx="102" cy="96" rx="40" ry="42" fill="url(#s)"/>
+        <path d="M60 88C62 54 88 40 108 42C128 44 146 60 144 88C132 68 116 62 104 60C96 72 80 82 60 88Z" fill="url(#h)"/>
+        <ellipse cx="134" cy="48" rx="9" ry="7" fill="#b98fe8"/>
+        <ellipse cx="86" cy="100" rx="4.5" ry="5.2" fill="#2e2222"/><ellipse cx="118" cy="100" rx="4.5" ry="5.2" fill="#2e2222"/>
+        <ellipse cx="78" cy="114" rx="7" ry="4" fill="#f4a3a3" opacity=".4"/><ellipse cx="126" cy="114" rx="7" ry="4" fill="#f4a3a3" opacity=".4"/>
+        <ellipse cx="102" cy="119" rx="6" ry="5" fill="#8a3b34"/>
+      </svg>
+      <div class="who">Ada <span class="mono">Speaking</span></div>
+    </div>
+  </section>
+</main>
+<div class="caps">
+  <div class="prev"><span class="mono" style="color:#bdb8b4">Josephine</span>I think that's it. If it starts with a 1, I just wait on q0 until I see a 0.</div>
+  <div class="now"><span class="mono">Ada</span>Before you move on, try running 1010 through your DFA. Where does it end up?</div>
+</div>
+<nav class="dock">
+  <span class="btn on"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+  <span class="meter"><i style="height:6px"></i><i style="height:12px"></i><i style="height:17px"></i><i style="height:9px"></i><i style="height:4px"></i></span>
+  <span class="btn on"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="M16 10l5-3v10l-5-3"/></svg></span>
+  <span class="btn"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4M12 13V8M9.5 10.5 12 8l2.5 2.5"/></svg></span>
+  <span class="btn on"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 14l3-4 3 3 4-5"/></svg></span>
+  <span class="btn on"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 10.5a2 2 0 1 0 0 3M16 10.5a2 2 0 1 0 0 3"/></svg></span>
+  <span class="sep"></span>
+  <span class="end">End session</span>
+</nav>
+</body></html>

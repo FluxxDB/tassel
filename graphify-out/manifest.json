@@ -1,0 +1,56 @@
+{
+  "design-system/DESIGN.md": {
+    "mtime": 1792244190.1389117,
+    "seen": 1792245337.391449,
+    "ast_hash": "8107d200a03b64a20e310fac77f7b731",
+    "semantic_hash": "8107d200a03b64a20e310fac77f7b731"
+  },
+  "research/00-flagged-items.md": {
+    "mtime": 1792244190.1500676,
+    "seen": 1792245337.391451,
+    "ast_hash": "4d56fb483c1e7d08aa46de6b9d608e4f",
+    "semantic_hash": "4d56fb483c1e7d08aa46de6b9d608e4f"
+  },
+  "research/01-voice-loop-and-models.md": {
+    "mtime": 1792244190.149523,
+    "seen": 1792245337.391451,
+    "ast_hash": "6ced37bfbf7dc1433a67a912d82105e5",
+    "semantic_hash": "6ced37bfbf7dc1433a67a912d82105e5"
+  },
+  "research/02-desktop-camera-vision.md": {
+    "mtime": 1792244190.1509316,
+    "seen": 1792245337.3914518,
+    "ast_hash": "00c3e75afa2b519b015b053771507321",
+    "semantic_hash": "00c3e75afa2b519b015b053771507321"
+  },
+  "research/03-whiteboard-visuals-avatar.md": {
+    "mtime": 1792244190.148905,
+    "seen": 1792245337.3914518,
+    "ast_hash": "d6029d5347e8676e678c634d9ae8694b",
+    "semantic_hash": "d6029d5347e8676e678c634d9ae8694b"
+  },
+  "research/04-vultr-fonts-learning-engine.md": {
+    "mtime": 1792244190.150381,
+    "seen": 1792245337.391453,
+    "ast_hash": "dc26ad0dc94e3aebeac37130e0785822",
+    "semantic_hash": "dc26ad0dc94e3aebeac37130e0785822"
+  },
+  "source/ghh.md": {
+    "mtime": 1792244190.1441097,
+    "seen": 1792245337.391453,
+    "ast_hash": "a4339d3916287b6023bd471c4963f1c0",
+    "semantic_hash": "a4339d3916287b6023bd471c4963f1c0"
+  },
+  "superpowers/specs/2026-10-17-tassel-design.md": {
+    "mtime": 1792244190.1405146,
+    "seen": 1792245337.391454,
+    "ast_hash": "1e1121c9688da2356f64ec419b6dea20",
+    "semantic_hash": "1e1121c9688da2356f64ec419b6dea20"
+  },
+  "source/ghh-avatar-reference.png": {
+    "mtime": 1792244190.1430593,
+    "seen": 1792245337.391454,
+    "ast_hash": "44dbc8188b8d7c9fc716f9af3a303980",
+    "semantic_hash": "44dbc8188b8d7c9fc716f9af3a303980"
+  }
+}
