@@ -12,6 +12,7 @@ dependencies = [
     "psycopg[binary]>=3",
     "alembic",
     "boto3>=1.43,<2",
+    "python-multipart>=0.0.32",
 ]
 
 [project.scripts]
@@ -23,6 +24,7 @@ dev = [
     "pytest-asyncio>=1.4",
     "httpx",
     "ruff",
+    "pillow>=12",
 ]
 
 [build-system]

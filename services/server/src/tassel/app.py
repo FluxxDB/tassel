@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from tassel import __version__
 from tassel.api import devices, health, sessions
 from tassel.config import Settings
+from tassel.frames import api as frames
 from tassel.frames.objects import make_object_store
 from tassel.storage.db import make_engine, session_factory
 
@@ -36,7 +37,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_origins=settings.cors_origins,
         allow_headers=["Authorization", "Content-Type"],
         allow_methods=["*"],
+        # So the app can read how long a 429 asks it to wait.
+        expose_headers=["Retry-After"],
     )
-    for router in (health.router, devices.router, sessions.router):
+    for router in (health.router, devices.router, sessions.router, frames.router):
         app.include_router(router, prefix="/v1")
     return app

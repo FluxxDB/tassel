@@ -87,7 +87,10 @@ export interface paths {
         get: operations["get_session_v1_sessions__session_id__get"];
         put?: never;
         post?: never;
-        /** Delete Session */
+        /**
+         * Delete Session
+         * @description Deletes the session's frame images first, then the session, whose frame rows cascade.
+         */
         delete: operations["delete_session_v1_sessions__session_id__delete"];
         options?: never;
         head?: never;
@@ -95,10 +98,98 @@ export interface paths {
         patch: operations["patch_session_v1_sessions__session_id__patch"];
         trace?: never;
     };
+    "/v1/sessions/{session_id}/frames": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Frames
+         * @description The session's frames, newest first.
+         */
+        get: operations["list_frames_v1_sessions__session_id__frames_get"];
+        put?: never;
+        /** Upload Frame */
+        post: operations["upload_frame_v1_sessions__session_id__frames_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/frames/{frame_id}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Frame Image
+         * @description The frame's full JPEG or its crop, served by the API rather than a signed URL.
+         */
+        get: operations["frame_image_v1_sessions__session_id__frames__frame_id__image_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Body_upload_frame_v1_sessions__session_id__frames_post */
+        Body_upload_frame_v1_sessions__session_id__frames_post: {
+            /**
+             * Crop
+             * @description The changed part of the page, as a JPEG. Ink needs it.
+             */
+            crop?: string | null;
+            /**
+             * Frame
+             * @description The whole frame, as a JPEG.
+             */
+            frame: string;
+            /**
+             * Meta
+             * @description FrameMeta, as JSON text.
+             */
+            meta: string;
+        };
+        /**
+         * CellMask
+         * @description The changed cells of the flattened page's grid, as ``[col, row]`` pairs.
+         */
+        CellMask: {
+            /** Cells */
+            cells: [
+                number,
+                number
+            ][];
+            /** Cols */
+            cols: number;
+            /** Rows */
+            rows: number;
+        };
+        /**
+         * DetectorInfo
+         * @description What the detector counted when it chose the frame, and which rules it ran.
+         */
+        DetectorInfo: {
+            /** Changed Cells */
+            changed_cells: number;
+            /** Erase Pixels */
+            erase_pixels: number;
+            /** Ink Pixels */
+            ink_pixels: number;
+            /** Version */
+            version: string;
+        };
         /** DeviceRegistration */
         DeviceRegistration: {
             /**
@@ -108,6 +199,88 @@ export interface components {
             device_id: string;
             /** Token */
             token: string;
+        };
+        /** FrameList */
+        FrameList: {
+            /** Items */
+            items: components["schemas"]["FrameOut"][];
+        };
+        /**
+         * FrameMeta
+         * @description The upload's ``meta`` part. Every field is sent; the nullable ones may be ``null``.
+         */
+        FrameMeta: {
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            crop_rect: components["schemas"]["NormRect"] | null;
+            detector: components["schemas"]["DetectorInfo"];
+            mask: components["schemas"]["CellMask"] | null;
+            /** Page Found */
+            page_found: boolean;
+            /** Page Quad */
+            page_quad: components["schemas"]["Point"][] | null;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "ink" | "page";
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "deskview-helper" | "window-capture" | "fake-clip" | "screen";
+        };
+        /** FrameOut */
+        FrameOut: {
+            /** Bytes */
+            bytes: number;
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            crop_rect: components["schemas"]["NormRect"] | null;
+            /** Has Crop */
+            has_crop: boolean;
+            /** Height */
+            height: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            mask: components["schemas"]["CellMask"] | null;
+            /** Page Found */
+            page_found: boolean;
+            /** Page Quad */
+            page_quad: components["schemas"]["Point"][] | null;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "ink" | "page";
+            /** Seq */
+            seq: number;
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "deskview-helper" | "window-capture" | "fake-clip" | "screen";
+            /** Width */
+            width: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -136,6 +309,30 @@ export interface components {
              * @enum {string}
              */
             ui_language: "en" | "es" | "ko";
+        };
+        /**
+         * NormRect
+         * @description A rectangle in page coordinates, inside the page.
+         */
+        NormRect: {
+            /** H */
+            h: number;
+            /** W */
+            w: number;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /**
+         * Point
+         * @description A point in pixels of the full JPEG.
+         */
+        Point: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
         };
         /** SessionCreate */
         SessionCreate: {
@@ -449,6 +646,150 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SessionOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_frames_v1_sessions__session_id__frames_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrameList"];
+                };
+            };
+            /** @description No such session for this learner */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_frame_v1_sessions__session_id__frames_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_frame_v1_sessions__session_id__frames_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrameOut"];
+                };
+            };
+            /** @description No such session for this learner */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The frame or the crop is over its size limit */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A part isn't a JPEG with a SOF0, SOF1 or SOF2 frame header */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description The session's newest frame is too recent; see Retry-After */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    frame_image_v1_sessions__session_id__frames__frame_id__image_get: {
+        parameters: {
+            query: {
+                part: "full" | "crop";
+            };
+            header?: never;
+            path: {
+                session_id: string;
+                frame_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The JPEG */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            /** @description No such frame, no crop, or no stored image */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

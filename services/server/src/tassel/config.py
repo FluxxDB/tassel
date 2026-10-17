@@ -24,3 +24,8 @@ class Settings(BaseSettings):
     s3_bucket: str = "tassel-frames"
     s3_access_key_id: str = "tassel"
     s3_secret_access_key: str = "tassel-dev-only"
+
+    # Upload limits: a full frame, its crop, and the least time between a session's frames.
+    frame_max_bytes: int = 8 * 1024 * 1024
+    crop_max_bytes: int = 2 * 1024 * 1024
+    frame_min_interval_s: float = 1.0

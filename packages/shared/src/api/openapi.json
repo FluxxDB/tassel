@@ -1,6 +1,121 @@
 {
   "components": {
     "schemas": {
+      "Body_upload_frame_v1_sessions__session_id__frames_post": {
+        "properties": {
+          "crop": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The changed part of the page, as a JPEG. Ink needs it.",
+            "title": "Crop"
+          },
+          "frame": {
+            "contentMediaType": "application/octet-stream",
+            "description": "The whole frame, as a JPEG.",
+            "title": "Frame",
+            "type": "string"
+          },
+          "meta": {
+            "contentMediaType": "application/json",
+            "contentSchema": {
+              "$ref": "#/components/schemas/FrameMeta"
+            },
+            "description": "FrameMeta, as JSON text.",
+            "title": "Meta",
+            "type": "string"
+          }
+        },
+        "required": [
+          "frame",
+          "meta"
+        ],
+        "title": "Body_upload_frame_v1_sessions__session_id__frames_post",
+        "type": "object"
+      },
+      "CellMask": {
+        "additionalProperties": false,
+        "description": "The changed cells of the flattened page's grid, as ``[col, row]`` pairs.",
+        "properties": {
+          "cells": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            "maxItems": 40000,
+            "title": "Cells",
+            "type": "array"
+          },
+          "cols": {
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Cols",
+            "type": "integer"
+          },
+          "rows": {
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cols",
+          "rows",
+          "cells"
+        ],
+        "title": "CellMask",
+        "type": "object"
+      },
+      "DetectorInfo": {
+        "additionalProperties": false,
+        "description": "What the detector counted when it chose the frame, and which rules it ran.",
+        "properties": {
+          "changed_cells": {
+            "minimum": 0.0,
+            "title": "Changed Cells",
+            "type": "integer"
+          },
+          "erase_pixels": {
+            "minimum": 0.0,
+            "title": "Erase Pixels",
+            "type": "integer"
+          },
+          "ink_pixels": {
+            "minimum": 0.0,
+            "title": "Ink Pixels",
+            "type": "integer"
+          },
+          "version": {
+            "maxLength": 20,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "changed_cells",
+          "ink_pixels",
+          "erase_pixels",
+          "version"
+        ],
+        "title": "DetectorInfo",
+        "type": "object"
+      },
       "DeviceRegistration": {
         "properties": {
           "device_id": {
@@ -18,6 +133,225 @@
           "token"
         ],
         "title": "DeviceRegistration",
+        "type": "object"
+      },
+      "FrameList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FrameOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "FrameList",
+        "type": "object"
+      },
+      "FrameMeta": {
+        "additionalProperties": false,
+        "description": "The upload's ``meta`` part. Every field is sent; the nullable ones may be ``null``.",
+        "properties": {
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "crop_rect": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NormRect"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detector": {
+            "$ref": "#/components/schemas/DetectorInfo"
+          },
+          "mask": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CellMask"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "page_found": {
+            "title": "Page Found",
+            "type": "boolean"
+          },
+          "page_quad": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Point"
+                },
+                "maxItems": 4,
+                "minItems": 4,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Quad"
+          },
+          "reason": {
+            "enum": [
+              "ink",
+              "page"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "deskview-helper",
+              "window-capture",
+              "fake-clip",
+              "screen"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "source",
+          "captured_at",
+          "page_found",
+          "page_quad",
+          "crop_rect",
+          "mask",
+          "detector"
+        ],
+        "title": "FrameMeta",
+        "type": "object"
+      },
+      "FrameOut": {
+        "properties": {
+          "bytes": {
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "crop_rect": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NormRect"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_crop": {
+            "title": "Has Crop",
+            "type": "boolean"
+          },
+          "height": {
+            "title": "Height",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "mask": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CellMask"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "page_found": {
+            "title": "Page Found",
+            "type": "boolean"
+          },
+          "page_quad": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Point"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Quad"
+          },
+          "reason": {
+            "enum": [
+              "ink",
+              "page"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "deskview-helper",
+              "window-capture",
+              "fake-clip",
+              "screen"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "session_id",
+          "seq",
+          "reason",
+          "source",
+          "captured_at",
+          "created_at",
+          "width",
+          "height",
+          "has_crop",
+          "bytes",
+          "page_found",
+          "page_quad",
+          "crop_rect",
+          "mask"
+        ],
+        "title": "FrameOut",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -74,6 +408,66 @@
           "ui_language"
         ],
         "title": "MeOut",
+        "type": "object"
+      },
+      "NormRect": {
+        "additionalProperties": false,
+        "description": "A rectangle in page coordinates, inside the page.",
+        "properties": {
+          "h": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "H",
+            "type": "number"
+          },
+          "w": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "W",
+            "type": "number"
+          },
+          "x": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "w",
+          "h"
+        ],
+        "title": "NormRect",
+        "type": "object"
+      },
+      "Point": {
+        "additionalProperties": false,
+        "description": "A point in pixels of the full JPEG.",
+        "properties": {
+          "x": {
+            "minimum": 0.0,
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "minimum": 0.0,
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "Point",
         "type": "object"
       },
       "SessionCreate": {
@@ -518,6 +912,7 @@
     },
     "/v1/sessions/{session_id}": {
       "delete": {
+        "description": "Deletes the session's frame images first, then the session, whose frame rows cascade.",
         "operationId": "delete_session_v1_sessions__session_id__delete",
         "parameters": [
           {
@@ -656,6 +1051,214 @@
         "summary": "Patch Session",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/frames": {
+      "get": {
+        "description": "The session's frames, newest first.",
+        "operationId": "list_frames_v1_sessions__session_id__frames_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FrameList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "No such session for this learner"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "List Frames",
+        "tags": [
+          "frames"
+        ]
+      },
+      "post": {
+        "operationId": "upload_frame_v1_sessions__session_id__frames_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_frame_v1_sessions__session_id__frames_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FrameOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "No such session for this learner"
+          },
+          "413": {
+            "description": "The frame or the crop is over its size limit"
+          },
+          "415": {
+            "description": "A part isn't a JPEG with a SOF0, SOF1 or SOF2 frame header"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "The session's newest frame is too recent; see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Upload Frame",
+        "tags": [
+          "frames"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/frames/{frame_id}/image": {
+      "get": {
+        "description": "The frame's full JPEG or its crop, served by the API rather than a signed URL.",
+        "operationId": "frame_image_v1_sessions__session_id__frames__frame_id__image_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "frame_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Frame Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "part",
+            "required": true,
+            "schema": {
+              "enum": [
+                "full",
+                "crop"
+              ],
+              "title": "Part",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The JPEG"
+          },
+          "404": {
+            "description": "No such frame, no crop, or no stored image"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Frame Image",
+        "tags": [
+          "frames"
         ]
       }
     }
