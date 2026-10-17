@@ -1,5 +1,8 @@
-// Playwright global setup. When services/server exists, it creates and migrates the tassel_e2e
-// database and starts the server on the E2E port; the function it returns stops the server.
+// Playwright global setup. It generates the synthetic paper clip that launchApp plays as a fake
+// camera (into <repo>/.cache/paper-clips, reused while the generator is unchanged) and sets
+// TASSEL_E2E_CLIP_DFA_SHORT for the specs. When services/server exists, it creates and migrates
+// the tassel_e2e database and starts the server on the E2E port; the function it returns stops
+// the server.
 // tassel_e2e is separate from the server tests' tassel_test, so the two suites can run at once.
 // TASSEL_E2E_DATABASE_URL points it at another database, as TASSEL_TEST_DATABASE_URL does for
 // the server tests, and TASSEL_E2E_PORT at another port (fixtures.ts reads it), so checkouts
@@ -10,7 +13,10 @@ import { join } from 'node:path';
 import spawn from 'cross-spawn';
 import { E2E_SERVER_URL } from './fixtures';
 
-const serverDir = join(__dirname, '..', '..', '..', '..', 'services', 'server');
+const repoRoot = join(__dirname, '..', '..', '..', '..');
+const serverDir = join(repoRoot, 'services', 'server');
+const clipsDir = join(repoRoot, '.cache', 'paper-clips');
+const genClip = join(repoRoot, 'packages', 'paper-synth', 'scripts', 'gen-clip.ts');
 const healthUrl = `${E2E_SERVER_URL}/v1/health`;
 const databaseUrl =
   process.env.TASSEL_E2E_DATABASE_URL ??
@@ -38,6 +44,8 @@ finally:
 `;
 
 export default async function globalSetup(): Promise<(() => Promise<void>) | undefined> {
+  // Workers inherit this, and launchApp passes it to every launch as TASSEL_FAKE_CLIP.
+  process.env.TASSEL_E2E_CLIP_DFA_SHORT = generateClip('dfa-short');
   if (!existsSync(serverDir)) {
     console.log(`[e2e] ${serverDir} doesn't exist, so the E2E server won't start.`);
     return undefined;
@@ -67,6 +75,29 @@ export default async function globalSetup(): Promise<(() => Promise<void>) | und
     `[e2e] The server is up at ${E2E_SERVER_URL}, on ${new URL(databaseUrl).pathname.slice(1)}.`,
   );
   return () => stop(server);
+}
+
+/**
+ * Generates a paper-synth clip and returns its path. gen-clip skips the work when the clip for
+ * these options already exists, and prints one JSON line naming it.
+ */
+function generateClip(variant: string): string {
+  const result = spawn.sync(process.execPath, [genClip, '--variant', variant, '--out', clipsDir], {
+    encoding: 'utf8',
+    timeout: 300_000,
+  });
+  if (result.error)
+    throw new Error(`[e2e] Couldn't generate the ${variant} clip: ${result.error.message}`);
+  if (result.status !== 0) {
+    throw new Error(
+      `[e2e] Couldn't generate the ${variant} clip (exit ${result.status}):\n${result.stderr}`,
+    );
+  }
+  const { mjpeg } = JSON.parse(result.stdout.trim().split('\n').at(-1) ?? '{}') as {
+    mjpeg?: string;
+  };
+  if (!mjpeg || !existsSync(mjpeg)) throw new Error(`[e2e] gen-clip named no ${variant} clip`);
+  return mjpeg;
 }
 
 /** Runs `uv run <args>` in services/server and throws with its output if it fails. */

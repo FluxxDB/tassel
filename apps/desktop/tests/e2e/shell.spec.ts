@@ -13,7 +13,7 @@ test('launches securely with the bridge', async () => {
   await app.close();
 });
 
-test('exposes the paper bridge, with every fake off by default', async () => {
+test("exposes the paper bridge, on launchApp's fake clip", async () => {
   const { app, page } = await launchApp();
   expect(await page.evaluate(() => Object.keys(window.tassel.paper).sort())).toEqual([
     'cameraAccess',
@@ -23,12 +23,13 @@ test('exposes the paper bridge, with every fake off by default', async () => {
     'startHelper',
     'stopHelper',
   ]);
-  // Only the config: nothing here starts the helper or reads the camera.
+  // launchApp pins every spec to the generated clip (the capture guard, ruling P3-R24). Only the
+  // config is read here: nothing starts the helper or reads a camera.
   expect(await page.evaluate(() => window.tassel.paper.getConfig())).toEqual({
-    source: 'auto',
+    source: 'fake-clip',
     debug: false,
     helperClip: false,
-    fakeClip: false,
+    fakeClip: true,
     params: {},
   });
   await app.close();
