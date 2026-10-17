@@ -81,6 +81,10 @@ function HeatmapLayer(props: {
   return stats ? <Heatmap stats={stats} {...props} /> : null;
 }
 
+/**
+ * The debug pill, at the panel's bottom right. The captions (z-20) can cover that corner, so it
+ * sits above them: it's a tuning tool, never seen in a student's build.
+ */
 function DebugPill({ heatmap, onToggle }: { heatmap: boolean; onToggle(): void }) {
   const { t } = useTranslation();
   const kind = usePaperStore((state) => state.kind);
@@ -90,7 +94,7 @@ function DebugPill({ heatmap, onToggle }: { heatmap: boolean; onToggle(): void }
   const { params } = usePaperConfig();
   const stable = { ...DEFAULT_PARAMS, ...parseParams(params) }.stableSamples;
   return (
-    <div className="pointer-events-auto absolute right-3.5 bottom-3.5 z-10 flex h-[26px] items-center gap-2 rounded-pill bg-paper pr-px pl-3 shadow-[0_0_0_1px_var(--color-hairline)]">
+    <div className="pointer-events-auto absolute right-3.5 bottom-3.5 z-30 flex h-[26px] items-center gap-2 rounded-pill bg-paper pr-px pl-3 shadow-[0_0_0_1px_var(--color-hairline)]">
       <span className="mono text-[11px] leading-[14px] whitespace-nowrap text-ink">
         {t('paper.debug.stats', {
           kind: kind ?? '',

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { ApiClient, Session } from '@tassel/shared/api';
 import type { Lang } from '@tassel/shared/i18n';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { I18nextProvider } from 'react-i18next';
@@ -11,6 +11,7 @@ import { defaultSource } from '../../src/renderer/src/features/new-session/defau
 import { NewSessionSheet } from '../../src/renderer/src/features/new-session/NewSessionSheet';
 import { initI18n } from '../../src/renderer/src/i18n';
 import { ApiProvider } from '../../src/renderer/src/lib/api';
+import { DEFAULT_PAPER_CONFIG, setPaperConfig } from '../../src/renderer/src/paper/paper-config';
 import type { Platform } from '../../src/shared/bridge';
 
 const CREATED: Session = {
@@ -42,9 +43,11 @@ function pending<T>() {
 async function renderSheet({
   lang = 'en',
   platform = 'darwin',
+  paperFakeClip,
 }: {
   lang?: Lang;
   platform?: Platform;
+  paperFakeClip?: boolean;
 } = {}) {
   const i18n = await initI18n(lang);
   const POST = vi.fn();
@@ -62,6 +65,7 @@ async function renderSheet({
           setOpen(next);
         }}
         platform={platform}
+        paperFakeClip={paperFakeClip}
       />
     );
   }
@@ -76,7 +80,10 @@ async function renderSheet({
 }
 
 beforeEach(() => useRoute.getState().goLibrary());
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  setPaperConfig(DEFAULT_PAPER_CONFIG);
+});
 
 describe('defaultSource', () => {
   it('is screen share on Windows, which has no Desk View, and paper elsewhere', () => {
@@ -137,6 +144,24 @@ describe('NewSessionSheet', () => {
       'aria-describedby',
       notice.id,
     );
+  });
+
+  it('win32 with a fake clip enables Paper, keeps screen as the default, and keeps the notice', async () => {
+    // R11: a dev or E2E run on Windows can try paper on the synthetic clip.
+    const notice = "Desk View isn't available on Windows. Share your screen instead.";
+    await renderSheet({ platform: 'win32', paperFakeClip: true });
+    expect(screen.getByRole('radio', { name: 'Paper · Desk View' })).toBeEnabled();
+    expect(screen.getByRole('radio', { name: 'Screen share' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.getByText(notice)).toBeInTheDocument();
+    cleanup();
+    // Without the prop, the boot-time paper config decides.
+    setPaperConfig({ ...DEFAULT_PAPER_CONFIG, source: 'fake-clip', fakeClip: true });
+    await renderSheet({ platform: 'win32' });
+    expect(screen.getByRole('radio', { name: 'Paper · Desk View' })).toBeEnabled();
+    expect(screen.getByText(notice)).toBeInTheDocument();
   });
 
   it('shows no Windows notice elsewhere, and keeps Paper available', async () => {

@@ -7,6 +7,7 @@ import { AppFrame } from '../../app/AppFrame';
 import { Chip } from '../../components/Chip';
 import { Wordmark } from '../../components/Wordmark';
 import { cn } from '../../lib/cn';
+import { usePaperLive } from '../../paper/use-paper-capture';
 import { useElapsed } from './use-elapsed';
 
 export interface TitleStripProps {
@@ -22,6 +23,8 @@ const HEADING = 'min-w-0 truncate text-[15px] leading-[22px] font-w520 focus-vis
 
 export function TitleStrip({ session, failed, startedAt }: TitleStripProps) {
   const { t } = useTranslation();
+  // The dot is live red only while her paper is really delivering frames (R29).
+  const paperLive = usePaperLive();
   const heading = useRef<HTMLHeadingElement>(null);
   const landed = useRef(false);
   const shown = session !== null || failed;
@@ -66,7 +69,9 @@ export function TitleStrip({ session, failed, startedAt }: TitleStripProps) {
         )}
       </div>
       <div className="flex shrink-0 items-center gap-3.5">
-        {session && <SourceLabel source={session.source} />}
+        {session && (
+          <SourceLabel source={session.source} live={session.source === 'paper' && paperLive} />
+        )}
         <Timer start={startedAt} />
         {session && (
           <Chip tone="ink">
@@ -81,7 +86,7 @@ export function TitleStrip({ session, failed, startedAt }: TitleStripProps) {
 
 /**
  * What Ada works from, beside its dot. The dot turns live red only while something is really
- * captured; P1 captures nothing, so it stays neutral and the label doesn't claim "Live".
+ * captured (P3's paper feed); otherwise it stays neutral and the label doesn't claim "Live".
  */
 function SourceLabel({ source, live = false }: { source: Source; live?: boolean }) {
   const { t } = useTranslation();

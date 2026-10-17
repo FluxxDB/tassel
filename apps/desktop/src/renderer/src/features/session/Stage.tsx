@@ -7,6 +7,9 @@ import { type ReactNode, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Mic, Pin, Screen } from '../../components/icons';
 import { cn } from '../../lib/cn';
+import { PaperPanel } from '../../paper/PaperPanel';
+import { PaperTopLineExtras } from '../../paper/PaperTopLineExtras';
+import { usePaperTag } from '../../paper/use-paper-capture';
 import { type StageMode, useStageStore } from './stage-store';
 import { TutorTile } from './TutorTile';
 
@@ -26,16 +29,22 @@ export interface StageProps {
 export function Stage({ source, onUnpinned }: StageProps) {
   const { t } = useTranslation();
   const mode = useStageStore((state) => state.mode);
+  // Her paper's tag follows the running source (P3): a shared window says so.
+  const paperTag = usePaperTag();
   const paperShown = mode !== 'board';
   const boardShown = mode !== 'paper';
+  const paper = source === 'paper';
+  const tag = paper ? paperTag : t(`session.placeholder.${source}.tag`);
   return (
     <div data-testid="stage" className="absolute top-2 right-4 bottom-[104px] left-4 flex">
-      <Panel shown={paperShown} label={t(`session.placeholder.${source}.tag`)}>
-        <Waiting source={source} />
-        <TopLine pinIndicator={paperShown} onUnpinned={onUnpinned}>
-          <Tag className="bg-paper text-ink shadow-[0_0_0_1px_var(--color-hairline)]">
-            {t(`session.placeholder.${source}.tag`)}
-          </Tag>
+      <Panel shown={paperShown} label={tag}>
+        {paper ? <PaperPanel fallback={<Waiting source="paper" />} /> : <Waiting source={source} />}
+        <TopLine
+          pinIndicator={paperShown}
+          onUnpinned={onUnpinned}
+          trailing={paper ? <PaperTopLineExtras /> : undefined}
+        >
+          <Tag className="bg-paper text-ink shadow-[0_0_0_1px_var(--color-hairline)]">{tag}</Tag>
         </TopLine>
       </Panel>
       <Panel
@@ -87,21 +96,25 @@ function Panel({
 
 /**
  * A panel's top line, 14px in from its top left: its tag, then 8px on, the pin indicator when
- * this is the leftmost panel. If the indicator doesn't fit beside the tag, it wraps below it.
+ * this is the leftmost panel, then `trailing` (paper's extras, P3). If something doesn't fit
+ * beside the tag, it wraps below it.
  */
 function TopLine({
   pinIndicator,
   onUnpinned,
+  trailing,
   children,
 }: {
   pinIndicator: boolean;
   onUnpinned?(): void;
+  trailing?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div className="pointer-events-none absolute top-3.5 right-3.5 left-3.5 z-10 flex flex-wrap items-center gap-2">
       {children}
       {pinIndicator && <PinIndicator onUnpinned={onUnpinned} />}
+      {trailing}
     </div>
   );
 }
@@ -142,12 +155,13 @@ function PinIndicator({ onUnpinned }: { onUnpinned?(): void }) {
     <div
       aria-hidden={!pinned || undefined}
       className={cn(
-        'pointer-events-auto flex h-[26px] items-center gap-2 rounded-pill bg-paper pr-px pl-3 shadow-[0_0_0_1px_var(--color-hairline)] motion-safe:duration-[140ms]',
-        // Shown, it's visible (and Unpin reachable) at once while it fades in; hidden, it stays
-        // visible through the fade and only then leaves.
+        'pointer-events-auto h-[26px] items-center gap-2 rounded-pill bg-paper pr-px pl-3 shadow-[0_0_0_1px_var(--color-hairline)] motion-safe:duration-[140ms]',
+        // Shown, it's in the row (and Unpin reachable) at once while it fades in; hidden, it stays
+        // through the fade and only then leaves the row, so what follows it on the top line
+        // (paper's extras, P3) never sits after an empty gap.
         pinned
-          ? 'visible opacity-100 motion-safe:transition-opacity'
-          : 'invisible opacity-0 motion-safe:transition-[opacity,visibility]',
+          ? 'flex opacity-100 motion-safe:transition-opacity motion-safe:starting:opacity-0'
+          : 'hidden opacity-0 motion-safe:transition-[opacity,display] motion-safe:transition-discrete',
       )}
     >
       <Pin className="size-3.5 shrink-0" />
@@ -174,7 +188,7 @@ function PinIndicator({ onUnpinned }: { onUnpinned?(): void }) {
   );
 }
 
-/** Her side of the stage until P3 brings the live feed: calm, centered, and static. */
+/** Her side of the stage until a source runs (P3's fallback): calm, centered, and static. */
 function Waiting({ source }: { source: Source }) {
   const { t } = useTranslation();
   return (
