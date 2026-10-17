@@ -88,6 +88,12 @@ def _mode(kind: ProviderKind, s: VoiceSettings) -> str:
     return mode
 
 
+def require_session_providers(s: VoiceSettings) -> None:
+    """Refuse unconfigured live/auto voice before accepting an SDP offer. No I/O."""
+    for kind in ("stt", "llm", "tts"):
+        _mode(kind, s)
+
+
 def stt_kind(route: VoiceRoute, s: VoiceSettings) -> SttKind:
     return "fake" if _mode("stt", s) == "fake" else route.stt
 
