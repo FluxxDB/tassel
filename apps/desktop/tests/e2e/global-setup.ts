@@ -2,7 +2,8 @@
 // database and starts the server on the E2E port; the function it returns stops the server.
 // tassel_e2e is separate from the server tests' tassel_test, so the two suites can run at once.
 // TASSEL_E2E_DATABASE_URL points it at another database, as TASSEL_TEST_DATABASE_URL does for
-// the server tests.
+// the server tests, and TASSEL_E2E_PORT at another port (fixtures.ts reads it), so checkouts
+// can run E2E side by side.
 import type { ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';

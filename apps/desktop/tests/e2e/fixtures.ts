@@ -10,8 +10,11 @@ import {
   type Page,
 } from '@playwright/test';
 
-/** The E2E server, which global-setup.ts starts on this port. */
-export const E2E_SERVER_URL = 'http://127.0.0.1:8799';
+/**
+ * The E2E server, which global-setup.ts starts. TASSEL_E2E_PORT moves it off the default 8799,
+ * so checkouts that run E2E at the same time each get their own server.
+ */
+export const E2E_SERVER_URL = `http://127.0.0.1:${e2ePort(process.env.TASSEL_E2E_PORT)}`;
 
 const appDir = join(__dirname, '..', '..');
 const mainEntry = join(appDir, 'out', 'main', 'index.js');
@@ -55,6 +58,15 @@ export async function launchApp(
 /** Saves a screenshot of the window to test-results/screens/<name>.png. */
 export async function snap(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: join(screensDir, `${name}.png`) });
+}
+
+function e2ePort(value: string | undefined): number {
+  if (!value) return 8799;
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new Error(`TASSEL_E2E_PORT must be a port from 1 to 65535, not "${value}"`);
+  }
+  return port;
 }
 
 function removeDir(dir: string): void {

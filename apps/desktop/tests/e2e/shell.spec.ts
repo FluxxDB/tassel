@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { launchApp, snap } from './fixtures';
+import { E2E_SERVER_URL, launchApp, snap } from './fixtures';
 
 test('launches securely with the bridge', async () => {
   const { app, page } = await launchApp();
@@ -17,7 +17,7 @@ test('keeps the renderer on its own origin', async () => {
   const { app, page } = await launchApp();
   // The bridge reaches the main process, which reads the launch settings.
   expect(await page.evaluate(() => window.tassel.getConfig())).toMatchObject({
-    serverUrl: 'http://127.0.0.1:8799',
+    serverUrl: E2E_SERVER_URL,
     fakeSpeed: 20,
   });
   // The CSP refuses inline scripts.
