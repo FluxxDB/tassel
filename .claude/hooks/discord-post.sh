@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Post a status update (and optional images) to the supervisors' Discord channel.
 # Usage: discord-post.sh "message text" [image.png ...]   (max 10 images per post)
+# Mentions stay off unless DISCORD_PING_EVERYONE=1, which lets an "@everyone" in the text ping
+# (the owner asked for one when testing that spends real provider credits begins).
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -12,7 +14,8 @@ payload="$(python3 -c 'import json, sys
 text = sys.argv[1]
 if len(text) > 1990:
     text = text[:1987] + "..."
-print(json.dumps({"username": "Claude · Tassel build", "content": text, "allowed_mentions": {"parse": []}}))' "$msg")"
+mentions = ["everyone"] if sys.argv[2] == "1" else []
+print(json.dumps({"username": "Claude · Tassel build", "content": text, "allowed_mentions": {"parse": mentions}}))' "$msg" "${DISCORD_PING_EVERYONE:-0}")"
 
 # HTTP/1.1 and one retry: macOS's LibreSSL curl intermittently fails image uploads with
 # "bad record mac". A failure while reading the reply can mean the post already landed,

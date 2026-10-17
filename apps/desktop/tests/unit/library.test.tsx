@@ -1,7 +1,15 @@
 // @vitest-environment jsdom
 import type { ApiClient, Session, SessionSort } from '@tassel/shared/api';
 import type { Lang } from '@tassel/shared/i18n';
-import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { I18nextProvider } from 'react-i18next';
@@ -242,6 +250,23 @@ describe('LibraryScreen', () => {
     expect(within(untitled).getByText('Research')).toBeInTheDocument();
 
     await user.click(card);
+    expect(useRoute.getState().route).toEqual({ name: 'session', sessionId: DFA.id });
+  });
+
+  it("ignores the second click of a double click, which lands on a card only after End's first", async () => {
+    const { api, GET } = fakeApi();
+    GET.mockResolvedValue(listed([DFA]));
+    await renderLibrary(api);
+    const card = await screen.findByRole('button', { name: 'Strings that start with 010' });
+    fireEvent.click(card, { detail: 2 });
+    expect(useRoute.getState().route).toEqual({ name: 'library' });
+    // A click of its own opens it, and so do Enter and Space, which click with no count.
+    fireEvent.click(card, { detail: 1 });
+    expect(useRoute.getState().route).toEqual({ name: 'session', sessionId: DFA.id });
+    act(() => useRoute.getState().goLibrary());
+    fireEvent.click(await screen.findByRole('button', { name: 'Strings that start with 010' }), {
+      detail: 0,
+    });
     expect(useRoute.getState().route).toEqual({ name: 'session', sessionId: DFA.id });
   });
 

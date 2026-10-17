@@ -1,10 +1,13 @@
 // A modal sheet on Radix Dialog: a white card with the 24px hero radius over a light ink scrim.
-// Radix traps focus inside and closes on Escape or a click outside. Radix returns focus only to
-// a Dialog.Trigger, which a controlled sheet doesn't have, so the sheet remembers what had
-// focus when it opened and puts focus back there when it closes.
+// Radix traps focus inside and closes on Escape. A click on the scrim closes it too, except the
+// second click of a double click, which lands there when a double click opened the sheet; a
+// press on the scrim never takes focus out. Radix returns focus only to a Dialog.Trigger, which
+// a controlled sheet doesn't have, so the sheet remembers what had focus when it opened and puts
+// focus back there when it closes.
 import * as Dialog from '@radix-ui/react-dialog';
 import { type ReactNode, useRef } from 'react';
 import { cn } from '../lib/cn';
+import { firstClickOnly } from '../lib/first-click';
 
 export interface SheetProps {
   open: boolean;
@@ -21,8 +24,16 @@ export function Sheet({ open, onOpenChange, title, description, children, classN
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/25 motion-safe:data-[state=open]:animate-[scrim-in_180ms_cubic-bezier(0.16,1,0.3,1)] motion-safe:data-[state=closed]:animate-[scrim-out_120ms_ease-in_forwards]" />
+        <Dialog.Overlay
+          data-testid="sheet-scrim"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={firstClickOnly(() => onOpenChange(false))}
+          className="fixed inset-0 z-40 bg-ink/25 motion-safe:data-[state=open]:animate-[scrim-in_180ms_cubic-bezier(0.16,1,0.3,1)] motion-safe:data-[state=closed]:animate-[scrim-out_120ms_ease-in_forwards]"
+        />
         <Dialog.Content
+          // The scrim's click closes the sheet, not Radix's press outside: a press can't tell a
+          // double click's second click apart (its click count is 0), and a click can.
+          onPointerDownOutside={(event) => event.preventDefault()}
           // Fires before focus moves in, so the active element is still the opener.
           onOpenAutoFocus={() => {
             opener.current =

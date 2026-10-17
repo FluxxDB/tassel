@@ -7,6 +7,7 @@ import {
   type ElectronApplication,
   _electron as electron,
   expect,
+  type Locator,
   type Page,
 } from '@playwright/test';
 import { assertFakeCapture, fakeCaptureEnv } from './capture-guard';
@@ -79,6 +80,31 @@ export async function settle(page: Page): Promise<void> {
 /** Saves a screenshot of the window to test-results/screens/<name>.png. */
 export async function snap(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: join(screensDir, `${name}.png`) });
+}
+
+/** Calls the E2E server's API as the app's learner, with the device token the app holds. */
+export async function callApi(page: Page, path: string, init: RequestInit = {}): Promise<Response> {
+  const token = await page.evaluate(() => window.tassel.getToken());
+  return fetch(`${E2E_SERVER_URL}${path}`, {
+    ...init,
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+  });
+}
+
+/**
+ * Double-clicks the middle of `target` the way a person does: two presses 120 ms apart, the
+ * second counted as the second click. Unlike locator.dblclick, which presses twice at once, it
+ * leaves the first click time to change the screen under the pointer.
+ */
+export async function doubleClickLikeAPerson(page: Page, target: Locator): Promise<void> {
+  const box = await target.boundingBox();
+  if (!box) throw new Error("The double click's target isn't on screen");
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down({ clickCount: 1 });
+  await page.mouse.up({ clickCount: 1 });
+  await page.waitForTimeout(120);
+  await page.mouse.down({ clickCount: 2 });
+  await page.mouse.up({ clickCount: 2 });
 }
 
 /**

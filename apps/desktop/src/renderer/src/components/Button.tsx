@@ -2,15 +2,16 @@
 // for everything beside it (DESIGN.md: Filled Pill Button, Ghost Text Button).
 import type { ComponentPropsWithRef, ReactNode } from 'react';
 import { cn } from '../lib/cn';
+import { firstClickOnly } from '../lib/first-click';
 
 export interface ButtonProps extends ComponentPropsWithRef<'button'> {
   variant?: 'primary' | 'ghost';
   /** Height: sm 36px (title strips), md 40px, lg 48px (sheets, the dock and state CTAs). */
   size?: 'sm' | 'md' | 'lg';
   /**
-   * While a request runs: the button shows `busyLabel` and ignores clicks, so a double click
-   * acts once. It stays focusable (aria-disabled, not disabled), and both labels share one grid
-   * cell, so its width doesn't change.
+   * While a request runs: the button shows `busyLabel` and ignores clicks. It stays focusable
+   * (aria-disabled, not disabled), and both labels share one grid cell, so its width doesn't
+   * change.
    */
   busy?: boolean;
   busyLabel?: ReactNode;
@@ -45,7 +46,8 @@ export function Button({
       {...props}
       type={type}
       aria-disabled={busy || props['aria-disabled'] || undefined}
-      onClick={busy ? undefined : onClick}
+      // A double click acts once: its second click lands wherever the first one led.
+      onClick={busy ? undefined : firstClickOnly(onClick)}
       className={cn(
         // Colors only: a transition on outline-color would fade the focus ring in.
         'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-pill font-w520 transition-[color,background-color] duration-150 disabled:pointer-events-none disabled:opacity-40',

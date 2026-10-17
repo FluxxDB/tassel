@@ -6,6 +6,7 @@ import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Chip } from '../../components/Chip';
 import { cn } from '../../lib/cn';
+import { firstClickOnly } from '../../lib/first-click';
 import { formatRelative } from './relative-time';
 
 export interface SessionCardProps {
@@ -33,7 +34,8 @@ export function SessionCard({ session, dated, showSubject, now, onOpen }: Sessio
   return (
     <button
       type="button"
-      onClick={() => onOpen(session.id)}
+      // The second click of a double click on End lands here once the library shows: ignore it.
+      onClick={firstClickOnly(() => onOpen(session.id))}
       aria-labelledby={`${id}-title`}
       aria-describedby={`${id}-about`}
       className={cn(

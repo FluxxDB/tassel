@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyUserDataOverride, readConfig, tokenStoreMode } from '../../src/main/config';
 
@@ -75,6 +76,53 @@ describe('readConfig', () => {
       'https://tassel.example',
     );
   });
+});
+
+/** The renderer's connect-src sources, from the Content-Security-Policy in its index.html. */
+function connectSources(): string[] {
+  const html = readFileSync(new URL('../../src/renderer/index.html', import.meta.url), 'utf8');
+  const policy = /http-equiv="Content-Security-Policy"\s+content="([^"]+)"/.exec(html)?.[1] ?? '';
+  const directive = policy
+    .split(';')
+    .map((part) => part.trim().split(/\s+/))
+    .find(([name]) => name === 'connect-src');
+  return directive?.slice(1) ?? [];
+}
+
+/** Whether CSP sources let the renderer fetch `url`: a scheme (https:) or a host with a port. */
+function cspAllows(sources: string[], url: string): boolean {
+  const { protocol, hostname, port } = new URL(url);
+  return sources.some((source) => {
+    if (source === protocol) return true;
+    const [, scheme, host, sourcePort] = /^([a-z]+:)\/\/([^:/]+)(?::(\*|\d+))?$/.exec(source) ?? [];
+    return scheme === protocol && host === hostname && (sourcePort === '*' || sourcePort === port);
+  });
+}
+
+describe("the server URL and the renderer's CSP", () => {
+  const sources = connectSources();
+
+  it.each([
+    'http://127.0.0.1:8787',
+    'http://localhost:8787',
+    'http://localhost',
+    'https://tassel.example',
+    'https://10.0.0.5:8443',
+  ])('keeps TASSEL_SERVER_URL=%s, which the CSP lets the renderer reach', (url) => {
+    expect(readConfig({ TASSEL_SERVER_URL: url }).serverUrl).toBe(url);
+    expect(cspAllows(sources, url)).toBe(true);
+  });
+
+  it.each(['http://192.168.1.5:8787', 'http://tassel.example', 'http://[::1]:8787'])(
+    'falls back to the local server, with a warning, for TASSEL_SERVER_URL=%s, which the CSP blocks',
+    (url) => {
+      expect(cspAllows(sources, url)).toBe(false);
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      expect(readConfig({ TASSEL_SERVER_URL: url }).serverUrl).toBe('http://127.0.0.1:8787');
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('TASSEL_SERVER_URL'));
+      warn.mockRestore();
+    },
+  );
 });
 
 describe('applyUserDataOverride', () => {
