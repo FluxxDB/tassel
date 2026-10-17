@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { useRoute } from '../../app/route-store';
 import { Button } from '../../components/Button';
 import { Sheet } from '../../components/Sheet';
+import type { TutorClient } from '../../tutor/types';
+import { useTutorSession } from '../../tutor/use-tutor-session';
 import { Captions } from './Captions';
 import { useCurrentSession } from './current-session';
 import { Dock } from './Dock';
@@ -14,7 +16,22 @@ import { useSessionShortcuts } from './shortcuts';
 import { useStageStore } from './stage-store';
 import { TitleStrip } from './TitleStrip';
 
-export function SessionScreen({ sessionId }: { sessionId: string }) {
+export interface SessionScreenProps {
+  sessionId: string;
+  /** Makes this session's tutor (createTutorClient from the launch config). Without it, or if it
+   * throws (the live tutor before P2, an unknown fake script), the session runs without one. */
+  createTutor?: () => TutorClient;
+}
+
+/** A tutor that never connects or speaks: the stage stays usable without one. */
+const NO_TUTOR: TutorClient = {
+  connect: async () => {},
+  disconnect: async () => {},
+  on: () => () => {},
+  sendText: () => {},
+};
+
+export function SessionScreen({ sessionId, createTutor }: SessionScreenProps) {
   const { t } = useTranslation();
   const { session, failed, load } = useCurrentSession();
   const goLibrary = useRoute((state) => state.goLibrary);
@@ -27,6 +44,17 @@ export function SessionScreen({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     void load(sessionId);
   }, [load, sessionId]);
+  // One tutor for the life of this screen; it connects on mount and disconnects on unmount.
+  const [tutor] = useState<TutorClient>(() => {
+    if (!createTutor) return NO_TUTOR;
+    try {
+      return createTutor();
+    } catch (error) {
+      console.warn('[tassel] This session runs without a tutor:', error);
+      return NO_TUTOR;
+    }
+  });
+  useTutorSession(sessionId, tutor);
   useSessionShortcuts();
 
   const end = () => {

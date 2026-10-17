@@ -1,5 +1,9 @@
 import { type ElectronApplication, expect, type Page, test } from '@playwright/test';
-import { E2E_SERVER_URL, launchApp, settle, setWindowSize, snap } from './fixtures';
+import { E2E_SERVER_URL, launchApp as launch, settle, setWindowSize, snap } from './fixtures';
+
+// The fake tutor at its own pace: within these few seconds Ada only connects and listens, so
+// her split request (27.6 s) never moves the stage under a measurement.
+const launchApp = (env: Record<string, string> = {}) => launch({ TASSEL_FAKE_SPEED: '1', ...env });
 
 // 70 characters of Spanish: too long for the title strip at 1024.
 const LONG_SPANISH_TITLE = 'Demostración por inducción de la fórmula para la suma de los n impares';
@@ -167,10 +171,14 @@ test('reflows the stage over 240 ms, and instantly under reduced motion', async 
   expect(widths.some((width) => width > 698 && width < 1408)).toBe(true);
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  // Board pinned, then Follow Ada (back to paper): each change lands in one step.
+  // Board pinned, then Follow Ada (back to paper): each change lands in one step, with no width
+  // between the old one and the new (a frame may still show the old one before React commits).
+  let before = 698;
   for (const target of [0, 1408]) {
     const steps = await sampleReflow(page);
-    expect(steps.every((width) => width === target)).toBe(true);
+    expect(steps.at(-1)).toBe(target);
+    expect(steps.every((width) => width === before || width === target)).toBe(true);
+    before = target;
   }
   await closeApp(app);
 });

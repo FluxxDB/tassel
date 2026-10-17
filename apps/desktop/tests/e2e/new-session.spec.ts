@@ -14,7 +14,8 @@ async function listSessions(page: Page): Promise<Array<Record<string, unknown>>>
 }
 
 test('starts a session from the sheet and comes back to its card', async () => {
-  const { app, page } = await launchApp();
+  // The tutor at its own pace names the session only after 4.5 s; this flow ends well before.
+  const { app, page } = await launchApp({ TASSEL_FAKE_SPEED: '1' });
   await expect(page.getByRole('region', { name: 'No sessions yet' })).toBeVisible();
 
   await page.getByRole('banner').getByRole('button', { name: 'New session' }).click();

@@ -1,0 +1,132 @@
+{
+  "steps": [
+    {
+      "at": 0,
+      "event": {
+        "type": "state",
+        "state": "connecting"
+      }
+    },
+    {
+      "at": 800,
+      "event": {
+        "type": "state",
+        "state": "listening"
+      }
+    },
+    {
+      "at": 1500,
+      "event": {
+        "type": "caption",
+        "speaker": "student",
+        "text": "Hi Ada, I'm working on a DFA for binary strings that start with 010.",
+        "lang": "en",
+        "final": true
+      }
+    },
+    {
+      "at": 4500,
+      "event": {
+        "type": "title",
+        "title": "Strings that start with 010",
+        "subject": "Automata · DFA"
+      }
+    },
+    {
+      "at": 5000,
+      "event": {
+        "type": "state",
+        "state": "speaking"
+      }
+    },
+    {
+      "at": 5200,
+      "event": {
+        "type": "caption",
+        "speaker": "tutor",
+        "text": "Great, draw it on paper and talk me through it. I'll watch.",
+        "lang": "en",
+        "final": true
+      }
+    },
+    {
+      "at": 8500,
+      "event": {
+        "type": "state",
+        "state": "watching"
+      }
+    },
+    {
+      "at": 14000,
+      "event": {
+        "type": "state",
+        "state": "speaking"
+      }
+    },
+    {
+      "at": 14200,
+      "event": {
+        "type": "caption",
+        "speaker": "tutor",
+        "text": "What should happen once you've already read 010?",
+        "lang": "en",
+        "final": true
+      }
+    },
+    {
+      "at": 17000,
+      "event": {
+        "type": "state",
+        "state": "watching"
+      }
+    },
+    {
+      "at": 24000,
+      "event": {
+        "type": "caption",
+        "speaker": "student",
+        "text": "I think that's it. If it starts with a 1, I just wait on q0 until I see a 0.",
+        "lang": "en",
+        "final": true
+      }
+    },
+    {
+      "at": 26000,
+      "event": {
+        "type": "state",
+        "state": "thinking"
+      }
+    },
+    {
+      "at": 27500,
+      "event": {
+        "type": "state",
+        "state": "speaking"
+      }
+    },
+    {
+      "at": 27600,
+      "event": {
+        "type": "stage",
+        "mode": "split"
+      }
+    },
+    {
+      "at": 27700,
+      "event": {
+        "type": "caption",
+        "speaker": "tutor",
+        "text": "Before you move on, try running 1010 through your DFA. Where does it end up?",
+        "lang": "en",
+        "final": true
+      }
+    },
+    {
+      "at": 33000,
+      "event": {
+        "type": "state",
+        "state": "listening"
+      }
+    }
+  ]
+}

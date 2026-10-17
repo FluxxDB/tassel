@@ -1,0 +1,46 @@
+// Connects the session screen to its tutor: Ada's states, captions and view requests go to the
+// stage store; her title for the session updates the title strip at once (R4) and persists, so
+// the library shows it afterwards (R16).
+import { patchSession } from '@tassel/shared/api';
+import { useEffect } from 'react';
+import { useCurrentSession } from '../features/session/current-session';
+import { useStageStore } from '../features/session/stage-store';
+import { useApi } from '../lib/api';
+import type { TutorClient } from './types';
+
+/** Connects on mount and disconnects on unmount. */
+export function useTutorSession(sessionId: string, client: TutorClient): void {
+  const api = useApi();
+  const { patchLocal } = useCurrentSession();
+
+  useEffect(() => {
+    const stage = useStageStore.getState();
+    const off = client.on((event) => {
+      switch (event.type) {
+        case 'state':
+          stage.setTutorState(event.state);
+          break;
+        case 'caption':
+          // A line still being heard waits until it's final; P2's live captions refine this.
+          if (event.final) stage.pushCaption(event.speaker, event.text, event.lang);
+          break;
+        case 'stage':
+          // Waits, remembered, while she has a view pinned.
+          stage.requestMode(event.mode);
+          break;
+        case 'title': {
+          const changes = { title: event.title, subject: event.subject };
+          patchLocal(changes);
+          // R16: P2 moves title writing to the server. A failed save leaves the title on screen.
+          patchSession(api, sessionId, changes).catch(() => {});
+          break;
+        }
+      }
+    });
+    void client.connect(sessionId);
+    return () => {
+      off();
+      void client.disconnect();
+    };
+  }, [api, client, patchLocal, sessionId]);
+}
