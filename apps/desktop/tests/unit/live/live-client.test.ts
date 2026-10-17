@@ -232,9 +232,14 @@ describe('LiveTutorClient', () => {
       expect(clients).toHaveLength(index + 2);
     }
     expect(events.filter((e) => e.type === 'connection' && e.status === 'reconnecting')).toEqual(
-      [1, 2, 3].map((attempt) => ({ type: 'connection', status: 'reconnecting', attempt })),
+      [1, 2, 3].map((attempt) => ({
+        type: 'connection',
+        status: 'reconnecting',
+        attempt,
+        ...(attempt > 1 && { reason: 'unreachable' }),
+      })),
     );
-    expect(events.at(-1)).toEqual({ type: 'connection', status: 'failed' });
+    expect(events.at(-1)).toEqual({ type: 'connection', status: 'failed', reason: 'unreachable' });
     clock.advance(20000);
     await flush();
     expect(clients).toHaveLength(4);
@@ -311,6 +316,25 @@ describe('LiveTutorClient', () => {
       ['tassel', { kind: 'sensitivity', level: 'high' }],
       ['tassel', { kind: 'client-metrics', ...metrics }],
     ]);
+    await client.disconnect();
+  });
+  it('reports an unconfigured offer even when the transport emits error before rejecting', async () => {
+    const { client, clock, clients, events, setBehavior } = setup();
+    setBehavior((pc) =>
+      pc.connect.mockImplementation(async () => {
+        pc.emit(RTVIEvent.TransportStateChanged, 'error');
+        throw Object.assign(new Error('Offer refused'), { status: 503 });
+      }),
+    );
+    await client.connect('s');
+    expect(events.at(-1)).toEqual({
+      type: 'connection',
+      status: 'failed',
+      reason: 'not-configured',
+    });
+    clock.advance(10000);
+    await flush();
+    expect(clients).toHaveLength(1);
     await client.disconnect();
   });
   it('a denied mic still connects and emits mic denied', async () => {

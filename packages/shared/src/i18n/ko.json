@@ -144,5 +144,13 @@
     "network": "서버에 연결할 수 없어요. 인터넷 연결을 확인하고 다시 시도해 주세요.",
     "server": "서버에 문제가 생겼어요. 잠시 후 다시 시도해 주세요.",
     "unknown": "문제가 생겼어요. 다시 시도해 주세요."
+  },
+  "voice": {
+    "connection": {
+      "notConfigured": "Voice tutoring is not configured on the server.",
+      "unreachable": "Cannot reach the voice server. Check your connection and try again.",
+      "reconnecting": "Reconnecting…",
+      "retry": "Retry"
+    }
   }
 }

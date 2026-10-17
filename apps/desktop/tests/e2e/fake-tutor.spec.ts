@@ -42,7 +42,7 @@ test('runs the scripted opening until Ada brings in the board', async () => {
   await settle(page);
   await snap(page, 'p1-fake-tutor');
 
-  // R16: the title persisted, so the library shows the tutor's title and subject.
+  // P2-R4: the scripted client's title is display-only; only the server persists AI titles.
   await page.getByRole('button', { name: 'End session' }).click();
   await page
     .getByRole('dialog', { name: 'End this session?' })
@@ -50,8 +50,8 @@ test('runs the scripted opening until Ada brings in the board', async () => {
     .click();
   const card = page.getByRole('list', { name: 'Your sessions' }).getByRole('listitem');
   await expect(card).toHaveCount(1);
-  await expect(card).toContainText('Strings that start with 010');
-  await expect(card).toContainText('Automata · DFA');
+  await expect(card).toContainText('Untitled Session');
+  await expect(card).not.toContainText('Automata · DFA');
   await app.close();
 });
 

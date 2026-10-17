@@ -12,7 +12,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): EnvConfig {
   return {
     serverUrl: serverUrl(env.TASSEL_SERVER_URL),
     uiLanguage: uiLanguage(env.TASSEL_UI_LANG),
-    tutorMode: env.TASSEL_TUTOR === 'live' ? 'live' : 'fake',
+    tutorMode: env.TASSEL_TUTOR === 'fake' ? 'fake' : 'live',
     fakeScript: env.TASSEL_FAKE_SCRIPT || 'dfa-opening',
     fakeSpeed: positiveNumber(env.TASSEL_FAKE_SPEED) ?? 1,
   };

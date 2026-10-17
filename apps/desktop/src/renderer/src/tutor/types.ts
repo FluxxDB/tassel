@@ -11,6 +11,7 @@ import type {
 import type { StageMode, TutorState } from '../features/session/stage-store';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'failed' | 'closed';
+export type VoiceFailure = 'not-configured' | 'unreachable';
 export type MicStatus = 'off' | 'live' | 'denied' | 'unavailable';
 /** What the latency HUD shows: the server's route, timings and backchannels; the app's timings. */
 export type VoiceDebugEvent =
@@ -25,7 +26,7 @@ export type TutorEvent =
   | { type: 'stage'; mode: StageMode }
   | { type: 'title'; title: string; subject: string | null }
   // The live voice tutor's own events (P2).
-  | { type: 'connection'; status: ConnectionStatus; attempt?: number }
+  | { type: 'connection'; status: ConnectionStatus; attempt?: number; reason?: VoiceFailure }
   | { type: 'mic'; status: MicStatus }
   | { type: 'language'; lang: Lang }
   // One per word as Ada says it, in step with her playback; for P5 and P6.

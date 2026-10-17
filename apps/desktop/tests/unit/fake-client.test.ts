@@ -163,9 +163,9 @@ describe('createTutorClient', () => {
     expect(createTutorClient(config)).toBeInstanceOf(FakeTutorClient);
   });
 
-  it('refuses the live tutor, which arrives in P2', () => {
+  it('requires dependencies for the live tutor', () => {
     expect(() => createTutorClient({ ...config, tutorMode: 'live' })).toThrow(
-      'live tutor arrives in P2',
+      'Live tutor requires deps',
     );
   });
 

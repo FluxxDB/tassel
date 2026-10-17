@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 import type { ApiClient, Session } from '@tassel/shared/api';
-import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react';
+import { act, render, renderHook, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRoute } from '../../src/renderer/src/app/route-store';
+import { useCurrentSession } from '../../src/renderer/src/features/session/current-session';
 import { SessionScreen } from '../../src/renderer/src/features/session/SessionScreen';
 import { useStageStore } from '../../src/renderer/src/features/session/stage-store';
+import { useVoiceDebug } from '../../src/renderer/src/features/voice/voice-debug';
 import { initI18n } from '../../src/renderer/src/i18n';
 import { ApiProvider } from '../../src/renderer/src/lib/api';
 import type { TutorClient, TutorEvent } from '../../src/renderer/src/tutor/types';
@@ -88,6 +90,29 @@ describe('useTutorSession', () => {
     expect(stage().tutorState).toBe('speaking');
   });
 
+  it('routes connection, mic, language and debug events', async () => {
+    const { client, emit } = scriptedTutor();
+    const { api } = fakeApi();
+    const { result } = renderHook(
+      () => {
+        useTutorSession(SESSION.id, client);
+        return useCurrentSession();
+      },
+      { wrapper: ({ children }) => <ApiProvider client={api}>{children}</ApiProvider> },
+    );
+    await act(async () => result.current.load(SESSION.id));
+    emit({ type: 'connection', status: 'reconnecting' });
+    emit({ type: 'mic', status: 'denied' });
+    emit({ type: 'language', lang: 'ko' });
+    emit({
+      type: 'voice-debug',
+      event: { kind: 'route', lang: 'ko', stt: 'nova-3', llm: 'fake', tts: 'fake' },
+    });
+    expect(stage()).toMatchObject({ connection: 'reconnecting', mic: 'denied' });
+    expect(useVoiceDebug.getState().route?.lang).toBe('ko');
+    expect(result.current.session?.language).toBe('ko');
+  });
+
   it('stage event calls requestMode', () => {
     const { client, emit } = scriptedTutor();
     renderTutor(client);
@@ -108,9 +133,14 @@ describe('useTutorSession', () => {
       previous: { speaker: 'student', text: 'Hola Ada.', lang: 'es' },
       current: { speaker: 'tutor', text: 'Great, draw it.', lang: 'en' },
     });
-    // A line still being heard isn't shown until it's final.
+    // Interim speech is visible immediately.
     emit({ type: 'caption', speaker: 'student', text: 'I think', lang: 'en', final: false });
-    expect(stage().caption.current?.text).toBe('Great, draw it.');
+    expect(stage().caption.current).toEqual({
+      speaker: 'student',
+      text: 'I think',
+      lang: 'en',
+      interim: true,
+    });
   });
 });
 
@@ -139,12 +169,7 @@ describe('the session screen with its tutor', () => {
       within(strip).getByRole('heading', { level: 1, name: 'Strings that start with 010' }),
     ).toBeInTheDocument();
     expect(within(strip).getByText('Automata · DFA')).toBeInTheDocument();
-    // R16: the title persists, once, so the library shows it afterwards.
-    await waitFor(() => expect(PATCH).toHaveBeenCalledTimes(1));
-    expect(PATCH).toHaveBeenCalledWith('/v1/sessions/{session_id}', {
-      params: { path: { session_id: SESSION.id } },
-      body: { title: 'Strings that start with 010', subject: 'Automata · DFA' },
-    });
+    expect(PATCH).not.toHaveBeenCalled();
   });
 
   it('shows a title that arrives before the session itself has loaded', async () => {
@@ -171,12 +196,12 @@ describe('the session screen with its tutor', () => {
     ).toBeInTheDocument();
   });
 
-  it('keeps the title on screen when saving it fails, without an unhandled rejection', async () => {
+  it('title events only patch locally, even when PATCH would fail', async () => {
     const { client, emit } = scriptedTutor();
     const { PATCH } = await renderScreen(client);
     PATCH.mockRejectedValueOnce(new TypeError('Failed to fetch'));
     emit({ type: 'title', title: 'Strings that start with 010', subject: null });
-    await waitFor(() => expect(PATCH).toHaveBeenCalled());
+    expect(PATCH).not.toHaveBeenCalled();
     expect(
       screen.getByRole('heading', { level: 1, name: 'Strings that start with 010' }),
     ).toBeInTheDocument();

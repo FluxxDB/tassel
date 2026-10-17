@@ -1,19 +1,18 @@
 // Connects the session screen to its tutor: Ada's states, captions and view requests go to the
-// stage store; her title for the session updates the title strip at once (R4) and persists, so
-// the library shows it afterwards (R16).
-import { patchSession } from '@tassel/shared/api';
+// stage store; server-owned titles and language changes patch the local session only.
+
 import { useEffect } from 'react';
 import { useCurrentSession } from '../features/session/current-session';
 import { useStageStore } from '../features/session/stage-store';
-import { useApi } from '../lib/api';
+import { useVoiceDebug } from '../features/voice/voice-debug';
 import type { TutorClient } from './types';
 
 /** Connects on mount and disconnects on unmount. */
-export function useTutorSession(sessionId: string, client: TutorClient): void {
-  const api = useApi();
+export function useTutorSession(sessionId: string, client: TutorClient | null): void {
   const { patchLocal } = useCurrentSession();
 
   useEffect(() => {
+    if (!client) return;
     const off = client.on((event) => {
       // Read per event, so the store is always current here.
       const stage = useStageStore.getState();
@@ -22,8 +21,8 @@ export function useTutorSession(sessionId: string, client: TutorClient): void {
           stage.setTutorState(event.state);
           break;
         case 'caption':
-          // A line still being heard waits until it's final; P2's live captions refine this.
           if (event.final) stage.pushCaption(event.speaker, event.text, event.lang);
+          else stage.showInterim(event.speaker, event.text, event.lang);
           break;
         case 'stage':
           // Waits, remembered, while she has a view pinned.
@@ -32,23 +31,31 @@ export function useTutorSession(sessionId: string, client: TutorClient): void {
         case 'title': {
           const changes = { title: event.title, subject: event.subject };
           patchLocal(changes);
-          // R16: P2 moves title writing to the server. A failed save leaves the title on screen.
-          patchSession(api, sessionId, changes).catch(() => {});
+          // The server owns AI title persistence; scripted titles are display-only.
           break;
         }
         case 'connection':
+          stage.setConnection(event.status, event.reason);
+          break;
         case 'mic':
+          stage.setMic(event.status);
+          break;
         case 'language':
-        case 'word':
+          patchLocal({ language: event.lang });
+          break;
         case 'voice-debug':
-          // The live voice tutor's own events: the session screen takes them up in P2 Task 17.
+          useVoiceDebug.getState().push(event.event);
+          break;
+        case 'word':
           break;
       }
     });
-    void client.connect(sessionId);
+    void client
+      .connect(sessionId)
+      .catch(() => useStageStore.getState().setConnection('failed', 'unreachable'));
     return () => {
       off();
       void client.disconnect();
     };
-  }, [api, client, patchLocal, sessionId]);
+  }, [client, patchLocal, sessionId]);
 }

@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
-// The voice contract's additions to TutorEvent. P1's session screen doesn't use them yet, so
-// useTutorSession lets them pass: nothing throws, and the stage store stays as it was. And the
-// app reaches the shared contract through @tassel/shared's own exports.
+// The voice contract's additions route through the session; word events remain for P6.
+// The app reaches the shared contract through @tassel/shared's own exports.
 import type { ApiClient } from '@tassel/shared/api';
 import { ENVELOPE, parseServerEvent } from '@tassel/shared/voice';
 import fixtures from '@tassel/shared/voice/fixtures.json';
@@ -82,7 +81,7 @@ describe('useTutorSession and the voice contract', () => {
     expect(stage()).toBe(before);
   });
 
-  it('ignores every live-only event, and still follows the ones after them', () => {
+  it('routes live events and still follows the ones after them', () => {
     const { play, heard, stageChanges, PATCH } = sessionPlaying([
       { type: 'connection', status: 'reconnecting', attempt: 2 },
       { type: 'mic', status: 'denied' },
@@ -98,9 +97,14 @@ describe('useTutorSession and the voice contract', () => {
 
     expect(play).not.toThrow();
     expect(heard).toHaveBeenCalledTimes(6);
-    // Only the P1 state event reached the stage.
-    expect(stageChanges).toHaveBeenCalledTimes(1);
-    expect(stage()).toEqual({ ...before, tutorState: 'listening' });
+    // Connection, microphone and tutor state reach the stage.
+    expect(stageChanges).toHaveBeenCalledTimes(3);
+    expect(stage()).toEqual({
+      ...before,
+      tutorState: 'listening',
+      connection: 'reconnecting',
+      mic: 'denied',
+    });
     expect(PATCH).not.toHaveBeenCalled();
   });
 });

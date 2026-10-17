@@ -1,8 +1,10 @@
 // The live session's stage: which view shows (her paper, Ada's board, or both side by side),
 // what Ada is doing, and the two caption lines. Ada requests views; the student can pin one,
 // and Ada's requests then wait, remembered, until she unpins.
+
 import type { Lang } from '@tassel/shared/i18n';
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
+import type { ConnectionStatus, MicStatus, VoiceFailure } from '../../tutor/types';
 
 export type StageMode = 'paper' | 'board' | 'split';
 export type TutorState = 'connecting' | 'listening' | 'thinking' | 'speaking' | 'watching';
@@ -13,9 +15,16 @@ export interface CaptionLine {
   text: string;
   /** The line's own language, which can differ from the UI's (a Korean line in English, say). */
   lang?: Lang;
+  interim?: true;
 }
 
 interface StageStore {
+  connection: ConnectionStatus;
+  mic: MicStatus | null;
+  voiceError: VoiceFailure | null;
+  setConnection(s: ConnectionStatus, reason?: VoiceFailure): void;
+  setMic(s: MicStatus | null): void;
+  showInterim(speaker: Speaker, text: string, lang?: Lang): void;
   mode: StageMode;
   pinned: StageMode | null;
   requested: StageMode;
@@ -40,6 +49,9 @@ interface StageStore {
 
 // Her work first: a session opens on her paper, with Ada still connecting.
 const INITIAL = {
+  connection: 'connecting',
+  mic: null,
+  voiceError: null,
   mode: 'paper',
   pinned: null,
   requested: 'paper',
@@ -52,16 +64,19 @@ const INITIAL = {
 export const useStageStore: UseBoundStore<StoreApi<StageStore>> = create<StageStore>()((set) => ({
   ...INITIAL,
   caption: {},
+  setConnection: (connection, reason) => set({ connection, voiceError: reason ?? null }),
+  setMic: (mic) => set({ mic }),
+  showInterim: (speaker, text, lang) =>
+    set((state) => ({
+      caption: nextCaption(state.caption, { speaker, text, ...(lang && { lang }), interim: true }),
+    })),
   requestMode: (m) => set((state) => ({ requested: m, mode: state.pinned ?? m })),
   pin: (m) => set({ pinned: m, mode: m }),
   unpin: () => set((state) => ({ pinned: null, mode: state.requested })),
   setTutorState: (tutorState) => set({ tutorState }),
   pushCaption: (speaker, text, lang) =>
     set((state) => ({
-      caption: {
-        previous: state.caption.current,
-        current: lang ? { speaker, text, lang } : { speaker, text },
-      },
+      caption: nextCaption(state.caption, { speaker, text, ...(lang && { lang }) }),
     })),
   toggleCaptions: () => set((state) => ({ captionsOn: !state.captionsOn })),
   toggleMic: () => set((state) => ({ micOn: !state.micOn })),
@@ -79,4 +94,14 @@ export function cycleBoardView(): void {
   else if (pinned === 'paper') pin('split');
   else if (pinned === 'split') pin('board');
   else unpin();
+}
+
+function nextCaption(caption: StageStore['caption'], current: CaptionLine): StageStore['caption'] {
+  return {
+    previous:
+      caption.current?.interim && caption.current.speaker === current.speaker
+        ? caption.previous
+        : caption.current,
+    current,
+  };
 }

@@ -16,6 +16,7 @@ import { asTransportMediaManager, TasselMediaManager } from './media-manager';
 import type { Mic, MicOptions } from './mic';
 import { initialMapState, type MapState, mapRtvi, type RtviInput } from './rtvi-map';
 import type { TutorAudio } from './tutor-audio';
+import { VoiceConnectionError } from './voice-error';
 
 export interface PipecatLike {
   connect(params: unknown): Promise<unknown>;
@@ -172,8 +173,27 @@ export class LiveTutorClient implements TutorClient {
       ++this.successes;
       this.retries = 0;
       await connection.micOpening;
-    } catch {
-      if (valid()) this.failed(connection);
+    } catch (error) {
+      const unavailable =
+        error instanceof VoiceConnectionError
+          ? error.reason === 'not-configured'
+          : typeof error === 'object' &&
+            error !== null &&
+            'status' in error &&
+            (error.status === 503 || error.status === 404);
+      // The transport emits its error state before rejecting connect. That callback
+      // may already have retired this connection and scheduled a retry. Preserve
+      // the HTTP refusal reason, but never let an old attempt change a new session.
+      if (
+        unavailable &&
+        this.active &&
+        generation === this.generation &&
+        this.current === connection
+      ) {
+        this.clearTimers();
+        void this.retire(connection);
+        this.emit({ type: 'connection', status: 'failed', reason: 'not-configured' });
+      } else if (valid()) this.failed(connection, 'unreachable');
     }
   }
   private bind(connection: Connection, valid: () => boolean) {
@@ -255,19 +275,19 @@ export class LiveTutorClient implements TutorClient {
         }, 3000);
     }
   }
-  private failed(connection: Connection) {
+  private failed(connection: Connection, reason?: 'not-configured' | 'unreachable') {
     if (!this.active || this.current !== connection || connection.retired) return;
     const closing = this.retire(connection);
     this.clearLanguageTimer();
     this.deps.audio.duck(false);
-    if (this.retries >= this.backoff.length) {
-      this.emit({ type: 'connection', status: 'failed' });
+    if (reason === 'not-configured' || this.retries >= this.backoff.length) {
+      this.emit({ type: 'connection', status: 'failed', ...(reason && { reason }) });
       return;
     }
     const delay = this.backoff[this.retries] as number;
     const attempt = ++this.retries;
     const generation = this.generation;
-    this.emit({ type: 'connection', status: 'reconnecting', attempt });
+    this.emit({ type: 'connection', status: 'reconnecting', attempt, ...(reason && { reason }) });
     this.retryTimer = this.clock.setTimeout(() => {
       this.retryTimer = null;
       void closing.then(() => {

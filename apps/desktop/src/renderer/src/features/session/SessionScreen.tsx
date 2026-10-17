@@ -1,13 +1,17 @@
 // The live session screen, "One stage, her work first": the title strip, the stage (her paper,
 // Ada's board, or both), Ada's tile, the captions and the dock. End session, confirmed through
 // a sheet, is the only way back to the library (R18).
+
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { AppConfig } from '../../../../shared/bridge';
+import type { VoiceConfig } from '../../../../shared/voice-bridge';
 import { useRoute } from '../../app/route-store';
 import { Button } from '../../components/Button';
 import { Sheet } from '../../components/Sheet';
 import type { TutorClient } from '../../tutor/types';
 import { useTutorSession } from '../../tutor/use-tutor-session';
+import { VoiceSession } from '../voice/VoiceSession';
 import { Captions } from './Captions';
 import { forgetCurrentSession, useCurrentSession } from './current-session';
 import { Dock } from './Dock';
@@ -18,8 +22,9 @@ import { TitleStrip } from './TitleStrip';
 
 export interface SessionScreenProps {
   sessionId: string;
-  /** Makes this session's tutor (createTutorClient from the launch config). Without it, or if it
-   * throws (the live tutor before P2, an unknown fake script), the session runs without one. */
+  app?: AppConfig;
+  voiceConfig?: VoiceConfig;
+  /** Explicit tutor injection for tests. Production passes the app and voice config. */
   createTutor?: () => TutorClient;
 }
 
@@ -31,7 +36,7 @@ const NO_TUTOR: TutorClient = {
   sendText: () => {},
 };
 
-export function SessionScreen({ sessionId, createTutor }: SessionScreenProps) {
+export function SessionScreen({ sessionId, createTutor, app, voiceConfig }: SessionScreenProps) {
   const { t } = useTranslation();
   const { session, failed, load } = useCurrentSession();
   const goLibrary = useRoute((state) => state.goLibrary);
@@ -56,7 +61,7 @@ export function SessionScreen({ sessionId, createTutor }: SessionScreenProps) {
       return NO_TUTOR;
     }
   });
-  useTutorSession(sessionId, tutor);
+  useTutorSession(sessionId, app ? null : tutor);
   useSessionShortcuts();
 
   const end = () => {
@@ -74,6 +79,14 @@ export function SessionScreen({ sessionId, createTutor }: SessionScreenProps) {
           source={session?.source ?? 'paper'}
           onUnpinned={() => boardControl.current?.focus()}
         />
+        {session && app && voiceConfig && (
+          <VoiceSession
+            sessionId={sessionId}
+            lang={session.language}
+            app={app}
+            config={voiceConfig}
+          />
+        )}
         <Captions />
         <Dock onEnd={() => setConfirmingEnd(true)} boardRef={boardControl} />
       </main>

@@ -144,5 +144,13 @@
     "network": "No se puede conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.",
     "server": "Algo salió mal de nuestro lado. Inténtalo de nuevo en un momento.",
     "unknown": "Algo salió mal. Inténtalo de nuevo."
+  },
+  "voice": {
+    "connection": {
+      "notConfigured": "Voice tutoring is not configured on the server.",
+      "unreachable": "Cannot reach the voice server. Check your connection and try again.",
+      "reconnecting": "Reconnecting…",
+      "retry": "Retry"
+    }
   }
 }

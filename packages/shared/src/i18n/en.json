@@ -144,5 +144,13 @@
     "network": "Can't reach the server. Check your connection and try again.",
     "server": "Something went wrong on our end. Try again in a moment.",
     "unknown": "Something went wrong. Try again."
+  },
+  "voice": {
+    "connection": {
+      "notConfigured": "Voice tutoring is not configured on the server.",
+      "unreachable": "Cannot reach the voice server. Check your connection and try again.",
+      "reconnecting": "Reconnecting…",
+      "retry": "Retry"
+    }
   }
 }
