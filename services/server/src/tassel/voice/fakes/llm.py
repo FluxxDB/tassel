@@ -32,9 +32,13 @@ class FakeLLMService(LLMService):
         if chunk_words < 1:
             raise ValueError("chunk_words must be positive")
         super().__init__(**kwargs)
-        self._script = scenario.langs[lang]
+        self._scenario = scenario
+        self.set_language(lang)
         self._ttfb_ms = ttfb_ms
         self._chunk_words = chunk_words
+
+    def set_language(self, lang: Lang):
+        self._script = self._scenario.langs[lang]
 
     def can_generate_metrics(self) -> bool:
         return True
@@ -50,6 +54,8 @@ class FakeLLMService(LLMService):
             if not isinstance(message, dict):
                 continue
             content = message.get("content")
+            if isinstance(content, list):
+                content = " ".join(b["text"] for b in content if b.get("type") == "text")
             if not isinstance(content, str):
                 continue
             if message.get("role") == "user":
