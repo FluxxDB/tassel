@@ -19,7 +19,7 @@ export type RouteEvent = {
   kind: 'route';
   lang: Lang;
   stt: SttKind;
-  llm: 'openrouter' | 'fake';
+  llm: 'openrouter' | 'openai' | 'fake';
   tts: 'elevenlabs' | 'fake';
 };
 
@@ -139,7 +139,7 @@ function oneOf<T extends string>(values: Record<T, true>): Guard<T> {
 
 const isLang = oneOf<Lang>({ en: true, es: true, ko: true });
 const isSttKind = oneOf<SttKind>({ flux: true, 'nova-3': true, fake: true });
-const isLlmKind = oneOf<RouteEvent['llm']>({ openrouter: true, fake: true });
+const isLlmKind = oneOf<RouteEvent['llm']>({ openrouter: true, openai: true, fake: true });
 const isTtsKind = oneOf<RouteEvent['tts']>({ elevenlabs: true, fake: true });
 const isInput = oneOf<TurnMetrics['input']>({ voice: true, typed: true });
 const isView = oneOf<Extract<ServerEvent, { kind: 'stage' }>['view']>({

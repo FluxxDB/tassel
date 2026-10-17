@@ -1,0 +1,10 @@
+[
+  { "type": "TurnInfo", "event": "StartOfTurn", "turn_index": 0, "transcript": "Hi I" },
+  { "type": "TurnInfo", "event": "Update", "turn_index": 0, "transcript": "Hi I'm working" },
+  {
+    "type": "TurnInfo",
+    "event": "EndOfTurn",
+    "turn_index": 0,
+    "transcript": "Hi I'm working on a DFA"
+  }
+]

@@ -29,7 +29,8 @@
     { "kind": "title", "title": "Strings that start with 010", "subject": "Automata · DFA" },
     { "kind": "stage", "view": "split" },
     { "kind": "language", "lang": "ko" },
-    { "kind": "vad", "speaking": true }
+    { "kind": "vad", "speaking": true },
+    { "kind": "route", "lang": "en", "stt": "flux", "llm": "openai", "tts": "elevenlabs" }
   ],
   "client": [
     { "kind": "ptt", "enabled": true, "held": true },
