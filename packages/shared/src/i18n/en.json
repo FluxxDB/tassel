@@ -189,11 +189,16 @@
     "backToLive": "Back to live",
     "loading": "Getting the snapshot…",
     "failed": "Couldn't load the snapshot",
+    "alt": "A snapshot of your paper",
     "description": {
       "label": "Ada's marks on your paper",
       "step": "Step {n}: {target}",
       "circle": "Circled: {target}",
-      "note": "Note: {text}"
+      "note": "Note: {text}",
+      "arrow": "Arrow to {target}",
+      "strike": "Crossed out: {target}",
+      "check": "Checked: {target}",
+      "trace": "Tracing {input}, now at {state}"
     },
     "target": {
       "state": "state {id}",

@@ -189,11 +189,16 @@
     "backToLive": "실시간 보기",
     "loading": "스냅샷을 가져오는 중이에요…",
     "failed": "스냅샷을 불러오지 못했어요",
+    "alt": "내 종이의 스냅샷",
     "description": {
       "label": "내 종이에 Ada가 남긴 표시",
       "step": "{n}단계: {target}",
       "circle": "표시: {target}",
-      "note": "메모: {text}"
+      "note": "메모: {text}",
+      "arrow": "화살표: {target}",
+      "strike": "줄 그음: {target}",
+      "check": "체크 표시: {target}",
+      "trace": "{input} 추적 중, 현재 {state}"
     },
     "target": {
       "state": "상태 {id}",

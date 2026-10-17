@@ -189,11 +189,16 @@
     "backToLive": "Ver en vivo",
     "loading": "Cargando la instantánea…",
     "failed": "No se pudo cargar la instantánea",
+    "alt": "Una instantánea de tu papel",
     "description": {
       "label": "Las marcas de Ada en tu papel",
       "step": "Paso {n}: {target}",
       "circle": "Marcado: {target}",
-      "note": "Nota: {text}"
+      "note": "Nota: {text}",
+      "arrow": "Flecha hacia {target}",
+      "strike": "Tachado: {target}",
+      "check": "Visto bueno: {target}",
+      "trace": "Trazando {input}, ahora en {state}"
     },
     "target": {
       "state": "estado {id}",
