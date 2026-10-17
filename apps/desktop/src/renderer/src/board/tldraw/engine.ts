@@ -6,6 +6,9 @@ import { type Pt, parseElementRef } from '@tassel/shared/beats';
 import type { Lang } from '@tassel/shared/i18n';
 import {
   type Editor,
+  getIndexAbove,
+  getIndexBetween,
+  type IndexKey,
   type TLBindingCreate,
   type TLBindingId,
   type TLShapeId,
@@ -182,7 +185,10 @@ function apply(editor: Editor, plan: SyncPlan): void {
         // What the student erased stays erased: its updates and bindings are skipped.
         const exists = (id: string) => editor.getShape(id as TLShapeId) !== undefined;
         const create = plan.create.filter((shape) => !exists(shape.id));
-        if (create.length > 0) editor.createShapes(create.map(shapePartial));
+        const shapes = create.filter((shape) => shape.type !== 'arrow');
+        if (shapes.length > 0) editor.createShapes(shapes.map(shapePartial));
+        const arrows = create.filter((shape) => shape.type === 'arrow');
+        if (arrows.length > 0) editor.createShapes(placeArrows(editor, arrows, plan.bind));
         const update = [
           ...plan.update.filter((change) => exists(change.id)),
           ...plan.create.filter((shape) => exists(shape.id) && !create.includes(shape)),
@@ -193,6 +199,42 @@ function apply(editor: Editor, plan: SyncPlan): void {
       },
       { history: 'ignore', ignoreShapeLock: true },
     );
+  });
+}
+
+/**
+ * Ada's new arrows where tldraw keeps an arrow it binds: just above the highest shape it binds,
+ * below the next shape that isn't an arrow (ArrowBindingUtil's reparentArrow). Binding them then
+ * moves nothing. A move would be tldraw's own change after Ada's, which the store attributes to
+ * the user: it would count as the student's edit (Task 6) and land in her undo history.
+ */
+function placeArrows(
+  editor: Editor,
+  arrows: readonly DesiredShape[],
+  bindings: readonly DesiredBinding[],
+): TLShapePartial[] {
+  // The page's shapes in z-order, the arrows joining them as they're placed.
+  const siblings = editor.getSortedChildIdsForParent(editor.getCurrentPageId()).flatMap((id) => {
+    const shape = editor.getShape(id);
+    return shape
+      ? [{ id: shape.id as string, index: shape.index, arrow: shape.type === 'arrow' }]
+      : [];
+  });
+  return arrows.map((arrow) => {
+    const bound = bindings
+      .filter((binding) => binding.arrow === arrow.id)
+      .flatMap((binding) => siblings.filter((sibling) => sibling.id === binding.to));
+    // An arrow bound to nothing that exists goes on top, where tldraw puts it.
+    if (bound.length === 0) return shapePartial(arrow);
+    const highest = bound.reduce((a, b) => (a.index > b.index ? a : b));
+    let next = siblings.indexOf(highest) + 1;
+    while (next < siblings.length && siblings[next].arrow) next += 1;
+    // Above the arrows already over the highest bound shape, in the order Ada drew them.
+    const below = siblings[next - 1].index;
+    const index: IndexKey =
+      next < siblings.length ? getIndexBetween(below, siblings[next].index) : getIndexAbove(below);
+    siblings.splice(next, 0, { id: arrow.id, index, arrow: true });
+    return { ...shapePartial(arrow), index } as TLShapePartial;
   });
 }
 
