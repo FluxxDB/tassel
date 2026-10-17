@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "node -e \"console.error('dev: not implemented yet (Task 15)'); process.exit(1)\"",
-    "test": "pnpm -r test",
+    "test": "pnpm -r test && node --test scripts/check-no-frames.test.mjs",
     "check": "biome check . && pnpm -r typecheck && node scripts/check-no-frames.mjs",
     "e2e": "node -e \"console.error('e2e: not implemented yet (Task 15)'); process.exit(1)\"",
     "gen:api": "uv run --directory services/server python -m tassel.scripts.export_openapi && pnpm --filter @tassel/shared exec openapi-typescript src/api/openapi.json -o src/api/schema.d.ts",

@@ -187,4 +187,4 @@ Run at 14:42:55 with `node docs/research/spikes/p3-tcc/run.mjs S`, with Desk Vie
 - `probe.swift`, `Info.plist`: the probe (`dev.tassel.p3-probe`). `--status` never asks for access. `--capture <n>` counts Desk View frames and keeps none. `--present-setup` presents the Desk View app. `--write-mjpeg` writes the synthetic test clip.
 - `main.cjs`: the Electron main with the spike's modes. It writes its pid, then one JSON line per result, to `--out`.
 - `run.mjs`: builds the probe and runs the named checks: directly spawned (A, F, P, T), or through LaunchServices (H, E, D, S, and C without `-W`).
-- `.out/` (git-ignored): the probe, the synthetic clip, and each check's `--out` file. `pnpm check` refuses to commit any `.mjpeg`, `.jpg`, `.jpeg` or `.y4m`.
+- `.out/` (git-ignored): the probe, the synthetic clip, and each check's `--out` file. `pnpm check` refuses to commit any `.jpg`, `.jpeg`, `.mjpeg`, `.y4m`, `.mjpg`, `.jfif`, `.jpe`, `.heic` or `.heif` (`scripts/check-no-frames.mjs`).
