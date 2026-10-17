@@ -1,10 +1,12 @@
+from typing import Literal
+
 import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.exc import IntegrityError
 
-from tassel.storage.tables import Base, Device, Learner, TutoringSession
+from tassel.storage.tables import Base, Device, Learner, TutoringSession, one_of
 
 
 @pytest.mark.asyncio
@@ -69,3 +71,11 @@ def test_migrations_match_the_models(db_url):
             assert compare_metadata(context, Base.metadata) == []
     finally:
         engine.dispose()
+
+
+def test_one_of_checks_a_column_against_a_literal():
+    # The sessions and frames tables both build their CHECKs this way.
+    check = one_of("reason", Literal["ink", "page"])
+    assert check.name == "reason"
+    sql = check.sqltext.compile(compile_kwargs={"literal_binds": True})
+    assert str(sql) == "reason IN ('ink', 'page')"

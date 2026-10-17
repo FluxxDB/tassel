@@ -10,6 +10,7 @@ import {
   type Locator,
   type Page,
 } from '@playwright/test';
+import { assertFakeCapture, fakeCaptureEnv } from './capture-guard';
 
 /**
  * The E2E server, which global-setup.ts starts. TASSEL_E2E_PORT moves it off the default 8799,
@@ -23,10 +24,12 @@ const screensDir = join(appDir, 'test-results', 'screens');
 
 /**
  * Launches the built app against the E2E server, with the plaintext token store (no keychain
- * prompts) and a 20x fake tutor. `env` overrides any of these. Without TASSEL_USER_DATA in
- * `env`, the app gets a fresh userData directory that's deleted when it closes; pass your own
- * to keep state across launches. Resolves once the main window is visible, so screenshots never
- * catch it hidden.
+ * prompts) and a 20x fake tutor. Paper plays the generated `dfa-short` clip as a fake camera,
+ * with the app's own real-capture refusal on. `env` overrides any of these, but the capture
+ * guard refuses a launch that could reach a real camera or display (ruling P3-R24). Without
+ * TASSEL_USER_DATA in `env`, the app gets a fresh userData directory that's deleted when it
+ * closes; pass your own to keep state across launches. Resolves once the main window is
+ * visible, so screenshots never catch it hidden.
  */
 export async function launchApp(
   env: Record<string, string> = {},
@@ -34,17 +37,20 @@ export async function launchApp(
   if (!existsSync(mainEntry)) {
     throw new Error(`${mainEntry} is missing. Run pnpm --filter @tassel/desktop build first.`);
   }
+  // global-setup.ts generates the clip and sets TASSEL_E2E_CLIP_DFA_SHORT.
+  const paperEnv = { ...fakeCaptureEnv(process.env.TASSEL_E2E_CLIP_DFA_SHORT), ...env };
+  assertFakeCapture(paperEnv);
   const ownUserData = env.TASSEL_USER_DATA ? undefined : mkdtempSync(join(tmpdir(), 'tassel-e2e-'));
   const app = await electron.launch({
     args: [mainEntry],
-    env: {
+    env: definedOnly({
       ...inheritedEnv(),
       TASSEL_SERVER_URL: E2E_SERVER_URL,
       TASSEL_TOKEN_STORE: 'file',
       TASSEL_FAKE_SPEED: '20',
       ...(ownUserData && { TASSEL_USER_DATA: ownUserData }),
-      ...env,
-    },
+      ...paperEnv,
+    }),
   });
   if (ownUserData) app.once('close', () => removeDir(ownUserData));
   const page = await app.firstWindow();
@@ -127,6 +133,13 @@ function e2ePort(value: string | undefined): number {
     throw new Error(`TASSEL_E2E_PORT must be a port from 1 to 65535, not "${value}"`);
   }
   return port;
+}
+
+/** The env without its unset entries: an undefined value would reach Electron as "undefined". */
+function definedOnly(env: Record<string, string | undefined>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env)) if (value !== undefined) out[key] = value;
+  return out;
 }
 
 function removeDir(dir: string): void {

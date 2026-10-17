@@ -13,6 +13,28 @@ test('launches securely with the bridge', async () => {
   await app.close();
 });
 
+test("exposes the paper bridge, on launchApp's fake clip", async () => {
+  const { app, page } = await launchApp();
+  expect(await page.evaluate(() => Object.keys(window.tassel.paper).sort())).toEqual([
+    'cameraAccess',
+    'getConfig',
+    'openCameraSettings',
+    'requestCameraAccess',
+    'startHelper',
+    'stopHelper',
+  ]);
+  // launchApp pins every spec to the generated clip (the capture guard, ruling P3-R24). Only the
+  // config is read here: nothing starts the helper or reads a camera.
+  expect(await page.evaluate(() => window.tassel.paper.getConfig())).toEqual({
+    source: 'fake-clip',
+    debug: false,
+    helperClip: false,
+    fakeClip: true,
+    params: {},
+  });
+  await app.close();
+});
+
 test('keeps the renderer on its own origin', async () => {
   const { app, page } = await launchApp();
   // The bridge reaches the main process, which reads the launch settings.

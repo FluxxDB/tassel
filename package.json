@@ -7,12 +7,15 @@
   },
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "test": "pnpm -r test && uv run --directory services/server pytest",
-    "check": "biome check . && pnpm -r typecheck && pnpm check:i18n && pnpm check:api && uv run --directory services/server ruff check",
+    "test": "pnpm -r test && node --test scripts/check-no-frames.test.mjs && uv run --directory services/server pytest",
+    "check": "biome check . && pnpm -r typecheck && pnpm check:i18n && pnpm check:api && node scripts/check-no-frames.mjs && uv run --directory services/server ruff check",
     "e2e": "pnpm --filter @tassel/desktop build && pnpm --filter @tassel/desktop e2e",
     "gen:api": "uv run --directory services/server python -m tassel.scripts.export_openapi && pnpm --filter @tassel/shared exec openapi-typescript src/api/openapi.json -o src/api/schema.d.ts",
     "check:api": "node scripts/check-api.mjs",
-    "check:i18n": "node packages/shared/scripts/check-i18n.ts"
+    "check:i18n": "node packages/shared/scripts/check-i18n.ts",
+    "build:native": "node scripts/native.mjs build",
+    "test:native": "node scripts/native.mjs test",
+    "gen:paper-clip": "node packages/paper-synth/scripts/gen-clip.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
