@@ -19,14 +19,12 @@ describe('the detector worker’s build and type-check (re-review N3, N5)', () =
   it('type-checks the worker in its own WebWorker program, without the window’s code', () => {
     const worker = tsconfig('tsconfig.worker.json');
     expect(worker.compilerOptions.lib).toEqual(['ES2023', 'WebWorker']);
-    expect(worker.include).toContain(`${DETECTOR}/worker.ts`);
-    expect(worker.include).toContain(`${DETECTOR}/frame-loop.ts`);
-    expect(worker.include).toContain(`${DETECTOR}/opencv-page.ts`);
-    expect(worker.include).toContain('src/renderer/src/paper/contracts.ts');
-    // client.ts uses MediaStream and MediaStreamTrack, which the WebWorker lib lacks, and
-    // breakout-box.d.ts would declare the processor a second time.
-    expect(worker.include?.some((path) => path.includes('client'))).toBe(false);
-    expect(worker.include?.some((path) => path.includes('breakout-box'))).toBe(false);
+    // Every detector module by glob, so one added later is type-checked as worker code too
+    // (Task 8 review M2, ruling P3-R26), less the window's two files: client.ts uses MediaStream
+    // and MediaStreamTrack, which the WebWorker lib lacks, and breakout-box.d.ts would declare
+    // the processor a second time.
+    expect(worker.include).toEqual([`${DETECTOR}/**/*.ts`, 'src/renderer/src/paper/contracts.ts']);
+    expect(worker.exclude).toEqual([`${DETECTOR}/client.ts`, `${DETECTOR}/breakout-box.d.ts`]);
     expect(tsconfig('tsconfig.web.json').exclude).toEqual([`${DETECTOR}/worker.ts`]);
     const pkg = JSON.parse(readFileSync(join(appDir, 'package.json'), 'utf8')) as {
       scripts: Record<string, string>;

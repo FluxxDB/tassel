@@ -3,6 +3,7 @@
 // tsconfig.worker.json (the WebWorker lib), never by the window's program.
 
 import type { NormRect, Quad } from '../contracts';
+import { createCanvasCache } from './canvas-cache';
 import { createDetector } from './detector';
 import { createFrameLoop } from './frame-loop';
 import type { FromWorker, ToWorker } from './messages';
@@ -30,15 +31,10 @@ const opencv: Promise<boolean> = loadOpenCv().then(
 
 const post = (message: FromWorker) => self.postMessage(message);
 
-const canvases = new Map<string, OffscreenCanvas>();
+// Bounded: a trigger's crop has its own size, and a long session has many triggers.
+const canvases = createCanvasCache((width, height) => new OffscreenCanvas(width, height));
 function context(width: number, height: number): OffscreenCanvasRenderingContext2D {
-  const key = `${width}x${height}`;
-  let canvas = canvases.get(key);
-  if (!canvas) {
-    canvas = new OffscreenCanvas(width, height);
-    canvases.set(key, canvas);
-  }
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const ctx = canvases.get(width, height).getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('No 2D context for an OffscreenCanvas');
   return ctx;
 }
