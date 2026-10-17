@@ -1,7 +1,7 @@
 // The library: every session the learner has, as cards she can sort and search, with its empty,
 // loading, error and no-results states.
 import type { Session, SessionSort } from '@tassel/shared/api';
-import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
+import { type ReactNode, type RefObject, useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppFrame } from '../../app/AppFrame';
 import { useRoute } from '../../app/route-store';
@@ -34,15 +34,31 @@ export function LibraryScreen({ tokenNotice = false, onDismissTokenNotice }: Lib
   // The strip's pill and the empty state's CTA both open the new session sheet.
   const [creating, setCreating] = useState(false);
   const newSession = () => setCreating(true);
+  // When a panel takes its focused button away, focus moves on rather than falling to <body>.
+  const heading = useRef<HTMLHeadingElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
 
-  // A retry stays on the error panel, busy, until its answer arrives.
+  // A retry stays on the error panel, busy, until its answer arrives. If it succeeds, the panel
+  // and its Retry button go, so focus moves to the heading above the sessions.
   useEffect(() => {
-    if (sessions.status !== 'loading') setRetrying(false);
-  }, [sessions.status]);
+    if (sessions.status === 'loading') return;
+    if (retrying && sessions.status === 'ready' && document.activeElement === document.body) {
+      heading.current?.focus();
+    }
+    setRetrying(false);
+  }, [sessions.status, retrying]);
   const retry = () => {
     if (retrying) return;
     setRetrying(true);
     sessions.refetch();
+  };
+  const clearSearch = () => {
+    setSearch('');
+    searchInput.current?.focus();
+  };
+  const dismissNotice = () => {
+    onDismissTokenNotice?.();
+    heading.current?.focus();
   };
 
   const failed = sessions.status === 'error' || (sessions.status === 'loading' && retrying);
@@ -57,7 +73,7 @@ export function LibraryScreen({ tokenNotice = false, onDismissTokenNotice }: Lib
   } else if (emptyLibrary) {
     content = <EmptyState onNewSession={newSession} />;
   } else if (sessions.items.length === 0) {
-    content = <NoResults query={sessions.query} onClear={() => setSearch('')} />;
+    content = <NoResults query={sessions.query} onClear={clearSearch} />;
   } else {
     content = <Sessions items={sessions.items} sort={sort} labelledBy={headingId} />;
   }
@@ -66,7 +82,7 @@ export function LibraryScreen({ tokenNotice = false, onDismissTokenNotice }: Lib
     <>
       <AppFrame className="relative">
         <Wordmark />
-        <SearchField value={search} onChange={setSearch} />
+        <SearchField value={search} onChange={setSearch} inputRef={searchInput} />
         <Button size="sm" className="ml-auto" onClick={newSession}>
           <Plus className="-ml-1 size-[18px]" />
           {t('library.newSession')}
@@ -77,11 +93,14 @@ export function LibraryScreen({ tokenNotice = false, onDismissTokenNotice }: Lib
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
       >
         <div className="mx-auto flex min-h-full w-full max-w-[1264px] flex-col px-8 pt-7 pb-12">
-          {tokenNotice && <TokenResetNotice onDismiss={onDismissTokenNotice} />}
+          {tokenNotice && <TokenResetNotice onDismiss={dismissNotice} />}
           {/* As tall as the sort control, so the heading doesn't move when it hides. */}
           <div className="flex min-h-10 flex-wrap items-center justify-between gap-x-6 gap-y-3">
             <h1
               id={headingId}
+              ref={heading}
+              // Focusable only from code, as a landing spot (see above), never by Tab.
+              tabIndex={-1}
               className="text-[24px] leading-tight font-w520 text-balance ko:leading-[1.6]"
             >
               {t('library.title')}
@@ -162,9 +181,16 @@ function Sessions({
   );
 }
 
-function SearchField({ value, onChange }: { value: string; onChange(value: string): void }) {
+function SearchField({
+  value,
+  onChange,
+  inputRef: input,
+}: {
+  value: string;
+  onChange(value: string): void;
+  inputRef: RefObject<HTMLInputElement | null>;
+}) {
   const { t } = useTranslation();
-  const input = useRef<HTMLInputElement>(null);
   return (
     // Centered on the window, whatever the strip's insets on either side.
     <search className="absolute top-1/2 left-1/2 w-[min(400px,36vw)] -translate-x-1/2 -translate-y-1/2">

@@ -138,6 +138,20 @@ describe('LibraryScreen', () => {
     expect(GET).toHaveBeenCalledTimes(2);
   });
 
+  it('moves focus to the heading once a Retry succeeds, and keeps it on Retry while it fails', async () => {
+    const { api, GET } = fakeApi();
+    GET.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    GET.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    GET.mockResolvedValue(listed([DFA]));
+    const { user } = await renderLibrary(api);
+
+    await user.click(await screen.findByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Retry' })).toHaveFocus());
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await screen.findByRole('button', { name: DFA.title ?? '' });
+    expect(screen.getByRole('heading', { level: 1, name: 'Your sessions' })).toHaveFocus();
+  });
+
   it('shows the error state for an error status from the server too', async () => {
     const { api, GET } = fakeApi();
     GET.mockResolvedValue({
@@ -266,6 +280,8 @@ describe('LibraryScreen', () => {
     await user.click(within(noResults).getByRole('button', { name: 'Clear search' }));
 
     expect(search).toHaveValue('');
+    // The panel and its button are gone, so focus goes back to the search field.
+    expect(search).toHaveFocus();
     expect(await screen.findByRole('button', { name: DFA.title ?? '' })).toBeInTheDocument();
     // Three keystrokes made one search request.
     expect(GET.mock.calls.map(searchOf)).toEqual([undefined, 'zzz', undefined]);
@@ -456,6 +472,8 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: 'Got it' }));
     expect(screen.queryByText(notice)).not.toBeInTheDocument();
+    // The notice took its button with it: focus moves on to the heading.
+    expect(screen.getByRole('heading', { level: 1, name: 'Your sessions' })).toHaveFocus();
     act(() => useRoute.getState().openSession(DFA.id));
     act(() => useRoute.getState().goLibrary());
     expect(screen.queryByText(notice)).not.toBeInTheDocument();
