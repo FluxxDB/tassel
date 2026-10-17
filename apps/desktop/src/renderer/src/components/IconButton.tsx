@@ -3,6 +3,7 @@
 // accessible name, so the icon stays decorative.
 import type { ComponentPropsWithRef, ReactNode } from 'react';
 import { cn } from '../lib/cn';
+import { firstClickOnly } from '../lib/first-click';
 
 export interface IconButtonProps
   extends Omit<ComponentPropsWithRef<'button'>, 'aria-label' | 'aria-pressed' | 'children'> {
@@ -36,7 +37,8 @@ export function IconButton({
       type={type}
       aria-label={label}
       aria-pressed={pressed}
-      onClick={unavailable ? undefined : onClick}
+      // A double click acts once, so a toggle doesn't flip back.
+      onClick={unavailable ? undefined : firstClickOnly(onClick)}
       className={cn(
         'grid size-12 shrink-0 place-items-center rounded-pill transition-[color,background-color] duration-150 disabled:pointer-events-none disabled:opacity-40 [&>svg]:size-[22px]',
         // Only the icon dims, so the focus ring stays full ink.

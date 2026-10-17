@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { launchApp, settle, setWindowSize, snap } from './fixtures';
+import { callApi, launchApp, settle, setWindowSize, snap } from './fixtures';
 
 interface Box {
   x: number;
@@ -133,8 +133,38 @@ test('stops the tutor when she ends the session mid-script', async () => {
     .click();
   await expect(page.getByRole('heading', { level: 1, name: 'Your sessions' })).toBeVisible();
   // Past the script's next steps (the student's line at 1.5 s, the title at 4.5 s): nothing lands.
+  // The library fetched its list once, on arrival, so ask the server: a tutor still running would
+  // have titled the session there by now.
   await page.waitForTimeout(4_000);
-  await expect(page.getByRole('list', { name: 'Your sessions' })).toContainText('Untitled Session');
+  const { items } = (await (await callApi(page, '/v1/sessions')).json()) as {
+    items: Array<Record<string, unknown>>;
+  };
+  expect(items).toMatchObject([{ title: null, subject: null }]);
   expect(problems).toEqual([]);
+  await app.close();
+});
+
+test("leaves a titled session's own title, on screen and on the server (spec §5.1)", async () => {
+  const { app, page } = await launchApp();
+  await expect(page.getByRole('region', { name: 'No sessions yet' })).toBeVisible();
+  const created = await callApi(page, '/v1/sessions', {
+    method: 'POST',
+    body: JSON.stringify({ type: 'studying', language: 'en', source: 'paper' }),
+  });
+  const { id } = (await created.json()) as { id: string };
+  const own = { title: 'Sums of odd numbers', subject: 'Induction' };
+  await callApi(page, `/v1/sessions/${id}`, { method: 'PATCH', body: JSON.stringify(own) });
+  await page.reload();
+  await page.getByRole('list', { name: 'Your sessions' }).getByRole('button').click();
+
+  // The whole opening plays, the tutor's title step included (at 4.5 s, about 0.2 s at speed 20).
+  await expect(page.getByTestId('captions')).toContainText('1010', { timeout: 10_000 });
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(own.title);
+  await expect(page.getByRole('banner')).toContainText(own.subject);
+  const saved = (await (await callApi(page, `/v1/sessions/${id}`)).json()) as Record<
+    string,
+    unknown
+  >;
+  expect(saved).toMatchObject(own);
   await app.close();
 });

@@ -170,6 +170,14 @@ test('shows a recoverable error when the server is down', async () => {
   await app.close();
 });
 
+test('reaches a server named localhost, which the config accepts and the CSP allows', async () => {
+  const { app, page } = await launchApp({
+    TASSEL_SERVER_URL: E2E_SERVER_URL.replace('127.0.0.1', 'localhost'),
+  });
+  await expect(page.getByRole('region', { name: 'No sessions yet' })).toBeVisible();
+  await app.close();
+});
+
 test('recovers through Retry once the server comes up', async () => {
   const port = await freePort();
   const { app, page } = await launchApp({ TASSEL_SERVER_URL: `http://127.0.0.1:${port}` });

@@ -47,13 +47,14 @@ export function TitleStrip({ session, failed, startedAt }: TitleStripProps) {
               {session.title ?? t('session.untitled')}
             </h1>
             {session.subject !== null && (
-              // The cap sits on a wrapper: on the Chip itself it would compete with the Chip's
-              // own max-w-full, and cn doesn't resolve conflicting utilities.
-              <span className="flex max-w-[200px] min-w-0 shrink-0">
-                <Chip lang={session.language} title={session.subject}>
-                  {session.subject}
-                </Chip>
-              </span>
+              // The cap replaces the Chip's own max-w-full (cn settles the two).
+              <Chip
+                lang={session.language}
+                title={session.subject}
+                className="max-w-[200px] shrink-0"
+              >
+                {session.subject}
+              </Chip>
             )}
             <Chip className="shrink-0">{t(`newSession.type.${session.type}`)}</Chip>
           </>

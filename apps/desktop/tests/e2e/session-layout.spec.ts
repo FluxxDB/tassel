@@ -1,5 +1,13 @@
 import { type ElectronApplication, expect, type Page, test } from '@playwright/test';
-import { E2E_SERVER_URL, launchApp as launch, settle, setWindowSize, snap } from './fixtures';
+import {
+  callApi,
+  doubleClickLikeAPerson,
+  E2E_SERVER_URL,
+  launchApp as launch,
+  settle,
+  setWindowSize,
+  snap,
+} from './fixtures';
 
 // The fake tutor at its own pace: within these few seconds Ada only connects and listens, so
 // her split request (27.6 s) never moves the stage under a measurement.
@@ -218,5 +226,73 @@ test('keeps keyboard focus moving: the title on arrival, and the Board control a
   await expect(page.getByRole('button', { name: 'Unpin' })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('button', { name: 'Board: following Ada' })).toBeFocused();
+  await closeApp(app);
+});
+
+test('drags the window by the session title, and not by the controls in a strip', async () => {
+  const { app, page } = await launchApp();
+  await openSession(page);
+  // The title is only a focus landing spot (tabindex -1), so it moves the window like the strip.
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCSS('-webkit-app-region', 'drag');
+  await page.getByRole('button', { name: 'End session' }).click();
+  await page
+    .getByRole('dialog', { name: 'End this session?' })
+    .getByRole('button', { name: 'End session' })
+    .click();
+  const strip = page.getByRole('banner');
+  await expect(strip.getByRole('searchbox')).toHaveCSS('-webkit-app-region', 'no-drag');
+  await expect(strip.getByRole('button', { name: 'New session' })).toHaveCSS(
+    '-webkit-app-region',
+    'no-drag',
+  );
+  await closeApp(app);
+});
+
+test('a double click on End session opens its sheet once, with focus inside', async () => {
+  const { app, page } = await launchApp();
+  await openSession(page);
+  const end = page.getByTestId('dock').getByRole('button', { name: 'End session' });
+  const sheet = page.getByRole('dialog', { name: 'End this session?' });
+  const keepGoing = sheet.getByRole('button', { name: 'Keep going' });
+  // A person's double click: the second press lands on the sheet's scrim.
+  await doubleClickLikeAPerson(page, end);
+  await page.waitForTimeout(300);
+  await expect(sheet).toBeVisible();
+  await expect(keepGoing).toBeFocused();
+  await keepGoing.click();
+  await expect(sheet).toBeHidden();
+  // A script's double click: both presses at once.
+  await end.dblclick();
+  await page.waitForTimeout(300);
+  await expect(sheet).toBeVisible();
+  await expect(keepGoing).toBeFocused();
+  await closeApp(app);
+});
+
+test('a double click on End session lands in the library, not in the session under it', async () => {
+  const { app, page } = await launchApp();
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  // Two full rows of cards at 1024: the sheet's End session button sits over the second.
+  for (let n = 0; n < 6; n += 1) {
+    await callApi(page, '/v1/sessions', {
+      method: 'POST',
+      body: JSON.stringify({ type: 'homework', language: 'en', source: 'paper' }),
+    });
+  }
+  await page.reload();
+  await setWindowSize(app, page, 1024, 680);
+  const cards = page.getByRole('list', { name: 'Your sessions' }).getByRole('button');
+  await expect(cards).toHaveCount(6);
+  await cards.first().click();
+  await expect(page.getByTestId('stage')).toBeVisible();
+  await page.getByRole('button', { name: 'End session' }).click();
+  const confirm = page
+    .getByRole('dialog', { name: 'End this session?' })
+    .getByRole('button', { name: 'End session' });
+  await settle(page);
+  await doubleClickLikeAPerson(page, confirm);
+  await page.waitForTimeout(500);
+  await expect(page.getByRole('heading', { level: 1, name: 'Your sessions' })).toBeVisible();
+  await expect(page.getByTestId('stage')).toHaveCount(0);
   await closeApp(app);
 });

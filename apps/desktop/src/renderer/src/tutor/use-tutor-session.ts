@@ -1,6 +1,7 @@
-// Connects the session screen to its tutor: Ada's states, captions and view requests go to the
-// stage store; her title for the session updates the title strip at once (R4) and persists, so
-// the library shows it afterwards (R16).
+// Connects the session screen to its tutor once the session has loaded: Ada's states, captions
+// and view requests go to the stage store. Her title names an untitled session: it shows in the
+// title strip at once (R4) and persists, so the library shows it afterwards (R16). A session that
+// already has a title keeps it (spec §5.1).
 import { patchSession } from '@tassel/shared/api';
 import { useEffect } from 'react';
 import { useCurrentSession } from '../features/session/current-session';
@@ -8,12 +9,16 @@ import { useStageStore } from '../features/session/stage-store';
 import { useApi } from '../lib/api';
 import type { TutorClient } from './types';
 
-/** Connects on mount and disconnects on unmount. */
-export function useTutorSession(sessionId: string, client: TutorClient): void {
+/**
+ * Connects once `ready`, when the session has loaded, and disconnects on unmount. A session that
+ * can't be loaded never starts its tutor.
+ */
+export function useTutorSession(sessionId: string, client: TutorClient, ready: boolean): void {
   const api = useApi();
-  const { patchLocal } = useCurrentSession();
+  const { nameIfUntitled } = useCurrentSession();
 
   useEffect(() => {
+    if (!ready) return;
     const off = client.on((event) => {
       // Read per event, so the store is always current here.
       const stage = useStageStore.getState();
@@ -30,10 +35,9 @@ export function useTutorSession(sessionId: string, client: TutorClient): void {
           stage.requestMode(event.mode);
           break;
         case 'title': {
-          const changes = { title: event.title, subject: event.subject };
-          patchLocal(changes);
+          const name = { title: event.title, subject: event.subject };
           // R16: P2 moves title writing to the server. A failed save leaves the title on screen.
-          patchSession(api, sessionId, changes).catch(() => {});
+          if (nameIfUntitled(name)) patchSession(api, sessionId, name).catch(() => {});
           break;
         }
       }
@@ -43,5 +47,5 @@ export function useTutorSession(sessionId: string, client: TutorClient): void {
       off();
       void client.disconnect();
     };
-  }, [api, client, patchLocal, sessionId]);
+  }, [api, client, nameIfUntitled, ready, sessionId]);
 }
