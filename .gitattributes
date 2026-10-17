@@ -1,3 +1,4 @@
 # Check out LF everywhere, so Biome's formatter passes on Windows (core.autocrlf=true).
 * text=auto eol=lf
 *.woff2 binary
+*.wav binary

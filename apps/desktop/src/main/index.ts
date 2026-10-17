@@ -1,10 +1,13 @@
 // The main process: app lifecycle, the single-instance lock and the app:// origin.
 import { join } from 'node:path';
-import { app, BrowserWindow, net, safeStorage, session } from 'electron';
+import { app, BrowserWindow, net, safeStorage, session, shell, systemPreferences } from 'electron';
 import { handleAppProtocol, registerAppScheme } from './app-protocol';
 import { applyUserDataOverride, readConfig, tokenStoreMode } from './config';
 import { registerIpc } from './ipc';
 import { createTokenStore } from './token-store';
+import { readVoiceConfig, registerVoiceIpc } from './voice/ipc';
+import { createMicAccess } from './voice/mic-access';
+import { applyVoiceSwitches } from './voice/switches';
 import { createMainWindow, hardenWebContents, restrictPermissions } from './windows';
 
 // First, because the single-instance lock lives in userData: E2E runs, each with its own
@@ -12,6 +15,7 @@ import { createMainWindow, hardenWebContents, restrictPermissions } from './wind
 applyUserDataOverride();
 registerAppScheme();
 app.enableSandbox();
+applyVoiceSwitches(app.commandLine);
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -36,6 +40,14 @@ if (!app.requestSingleInstanceLock()) {
           serverUrl: readConfig().serverUrl,
         }),
       );
+      registerVoiceIpc({
+        access: createMicAccess({
+          platform: process.platform,
+          prefs: systemPreferences,
+          open: (url) => shell.openExternal(url),
+        }),
+        config: readVoiceConfig(),
+      });
       createMainWindow();
       app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
