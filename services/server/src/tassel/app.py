@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from tassel import __version__
 from tassel.api import devices, health, sessions
 from tassel.config import Settings
+from tassel.frames.objects import make_object_store
 from tassel.storage.db import make_engine, session_factory
 
 
@@ -28,6 +29,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         settings = Settings()
     app = FastAPI(title="Tassel", version=__version__, lifespan=lifespan)
     app.state.settings = settings
+    # Here, not in the lifespan, so tests can swap it. The S3 store connects on first use.
+    app.state.object_store = make_object_store(settings)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
