@@ -31,3 +31,10 @@ graphify-out/.graphify_python
 graphify-out/.graphify_root
 graphify-out/.graphify_labels.json
 .claude/worktrees/
+
+# P3 paper view: generated clips, the Desk View helper's build, and the spike's local output
+# (real camera frames stay in .out/ on this Mac and are never committed)
+.cache/
+native/deskview-helper/.build/
+native/deskview-helper/.swiftpm/
+docs/research/spikes/p3-tcc/.out/

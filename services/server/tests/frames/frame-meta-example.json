@@ -1,0 +1,19 @@
+{
+  "reason": "ink",
+  "source": "fake-clip",
+  "captured_at": "2026-10-17T14:32:05.120Z",
+  "page_found": true,
+  "page_quad": [
+    { "x": 240, "y": 120 },
+    { "x": 1040, "y": 132 },
+    { "x": 1032, "y": 750 },
+    { "x": 232, "y": 738 }
+  ],
+  "crop_rect": { "x": 0.1, "y": 0.2, "w": 0.3, "h": 0.25 },
+  "mask": {
+    "cols": 50,
+    "rows": 38,
+    "cells": [[5, 12], [6, 12]]
+  },
+  "detector": { "changed_cells": 2, "ink_pixels": 31, "erase_pixels": 0, "version": "p3.1" }
+}

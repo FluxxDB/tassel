@@ -1,4 +1,5 @@
-"""Shared fixtures: a migrated test database, a database session and an HTTP client.
+"""Shared fixtures: a migrated test database, a database session, the app, its object store
+and an HTTP client.
 
 Set ``TASSEL_TEST_DATABASE_URL`` to test against another database. The default is
 ``tassel_test`` on the Docker Compose Postgres (``docker compose up -d db``).
@@ -22,11 +23,13 @@ import pytest
 import pytest_asyncio
 from alembic import command
 from alembic.config import Config
+from fastapi import FastAPI
 from sqlalchemy import Engine, create_engine, make_url, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tassel.app import create_app
 from tassel.config import Settings
+from tassel.frames.objects import MemoryObjectStore
 from tassel.storage.db import make_engine, session_factory
 from tassel.storage.tables import Base
 
@@ -213,9 +216,22 @@ async def db(db_url: str) -> AsyncIterator[AsyncSession]:
         await engine.dispose()
 
 
+@pytest.fixture
+def app(db_url: str) -> FastAPI:
+    """The app on the test database, with frames in memory and no upload rate limit.
+
+    A test that needs other settings builds its own app the same way.
+    """
+    return create_app(Settings(database_url=db_url, object_store="memory", frame_min_interval_s=0))
+
+
+@pytest.fixture
+def store(app: FastAPI) -> MemoryObjectStore:
+    return app.state.object_store
+
+
 @pytest_asyncio.fixture
-async def client(db_url: str) -> AsyncIterator[httpx.AsyncClient]:
-    app = create_app(Settings(database_url=db_url))
+async def client(app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
     # ASGITransport doesn't send lifespan events, so run the lifespan (the engine) here.
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)

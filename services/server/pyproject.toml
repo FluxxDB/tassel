@@ -17,6 +17,8 @@ dependencies = [
     "anthropic==1.15.0",
     "openai>=3.31,<4",
     "httpx2>=2.12,<3",
+    "boto3>=1.43,<2",
+    "python-multipart>=0.0.32",
 ]
 
 [project.scripts]
@@ -28,6 +30,7 @@ dev = [
     "pytest-asyncio>=1.4",
     "httpx",
     "ruff",
+    "pillow>=12",
 ]
 
 [build-system]

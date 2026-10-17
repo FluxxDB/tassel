@@ -1,0 +1,16 @@
+{
+  "id": "starts-with-010",
+  "title": "Binary strings that start with 010",
+  "regex": "010(0|1)*",
+  "states": ["q0", "q1", "q2", "q3", "dead"],
+  "alphabet": ["0", "1"],
+  "start": "q0",
+  "accepts": ["q3"],
+  "transitions": {
+    "q0": { "0": "q1", "1": "dead" },
+    "q1": { "0": "dead", "1": "q2" },
+    "q2": { "0": "q3", "1": "dead" },
+    "q3": { "0": "q3", "1": "q3" },
+    "dead": { "0": "dead", "1": "dead" }
+  }
+}
