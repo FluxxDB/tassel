@@ -9,6 +9,11 @@ export interface AppConfig {
   tutorMode: 'fake' | 'live';
   fakeScript: string;
   fakeSpeed: number;
+  /**
+   * True when this launch couldn't read the stored device token, so the app registers a fresh
+   * device: a new learner, and an empty library. The library says so once.
+   */
+  tokenReset: boolean;
 }
 
 export interface TasselBridge {

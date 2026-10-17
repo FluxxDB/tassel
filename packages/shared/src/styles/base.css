@@ -13,10 +13,15 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Negative tracking damages Hangul, and Korean needs more leading. */
+  /*
+   * Negative tracking damages Hangul, and Korean needs more leading. Hangul breaks between
+   * words, never inside one; an overlong word still wraps (R28).
+   */
   :lang(ko) {
     letter-spacing: 0;
     line-height: 1.6;
+    word-break: keep-all;
+    overflow-wrap: break-word;
   }
 }
 
@@ -29,5 +34,14 @@
     font-feature-settings:
       "calt" 0,
       "liga" 0;
+  }
+
+  /*
+   * Hangul has no case, and tracking damages it: Korean lab labels stay untracked. Their spaces
+   * come from Geist Mono (0.6em, Pretendard's range has no space), so close them to about 0.3em.
+   */
+  .mono:lang(ko) {
+    letter-spacing: 0;
+    word-spacing: -0.3em;
   }
 }

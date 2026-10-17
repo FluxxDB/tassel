@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { launchApp, snap } from './fixtures';
+import { E2E_SERVER_URL, launchApp, snap } from './fixtures';
 
 test('launches securely with the bridge', async () => {
   const { app, page } = await launchApp();
@@ -17,7 +17,7 @@ test('keeps the renderer on its own origin', async () => {
   const { app, page } = await launchApp();
   // The bridge reaches the main process, which reads the launch settings.
   expect(await page.evaluate(() => window.tassel.getConfig())).toMatchObject({
-    serverUrl: 'http://127.0.0.1:8799',
+    serverUrl: E2E_SERVER_URL,
     fakeSpeed: 20,
   });
   // The CSP refuses inline scripts.
@@ -40,5 +40,29 @@ test('keeps the renderer on its own origin', async () => {
   expect(await navigated).toBe(false);
   expect(page.url()).toBe('app://tassel/index.html');
   expect(app.windows()).toHaveLength(1);
+  await app.close();
+});
+
+test('boots the renderer in the UI language with the design system', async () => {
+  const { app, page } = await launchApp({ TASSEL_UI_LANG: 'ko' });
+  await expect(page.getByRole('heading', { name: '내 세션' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe('ko');
+  // The shared fonts ship inside the app (font-src 'self'): Geist for Latin, Pretendard for Hangul.
+  const fontStatus = () =>
+    page.evaluate(async () => {
+      await document.fonts.ready;
+      return Object.fromEntries([...document.fonts].map((font) => [font.family, font.status]));
+    });
+  await expect.poll(fontStatus).toMatchObject({ Geist: 'loaded', 'Pretendard Variable': 'loaded' });
+  // The title strip drags the window.
+  const strip = page.getByRole('banner');
+  await expect(strip).toHaveCSS('height', '52px');
+  expect(await strip.evaluate((el) => getComputedStyle(el).getPropertyValue('app-region'))).toBe(
+    'drag',
+  );
+  // The strip's first item starts 18px past the macOS traffic lights, which end at x 80.
+  const first = await strip.locator(':scope > *').first().boundingBox();
+  expect(first?.x).toBe(process.platform === 'darwin' ? 98 : 20);
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(255, 249, 243)');
   await app.close();
 });

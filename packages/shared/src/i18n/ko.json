@@ -12,23 +12,42 @@
     "title": "내 세션",
     "newSession": "새 세션",
     "search": "세션 검색",
+    "searchPlaceholder": "제목이나 주제로 검색…",
+    "clearSearch": "검색어 지우기",
     "sort": {
+      "label": "세션 정렬",
       "recent": "최근 활동",
       "created": "만든 날짜",
       "topic": "주제"
     },
     "noTopic": "주제 없음",
+    "loading": "세션을 불러오는 중…",
     "empty": {
       "title": "아직 세션이 없어요",
       "body": "세션을 시작해서 Ada와 함께 문제를 풀어 보세요. 세션은 여기에 표시돼요."
     },
+    "noResults": {
+      "title": "\"{query}\"에 맞는 세션이 없어요",
+      "body": "다른 단어로 검색하거나 검색어를 지워서 모든 세션을 확인해 보세요."
+    },
+    "results": "세션 {count}개",
     "error": {
       "title": "Tassel 서버에 연결하지 못했어요",
-      "body": "인터넷 연결을 확인하고 다시 시도해 주세요."
+      "body": "인터넷 연결을 확인하고 다시 시도해 주세요.",
+      "retrying": "다시 시도하는 중…"
+    },
+    "tokenReset": {
+      "body": "이 기기에 저장된 ID를 읽지 못해서 Tassel이 처음부터 다시 설정했어요. 이전 세션은 여기에 표시되지 않아요.",
+      "dismiss": "확인"
     }
   },
   "newSession": {
     "title": "새 세션",
+    "groups": {
+      "type": "유형",
+      "language": "언어",
+      "source": "작업 방식"
+    },
     "type": {
       "homework": "숙제",
       "studying": "공부",
@@ -45,15 +64,24 @@
       "screen": "화면 공유",
       "talk": "대화만"
     },
-    "start": "세션 시작"
+    "start": "세션 시작",
+    "starting": "시작하는 중…"
   },
   "session": {
     "untitled": "제목 없는 세션",
+    "tutorName": "Ada",
+    "you": "나",
+    "loadError": "세션을 불러오지 못했어요",
     "timer": "경과 시간: {elapsed}",
     "liveSource": {
       "paper": "Desk View · 실시간",
       "screen": "화면 · 실시간",
       "talk": "음성 · 실시간"
+    },
+    "source": {
+      "paper": "Desk View",
+      "screen": "화면",
+      "talk": "음성"
     },
     "tutorState": {
       "connecting": "연결 중",
@@ -67,14 +95,41 @@
       "board": "칠판",
       "split": "종이와 칠판"
     },
+    "placeholder": {
+      "paper": {
+        "tag": "내 종이 · Desk View",
+        "waiting": "Desk View를 기다리는 중"
+      },
+      "screen": {
+        "tag": "내 화면",
+        "waiting": "화면을 기다리는 중"
+      },
+      "talk": {
+        "tag": "대화만",
+        "waiting": "아직 보여 줄 것이 없어요"
+      }
+    },
+    "board": {
+      "tag": "Ada의 칠판"
+    },
+    "pin": {
+      "label": "고정됨 · {view}",
+      "adaAsks": "Ada의 요청: {view}",
+      "unpin": "고정 해제"
+    },
     "dock": {
       "mic": "마이크",
+      "label": "세션 제어",
       "micOff": "마이크 꺼짐",
       "camera": "카메라",
       "share": "화면 공유",
+      "shareLater": "화면 공유는 나중에 지원돼요",
       "board": "칠판",
+      "boardFollow": "칠판: Ada 따라가기",
+      "boardPinned": "칠판: {view} 고정됨",
       "captions": "자막",
-      "end": "세션 종료"
+      "end": "세션 종료",
+      "withShortcut": "{label} ({key})"
     },
     "end": {
       "title": "세션을 종료할까요?",

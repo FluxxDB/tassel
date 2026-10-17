@@ -1,0 +1,139 @@
+@import "tailwindcss";
+@import "@tassel/shared/tokens.css";
+@import "@tassel/shared/fonts.css";
+@import "@tassel/shared/base.css";
+
+/* DESIGN.md's near-medium weight: headings, buttons and names, never bold. */
+@theme {
+  --font-weight-w520: 520;
+}
+
+/*
+ * ko:leading-[1.6] and the like apply to Korean text only. Korean keeps its 1.6 leading where a
+ * utility sets a tighter one for Latin text (base.css's :lang(ko) loses to any utility).
+ */
+@custom-variant ko (&:lang(ko));
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  /* Light only: nothing flips in macOS dark mode. */
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    overflow: hidden;
+    caret-color: var(--color-ink);
+  }
+
+  ::selection {
+    background-color: var(--color-blush);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+
+  * {
+    scrollbar-color: color-mix(in srgb, var(--color-ink) 22%, transparent) transparent;
+    scrollbar-width: thin;
+  }
+
+  /* Timers and counts don't jitter as their digits change. */
+  time,
+  .mono {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Search fields draw their own clear button (icons.tsx), not the browser's. */
+  input[type="search"]::-webkit-search-cancel-button,
+  input[type="search"]::-webkit-search-decoration {
+    appearance: none;
+  }
+}
+
+@layer components {
+  /*
+   * The window's title strip: it drags the window, and controls inside it stay clickable.
+   * Static text stays draggable, so the window moves by its title like any macOS app.
+   */
+  .app-drag {
+    -webkit-app-region: drag;
+    user-select: none;
+  }
+
+  .app-drag
+    :where(button, a, input, select, textarea, [role="button"], [role="radiogroup"], [tabindex]) {
+    -webkit-app-region: no-drag;
+  }
+
+  /*
+   * Ada's board: a dotted canvas. The dots hang from the panel's top right corner, which never
+   * moves, so they hold still while the panel grows or shrinks in the stage's reflow.
+   */
+  .board-canvas {
+    background:
+      var(--color-paper) radial-gradient(var(--color-board-dot) 1.2px, transparent 1.3px) right top
+      / 22px 22px;
+  }
+
+  /*
+   * Windows and Linux draw the window controls over the strip's right end (titleBarOverlay).
+   * Without the titlebar-area env values, reserve Windows' 138px of caption buttons anyway (R23).
+   */
+  .app-drag-overlay-inset {
+    padding-right: calc(
+      100vw -
+      env(titlebar-area-x, 0px) -
+      env(titlebar-area-width, calc(100vw - 138px)) +
+      20px
+    );
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+
+@keyframes sheet-out {
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.99);
+  }
+}
+
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes scrim-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* A new caption line fades in from nothing; its resting state is fully visible. */
+@keyframes caption-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Loading placeholders breathe slowly, from fully visible; static under reduced motion. */
+@keyframes skeleton-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}

@@ -10,8 +10,11 @@ import {
   type Page,
 } from '@playwright/test';
 
-/** The E2E server, which global-setup.ts starts on this port. */
-export const E2E_SERVER_URL = 'http://127.0.0.1:8799';
+/**
+ * The E2E server, which global-setup.ts starts. TASSEL_E2E_PORT moves it off the default 8799,
+ * so checkouts that run E2E at the same time each get their own server.
+ */
+export const E2E_SERVER_URL = `http://127.0.0.1:${e2ePort(process.env.TASSEL_E2E_PORT)}`;
 
 const appDir = join(__dirname, '..', '..');
 const mainEntry = join(appDir, 'out', 'main', 'index.js');
@@ -52,9 +55,52 @@ export async function launchApp(
   return { app, page };
 }
 
+/**
+ * Waits for the web fonts and for running transitions (a segment's 150 ms color change, a
+ * sheet's entrance), so screenshots never catch fallback faces or a half-finished state.
+ * Endless animations, such as a busy spinner, are left running.
+ */
+export async function settle(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    const finite = document
+      .getAnimations()
+      .filter((animation) => animation.effect?.getTiming().iterations !== Infinity);
+    await Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
+  });
+}
+
 /** Saves a screenshot of the window to test-results/screens/<name>.png. */
 export async function snap(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: join(screensDir, `${name}.png`) });
+}
+
+/**
+ * Resizes the window's content area (page.setViewportSize doesn't resize an Electron window)
+ * and waits until the page has the new size. The window's minimum is 1024×680.
+ */
+export async function setWindowSize(
+  app: ElectronApplication,
+  page: Page,
+  width: number,
+  height: number,
+): Promise<void> {
+  await app.evaluate(
+    ({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0]?.setContentSize(w, h),
+    [width, height],
+  );
+  await expect
+    .poll(() => page.evaluate(() => [window.innerWidth, window.innerHeight]))
+    .toEqual([width, height]);
+}
+
+function e2ePort(value: string | undefined): number {
+  if (!value) return 8799;
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new Error(`TASSEL_E2E_PORT must be a port from 1 to 65535, not "${value}"`);
+  }
+  return port;
 }
 
 function removeDir(dir: string): void {
