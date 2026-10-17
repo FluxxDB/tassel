@@ -1,0 +1,42 @@
+/*
+ * Tassel design tokens (Hume-style pastel system) as a Tailwind v4 theme.
+ * Each token is a CSS variable and a utility: --color-ink -> bg-ink, text-ink;
+ * --radius-pill -> rounded-pill; --font-mono -> font-mono.
+ */
+@theme {
+  /* Base */
+  --color-ink: #222222;
+  --color-paper: #ffffff;
+  --color-bone: #fff9f3;
+  --color-slate-plum: #574853;
+
+  /* Smoke is for large text and non-text only; small text uses smoke-text (WCAG AA). */
+  --color-smoke: #7a7876;
+  --color-smoke-text: #6b6966;
+
+  /* Iris is the one saturated accent; iris-ink is its darker shade for text. */
+  --color-iris: #c094e4;
+  --color-iris-ink: #7d4fc4;
+
+  /* Pastels */
+  --color-blush: #fce0ee;
+  --color-rose-mist: #fdebf7;
+  --color-meringue: #ffe9cf;
+  --color-mint: #daf7ee;
+  --color-seafoam: #cef1e1;
+  --color-sky: #ccdff1;
+
+  /* State */
+  --color-live: #e5484d;
+
+  /* Radii */
+  --radius-pill: 9999px;
+  --radius-card: 16px;
+  --radius-card-sm: 12px;
+  --radius-input: 8px;
+  --radius-hero: 24px;
+
+  /* Type: Geist for Latin, Pretendard Variable for Hangul (fonts.css limits its unicode-range). */
+  --font-sans: "Geist", "Pretendard Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", "Pretendard Variable", ui-monospace, monospace;
+}

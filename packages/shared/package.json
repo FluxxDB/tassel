@@ -1,0 +1,29 @@
+{
+  "name": "@tassel/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tokens.css": "./src/styles/tokens.css",
+    "./fonts.css": "./src/styles/fonts.css",
+    "./base.css": "./src/styles/base.css",
+    "./fonts/*": "./src/fonts/*",
+    "./i18n": "./src/i18n/index.ts",
+    "./api": "./src/api/index.ts"
+  },
+  "scripts": {
+    "postinstall": "node scripts/copy-fonts.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@formatjs/icu-messageformat-parser": "^3.5.21",
+    "geist": "^1.8.1",
+    "pretendard": "^1.3.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

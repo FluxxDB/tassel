@@ -1,0 +1,17 @@
+packages:
+  - apps/*
+  - packages/*
+
+# pnpm runs dependency build scripts only for packages allowed here.
+# electron downloads its binary in postinstall; esbuild installs its native binary.
+allowBuilds:
+  electron: true
+  esbuild: true
+
+# geist peers on next for its next/font wrapper. Tassel only copies geist's woff2 files,
+# so the peer is optional; otherwise pnpm auto-installs Next, React and sharp.
+packageExtensions:
+  geist:
+    peerDependenciesMeta:
+      next:
+        optional: true

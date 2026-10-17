@@ -1,0 +1,33 @@
+/*
+ * Base styles. Import after tailwindcss, tokens.css and fonts.css.
+ * Rules sit in cascade layers so Tailwind utilities can still override them.
+ */
+@layer base {
+  body {
+    background-color: var(--color-bone);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    letter-spacing: -0.025em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Negative tracking damages Hangul, and Korean needs more leading. */
+  :lang(ko) {
+    letter-spacing: 0;
+    line-height: 1.6;
+  }
+}
+
+@layer components {
+  /* Lab label: Geist Mono, uppercase, open tracking, no ligatures or contextual alternates. */
+  .mono {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    font-feature-settings:
+      "calt" 0,
+      "liga" 0;
+  }
+}

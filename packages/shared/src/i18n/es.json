@@ -1,0 +1,93 @@
+{
+  "app": {
+    "name": "Tassel"
+  },
+  "common": {
+    "retry": "Reintentar",
+    "cancel": "Cancelar",
+    "start": "Empezar",
+    "back": "Volver"
+  },
+  "library": {
+    "title": "Tus sesiones",
+    "newSession": "Nueva sesión",
+    "search": "Buscar sesiones",
+    "sort": {
+      "recent": "Actividad reciente",
+      "created": "Fecha de creación",
+      "topic": "Tema"
+    },
+    "noTopic": "Sin tema",
+    "empty": {
+      "title": "Todavía no hay sesiones",
+      "body": "Empieza una sesión y resuelve un problema con Ada. Tus sesiones aparecerán aquí."
+    },
+    "error": {
+      "title": "No se pudo conectar con el servidor de Tassel",
+      "body": "Revisa tu conexión e inténtalo de nuevo."
+    }
+  },
+  "newSession": {
+    "title": "Nueva sesión",
+    "type": {
+      "homework": "Tarea",
+      "studying": "Estudio",
+      "research": "Investigación",
+      "other": "Otro"
+    },
+    "language": {
+      "en": "English",
+      "es": "Español",
+      "ko": "한국어"
+    },
+    "source": {
+      "paper": "Papel · Desk View",
+      "screen": "Compartir pantalla",
+      "talk": "Solo hablar"
+    },
+    "start": "Empezar sesión"
+  },
+  "session": {
+    "untitled": "Sesión sin título",
+    "timer": "Tiempo transcurrido: {elapsed}",
+    "liveSource": {
+      "paper": "Desk View · En vivo",
+      "screen": "Pantalla · En vivo",
+      "talk": "Voz · En vivo"
+    },
+    "tutorState": {
+      "connecting": "Conectando",
+      "listening": "Escuchando",
+      "thinking": "Pensando",
+      "speaking": "Hablando",
+      "watching": "Observando"
+    },
+    "stage": {
+      "paper": "Papel",
+      "board": "Pizarra",
+      "split": "Papel y pizarra"
+    },
+    "dock": {
+      "mic": "Micrófono",
+      "micOff": "Micrófono apagado",
+      "camera": "Cámara",
+      "share": "Compartir pantalla",
+      "board": "Pizarra",
+      "captions": "Subtítulos",
+      "end": "Terminar sesión"
+    },
+    "end": {
+      "title": "¿Terminar esta sesión?",
+      "confirm": "Terminar sesión",
+      "cancel": "Seguir"
+    }
+  },
+  "platform": {
+    "windowsNoDeskView": "Desk View no está disponible en Windows. Comparte tu pantalla en su lugar."
+  },
+  "errors": {
+    "network": "No se puede conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.",
+    "server": "Algo salió mal de nuestro lado. Inténtalo de nuevo en un momento.",
+    "unknown": "Algo salió mal. Inténtalo de nuevo."
+  }
+}

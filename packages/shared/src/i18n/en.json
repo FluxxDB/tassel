@@ -1,0 +1,93 @@
+{
+  "app": {
+    "name": "Tassel"
+  },
+  "common": {
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "start": "Start",
+    "back": "Back"
+  },
+  "library": {
+    "title": "Your sessions",
+    "newSession": "New session",
+    "search": "Search sessions",
+    "sort": {
+      "recent": "Recent activity",
+      "created": "Date created",
+      "topic": "Topic"
+    },
+    "noTopic": "No topic",
+    "empty": {
+      "title": "No sessions yet",
+      "body": "Start a session and work through a problem with Ada. Your sessions will show up here."
+    },
+    "error": {
+      "title": "Couldn't reach Tassel's server",
+      "body": "Check your connection, then try again."
+    }
+  },
+  "newSession": {
+    "title": "New session",
+    "type": {
+      "homework": "Homework",
+      "studying": "Studying",
+      "research": "Research",
+      "other": "Other"
+    },
+    "language": {
+      "en": "English",
+      "es": "Español",
+      "ko": "한국어"
+    },
+    "source": {
+      "paper": "Paper · Desk View",
+      "screen": "Screen share",
+      "talk": "Just talk"
+    },
+    "start": "Start session"
+  },
+  "session": {
+    "untitled": "Untitled Session",
+    "timer": "Time elapsed: {elapsed}",
+    "liveSource": {
+      "paper": "Desk View · Live",
+      "screen": "Screen · Live",
+      "talk": "Voice · Live"
+    },
+    "tutorState": {
+      "connecting": "Connecting",
+      "listening": "Listening",
+      "thinking": "Thinking",
+      "speaking": "Speaking",
+      "watching": "Watching"
+    },
+    "stage": {
+      "paper": "Paper",
+      "board": "Board",
+      "split": "Paper and board"
+    },
+    "dock": {
+      "mic": "Microphone",
+      "micOff": "Microphone off",
+      "camera": "Camera",
+      "share": "Share screen",
+      "board": "Board",
+      "captions": "Captions",
+      "end": "End session"
+    },
+    "end": {
+      "title": "End this session?",
+      "confirm": "End session",
+      "cancel": "Keep going"
+    }
+  },
+  "platform": {
+    "windowsNoDeskView": "Desk View isn't available on Windows. Share your screen instead."
+  },
+  "errors": {
+    "network": "Can't reach the server. Check your connection and try again.",
+    "server": "Something went wrong on our end. Try again in a moment.",
+    "unknown": "Something went wrong. Try again."
+  }
+}

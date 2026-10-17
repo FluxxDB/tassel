@@ -1,0 +1,93 @@
+{
+  "app": {
+    "name": "Tassel"
+  },
+  "common": {
+    "retry": "다시 시도",
+    "cancel": "취소",
+    "start": "시작",
+    "back": "뒤로"
+  },
+  "library": {
+    "title": "내 세션",
+    "newSession": "새 세션",
+    "search": "세션 검색",
+    "sort": {
+      "recent": "최근 활동",
+      "created": "만든 날짜",
+      "topic": "주제"
+    },
+    "noTopic": "주제 없음",
+    "empty": {
+      "title": "아직 세션이 없어요",
+      "body": "세션을 시작해서 Ada와 함께 문제를 풀어 보세요. 세션은 여기에 표시돼요."
+    },
+    "error": {
+      "title": "Tassel 서버에 연결하지 못했어요",
+      "body": "인터넷 연결을 확인하고 다시 시도해 주세요."
+    }
+  },
+  "newSession": {
+    "title": "새 세션",
+    "type": {
+      "homework": "숙제",
+      "studying": "공부",
+      "research": "조사",
+      "other": "기타"
+    },
+    "language": {
+      "en": "English",
+      "es": "Español",
+      "ko": "한국어"
+    },
+    "source": {
+      "paper": "종이 · Desk View",
+      "screen": "화면 공유",
+      "talk": "대화만"
+    },
+    "start": "세션 시작"
+  },
+  "session": {
+    "untitled": "제목 없는 세션",
+    "timer": "경과 시간: {elapsed}",
+    "liveSource": {
+      "paper": "Desk View · 실시간",
+      "screen": "화면 · 실시간",
+      "talk": "음성 · 실시간"
+    },
+    "tutorState": {
+      "connecting": "연결 중",
+      "listening": "듣는 중",
+      "thinking": "생각 중",
+      "speaking": "말하는 중",
+      "watching": "지켜보는 중"
+    },
+    "stage": {
+      "paper": "종이",
+      "board": "칠판",
+      "split": "종이와 칠판"
+    },
+    "dock": {
+      "mic": "마이크",
+      "micOff": "마이크 꺼짐",
+      "camera": "카메라",
+      "share": "화면 공유",
+      "board": "칠판",
+      "captions": "자막",
+      "end": "세션 종료"
+    },
+    "end": {
+      "title": "세션을 종료할까요?",
+      "confirm": "세션 종료",
+      "cancel": "계속하기"
+    }
+  },
+  "platform": {
+    "windowsNoDeskView": "Windows에서는 Desk View를 사용할 수 없어요. 대신 화면을 공유해 주세요."
+  },
+  "errors": {
+    "network": "서버에 연결할 수 없어요. 인터넷 연결을 확인하고 다시 시도해 주세요.",
+    "server": "서버에 문제가 생겼어요. 잠시 후 다시 시도해 주세요.",
+    "unknown": "문제가 생겼어요. 다시 시도해 주세요."
+  }
+}
