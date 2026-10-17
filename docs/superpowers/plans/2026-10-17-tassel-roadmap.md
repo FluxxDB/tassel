@@ -14,8 +14,8 @@
 | P5 | Board & beats | tldraw (license key) behind a `Board` wrapper, automata shapes and Graphviz layout, semantic board commands, beat cue documents (mouth cues and markers), paper marks on frozen frames, `show_stage`, trace animations | P1 (live in P2/P4) |
 | P6 | Tutor avatar | Authored layered SVG, a 9-shape mouth pack, lip-sync scheduler, idle motion, customization screen, per-language voice and accent with preview | P1 (live cues in P2) |
 | P7 | Screen share | Overlay bar window, screen-pointer layer, floating board card, Apple Vision OCR regions in the helper, the on-request frame flow, the Windows path | P3, P5 |
-| P8 | Learning engine & memory | Tables, Elo + FSRS-6, `record_evidence`, post-session extraction on Vultr, "What Ada remembers" panel, session review timeline | P2 |
-| P9 | Languages & accessibility | Bilingual captions, per-language prompts, Korean typography audit, keyboard and screen-reader audit, web-design-guidelines review | Ongoing; final pass after P7 |
+| P8 | Learning engine & memory | Tables, Elo + FSRS-6, `record_evidence`, post-session extraction on Vultr, "What Ada remembers" panel, session review timeline, library card thumbnails (the last paper or board snapshot) | P2 |
+| P9 | Languages & accessibility | Bilingual captions, per-language prompts, Korean typography audit, keyboard and screen-reader audit, web-design-guidelines review, the onboarding flow (language, permissions, consent and retention copy, the Desk View check on P3's parts, first-run customization through P6) | Ongoing; final pass after P7 |
 | P10 | Vultr & packaging | Image → Container Registry, VM + coturn, Managed Postgres + Object Storage + Serverless Inference, "Powered by Vultr" panel, macOS packaging and signing, CI on macOS and Windows | P2–P4 |
 | P11 | Automata extensions | PDA/TM bounded verification, transcription notations, stack and tape trace visuals | P4, P5 (design pass first) |
 | P12 | Cell biology module | Design pass, then plan: diagram library, label checking, rubric judging, process animations | P5, P7 |
