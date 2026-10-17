@@ -176,6 +176,9 @@
     "kind": {
       "dfa": "DFA",
       "nfa": "NFA"
+    },
+    "state": {
+      "accepting": "{id}, accepting"
     }
   },
   "marks": {

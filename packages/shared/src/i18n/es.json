@@ -176,6 +176,9 @@
     "kind": {
       "dfa": "AFD",
       "nfa": "AFN"
+    },
+    "state": {
+      "accepting": "{id}, de aceptación"
     }
   },
   "marks": {
