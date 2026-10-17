@@ -1,0 +1,287 @@
+// @vitest-environment jsdom
+import type { ApiClient, Session } from '@tassel/shared/api';
+import type { Lang } from '@tassel/shared/i18n';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { I18nextProvider } from 'react-i18next';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useRoute } from '../../src/renderer/src/app/route-store';
+import { SessionScreen } from '../../src/renderer/src/features/session/SessionScreen';
+import { useStageStore } from '../../src/renderer/src/features/session/stage-store';
+import { initI18n } from '../../src/renderer/src/i18n';
+import { ApiProvider } from '../../src/renderer/src/lib/api';
+
+const UNTITLED: Session = {
+  id: '3a8f0d5e-62a4-4c0b-a3bb-2b5c1f7e9d10',
+  title: null,
+  title_source: null,
+  subject: null,
+  type: 'homework',
+  language: 'en',
+  source: 'paper',
+  created_at: '2026-10-17T12:00:00.000000Z',
+  last_activity_at: '2026-10-17T12:00:00.000000Z',
+};
+const TITLED: Session = {
+  ...UNTITLED,
+  title: 'Strings that start with 010',
+  subject: 'Automata · DFA',
+};
+
+/** An API client whose GET answers getSession with `session`, or fails. */
+function fakeApi(session: Session | Error) {
+  const GET = vi.fn(async () => {
+    if (session instanceof Error) throw session;
+    return { data: session, response: new Response(null) };
+  });
+  return { GET, api: { GET } as unknown as ApiClient };
+}
+
+async function renderSession({
+  session = UNTITLED,
+  lang = 'en',
+}: {
+  session?: Session | Error;
+  lang?: Lang;
+} = {}) {
+  const i18n = await initI18n(lang);
+  const { api, GET } = fakeApi(session);
+  const user = userEvent.setup();
+  const id = session instanceof Error ? UNTITLED.id : session.id;
+  useRoute.getState().openSession(id);
+  render(
+    <I18nextProvider i18n={i18n}>
+      <ApiProvider client={api}>
+        <SessionScreen sessionId={id} />
+      </ApiProvider>
+    </I18nextProvider>,
+  );
+  return { user, GET };
+}
+
+const stage = () => useStageStore.getState();
+
+beforeEach(() => {
+  vi.stubGlobal('tassel', { platform: 'darwin' });
+  stage().reset();
+});
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+describe('SessionScreen', () => {
+  it('untitled session shows localized placeholder (es)', async () => {
+    await renderSession({ lang: 'es' });
+    const title = await screen.findByRole('heading', { level: 1, name: 'Sesión sin título' });
+    expect(title).toHaveClass('text-smoke-text', 'truncate');
+  });
+
+  it('shows the title, chips, source, timer and language', async () => {
+    await renderSession({ session: TITLED });
+    const strip = screen.getByRole('banner');
+    const title = await within(strip).findByRole('heading', {
+      level: 1,
+      name: 'Strings that start with 010',
+    });
+    expect(title).toHaveAttribute('lang', 'en');
+    expect(within(strip).getByText('Automata · DFA')).toHaveClass('mono');
+    expect(within(strip).getByText('Homework')).toHaveClass('mono');
+    expect(within(strip).getByText('Desk View')).toBeInTheDocument();
+    expect(within(strip).getByRole('timer', { name: 'Time elapsed: 00:00' })).toHaveTextContent(
+      '00:00',
+    );
+    expect(within(strip).getByText('English')).toHaveClass('sr-only');
+  });
+
+  it('timer formats 14:32', async () => {
+    vi.useFakeTimers();
+    await renderSession();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(14 * 60_000 + 32_000);
+    });
+    expect(screen.getByRole('timer')).toHaveTextContent('14:32');
+    expect(screen.getByRole('timer')).toHaveAccessibleName('Time elapsed: 14:32');
+  });
+
+  it('starts on her paper, with the board out of the way', async () => {
+    await renderSession();
+    expect(screen.getByRole('region', { name: 'Your paper · Desk View' })).toHaveTextContent(
+      'Waiting for Desk View',
+    );
+    expect(screen.queryByRole('region', { name: "Ada's board" })).not.toBeInTheDocument();
+  });
+
+  it('split renders both panes', async () => {
+    await renderSession();
+    act(() => stage().requestMode('split'));
+    expect(screen.getByRole('region', { name: 'Your paper · Desk View' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: "Ada's board" })).toBeInTheDocument();
+    act(() => stage().requestMode('board'));
+    expect(
+      screen.queryByRole('region', { name: 'Your paper · Desk View' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('dock buttons have accessible names in ko', async () => {
+    await renderSession({ lang: 'ko' });
+    const dock = screen.getByRole('group', { name: '세션 제어' });
+    for (const name of [
+      '마이크',
+      '카메라',
+      '화면 공유',
+      '칠판: Ada 따라가기',
+      '자막',
+      '세션 종료',
+    ]) {
+      expect(within(dock).getByRole('button', { name })).toBeInTheDocument();
+    }
+  });
+
+  it('marks the toggles pressed, and Share visible but unavailable', async () => {
+    const { user } = await renderSession();
+    const mic = screen.getByRole('button', { name: 'Microphone' });
+    expect(mic).toHaveAttribute('aria-pressed', 'true');
+    await user.click(mic);
+    expect(mic).toHaveAttribute('aria-pressed', 'false');
+    expect(stage().micOn).toBe(false);
+    const share = screen.getByRole('button', { name: 'Share screen' });
+    expect(share).toHaveAttribute('aria-disabled', 'true');
+    expect(share).not.toHaveAttribute('aria-pressed');
+    await user.click(share);
+    expect(share).toHaveAttribute('title', 'Screen sharing comes later');
+  });
+
+  it('M toggles mic, B cycles board, C toggles captions', async () => {
+    const { user } = await renderSession();
+    await user.keyboard('m');
+    expect(screen.getByRole('button', { name: 'Microphone' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    await user.keyboard('b');
+    expect(screen.getByRole('button', { name: 'Board: Paper, pinned' })).toBeInTheDocument();
+    await user.keyboard('b');
+    expect(stage()).toMatchObject({ pinned: 'split', mode: 'split' });
+    expect(screen.getByRole('region', { name: "Ada's board" })).toBeInTheDocument();
+    await user.keyboard('c');
+    expect(screen.getByRole('button', { name: 'Captions' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    expect(screen.queryByTestId('captions')).not.toBeInTheDocument();
+  });
+
+  it('ignores the shortcuts with a modifier, while typing, during IME composition and under a sheet', async () => {
+    const { user } = await renderSession();
+    fireEvent.keyDown(window, { key: 'm', metaKey: true });
+    fireEvent.keyDown(window, { key: 'm', ctrlKey: true });
+    fireEvent.keyDown(window, { key: 'm', isComposing: true });
+    const input = document.createElement('input');
+    document.body.append(input);
+    fireEvent.keyDown(input, { key: 'm' });
+    input.remove();
+    expect(stage().micOn).toBe(true);
+
+    await user.click(screen.getByRole('button', { name: 'End session' }));
+    await user.keyboard('c');
+    expect(stage().captionsOn).toBe(true);
+  });
+
+  it('reads the shortcuts by key position under a Korean keyboard layout', async () => {
+    await renderSession();
+    fireEvent.keyDown(window, { key: 'ㅡ', code: 'KeyM' });
+    expect(stage().micOn).toBe(false);
+  });
+
+  it("names Ada's state on her tile, with the iris ring only while she speaks", async () => {
+    await renderSession();
+    const tile = screen.getByRole('figure', { name: /Ada/ });
+    expect(tile).toHaveTextContent('Connecting');
+    expect(tile).not.toHaveClass('shadow-[0_0_0_2px_var(--color-iris)]');
+    act(() => stage().setTutorState('speaking'));
+    expect(tile).toHaveTextContent('Speaking');
+    expect(tile).toHaveClass('shadow-[0_0_0_2px_var(--color-iris)]');
+  });
+
+  it('shows the previous and current caption lines with their speakers and languages', async () => {
+    await renderSession();
+    const captions = screen.getByTestId('captions');
+    expect(captions).toHaveTextContent('Captions appear here as you and Ada talk.');
+    act(() => {
+      stage().pushCaption('student', 'Hola Ada, estoy haciendo un DFA.', 'es');
+      stage().pushCaption('tutor', 'What should happen once you have read 010?', 'en');
+    });
+    const previous = within(captions).getByText('Hola Ada, estoy haciendo un DFA.');
+    expect(previous).toHaveAttribute('lang', 'es');
+    expect(previous.parentElement).toHaveTextContent('You');
+    const current = within(captions).getByText('What should happen once you have read 010?');
+    expect(current.closest('[aria-live="polite"]')).toBeInTheDocument();
+    expect(current.parentElement).toHaveTextContent('Ada');
+  });
+
+  it('shows the pin indicator while a view is pinned, and Unpin follows Ada again (R17)', async () => {
+    const { user } = await renderSession();
+    expect(screen.queryByRole('button', { name: 'Unpin' })).not.toBeInTheDocument();
+    act(() => stage().requestMode('board'));
+    act(() => stage().pin('paper'));
+    expect(screen.getByText('Pinned · Paper')).toBeInTheDocument();
+    // A request from before the pin isn't news: only one made since is mentioned.
+    expect(screen.queryByText(/Ada asks/)).not.toBeInTheDocument();
+    act(() => stage().requestMode('split'));
+    expect(screen.getByText('Ada asks: Paper and board')).toBeInTheDocument();
+    // Pinning another view starts over: her earlier request isn't news to the new pin.
+    act(() => stage().pin('board'));
+    expect(screen.getByText('Pinned · Board')).toBeInTheDocument();
+    expect(screen.queryByText(/Ada asks/)).not.toBeInTheDocument();
+    act(() => stage().pin('paper'));
+    await user.click(screen.getByRole('button', { name: 'Unpin' }));
+    expect(stage()).toMatchObject({ pinned: null, mode: 'split' });
+    // It fades out in place: hidden from assistive tech at once, Unpin included.
+    expect(screen.queryByRole('button', { name: 'Unpin' })).not.toBeInTheDocument();
+    expect(screen.getByText('Pinned · Paper').closest('[aria-hidden="true"]')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Board: following Ada' })).toBeInTheDocument();
+  });
+
+  it('End session asks to confirm then routes to library', async () => {
+    const { user } = await renderSession();
+    const end = screen.getByRole('button', { name: 'End session' });
+    await user.click(end);
+    const dialog = screen.getByRole('dialog', { name: 'End this session?' });
+    // Keep going comes first, so it has focus, and it returns her to the session.
+    expect(within(dialog).getByRole('button', { name: 'Keep going' })).toHaveFocus();
+    await user.click(within(dialog).getByRole('button', { name: 'Keep going' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(useRoute.getState().route).toMatchObject({ name: 'session' });
+    expect(end).toHaveFocus();
+
+    await user.click(end);
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'End session' }),
+    );
+    expect(useRoute.getState().route).toEqual({ name: 'library' });
+  });
+
+  it('offers no other way back than End session (R18)', async () => {
+    await renderSession();
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it("says so when the session can't be loaded, and End still leads back", async () => {
+    const { user } = await renderSession({ session: new Error('Session not found') });
+    expect(await screen.findByText("Couldn't load this session")).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'End session' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'End session' }),
+    );
+    expect(useRoute.getState().route).toEqual({ name: 'library' });
+  });
+
+  it('starts every session from a fresh stage', async () => {
+    stage().pin('board');
+    stage().pushCaption('tutor', 'From an earlier session');
+    await renderSession();
+    expect(stage()).toMatchObject({ mode: 'paper', pinned: null, caption: {} });
+  });
+});

@@ -32,8 +32,12 @@ test('starts a session from the sheet and comes back to its card', async () => {
     { type: 'homework', language: 'en', source: 'paper', title: null },
   ]);
 
-  // Task 12's interim way back; Task 13 makes End session the only exit (R18).
-  await page.getByRole('button', { name: 'Back' }).click();
+  // End session, confirmed through the sheet, is the only way back (R18).
+  await page.getByRole('button', { name: 'End session' }).click();
+  await page
+    .getByRole('dialog', { name: 'End this session?' })
+    .getByRole('button', { name: 'End session' })
+    .click();
   await expect(cardsOf(page)).toHaveCount(1);
   await expect(cardsOf(page).first()).toContainText('Untitled Session');
   await expect(cardsOf(page).first()).toContainText('Homework');

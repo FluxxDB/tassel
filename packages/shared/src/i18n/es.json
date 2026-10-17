@@ -69,11 +69,19 @@
   },
   "session": {
     "untitled": "Sesión sin título",
+    "tutorName": "Ada",
+    "you": "Tú",
+    "loadError": "No se pudo cargar esta sesión",
     "timer": "Tiempo transcurrido: {elapsed}",
     "liveSource": {
       "paper": "Desk View · En vivo",
       "screen": "Pantalla · En vivo",
       "talk": "Voz · En vivo"
+    },
+    "source": {
+      "paper": "Desk View",
+      "screen": "Pantalla",
+      "talk": "Voz"
     },
     "tutorState": {
       "connecting": "Conectando",
@@ -87,14 +95,44 @@
       "board": "Pizarra",
       "split": "Papel y pizarra"
     },
+    "placeholder": {
+      "paper": {
+        "tag": "Tu papel · Desk View",
+        "waiting": "Esperando Desk View"
+      },
+      "screen": {
+        "tag": "Tu pantalla",
+        "waiting": "Esperando tu pantalla"
+      },
+      "talk": {
+        "tag": "Solo hablar",
+        "waiting": "Todavía no hay nada que mostrar"
+      }
+    },
+    "board": {
+      "tag": "La pizarra de Ada"
+    },
+    "pin": {
+      "label": "Fijado · {view}",
+      "adaAsks": "Ada pide: {view}",
+      "unpin": "Soltar"
+    },
+    "captions": {
+      "hint": "Los subtítulos aparecen aquí mientras tú y Ada hablan."
+    },
     "dock": {
       "mic": "Micrófono",
+      "label": "Controles de la sesión",
       "micOff": "Micrófono apagado",
       "camera": "Cámara",
       "share": "Compartir pantalla",
+      "shareLater": "Compartir pantalla llegará más adelante",
       "board": "Pizarra",
+      "boardFollow": "Pizarra: siguiendo a Ada",
+      "boardPinned": "Pizarra: {view}, fijada",
       "captions": "Subtítulos",
-      "end": "Terminar sesión"
+      "end": "Terminar sesión",
+      "withShortcut": "{label} ({key})"
     },
     "end": {
       "title": "¿Terminar esta sesión?",

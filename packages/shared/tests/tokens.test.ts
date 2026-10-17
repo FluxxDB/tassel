@@ -18,6 +18,8 @@ describe('design tokens', () => {
     ['--color-live', '#e5484d'],
     ['--color-sky', '#ccdff1'],
     ['--color-hairline', '#ece5dc'],
+    ['--color-board-dot', '#e6e1da'],
+    ['--color-caption-muted', '#bdb8b4'],
     ['--radius-pill', '9999px'],
     ['--radius-card', '16px'],
   ])('defines %s as %s', (name, value) => {

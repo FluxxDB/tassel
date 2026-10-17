@@ -69,11 +69,19 @@
   },
   "session": {
     "untitled": "Untitled Session",
+    "tutorName": "Ada",
+    "you": "You",
+    "loadError": "Couldn't load this session",
     "timer": "Time elapsed: {elapsed}",
     "liveSource": {
       "paper": "Desk View · Live",
       "screen": "Screen · Live",
       "talk": "Voice · Live"
+    },
+    "source": {
+      "paper": "Desk View",
+      "screen": "Screen",
+      "talk": "Voice"
     },
     "tutorState": {
       "connecting": "Connecting",
@@ -87,14 +95,44 @@
       "board": "Board",
       "split": "Paper and board"
     },
+    "placeholder": {
+      "paper": {
+        "tag": "Your paper · Desk View",
+        "waiting": "Waiting for Desk View"
+      },
+      "screen": {
+        "tag": "Your screen",
+        "waiting": "Waiting for your screen"
+      },
+      "talk": {
+        "tag": "Just talk",
+        "waiting": "Nothing to show yet"
+      }
+    },
+    "board": {
+      "tag": "Ada's board"
+    },
+    "pin": {
+      "label": "Pinned · {view}",
+      "adaAsks": "Ada asks: {view}",
+      "unpin": "Unpin"
+    },
+    "captions": {
+      "hint": "Captions appear here as you and Ada talk."
+    },
     "dock": {
       "mic": "Microphone",
+      "label": "Session controls",
       "micOff": "Microphone off",
       "camera": "Camera",
       "share": "Share screen",
+      "shareLater": "Screen sharing comes later",
       "board": "Board",
+      "boardFollow": "Board: following Ada",
+      "boardPinned": "Board: {view}, pinned",
       "captions": "Captions",
-      "end": "End session"
+      "end": "End session",
+      "withShortcut": "{label} ({key})"
     },
     "end": {
       "title": "End this session?",

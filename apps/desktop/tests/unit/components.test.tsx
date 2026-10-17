@@ -16,6 +16,7 @@ import {
   Globe,
   Mic,
   MicOff,
+  Pin,
   Plus,
   Retry,
   Screen,
@@ -245,6 +246,42 @@ describe('IconButton', () => {
     expect(button).toHaveClass('[&>svg]:size-[22px]', 'transition-[color,background-color]');
   });
 
+  it('can look pressed without aria-pressed, for a control whose name states its state', () => {
+    render(
+      <IconButton label="Board: Split, pinned" active>
+        <Board />
+      </IconButton>,
+    );
+    const button = screen.getByRole('button', { name: 'Board: Split, pinned' });
+    expect(button).toHaveClass('bg-ink', 'text-paper');
+    expect(button).not.toHaveAttribute('aria-pressed');
+  });
+
+  it('stays focusable but inert while aria-disabled, and says why in its tooltip', async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    render(
+      <IconButton
+        label="Share screen"
+        aria-disabled
+        title="Screen sharing comes later"
+        onClick={onClick}
+      >
+        <Screen />
+      </IconButton>,
+    );
+    const button = screen.getByRole('button', { name: 'Share screen' });
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).not.toBeDisabled();
+    expect(button).toHaveClass('opacity-40', 'cursor-default');
+    expect(button).not.toHaveClass('hover:bg-ink/[0.06]');
+    await user.tab();
+    expect(button).toHaveFocus();
+    await user.click(button);
+    await user.keyboard('{Enter}');
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
   it('is unfilled when not pressed, and has no aria-pressed when it is not a toggle', () => {
     const { rerender } = render(
       <IconButton label="Camera" pressed={false}>
@@ -276,6 +313,7 @@ describe('icons', () => {
     Search,
     Retry,
     Close,
+    Pin,
   };
 
   it.each(Object.entries(ICONS))(

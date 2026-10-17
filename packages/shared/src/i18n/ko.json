@@ -69,11 +69,19 @@
   },
   "session": {
     "untitled": "제목 없는 세션",
+    "tutorName": "Ada",
+    "you": "나",
+    "loadError": "세션을 불러오지 못했어요",
     "timer": "경과 시간: {elapsed}",
     "liveSource": {
       "paper": "Desk View · 실시간",
       "screen": "화면 · 실시간",
       "talk": "음성 · 실시간"
+    },
+    "source": {
+      "paper": "Desk View",
+      "screen": "화면",
+      "talk": "음성"
     },
     "tutorState": {
       "connecting": "연결 중",
@@ -87,14 +95,44 @@
       "board": "칠판",
       "split": "종이와 칠판"
     },
+    "placeholder": {
+      "paper": {
+        "tag": "내 종이 · Desk View",
+        "waiting": "Desk View를 기다리는 중"
+      },
+      "screen": {
+        "tag": "내 화면",
+        "waiting": "화면을 기다리는 중"
+      },
+      "talk": {
+        "tag": "대화만",
+        "waiting": "아직 보여 줄 것이 없어요"
+      }
+    },
+    "board": {
+      "tag": "Ada의 칠판"
+    },
+    "pin": {
+      "label": "고정됨 · {view}",
+      "adaAsks": "Ada의 요청: {view}",
+      "unpin": "고정 해제"
+    },
+    "captions": {
+      "hint": "대화하는 동안 여기에 자막이 표시돼요."
+    },
     "dock": {
       "mic": "마이크",
+      "label": "세션 제어",
       "micOff": "마이크 꺼짐",
       "camera": "카메라",
       "share": "화면 공유",
+      "shareLater": "화면 공유는 나중에 지원돼요",
       "board": "칠판",
+      "boardFollow": "칠판: Ada 따라가기",
+      "boardPinned": "칠판: {view} 고정됨",
       "captions": "자막",
-      "end": "세션 종료"
+      "end": "세션 종료",
+      "withShortcut": "{label} ({key})"
     },
     "end": {
       "title": "세션을 종료할까요?",

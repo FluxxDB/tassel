@@ -75,6 +75,16 @@
   }
 
   /*
+   * Ada's board: a dotted canvas. The dots hang from the panel's top right corner, which never
+   * moves, so they hold still while the panel grows or shrinks in the stage's reflow.
+   */
+  .board-canvas {
+    background:
+      var(--color-paper) radial-gradient(var(--color-board-dot) 1.2px, transparent 1.3px) right top
+      / 22px 22px;
+  }
+
+  /*
    * Windows and Linux draw the window controls over the strip's right end (titleBarOverlay).
    * Without the titlebar-area env values, reserve Windows' 138px of caption buttons anyway (R23).
    */

@@ -88,6 +88,8 @@ export const Plus = icon('Plus', <path d="M12 5v14M5 12h14" />);
 
 export const Close = icon('Close', <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />);
 
+export const Pin = icon('Pin', <path d="M9 3h6M10 3v5.5L7 12h10l-3-3.5V3M12 12v8" />);
+
 export const Search = icon(
   'Search',
   <>
