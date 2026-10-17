@@ -48,6 +48,7 @@ struct HelperProcessTests {
     #expect(running["fps"] as? Int == 10)
 
     var seqs: [UInt32] = []
+    var pts: [UInt64] = []
     for _ in 0..<5 {
       let frame = try await client.receiveBinary()
       let header = try FrameHeader.decode(frame)
@@ -55,11 +56,86 @@ struct HelperProcessTests {
       #expect(header.height == 48)
       #expect(clip.jpegs.contains(Data(frame.dropFirst(FrameHeader.size))))
       seqs.append(header.seq)
+      pts.append(header.ptsMicros)
     }
     #expect(zip(seqs, seqs.dropFirst()).allSatisfy { $1 == $0 + 1 }, "\(seqs)")
+    // The clip plays at 30 fps and the pacer keeps every third frame: 1/10 s apart.
+    #expect(zip(pts, pts.dropFirst()).allSatisfy { $1 - $0 == 100_000 }, "\(pts)")
 
     try await client.send(#"{"type":"stop"}"#)
     _ = try await client.receiveStatus("stopped")
+    try await helper.waitForLog("stream stopped")
+    #expect(!helper.log.contains(token))
+  }
+
+  @Test func aClientThatLeavesStopsTheStream() async throws {
+    let clip = try Clip(frames: 3)
+    defer { clip.remove() }
+    let token = freshToken()
+    let helper = try Helper(token: token, clip: clip.url)
+    defer { helper.stop() }
+    let port = try await helper.readyPort()
+    let client = Client(port: port)
+    try await client.send(hello(token))
+    _ = try await client.receiveJSON()
+    try await client.send(#"{"type":"start","fps":15}"#)
+    _ = try await client.receiveStatus("running")
+    _ = try await client.receiveBinary()
+
+    // She leaves the session mid-stream: the producer stops (with the camera, its light goes
+    // off), and the next client can start again.
+    client.cancel()
+    try await helper.waitForLog("stream stopped", within: .seconds(1))
+    let next = try await connectWhenFree(port: port, token: token)
+    defer { next.cancel() }
+    try await next.send(#"{"type":"start","fps":15}"#)
+    _ = try await next.receiveStatus("running")
+    #expect(try FrameHeader.decode(try await next.receiveBinary()).seq == 0)
+  }
+
+  @Test func openSetupWithAClipNeverOpensDeskView() async throws {
+    let clip = try Clip(frames: 3)
+    defer { clip.remove() }
+    let token = freshToken()
+    let helper = try Helper(token: token, clip: clip.url)
+    defer { helper.stop() }
+    let client = Client(port: try await helper.readyPort())
+    defer { client.cancel() }
+    try await client.send(hello(token))
+    _ = try await client.receiveJSON()
+
+    try await client.send(#"{"type":"openSetup"}"#)
+    let setup = try await client.receiveJSON()
+    #expect(setup["type"] as? String == "setup")
+    #expect(setup["result"] as? String == "presented")
+    #expect(helper.log.contains("fake: present Desk View setup"))
+  }
+
+  @Test func messagesItCantUseAreBadRequests() async throws {
+    let clip = try Clip(frames: 3)
+    defer { clip.remove() }
+    let token = freshToken()
+    let helper = try Helper(token: token, clip: clip.url)
+    defer { helper.stop() }
+    let client = Client(port: try await helper.readyPort())
+    defer { client.cancel() }
+    try await client.send(hello(token))
+    _ = try await client.receiveJSON()
+
+    for text in [#"{"type":"dance"}"#, "not json", #"{"type":"start","fps":"fast"}"#, hello(token)] {
+      try await client.send(text)
+      let reply = try await client.receiveJSON()
+      #expect(reply["type"] as? String == "error", "\(text)")
+      #expect(reply["code"] as? String == "bad-request", "\(text)")
+    }
+    let task = try #require(client.webSocketTask)
+    try await settle(within: .seconds(5)) { done in
+      task.send(.data(Data([1, 2, 3]))) { error in done(error.map { .failure($0) } ?? .success(())) }
+    }
+    #expect(try await client.receiveJSON()["code"] as? String == "bad-request")
+    // The connection stays up.
+    try await client.send(#"{"type":"list"}"#)
+    #expect(try await client.receiveJSON()["type"] as? String == "devices")
   }
 
   @Test func startAfterStopStreamsAgain() async throws {
@@ -136,12 +212,15 @@ struct HelperProcessTests {
     for origin in ["https://example.com", "null", nil] {
       let client = Client(port: port, origin: origin)
       defer { client.cancel() }
+      let started = ContinuousClock.now
       let error = await #expect(throws: (any Error).self) { try await client.receive() }
       #expect(!(error is TimedOut), "\(origin ?? "no Origin")")
       #expect(!client.opened, "\(origin ?? "no Origin")")
+      // Refused at once: it neither waits out the 2 s hello deadline nor holds the helper's slot.
+      #expect(ContinuousClock.now - started < .seconds(1), "\(origin ?? "no Origin")")
     }
 
-    // The helper is still there for the app.
+    // The helper is still there for the app, which gets straight in.
     let allowed = Client(port: port)
     defer { allowed.cancel() }
     try await allowed.send(hello(token))
@@ -244,6 +323,28 @@ struct HelperProcessTests {
     #expect(try await helper.exitStatus(within: .seconds(1)) == 0)
   }
 
+  @Test func anEmptyClipPathStillNeverMeansTheCamera() async throws {
+    let token = freshToken()
+    let helper = try Helper(token: token, clip: nil, clipPath: "")
+    defer { helper.stop() }
+    let client = Client(port: try await helper.readyPort())
+    defer { client.cancel() }
+    try await client.send(hello(token))
+    // Clip mode answers "authorized" without asking AVFoundation. Stop here if it didn't: the
+    // camera's own status means camera mode, and nothing more should run in it.
+    let welcome = try await client.receiveJSON()
+    try #require(welcome["camera"] as? String == "authorized")
+
+    try await client.send(#"{"type":"list"}"#)
+    let devices = try await client.receiveJSON()["devices"] as? [[String: Any]]
+    #expect(devices?.map { $0["id"] as? String } == ["clip"])
+    // With no clip to play, start fails rather than falling back to a camera.
+    try await client.send(#"{"type":"start","fps":15}"#)
+    let error = try await client.receiveJSON()
+    #expect(error["type"] as? String == "error")
+    #expect(error["code"] as? String == "internal")
+  }
+
   @Test func missingTokenExits64() async throws {
     let clip = try Clip(frames: 3)
     defer { clip.remove() }
@@ -251,8 +352,10 @@ struct HelperProcessTests {
       let helper = try Helper(token: token, clip: clip.url)
       defer { helper.stop() }
       #expect(try await helper.exitStatus(within: .seconds(5)) == 64, "\(token ?? "no token")")
-      // It never got as far as listening.
+      // It never got as far as listening, and never logs the token it was given.
       #expect(helper.remainingOutput().isEmpty)
+      try await helper.waitForLog("TASSEL_HELPER_TOKEN is missing or malformed")
+      if let token, !token.isEmpty { #expect(!helper.log.contains(token)) }
     }
   }
 }
@@ -351,26 +454,55 @@ private struct Clip {
   }
 }
 
-/// The helper as a child process, with a pipe for stdin (closing it is Electron dying) and one
-/// for stdout (the ready line). Its stderr log goes to the test's.
+/// The helper as a child process, with a pipe for stdin (closing it is Electron dying), one for
+/// stdout (the ready line), and one for its stderr log, which the tests read and echo.
 private final class Helper: @unchecked Sendable {
   let process = Process()
   private let input = Pipe()
   private let output = Pipe()
+  private let errors = Pipe()
+  private let lock = NSLock()
+  private var logged = ""
+  /// Set when the process ends. Process calls terminationHandler on a background queue;
+  /// waitUntilExit() spins the calling thread's run loop instead, which can hang a Swift
+  /// concurrency thread for good.
+  private var hasExited = false
 
-  init(token: String?, clip: URL?) throws {
+  /// `clipPath` sets TASSEL_HELPER_CLIP verbatim, in place of `clip`.
+  init(token: String?, clip: URL?, clipPath: String? = nil) throws {
     process.executableURL = helperBinary
     process.arguments = ["--tag", "deskview-helper-tests"]
     var environment = [
       "PATH": "/usr/bin:/bin", "HOME": NSHomeDirectory(), "TMPDIR": NSTemporaryDirectory(),
     ]
     environment["TASSEL_HELPER_TOKEN"] = token
-    environment["TASSEL_HELPER_CLIP"] = clip?.path
+    environment["TASSEL_HELPER_CLIP"] = clipPath ?? clip?.path
     process.environment = environment
     process.standardInput = input
     process.standardOutput = output
-    process.standardError = FileHandle.standardError
+    process.standardError = errors
+    errors.fileHandleForReading.readabilityHandler = { [weak self] handle in
+      let chunk = handle.availableData
+      guard !chunk.isEmpty else { return handle.readabilityHandler = nil }
+      FileHandle.standardError.write(chunk)
+      self?.lock.withLock { self?.logged += String(decoding: chunk, as: UTF8.self) }
+    }
+    process.terminationHandler = { [weak self] _ in self?.lock.withLock { self?.hasExited = true } }
     try process.run()
+  }
+
+  /// Everything the helper has logged so far.
+  var log: String { lock.withLock { logged } }
+
+  private var exited: Bool { lock.withLock { hasExited } }
+
+  /// Waits until the helper logs a line containing `text`.
+  func waitForLog(_ text: String, within timeout: Duration = .seconds(2)) async throws {
+    let deadline = ContinuousClock.now + timeout
+    while !log.contains(text) {
+      guard ContinuousClock.now < deadline else { throw Unexpected("no log line with \(text)") }
+      try await Task.sleep(for: .milliseconds(10))
+    }
   }
 
   /// The port from the first stdout line, which must be the ready line.
@@ -413,17 +545,18 @@ private final class Helper: @unchecked Sendable {
 
   func exitStatus(within timeout: Duration) async throws -> Int32 {
     let deadline = ContinuousClock.now + timeout
-    while process.isRunning {
+    while !exited {
       guard ContinuousClock.now < deadline else { throw TimedOut() }
       try await Task.sleep(for: .milliseconds(10))
     }
     return process.terminationStatus
   }
 
+  /// Kills the helper if it still runs, and waits (up to 2 s) until it has gone.
   func stop() {
     guard process.isRunning else { return }
     kill(process.processIdentifier, SIGKILL)
-    process.waitUntilExit()
+    for _ in 0..<200 where !exited { usleep(10_000) }
   }
 }
 
@@ -450,6 +583,8 @@ private final class Client: NSObject, URLSessionWebSocketDelegate, @unchecked Se
 
   /// Whether the upgrade ever succeeded.
   var opened: Bool { lock.withLock { didOpen } }
+
+  var webSocketTask: URLSessionWebSocketTask? { task }
 
   func urlSession(
     _ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?

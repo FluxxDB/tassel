@@ -1,7 +1,7 @@
 // `node scripts/native.mjs build|test|path [swift args…]`: SwiftPM for the Desk View helper in
 // native/deskview-helper. Arguments after the command go to swift (for example `--filter Pacer`).
-// - build: a release build. The helper executable (from Task 3) is then re-signed ad hoc, which
-//   binds the Info.plist its linker flags embed; the linker's own signature leaves it unbound.
+// - build: a release build, then the helper executable is re-signed ad hoc, which binds the
+//   Info.plist its linker flags embed; the linker's own signature leaves it unbound.
 // - test: `swift test`. Under Command Line Tools (`xcode-select -p` ends with /CommandLineTools),
 //   it adds the flags that find Swift Testing there; without them the build fails with
 //   "no such module 'Testing'".
@@ -63,7 +63,8 @@ try {
   } else if (command === 'build') {
     run('swift', ['build', ...release, ...extra]);
     const binary = join(releaseBinPath(), executable);
-    if (existsSync(binary)) run('codesign', ['--force', '--sign', '-', binary]);
+    if (!existsSync(binary)) throw new Error(`the build made no ${executable} at ${binary}`);
+    run('codesign', ['--force', '--sign', '-', binary]);
   } else if (command === 'test') {
     run('swift', ['test', '--package-path', packagePath, ...commandLineToolsFlags(), ...extra]);
   } else {

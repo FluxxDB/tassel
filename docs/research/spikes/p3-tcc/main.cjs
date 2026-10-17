@@ -16,11 +16,16 @@
 //                 { video: request.frame } (T)
 //   picker        a window with a Share button; getDisplayMedia through the system picker (S)
 //   cdp           a visible window titled p3-spike, left open for a CDP client (C)
+//   helper        spawn the Desk View helper (--probe names it) with a fresh token, and stream --frames
+//                 frames from it into a hidden window on app://tassel/, so Chromium itself sends the
+//                 Origin the helper allows (HH). With --clip, the helper plays that clip instead of
+//                 the camera (HC). Then it closes the helper's stdin, as Electron dying would
 //
 // Nothing here writes a frame anywhere: pages count frames and keep only their sizes and timing.
 'use strict';
 
 const { spawn } = require('node:child_process');
+const { randomBytes } = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -53,6 +58,7 @@ const LIMIT_MS = {
   'self-capture': 45_000,
   picker: 300_000,
   cdp: 60_000,
+  helper: 120_000,
 };
 if (!(mode in LIMIT_MS)) {
   record({ check: 'error', error: `unknown --mode ${mode}` });
@@ -76,6 +82,8 @@ process.on('exit', () => {
 // Mirrors app://tassel: a standard, secure origin, so getUserMedia and getDisplayMedia exist.
 protocol.registerSchemesAsPrivileged([
   { scheme: 'spike', privileges: { standard: true, secure: true, supportFetchAPI: true } },
+  // The app's own origin: the helper takes a WebSocket only from app://tassel (or the dev renderer).
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
 ]);
 
 if (mode === 'fake-camera') {
@@ -258,6 +266,63 @@ function waitForShare(wanted) {
 }
 `;
 
+const HELPER = String.raw`
+// Streams frames from the Desk View helper, as the app will, keeping only counts, sizes and timing.
+function runHelper(port, token, wanted) {
+  return new Promise((resolve) => {
+    const result = { frames: 0, sizes: [], statuses: [] };
+    let first = null;
+    let last = null;
+    let done = false;
+    const socket = new WebSocket('ws://127.0.0.1:' + port);
+    socket.binaryType = 'arraybuffer';
+    const finish = (extra) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      Object.assign(result, extra);
+      resolve(result);
+    };
+    const timer = setTimeout(() => finish({ timedOut: true }), 30000);
+    const send = (message) => socket.send(JSON.stringify(message));
+    socket.onopen = () => send({ type: 'hello', token, protocol: 1 });
+    socket.onclose = (event) => finish({ closeCode: event.code });
+    socket.onmessage = ({ data }) => {
+      if (typeof data === 'string') {
+        const message = JSON.parse(data);
+        if (message.type === 'welcome') {
+          result.camera = message.camera;
+          result.helperVersion = message.helperVersion;
+          send({ type: 'list' });
+        } else if (message.type === 'devices') {
+          result.devices = message.devices.map(({ name, builtIn }) => ({ name, builtIn }));
+          send({ type: 'start', deviceId: null, fps: 15, maxWidth: 1920, quality: 0.85 });
+        } else if (message.type === 'status') {
+          result.statuses.push(message.state);
+        } else if (message.type === 'error') {
+          finish({ error: message.code + ': ' + message.message });
+        }
+        return;
+      }
+      // The 24-byte TSLF header: seq at 8, pts (µs) at 12, width at 20, height at 22.
+      const header = new DataView(data, 0, 24);
+      result.frames += 1;
+      const size = header.getUint16(20) + 'x' + header.getUint16(22);
+      if (!result.sizes.includes(size)) result.sizes.push(size);
+      const pts = Number(header.getBigUint64(12));
+      first ??= pts;
+      last = pts;
+      if (result.frames === wanted) {
+        if (wanted > 1 && last > first) result.fps = Math.round(((wanted - 1) * 1e7) / (last - first)) / 10;
+        send({ type: 'stop' });
+        socket.close();
+        finish({});
+      }
+    };
+  });
+}
+`;
+
 const page = (title, body, script = '') =>
   `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>
 body { margin: 0; font: 13px system-ui; background: #f4f2ec; color: #222; }
@@ -277,6 +342,69 @@ const FILES = {
   ),
   '/cdp.html': page('p3-spike', '<p style="padding:12px">p3-spike: waiting for a CDP client</p>'),
 };
+
+/** app://tassel/ serves one page, the helper's client; nothing else. */
+function serveApp(request) {
+  const { host, pathname } = new URL(request.url);
+  if (host !== 'tassel' || pathname !== '/') return new Response('Not found', { status: 404 });
+  return new Response(page('p3-spike helper', '<p>helper</p>', HELPER), {
+    headers: { 'content-type': 'text/html; charset=utf-8' },
+  });
+}
+
+/** Spawns the helper with a fresh token in its env alone, and resolves its ready line. */
+function startHelper() {
+  const token = randomBytes(32).toString('hex');
+  const env = { PATH: process.env.PATH ?? '/usr/bin:/bin', HOME: os.homedir(), TMPDIR: os.tmpdir() };
+  env.TASSEL_HELPER_TOKEN = token;
+  if (clip) env.TASSEL_HELPER_CLIP = clip;
+  const child = spawn(probe, ['--tag', 'p3-spike'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+  let log = '';
+  child.stderr.setEncoding('utf8').on('data', (chunk) => {
+    log += chunk;
+  });
+  const exited = new Promise((resolve) => child.on('exit', (code, signal) => resolve({ code, signal })));
+  const ready = new Promise((resolve, reject) => {
+    let stdout = '';
+    child.stdout.setEncoding('utf8').on('data', (chunk) => {
+      stdout += chunk;
+      const newline = stdout.indexOf('\n');
+      if (newline === -1) return;
+      try {
+        resolve(JSON.parse(stdout.slice(0, newline)));
+      } catch {
+        reject(new Error(`not a ready line: ${stdout.slice(0, newline)}`));
+      }
+    });
+    child.on('error', reject);
+    exited.then(({ code, signal }) => reject(new Error(`helper exited (${code ?? signal}) before its ready line`)));
+    setTimeout(() => reject(new Error('no ready line from the helper in 10 s')), 10_000);
+  });
+  return { token, child, ready, exited, log: () => log };
+}
+
+async function runHelperMode() {
+  if (!probe) return record({ check: 'helper', error: 'no --probe given (the helper binary)' });
+  // Closing the page's window must not quit the app before the helper's exit is recorded.
+  app.on('window-all-closed', () => {});
+  const helper = startHelper();
+  try {
+    const ready = await helper.ready;
+    const script = `runHelper(${ready.port}, ${JSON.stringify(helper.token)}, ${frames})`;
+    const result = await inWindow('app://tassel/', script, { show: false });
+    record({ check: 'helper', clip: clip ? path.basename(clip) : null, protocol: ready.protocol, ...result });
+  } catch (error) {
+    record({ check: 'helper', error: error.message });
+  }
+  // Its stdin closes, as when Electron dies: it must exit 0 within 1 s, and release the camera.
+  const closedAt = Date.now();
+  helper.child.stdin.end();
+  const timeout = new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), 3000));
+  const exit = await Promise.race([helper.exited, timeout]);
+  if (exit.timedOut) helper.child.kill('SIGKILL');
+  const log = helper.log().trim().split('\n').filter(Boolean).slice(-8);
+  record({ check: 'helper-exit', ...exit, ms: Date.now() - closedAt, log });
+}
 
 function serve(request) {
   const { host, pathname } = new URL(request.url);
@@ -336,7 +464,7 @@ const webPreferences = {
 async function inWindow(file, script, { show, width = 320, height = 240 }) {
   const win = new BrowserWindow({ width, height, useContentSize: true, show: false, webPreferences });
   try {
-    await win.loadURL(`spike://p3/${file}`);
+    await win.loadURL(file.includes('://') ? file : `spike://p3/${file}`);
     if (show === 'inactive') win.showInactive();
     if (show === 'active') win.show();
     // Let a shown window reach the screen before anything captures it.
@@ -357,6 +485,7 @@ async function main() {
   });
   record({ check: 'env', TASSEL_SPIKE: process.env.TASSEL_SPIKE ?? null });
   protocol.handle('spike', serve);
+  protocol.handle('app', serveApp);
 
   if (mode === 'status') {
     await relayProbe(['--status']);
@@ -390,6 +519,8 @@ async function main() {
       height: 160,
     });
     record({ check: 'picker', ...result });
+  } else if (mode === 'helper') {
+    await runHelperMode();
   } else if (mode === 'cdp') {
     const win = new BrowserWindow({ width: 480, height: 200, title: 'p3-spike', show: false, webPreferences });
     await win.loadURL('spike://p3/cdp.html');

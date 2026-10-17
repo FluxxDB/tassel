@@ -3,6 +3,10 @@
 //   node docs/research/spikes/p3-tcc/run.mjs A F P T C E   unattended: no real camera, microphone or screen
 //   node docs/research/spikes/p3-tcc/run.mjs H D S         owner at the Mac: H and D use the real camera,
 //                                                          S captures a real window
+//   node docs/research/spikes/p3-tcc/run.mjs HC            unattended: the Desk View helper plays a clip
+//   node docs/research/spikes/p3-tcc/run.mjs HH            owner at the Mac: the helper's camera (Task 3)
+//
+// HH and HC need the helper built first: `node scripts/native.mjs build`.
 //
 // It builds the probe into .out/ (git-ignored), runs each named check through main.cjs, then prints
 // the JSON lines main.cjs recorded and one verdict line per check. Nothing it runs writes a frame.
@@ -29,6 +33,7 @@ const mainCjs = join(here, 'main.cjs');
 const probe = join(outDir, 'probe');
 const clip = join(outDir, 'spike-clip.mjpeg');
 const CLIP = { frames: 60, width: 960, height: 720 };
+const nativeScript = join(repo, 'scripts', 'native.mjs');
 const CDP_PORT = 9333;
 const CDP = `http://127.0.0.1:${CDP_PORT}`;
 
@@ -46,6 +51,29 @@ function run(command, args, timeout = 120_000) {
     throw new Error(`${command} ${args.join(' ')} exited ${result.status}: ${result.stderr.trim()}`);
   }
   return result.stdout;
+}
+
+/** The release helper that `node scripts/native.mjs build` signs. */
+function helperBinary() {
+  const helper = run(process.execPath, [nativeScript, 'path']).trim();
+  if (!existsSync(helper)) throw new Error(`no helper at ${helper}: run \`node scripts/native.mjs build\` first`);
+  return helper;
+}
+
+/** The helper's verdict: every frame asked for, at one of `sizes`, and an exit 0 within 1 s of EOF. */
+function helperVerdict(lines, sizes) {
+  const result = find(lines, 'helper');
+  if (!result) return fail('no helper result');
+  if (result.error) return fail(result.error);
+  if (result.frames !== 30) return fail(`${result.frames} frames`);
+  if (!result.sizes.every((size) => sizes.includes(size))) return fail(`frame sizes ${result.sizes}`);
+  const exit = find(lines, 'helper-exit');
+  if (exit?.code !== 0 || exit.ms > 1000) return fail(`after stdin EOF the helper ended ${JSON.stringify(exit)}`);
+  const from = result.devices?.map(({ name }) => `"${name}"`).join(', ') ?? 'no device list';
+  return pass(
+    `30 frames at ${result.sizes.join(', ')}, ${result.fps} fps, camera ${result.camera}, from ${from}; ` +
+      `the helper exited 0 ${exit.ms} ms after stdin EOF`,
+  );
 }
 
 function buildProbe() {
@@ -283,6 +311,9 @@ const VERDICTS = {
       ? pass('the probe says presented; the owner confirms the Desk View app appeared')
       : fail(setup.message ?? setup.result);
   },
+  // Desk View has one format, 1920×1440 (WWDC22); a maxWidth of 1920 keeps it.
+  HH: (lines) => helperVerdict(lines, ['1920x1440']),
+  HC: (lines) => helperVerdict(lines, [`${CLIP.width}x${CLIP.height}`]),
   S(lines) {
     const picked = find(lines, 'picker');
     if (!picked) return fail('no picker result');
@@ -315,6 +346,17 @@ const RUNS = {
     );
     return launched('D', ['--mode', 'capture', '--present-setup', '--probe', probe]);
   },
+  HC: () => {
+    const helper = helperBinary();
+    print(JSON.parse(run(probe, ['--write-mjpeg', clip, String(CLIP.frames)])));
+    return direct('HC', ['--mode', 'helper', '--probe', helper, '--clip', clip, '--frames', '30']);
+  },
+  HH: () => {
+    const helper = helperBinary();
+    console.log('HH (owner at the Mac): the helper streams 30 Desk View frames to a window on app://tassel/,');
+    console.log('through a LaunchServices launch, as H did. It keeps none.');
+    return launched('HH', ['--mode', 'helper', '--probe', helper, '--frames', '30']);
+  },
   S: async () => {
     await waitForEnter(
       'S (owner at the Mac): with Desk View open, a small window opens. Click Share, then pick the Desk View\n' +
@@ -325,7 +367,7 @@ const RUNS = {
   },
 };
 
-const ORDER = ['A', 'F', 'P', 'T', 'C', 'E', 'H', 'D', 'S'];
+const ORDER = ['A', 'F', 'P', 'T', 'C', 'E', 'H', 'D', 'S', 'HC', 'HH'];
 const asked = process.argv.slice(2).map((name) => name.toUpperCase());
 const unknown = asked.filter((name) => !ORDER.includes(name));
 if (asked.length === 0 || unknown.length > 0) {

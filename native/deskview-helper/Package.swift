@@ -14,9 +14,30 @@ let package = Package(
       name: "DeskViewCore",
       swiftSettings: [.swiftLanguageMode(.v6)]
     ),
+    // The helper itself: the WebSocket server, the camera and clip producers, and setup.
+    .executableTarget(
+      name: "deskview-helper",
+      dependencies: ["DeskViewCore"],
+      exclude: ["Info.plist"],
+      swiftSettings: [.swiftLanguageMode(.v6)],
+      // Embeds Info.plist (bundle id and camera usage text) in the binary. The linker's ad-hoc
+      // signature leaves it unbound, so `native.mjs build` re-signs the binary to bind it.
+      linkerSettings: [
+        .unsafeFlags([
+          "-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist",
+          "-Xlinker", "Sources/deskview-helper/Info.plist",
+        ])
+      ]
+    ),
     .testTarget(
       name: "DeskViewCoreTests",
       dependencies: ["DeskViewCore"],
+      swiftSettings: [.swiftLanguageMode(.v6)]
+    ),
+    // Spawns the built helper in clip mode, so `swift test` builds the executable first.
+    .testTarget(
+      name: "DeskViewHelperTests",
+      dependencies: ["deskview-helper", "DeskViewCore"],
       swiftSettings: [.swiftLanguageMode(.v6)]
     ),
   ]
