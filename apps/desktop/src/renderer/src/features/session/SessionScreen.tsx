@@ -46,7 +46,8 @@ export function SessionScreen({ sessionId, createTutor }: SessionScreenProps) {
     void load(sessionId);
     return forgetCurrentSession;
   }, [load, sessionId]);
-  // One tutor for the life of this screen; it connects on mount and disconnects on unmount.
+  // One tutor for the life of this screen. It connects once the session has loaded, so a session
+  // that can't be loaded never starts it, and disconnects on unmount.
   const [tutor] = useState<TutorClient>(() => {
     if (!createTutor) return NO_TUTOR;
     try {
@@ -56,7 +57,7 @@ export function SessionScreen({ sessionId, createTutor }: SessionScreenProps) {
       return NO_TUTOR;
     }
   });
-  useTutorSession(sessionId, tutor);
+  useTutorSession(sessionId, tutor, session !== null);
   useSessionShortcuts();
 
   const end = () => {

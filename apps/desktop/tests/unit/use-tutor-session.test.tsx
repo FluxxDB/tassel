@@ -68,7 +68,7 @@ describe('useTutorSession', () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
       <ApiProvider client={api}>{children}</ApiProvider>
     );
-    return renderHook(() => useTutorSession(SESSION.id, client), { wrapper });
+    return renderHook(() => useTutorSession(SESSION.id, client, true), { wrapper });
   }
 
   it('connects to the session on mount and disconnects on unmount', () => {
@@ -79,6 +79,23 @@ describe('useTutorSession', () => {
     unmount();
     expect(client.disconnect).toHaveBeenCalled();
     expect(listening()).toBe(0);
+  });
+
+  it('connects only once the session is ready', () => {
+    const { client, listening } = scriptedTutor();
+    const { api } = fakeApi();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <ApiProvider client={api}>{children}</ApiProvider>
+    );
+    const { rerender } = renderHook(
+      ({ ready }) => useTutorSession(SESSION.id, client, ready),
+      { wrapper, initialProps: { ready: false } },
+    );
+    expect(client.connect).not.toHaveBeenCalled();
+    expect(listening()).toBe(0);
+    rerender({ ready: true });
+    expect(client.connect).toHaveBeenCalledTimes(1);
+    expect(listening()).toBe(1);
   });
 
   it('routes state events to the stage', () => {
@@ -115,9 +132,14 @@ describe('useTutorSession', () => {
 });
 
 describe('the session screen with its tutor', () => {
-  async function renderScreen(client: TutorClient) {
+  /** Renders the screen; GET answers `answer` (the untitled SESSION by default) once. */
+  async function renderScreen(
+    client: TutorClient,
+    answer?: Promise<{ data: Session; response: Response }>,
+  ) {
     const i18n = await initI18n('en');
     const api = fakeApi();
+    if (answer) api.GET.mockReturnValueOnce(answer);
     const view = render(
       <I18nextProvider i18n={i18n}>
         <ApiProvider client={api.api}>
@@ -125,13 +147,13 @@ describe('the session screen with its tutor', () => {
         </ApiProvider>
       </I18nextProvider>,
     );
-    await screen.findByRole('heading', { level: 1, name: 'Untitled Session' });
     return { ...api, ...view };
   }
 
-  it('title event shows the new title in the title strip', async () => {
+  it('title event shows the new title in the title strip, once', async () => {
     const { client, emit } = scriptedTutor();
     const { PATCH } = await renderScreen(client);
+    await screen.findByRole('heading', { level: 1, name: 'Untitled Session' });
     emit({ type: 'title', title: 'Strings that start with 010', subject: 'Automata · DFA' });
 
     const strip = screen.getByRole('banner');
@@ -139,41 +161,69 @@ describe('the session screen with its tutor', () => {
       within(strip).getByRole('heading', { level: 1, name: 'Strings that start with 010' }),
     ).toBeInTheDocument();
     expect(within(strip).getByText('Automata · DFA')).toBeInTheDocument();
-    // R16: the title persists, once, so the library shows it afterwards.
+    // R16: the title persists, so the library shows it afterwards.
     await waitFor(() => expect(PATCH).toHaveBeenCalledTimes(1));
     expect(PATCH).toHaveBeenCalledWith('/v1/sessions/{session_id}', {
       params: { path: { session_id: SESSION.id } },
       body: { title: 'Strings that start with 010', subject: 'Automata · DFA' },
     });
+    // Her title replaced the placeholder; a later one doesn't replace hers.
+    emit({ type: 'title', title: 'Something else', subject: null });
+    expect(within(strip).getByRole('heading', { level: 1 })).toHaveTextContent(
+      'Strings that start with 010',
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(PATCH).toHaveBeenCalledTimes(1);
   });
 
-  it('shows a title that arrives before the session itself has loaded', async () => {
-    const i18n = await initI18n('en');
+  it("leaves a titled session's own title, and saves nothing (spec §5.1)", async () => {
     const { client, emit } = scriptedTutor();
-    const api = fakeApi();
+    const titled: Session = {
+      ...SESSION,
+      title: 'Sums of odd numbers',
+      title_source: 'student',
+      subject: 'Induction',
+    };
+    const { PATCH } = await renderScreen(
+      client,
+      Promise.resolve({ data: titled, response: new Response(null) }),
+    );
+    await screen.findByRole('heading', { level: 1, name: 'Sums of odd numbers' });
+    emit({ type: 'title', title: 'Strings that start with 010', subject: 'Automata · DFA' });
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Sums of odd numbers');
+    expect(within(screen.getByRole('banner')).getByText('Induction')).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(PATCH).not.toHaveBeenCalled();
+  });
+
+  it('starts the tutor only once the session has loaded', async () => {
+    const { client, listening } = scriptedTutor();
     let answer!: (value: { data: Session; response: Response }) => void;
-    api.GET.mockReturnValueOnce(
+    await renderScreen(
+      client,
       new Promise((resolve) => {
         answer = resolve;
       }),
     );
-    render(
-      <I18nextProvider i18n={i18n}>
-        <ApiProvider client={api.api}>
-          <SessionScreen sessionId={SESSION.id} createTutor={() => client} />
-        </ApiProvider>
-      </I18nextProvider>,
-    );
-    emit({ type: 'title', title: 'Strings that start with 010', subject: 'Automata · DFA' });
+    expect(client.connect).not.toHaveBeenCalled();
+    expect(listening()).toBe(0);
     await act(async () => answer({ data: SESSION, response: new Response(null) }));
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Strings that start with 010' }),
-    ).toBeInTheDocument();
+    expect(client.connect).toHaveBeenCalledWith(SESSION.id);
+    expect(listening()).toBe(1);
+  });
+
+  it("doesn't start the tutor for a session that can't be loaded", async () => {
+    const { client, listening } = scriptedTutor();
+    await renderScreen(client, Promise.reject(new Error('Session not found')));
+    expect(await screen.findByText("Couldn't load this session")).toBeInTheDocument();
+    expect(client.connect).not.toHaveBeenCalled();
+    expect(listening()).toBe(0);
   });
 
   it('keeps the title on screen when saving it fails, without an unhandled rejection', async () => {
     const { client, emit } = scriptedTutor();
     const { PATCH } = await renderScreen(client);
+    await screen.findByRole('heading', { level: 1, name: 'Untitled Session' });
     PATCH.mockRejectedValueOnce(new TypeError('Failed to fetch'));
     emit({ type: 'title', title: 'Strings that start with 010', subject: null });
     await waitFor(() => expect(PATCH).toHaveBeenCalled());
@@ -185,7 +235,7 @@ describe('the session screen with its tutor', () => {
   it('stops listening when she ends the session', async () => {
     const { client, listening } = scriptedTutor();
     const { unmount } = await renderScreen(client);
-    expect(client.connect).toHaveBeenCalledWith(SESSION.id);
+    await waitFor(() => expect(client.connect).toHaveBeenCalledWith(SESSION.id));
     unmount();
     expect(client.disconnect).toHaveBeenCalled();
     expect(listening()).toBe(0);

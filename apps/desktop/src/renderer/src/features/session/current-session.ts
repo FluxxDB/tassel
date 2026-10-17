@@ -1,5 +1,5 @@
-// The session the session screen shows (R4): loaded from the server, and patched locally when
-// the tutor names it, so the title strip updates at once. No query cache, just this store.
+// The session the session screen shows (R4): loaded from the server, and named locally when the
+// tutor names it, so the title strip updates at once. No query cache, just this store.
 import { getSession, type Session } from '@tassel/shared/api';
 import { useCallback } from 'react';
 import { create } from 'zustand';
@@ -34,10 +34,16 @@ export interface CurrentSession {
   /** Loads session `id`, starting from nothing, so another session's details never show. */
   load(id: string): Promise<void>;
   /**
-   * Changes the open session here only, such as a title the tutor just gave it. Changes made
-   * before the session loads are kept and applied when it does.
+   * Changes the open session here only. Changes made before the session loads are kept and
+   * applied when it does.
    */
   patchLocal(changes: Partial<Session>): void;
+  /**
+   * Names the open session with the tutor's title and subject if it has no title yet, and says
+   * whether it did. Her title replaces the placeholder (spec §5.1): a session with a title keeps
+   * it, and one that hasn't loaded gets nothing.
+   */
+  nameIfUntitled(name: { title: string; subject: string | null }): boolean;
 }
 
 export function useCurrentSession(): CurrentSession {
@@ -65,5 +71,11 @@ export function useCurrentSession(): CurrentSession {
         : { pending: { ...state.pending, ...changes } },
     );
   }, []);
-  return { session, failed, load, patchLocal };
+  const nameIfUntitled = useCallback((name: { title: string; subject: string | null }) => {
+    const { session } = store.getState();
+    if (session === null || session.title !== null) return false;
+    store.setState({ session: { ...session, ...name } });
+    return true;
+  }, []);
+  return { session, failed, load, patchLocal, nameIfUntitled };
 }
