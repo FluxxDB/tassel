@@ -51,6 +51,7 @@ from .models import (
     BoardTraceStep,
     BoardVerdict,
     PaperElements,
+    PaperFrame,
     PaperFreeze,
     PaperLive,
     PaperMarkAction,
@@ -70,6 +71,7 @@ class BoardContext:
 
     specs: dict[str, AutomatonSpec] = field(default_factory=dict)
     next_mark: int = 1
+    paper_frame: PaperFrame | None = None
     paper_elements: PaperElements | None = None
     paper_spec: AutomatonSpec | None = None
 
@@ -564,14 +566,18 @@ def _mark(verb: str, args: list[_Arg], ctx: BoardContext) -> BeatAction:
         n, el = _between(args, 2, 2, "number N EL")
         if not re.fullmatch(r"[0-9]+", n):
             raise MarkupError(f"{n!r} isn't a number")
-        mark |= {"type": "step", "n": int(n), "target": {"el": _element(el)}}
+        mark |= {"type": "step", "n": int(n), "target": {"el": _paper_element(el)}}
     elif verb == "callout":
         if len(args) != 2 or not args[1].quoted:
             raise MarkupError('callout needs EL "TEXT"')
-        mark |= {"type": "callout", "target": {"el": _element(args[0].text)}, "text": args[1].text}
+        mark |= {
+            "type": "callout",
+            "target": {"el": _paper_element(args[0].text)},
+            "text": args[1].text,
+        }
     else:
         [el] = _between(args, 1, 1, f"{verb} EL")
-        mark |= {"type": "circle" if verb == "wash" else verb, "target": {"el": _element(el)}}
+        mark |= {"type": "circle" if verb == "wash" else verb, "target": {"el": _paper_element(el)}}
         if verb == "wash":
             mark["wash"] = True
     action = _make(PaperMarkAction, mark=mark)
@@ -588,6 +594,13 @@ def _freeze(args: list[_Arg], ctx: BoardContext) -> BeatAction:
         frame = {"kind": "frame", "id": value}
     else:
         raise MarkupError(f"freeze can't read {which!r}")
+    if ctx.paper_frame is not None:
+        if which == "latest" or value == ctx.paper_frame.id:
+            return _make(
+                PaperFreeze, frame=ctx.paper_frame, elements=ctx.paper_elements, spec=ctx.paper_spec
+            )
+        # We only know the geometry of the image supplied to this turn.
+        return _make(PaperFreeze, frame=frame)
     return _make(PaperFreeze, frame=frame, elements=ctx.paper_elements, spec=ctx.paper_spec)
 
 
@@ -595,6 +608,10 @@ def _between(args: list[_Arg], low: int, high: int | None, usage: str) -> list[s
     if len(args) < low or (high is not None and len(args) > high):
         raise MarkupError(f"usage: {usage}")
     return [arg.text for arg in args]
+
+
+def _paper_element(text: str) -> str:
+    return text if re.fullmatch(r"m[1-9][0-9]{0,2}", text) else _element(text)
 
 
 def _element(text: str) -> str:

@@ -63,7 +63,7 @@ export type BoardAction =
   | { kind: 'board.clear'; item?: string };
 
 /** Where a paper mark points, in page coordinates (P5-R10). */
-export type PaperTarget = { el: ElementRef } | { at: Pt } | { box: NormRect };
+export type PaperTarget = { el: ElementRef | DetectedId } | { at: Pt } | { box: NormRect };
 
 export type PaperMark =
   | { type: 'circle'; id: string; target: PaperTarget; wash?: boolean }
@@ -76,12 +76,28 @@ export type PaperMark =
 
 export type FrameRef =
   | { kind: 'frame'; id: string }
+  | { kind: 'paper'; id: string; capturedAt: string }
   | { kind: 'latest' }
   | { kind: 'live' }
   | { kind: 'fixture'; name: 'dfa-wrong' };
 
-/** Where an automaton's ink is on the paper, in page coordinates; edge keys are 'q0>q1'. */
+/** Numbered visual candidates, independent of semantic automaton ids. */
+export type DetectedId = `m${number}`;
+export interface DetectedElement {
+  id: DetectedId;
+  kind: 'circle' | 'label';
+  /** Flattened-page pixels, not normalized page coordinates. */
+  box: NormRect;
+}
+export interface DetectedElements {
+  width: number;
+  height: number;
+  items: DetectedElement[];
+}
+
+/** Automaton geometry uses page coordinates; detected items use flattened-page pixels. */
 export interface PaperElements {
+  detected?: DetectedElements;
   /** `r` in page-width units. */
   states: Record<StateId, { center: Pt; r: number }>;
   /** A self-loop's path runs around its state. */
@@ -249,7 +265,10 @@ function symbols(value: unknown): string[] {
 
 function target(value: unknown): PaperTarget {
   if (!isFields(value)) invalid();
-  if ('el' in value) return { el: elementRef(fields(value, ['el']).el) };
+  if ('el' in value) {
+    const el = fields(value, ['el']).el;
+    return { el: isDetectedId(el) ? el : elementRef(el) };
+  }
   if ('at' in value) return { at: pt(fields(value, ['at']).at) };
   if ('box' in value) return { box: normRect(fields(value, ['box']).box) };
   return invalid();
@@ -258,6 +277,14 @@ function target(value: unknown): PaperTarget {
 function frame(value: unknown): FrameRef {
   const kind = isFields(value) ? value.kind : undefined;
   switch (kind) {
+    case 'paper': {
+      const f = fields(value, ['kind', 'id', 'capturedAt']);
+      const docId = (v: unknown) => {
+        const s = string(v);
+        return [...s].length >= 1 && [...s].length <= 64 ? s : invalid();
+      };
+      return { kind, id: docId(f.id), capturedAt: docId(f.capturedAt) };
+    }
     case 'frame': {
       const f = fields(value, ['kind', 'id']);
       const frameId = string(f.id);
@@ -274,8 +301,41 @@ function frame(value: unknown): FrameRef {
   }
 }
 
+export function isDetectedId(value: unknown): value is DetectedId {
+  return typeof value === 'string' && /^m[1-9][0-9]{0,2}$/.test(value) && !value.endsWith('\n');
+}
+
+function detected(value: unknown): DetectedElements {
+  const f = fields(value, ['width', 'height', 'items']);
+  const positive = (v: unknown) => {
+    const n = finite(v);
+    return n > 0 ? n : invalid();
+  };
+  const width = positive(f.width),
+    height = positive(f.height);
+  const seen = new Set<string>();
+  const items = list(f.items, (v): DetectedElement => {
+    const el = fields(v, ['id', 'kind', 'box']);
+    if (!isDetectedId(el.id) || seen.has(el.id)) return invalid();
+    seen.add(el.id);
+    const box = normRect(el.box);
+    if (
+      box.x < 0 ||
+      box.y < 0 ||
+      box.w <= 0 ||
+      box.h <= 0 ||
+      box.x + box.w > width ||
+      box.y + box.h > height
+    )
+      return invalid();
+    return { id: el.id, kind: oneOf(['circle', 'label'] as const)(el.kind), box };
+  });
+  if (items.length > 40) return invalid();
+  return { width, height, items };
+}
+
 function elements(value: unknown): PaperElements {
-  const f = fields(value, ['states', 'edges'], ['start']);
+  const f = fields(value, ['states', 'edges'], ['start', 'detected']);
   const record = (v: unknown) => (isFields(v) ? Object.entries(v) : invalid());
   const path = (v: unknown) => list(v, pt, 2);
   return compact({
@@ -294,6 +354,7 @@ function elements(value: unknown): PaperElements {
       }),
     ),
     start: optional(f.start, (v) => ({ path: path(fields(v, ['path']).path) })),
+    detected: optional(f.detected, detected),
   });
 }
 

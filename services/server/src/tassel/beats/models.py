@@ -396,8 +396,13 @@ class NormRect(Wire):
     h: NonNegative
 
 
+DetectedId = Annotated[
+    str, PlainValidator(_matching(re.compile(r"m[1-9][0-9]{0,2}"), "detected id"))
+]
+
+
 class ElTarget(Wire):
-    el: ElementRef
+    el: ElementRef | DetectedId
 
 
 class AtTarget(Wire):
@@ -463,6 +468,12 @@ class FrameById(Wire):
     id: DocId
 
 
+class PaperFrame(Wire):
+    kind: Literal["paper"]
+    id: DocId
+    captured_at: DocId
+
+
 class LatestFrame(Wire):
     kind: Literal["latest"]
 
@@ -477,7 +488,7 @@ class FixtureFrame(Wire):
 
 
 FrameRef = Annotated[
-    FrameById | LatestFrame | LiveFrame | FixtureFrame, Field(discriminator="kind")
+    FrameById | PaperFrame | LatestFrame | LiveFrame | FixtureFrame, Field(discriminator="kind")
 ]
 
 
@@ -498,12 +509,44 @@ class StartInk(Wire):
     path: Annotated[list[Pt], Field(min_length=2)]
 
 
+class PixelBox(Wire):
+    x: NonNegative
+    y: NonNegative
+    w: Positive
+    h: Positive
+
+
+class DetectedElement(Wire):
+    id: DetectedId
+    kind: Literal["circle", "label"]
+    box: PixelBox
+
+
+class DetectedElements(Wire):
+    """Candidate boxes in flattened-page pixels; independent of semantic DFA ids."""
+
+    width: Positive
+    height: Positive
+    items: Annotated[list[DetectedElement], Field(max_length=40)]
+
+    @model_validator(mode="after")
+    def unique_ids(self) -> Self:
+        if len({item.id for item in self.items}) != len(self.items):
+            raise ValueError("duplicate detected id")
+        if any(
+            e.box.x + e.box.w > self.width or e.box.y + e.box.h > self.height for e in self.items
+        ):
+            raise ValueError("detected box outside page")
+        return self
+
+
 class PaperElements(Wire):
     """Where an automaton's ink is on the paper; edge keys are 'q0>q1'."""
 
     states: dict[Annotated[str, PlainValidator(_matching(_STATE_ID, "state id"))], StateInk]
     edges: dict[Annotated[str, PlainValidator(_edge_key)], EdgeInk]
     start: StartInk | None = None
+    detected: DetectedElements | None = None
 
 
 class PaperFreeze(Wire):

@@ -252,3 +252,36 @@ async def frame_image(
     if data is None:
         raise _not_found("Image")
     return Response(content=data, media_type=JPEG, headers={"Cache-Control": "private, no-store"})
+
+
+@router.get(
+    "/{frame_id}/page",
+    response_class=Response,
+    responses={
+        200: {
+            "description": "The unmarked flattened page JPEG",
+            "content": {JPEG: {"schema": {"type": "string", "format": "binary"}}},
+        },
+        404: {"description": "No such frame, stored image, or detected page"},
+        **STORE_UNAVAILABLE,
+    },
+)
+async def frame_page(
+    session_id: uuid.UUID,
+    frame_id: uuid.UUID,
+    learner: Learner = Depends(current_learner),
+    db: AsyncSession = Depends(get_db),
+    store: ObjectStore = Depends(get_object_store),
+) -> Response:
+    """The exact page used by the per-turn image helper, without its model-only numbers."""
+    from tassel.vision.turn_image import page_view_for_frame
+
+    row = await repo.get_for(db, learner.id, session_id, frame_id)
+    if row is None:
+        raise _not_found("Frame")
+    view = await page_view_for_frame(row, store=store)
+    if view is None:
+        raise _not_found("Page")
+    return Response(
+        content=view.page_jpeg, media_type=JPEG, headers={"Cache-Control": "private, no-store"}
+    )

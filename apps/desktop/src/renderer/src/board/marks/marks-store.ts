@@ -86,7 +86,7 @@ export const useMarksStore: UseBoundStore<StoreApi<MarksState>> = create<MarksSt
       loading = controller;
       let load: Promise<LoadedFrame>;
       try {
-        load = source.load(action.frame, { signal: controller.signal });
+        load = source.load(action.frame, { signal: controller.signal, elements: action.elements });
       } catch (error) {
         loading = null;
         fail(action.frame, error);
