@@ -8,11 +8,22 @@
   --font-weight-w520: 520;
 }
 
+/*
+ * ko:leading-[1.6] and the like apply to Korean text only. Korean keeps its 1.6 leading where a
+ * utility sets a tighter one for Latin text (base.css's :lang(ko) loses to any utility).
+ */
+@custom-variant ko (&:lang(ko));
+
 @layer base {
   html,
   body,
   #root {
     height: 100%;
+  }
+
+  /* Light only: nothing flips in macOS dark mode. */
+  html {
+    color-scheme: light;
   }
 
   body {
@@ -40,6 +51,12 @@
   .mono {
     font-variant-numeric: tabular-nums;
   }
+
+  /* Search fields draw their own clear button (icons.tsx), not the browser's. */
+  input[type="search"]::-webkit-search-cancel-button,
+  input[type="search"]::-webkit-search-decoration {
+    appearance: none;
+  }
 }
 
 @layer components {
@@ -57,9 +74,17 @@
     -webkit-app-region: no-drag;
   }
 
-  /* Windows and Linux draw the window controls over the strip's right end (titleBarOverlay). */
+  /*
+   * Windows and Linux draw the window controls over the strip's right end (titleBarOverlay).
+   * Without the titlebar-area env values, reserve Windows' 138px of caption buttons anyway (R23).
+   */
   .app-drag-overlay-inset {
-    padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 20px);
+    padding-right: calc(
+      100vw -
+      env(titlebar-area-x, 0px) -
+      env(titlebar-area-width, calc(100vw - 138px)) +
+      20px
+    );
   }
 }
 
@@ -86,5 +111,12 @@
 @keyframes scrim-out {
   to {
     opacity: 0;
+  }
+}
+
+/* Loading placeholders breathe slowly, from fully visible; static under reduced motion. */
+@keyframes skeleton-pulse {
+  50% {
+    opacity: 0.55;
   }
 }

@@ -61,6 +61,20 @@ describe('readConfig', () => {
       'http://127.0.0.1:8799',
     );
   });
+  it.each(['not a url', '127.0.0.1:8799', 'localhost:8799', 'ftp://127.0.0.1:8799'])(
+    'falls back to the local server, with a warning, for TASSEL_SERVER_URL=%j',
+    (value) => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      expect(readConfig({ TASSEL_SERVER_URL: value }).serverUrl).toBe('http://127.0.0.1:8787');
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('TASSEL_SERVER_URL'));
+      warn.mockRestore();
+    },
+  );
+  it('keeps an https server URL', () => {
+    expect(readConfig({ TASSEL_SERVER_URL: 'https://tassel.example' }).serverUrl).toBe(
+      'https://tassel.example',
+    );
+  });
 });
 
 describe('applyUserDataOverride', () => {

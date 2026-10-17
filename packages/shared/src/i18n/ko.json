@@ -12,19 +12,32 @@
     "title": "내 세션",
     "newSession": "새 세션",
     "search": "세션 검색",
+    "searchPlaceholder": "제목이나 주제로 검색…",
+    "clearSearch": "검색어 지우기",
     "sort": {
+      "label": "세션 정렬",
       "recent": "최근 활동",
       "created": "만든 날짜",
       "topic": "주제"
     },
     "noTopic": "주제 없음",
+    "loading": "세션을 불러오는 중…",
     "empty": {
       "title": "아직 세션이 없어요",
       "body": "세션을 시작해서 Ada와 함께 문제를 풀어 보세요. 세션은 여기에 표시돼요."
     },
+    "noResults": {
+      "title": "‘{query}’에 맞는 세션이 없어요",
+      "body": "다른 단어로 검색하거나 검색어를 지워서 모든 세션을 확인해 보세요."
+    },
     "error": {
       "title": "Tassel 서버에 연결하지 못했어요",
-      "body": "인터넷 연결을 확인하고 다시 시도해 주세요."
+      "body": "인터넷 연결을 확인하고 다시 시도해 주세요.",
+      "retrying": "다시 시도하는 중…"
+    },
+    "tokenReset": {
+      "body": "이 기기에 저장된 ID를 읽지 못해서 Tassel이 처음부터 다시 설정했어요. 이전 세션은 여기에 표시되지 않아요.",
+      "dismiss": "확인"
     }
   },
   "newSession": {

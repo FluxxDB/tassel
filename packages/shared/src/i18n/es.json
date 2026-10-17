@@ -12,19 +12,32 @@
     "title": "Tus sesiones",
     "newSession": "Nueva sesión",
     "search": "Buscar sesiones",
+    "searchPlaceholder": "Busca por título o tema…",
+    "clearSearch": "Borrar búsqueda",
     "sort": {
+      "label": "Ordenar sesiones",
       "recent": "Actividad reciente",
       "created": "Fecha de creación",
       "topic": "Tema"
     },
     "noTopic": "Sin tema",
+    "loading": "Cargando sesiones…",
     "empty": {
       "title": "Todavía no hay sesiones",
       "body": "Empieza una sesión y resuelve un problema con Ada. Tus sesiones aparecerán aquí."
     },
+    "noResults": {
+      "title": "Ninguna sesión coincide con “{query}”",
+      "body": "Prueba con otra palabra o borra la búsqueda para ver todas tus sesiones."
+    },
     "error": {
       "title": "No se pudo conectar con el servidor de Tassel",
-      "body": "Revisa tu conexión e inténtalo de nuevo."
+      "body": "Revisa tu conexión e inténtalo de nuevo.",
+      "retrying": "Reintentando…"
+    },
+    "tokenReset": {
+      "body": "Tassel no pudo leer el identificador guardado en este dispositivo, así que te configuró de nuevo desde cero. Las sesiones anteriores no aparecerán aquí.",
+      "dismiss": "Entendido"
     }
   },
   "newSession": {

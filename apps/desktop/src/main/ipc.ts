@@ -6,7 +6,7 @@ import type { TokenStore } from './token-store';
 import { isTrustedUrl } from './windows';
 
 export function registerIpc(tokens: TokenStore): void {
-  handle(IPC.getConfig, () => readConfig());
+  handle(IPC.getConfig, async () => ({ ...readConfig(), tokenReset: await tokens.wasReset() }));
   handle(IPC.getToken, () => tokens.getToken());
   handle(IPC.refreshToken, () => tokens.refreshToken());
 }

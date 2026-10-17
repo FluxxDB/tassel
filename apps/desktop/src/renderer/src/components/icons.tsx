@@ -86,6 +86,8 @@ export const Globe = icon(
 
 export const Plus = icon('Plus', <path d="M12 5v14M5 12h14" />);
 
+export const Close = icon('Close', <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />);
+
 export const Search = icon(
   'Search',
   <>

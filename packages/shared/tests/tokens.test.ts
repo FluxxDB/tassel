@@ -36,7 +36,10 @@ describe('design tokens', () => {
   });
   it('keeps Hangul lab labels untracked too', () => {
     // .mono sets +0.025em and, as a class, outranks :lang(ko) alone.
-    expect(base).toMatch(/\.mono:lang\(ko\)\s*\{\s*letter-spacing:\s*0;\s*\}/);
+    expect(base).toMatch(/\.mono:lang\(ko\)\s*\{\s*letter-spacing:\s*0;/);
+  });
+  it("narrows Geist Mono's 0.6em space between Hangul words in lab labels", () => {
+    expect(base).toMatch(/\.mono:lang\(ko\)\s*\{[^}]*word-spacing:\s*-0\.3em;/);
   });
   it.each(['Geist-Variable.woff2', 'GeistMono-Variable.woff2', 'PretendardVariable.woff2'])(
     'ships %s',

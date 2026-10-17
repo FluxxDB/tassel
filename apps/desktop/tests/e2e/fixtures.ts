@@ -60,6 +60,25 @@ export async function snap(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: join(screensDir, `${name}.png`) });
 }
 
+/**
+ * Resizes the window's content area (page.setViewportSize doesn't resize an Electron window)
+ * and waits until the page has the new size. The window's minimum is 1024×680.
+ */
+export async function setWindowSize(
+  app: ElectronApplication,
+  page: Page,
+  width: number,
+  height: number,
+): Promise<void> {
+  await app.evaluate(
+    ({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0]?.setContentSize(w, h),
+    [width, height],
+  );
+  await expect
+    .poll(() => page.evaluate(() => [window.innerWidth, window.innerHeight]))
+    .toEqual([width, height]);
+}
+
 function e2ePort(value: string | undefined): number {
   if (!value) return 8799;
   const port = Number(value);

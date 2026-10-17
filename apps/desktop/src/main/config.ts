@@ -5,9 +5,12 @@ import type { AppConfig } from '../shared/bridge';
 
 const DEFAULT_SERVER_URL = 'http://127.0.0.1:8787';
 
-export function readConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
+/** The launch settings from the environment: everything in AppConfig but the token store's answer. */
+export type EnvConfig = Omit<AppConfig, 'tokenReset'>;
+
+export function readConfig(env: NodeJS.ProcessEnv = process.env): EnvConfig {
   return {
-    serverUrl: (env.TASSEL_SERVER_URL || DEFAULT_SERVER_URL).replace(/\/+$/, ''),
+    serverUrl: serverUrl(env.TASSEL_SERVER_URL),
     uiLanguage: uiLanguage(env.TASSEL_UI_LANG),
     tutorMode: env.TASSEL_TUTOR === 'live' ? 'live' : 'fake',
     fakeScript: env.TASSEL_FAKE_SCRIPT || 'dfa-opening',
@@ -26,6 +29,20 @@ export function applyUserDataOverride(env: NodeJS.ProcessEnv = process.env): voi
 /** 'file' (plaintext JSON) when TASSEL_TOKEN_STORE=file, as dev scripts and E2E set; else 'safe'. */
 export function tokenStoreMode(env: NodeJS.ProcessEnv = process.env): 'safe' | 'file' {
   return env.TASSEL_TOKEN_STORE === 'file' ? 'file' : 'safe';
+}
+
+/**
+ * TASSEL_SERVER_URL without trailing slashes. The API client needs an absolute http(s) URL, so
+ * anything else falls back to the local dev server, with a warning, instead of a blank window.
+ */
+function serverUrl(requested: string | undefined): string {
+  if (!requested) return DEFAULT_SERVER_URL;
+  const url = requested.replace(/\/+$/, '');
+  if (URL.canParse(url) && ['http:', 'https:'].includes(new URL(url).protocol)) return url;
+  console.warn(
+    `[tassel] TASSEL_SERVER_URL=${JSON.stringify(requested)} isn't an http(s) URL, so the app uses ${DEFAULT_SERVER_URL}.`,
+  );
+  return DEFAULT_SERVER_URL;
 }
 
 /** TASSEL_UI_LANG when supported, else the first supported system language, else en. */

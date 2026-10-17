@@ -18,7 +18,7 @@ async function boot(container: HTMLElement): Promise<void> {
   createRoot(container).render(
     <StrictMode>
       <I18nextProvider i18n={i18n}>
-        <App api={api} />
+        <App api={api} tokenReset={config.tokenReset} />
       </I18nextProvider>
     </StrictMode>,
   );

@@ -12,6 +12,7 @@ vi.mock('electron', () => ({
 const tokens = {
   getToken: vi.fn(async () => 'cached-token'),
   refreshToken: vi.fn(async () => 'fresh-token'),
+  wasReset: vi.fn(async () => false),
 };
 
 function invoke(channel: string, senderUrl: string | null): unknown {
@@ -24,12 +25,23 @@ beforeEach(() => {
   handlers.clear();
   tokens.getToken.mockClear();
   tokens.refreshToken.mockClear();
+  tokens.wasReset.mockClear();
   registerIpc(tokens);
 });
 
 describe('registerIpc', () => {
-  it('answers config:get from the app origin', () => {
-    expect(invoke('config:get', 'app://tassel/index.html')).toMatchObject({ uiLanguage: 'en' });
+  it('answers config:get from the app origin', async () => {
+    expect(await invoke('config:get', 'app://tassel/index.html')).toMatchObject({
+      uiLanguage: 'en',
+      tokenReset: false,
+    });
+  });
+  it('reports in config:get whether this launch had to replace an unreadable token', async () => {
+    tokens.wasReset.mockResolvedValueOnce(true);
+    expect(await invoke('config:get', 'app://tassel/index.html')).toMatchObject({
+      tokenReset: true,
+    });
+    expect(tokens.getToken).not.toHaveBeenCalled();
   });
   it('hands out the device token', async () => {
     expect(await invoke('auth:getToken', 'app://tassel/index.html')).toBe('cached-token');
@@ -45,5 +57,6 @@ describe('registerIpc', () => {
     expect(() => invoke(channel, senderUrl)).toThrow('untrusted sender');
     expect(tokens.getToken).not.toHaveBeenCalled();
     expect(tokens.refreshToken).not.toHaveBeenCalled();
+    expect(tokens.wasReset).not.toHaveBeenCalled();
   });
 });

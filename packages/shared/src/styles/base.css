@@ -31,8 +31,12 @@
       "liga" 0;
   }
 
-  /* Hangul has no case, and tracking damages it: Korean lab labels stay untracked. */
+  /*
+   * Hangul has no case, and tracking damages it: Korean lab labels stay untracked. Their spaces
+   * come from Geist Mono (0.6em, Pretendard's range has no space), so close them to about 0.3em.
+   */
   .mono:lang(ko) {
     letter-spacing: 0;
+    word-spacing: -0.3em;
   }
 }

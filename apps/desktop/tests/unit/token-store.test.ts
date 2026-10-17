@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -163,5 +163,70 @@ describe('createTokenStore', () => {
     const { fetch, tokens } = store(mode, fakeServer(), crypto);
     expect(await tokens.getToken()).toMatch(/^token-1-/);
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('wasReset', () => {
+  /** A Crypto whose decryption fails, as when the keychain entry behind device.bin is gone. */
+  function undecryptable(): Crypto {
+    const crypto = xorCrypto();
+    crypto.decryptString = () => {
+      throw new Error('cannot decrypt');
+    };
+    return crypto;
+  }
+
+  it('is false on a first launch, and asking registers nothing', async () => {
+    const { fetch, tokens } = store('file');
+    expect(await tokens.wasReset()).toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(existsSync(join(dir, 'device.json'))).toBe(false);
+  });
+
+  it.each(['safe', 'file'] as const)(
+    'is false when the stored token reads back (%s mode)',
+    async (mode) => {
+      await store(mode).tokens.getToken();
+      const next = store(mode);
+      expect(await next.tokens.wasReset()).toBe(false);
+      expect(next.fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ['file', 'device.json', 'not json'],
+    ['file', 'device.json', '{"token":42}'],
+    ['file', 'device.json', ''],
+    ['safe', 'device.bin', 'not a ciphertext'],
+  ] as const)(
+    'is true for the launch an unreadable %s-mode %s (%j) starts fresh',
+    async (mode, file, contents) => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      writeFileSync(join(dir, file), contents);
+      const { fetch, tokens } = store(mode, fakeServer(), undecryptable());
+      expect(await tokens.wasReset()).toBe(true);
+      // The fresh device replaces the file, and the answer holds for the rest of this launch.
+      expect(await tokens.getToken()).toMatch(/^token-1-/);
+      expect(await tokens.wasReset()).toBe(true);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      // The next launch reads the fresh token back, so it doesn't report a reset again.
+      expect(await store(mode).tokens.wasReset()).toBe(false);
+    },
+  );
+
+  it('counts a token file that exists but cannot be opened as unreadable', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mkdirSync(join(dir, 'device.json'));
+    expect(await store('file').tokens.wasReset()).toBe(true);
+  });
+
+  it('reads the token file once for both questions', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    writeFileSync(join(dir, 'device.json'), 'not json');
+    const { tokens } = store('file');
+    const [reset, token] = await Promise.all([tokens.wasReset(), tokens.getToken()]);
+    expect(reset).toBe(true);
+    expect(token).toMatch(/^token-1-/);
+    expect(console.warn).toHaveBeenCalledTimes(1);
   });
 });

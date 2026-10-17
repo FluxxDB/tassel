@@ -12,19 +12,32 @@
     "title": "Your sessions",
     "newSession": "New session",
     "search": "Search sessions",
+    "searchPlaceholder": "Search titles and topics…",
+    "clearSearch": "Clear search",
     "sort": {
+      "label": "Sort sessions",
       "recent": "Recent activity",
       "created": "Date created",
       "topic": "Topic"
     },
     "noTopic": "No topic",
+    "loading": "Loading sessions…",
     "empty": {
       "title": "No sessions yet",
       "body": "Start a session and work through a problem with Ada. Your sessions will show up here."
     },
+    "noResults": {
+      "title": "No sessions match “{query}”",
+      "body": "Try another word, or clear the search to see all your sessions."
+    },
     "error": {
       "title": "Couldn't reach Tassel's server",
-      "body": "Check your connection, then try again."
+      "body": "Check your connection, then try again.",
+      "retrying": "Retrying…"
+    },
+    "tokenReset": {
+      "body": "Tassel couldn't read this device's saved ID, so it set you up again from scratch. Earlier sessions won't show up here.",
+      "dismiss": "Got it"
     }
   },
   "newSession": {

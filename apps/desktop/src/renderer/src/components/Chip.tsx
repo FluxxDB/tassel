@@ -3,13 +3,16 @@ import type { ComponentPropsWithRef } from 'react';
 import { cn } from '../lib/cn';
 
 export interface ChipProps extends ComponentPropsWithRef<'span'> {
-  /** paper on bone surfaces, bone on white cards, ink for the one emphasized label. */
+  /**
+   * paper on bone surfaces; bone with a hairline ring on white cards, where bone alone vanishes;
+   * ink for the one emphasized label.
+   */
   tone?: 'paper' | 'bone' | 'ink';
 }
 
 const TONES = {
   paper: 'bg-paper text-smoke-text',
-  bone: 'bg-bone text-smoke-text',
+  bone: 'bg-bone text-smoke-text shadow-[inset_0_0_0_1px_var(--color-hairline)]',
   ink: 'bg-ink text-paper',
 } as const;
 

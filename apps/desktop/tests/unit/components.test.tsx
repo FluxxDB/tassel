@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
+import { StrictMode, useState } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it, vi } from 'vitest';
 import { AppFrame } from '../../src/renderer/src/app/AppFrame';
@@ -12,6 +12,7 @@ import {
   Board,
   Camera,
   Captions,
+  Close,
   Globe,
   Mic,
   MicOff,
@@ -69,6 +70,14 @@ describe('Chip', () => {
   it('Chip renders mono uppercase', () => {
     render(<Chip>Homework</Chip>);
     expect(screen.getByText('Homework')).toHaveClass('mono', 'bg-paper', 'rounded-pill');
+  });
+
+  it('keeps its edge on a white card: the bone tone adds a hairline ring', () => {
+    render(<Chip tone="bone">Homework</Chip>);
+    expect(screen.getByText('Homework')).toHaveClass(
+      'bg-bone',
+      'shadow-[inset_0_0_0_1px_var(--color-hairline)]',
+    );
   });
 
   it("is 22px tall, as the mock's chips are: 14px lines inside 4px padding", () => {
@@ -218,7 +227,19 @@ describe('IconButton', () => {
 });
 
 describe('icons', () => {
-  const ICONS = { Mic, MicOff, Camera, Screen, Board, Captions, Globe, Plus, Search, Retry };
+  const ICONS = {
+    Mic,
+    MicOff,
+    Camera,
+    Screen,
+    Board,
+    Captions,
+    Globe,
+    Plus,
+    Search,
+    Retry,
+    Close,
+  };
 
   it.each(Object.entries(ICONS))(
     '%s is a 24px stroke icon at 1.6, hidden from assistive tech',
@@ -291,6 +312,23 @@ describe('Sheet', () => {
     await user.click(await screen.findByRole('button', { name: 'Cancel' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(opener).toHaveFocus();
+  });
+
+  it("still returns focus under StrictMode, whose simulated unmount mustn't forget the opener", async () => {
+    const user = userEvent.setup();
+    render(
+      <StrictMode>
+        <SheetOpener />
+      </StrictMode>,
+    );
+    const opener = screen.getByRole('button', { name: 'Open sheet' });
+    await user.click(opener);
+    // Radix delays its unmount focus by a tick; let StrictMode's simulated one run while open.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.getByRole('dialog')).toContainElement(document.activeElement as HTMLElement);
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(opener).toHaveFocus());
   });
 
   it('keeps scrolling inside a tall sheet', () => {
