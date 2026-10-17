@@ -17,6 +17,15 @@ export default defineConfig({
   renderer: {
     define: { __TASSEL_TLDRAW_LICENSE_KEY__: JSON.stringify(tldrawKey.key ?? '') },
     plugins: [react(), tailwindcss()],
+    optimizeDeps: {
+      // Vite's dev pre-bundling can't follow @tldraw/assets's `./translations/*.json?url`
+      // imports (each fails as a missing file, and the dev server exits), so the board's assets
+      // are served as they are, as the build does.
+      exclude: ['@tldraw/assets'],
+      // Only the layout worker imports Graphviz, and Vite's scan doesn't follow workers: found
+      // when Ada first draws, it would reload the page mid-session.
+      include: ['@viz-js/viz'],
+    },
     build: {
       // tldraw fetches its translations, and the page CSP's connect-src takes no data: URLs, so
       // none of its assets is inlined, however small (en.json is 3 bytes). Others keep the default.
