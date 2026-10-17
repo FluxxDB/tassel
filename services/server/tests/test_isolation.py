@@ -25,7 +25,14 @@ from tassel.vision.settings import VisionSettings, resolve_vision_mode
 SERVER_DIR = Path(__file__).resolve().parents[1]
 
 # What a shell may hold: P4's three keys, and the SDKs' other variables (base URLs, auth tokens).
-_PROVIDER_VARIABLES = ("OPENAI_*", "ANTHROPIC_*", "VULTR_*")
+_PROVIDER_VARIABLES = (
+    "OPENAI_*",
+    "ANTHROPIC_*",
+    "VULTR_*",
+    "TASSEL_OPENAI_*",
+    "TASSEL_ANTHROPIC_*",
+    "TASSEL_VULTR_*",
+)
 
 
 def _provider_variables() -> list[str]:
@@ -139,7 +146,14 @@ async def test_network_is_refused_in_tests(sockets: list[str]):
 # Beyond the brief's examples.
 
 
-def test_a_shell_full_of_keys_still_runs_fake(tmp_path: Path):
+@pytest.mark.parametrize(
+    "probe",
+    [
+        "test_tests_never_see_vision_keys",
+        "test_session_fixtures_and_imports_are_isolated_too",
+    ],
+)
+def test_a_shell_full_of_keys_still_runs_fake(tmp_path: Path, probe: str):
     # A developer's shell often exports ANTHROPIC_API_KEY, and pydantic-settings reads names in
     # any case, so the check above runs again in a pytest whose environment holds dummy keys in
     # both cases, live modes, and a voice .env file with keys in it.
@@ -154,6 +168,9 @@ def test_a_shell_full_of_keys_still_runs_fake(tmp_path: Path):
         "anthropic_api_key": "ak-dummy-shell",
         "ANTHROPIC_BASE_URL": "http://127.0.0.1:9",
         "VULTR_INFERENCE_API_KEY": "vu-dummy-shell",
+        "TASSEL_OPENAI_API_KEY": "sk-dummy-alias",
+        "tassel_anthropic_api_key": "ak-dummy-alias",
+        "TASSEL_VULTR_INFERENCE_API_KEY": "vu-dummy-alias",
         "TASSEL_PROVIDERS": "live",
         "TASSEL_GATE_PROVIDER": "live",
         "TASSEL_GATE_LIVE": "clef",
@@ -161,7 +178,7 @@ def test_a_shell_full_of_keys_still_runs_fake(tmp_path: Path):
         "TASSEL_FAKE_READING": "demo-wrong",
         "TASSEL_VOICE_ENV_FILE": str(env_file),
     }
-    probe = f"{Path(__file__).name}::test_tests_never_see_vision_keys"
+    probe = f"{Path(__file__).name}::{probe}"
     result = subprocess.run(
         [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", f"tests/{probe}"],
         cwd=SERVER_DIR,
@@ -222,3 +239,18 @@ async def test_a_proxy_never_carries_a_request_out(monkeypatch: pytest.MonkeyPat
         with pytest.raises(RuntimeError, match=r"api\.anthropic\.com"):
             async with module.AsyncClient() as client:
                 await client.get("https://api.anthropic.com/v1/messages")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("module", [httpx, httpx2], ids=["httpx", "httpx2"])
+@pytest.mark.parametrize("asynchronous", [False, True], ids=["sync", "async"])
+async def test_loopback_cannot_escape_through_an_external_proxy(module, asynchronous, sockets):
+    # The URL alone is insufficient: the actual TCP destination is the proxy.
+    with pytest.raises(RuntimeError, match=r"^tests never reach the network: proxy\.invalid$"):
+        if asynchronous:
+            async with module.AsyncClient(proxy="http://proxy.invalid:8080") as client:
+                await client.get("http://127.0.0.1:9/")
+        else:
+            with module.Client(proxy="http://proxy.invalid:8080") as client:
+                client.get("http://127.0.0.1:9/")
+    assert sockets == []

@@ -40,7 +40,7 @@ def test_auto_is_live_only_with_its_key():
         "deepcheck": "fake",
     }
     openai = VisionSettings(_env_file=None, providers="auto", openai_api_key="sk-dummy")
-    assert modes(openai) == {"gate": "live", "deepcheck": "fake"}
+    assert modes(openai) == {"gate": "live", "deepcheck": "live"}
     anthropic = VisionSettings(_env_file=None, providers="auto", anthropic_api_key="ak-dummy")
     assert modes(anthropic) == {"gate": "fake", "deepcheck": "live"}
     for s in (openai, anthropic):
@@ -65,14 +65,16 @@ def test_clef_needs_the_vultr_key():
     assert resolve_vision_mode("gate", with_vultr) == "live"
 
 
-def test_deepcheck_live_needs_anthropic():
-    s = VisionSettings(_env_file=None, deepcheck_provider="live")
-    problem = "TASSEL_DEEPCHECK_PROVIDER=live needs ANTHROPIC_API_KEY in services/server/.env"
+def test_explicit_anthropic_needs_anthropic():
+    s = VisionSettings(_env_file=None, deepcheck_provider="anthropic")
+    problem = "TASSEL_DEEPCHECK_PROVIDER=anthropic needs ANTHROPIC_API_KEY in services/server/.env"
     assert check_vision_settings(s) == [problem]
     with pytest.raises(VisionConfigError) as raised:
         resolve_vision_mode("deepcheck", s)
     assert str(raised.value) == problem
-    keyed = VisionSettings(_env_file=None, deepcheck_provider="live", anthropic_api_key="ak-dummy")
+    keyed = VisionSettings(
+        _env_file=None, deepcheck_provider="anthropic", anthropic_api_key="ak-dummy"
+    )
     assert resolve_vision_mode("deepcheck", keyed) == "live"
     assert check_vision_settings(keyed) == []
 
@@ -182,7 +184,7 @@ def test_global_live_names_tassel_providers_once_per_kind():
     s = VisionSettings(_env_file=None, providers="live")
     assert check_vision_settings(s) == [
         "TASSEL_PROVIDERS=live needs OPENAI_API_KEY in services/server/.env",
-        "TASSEL_PROVIDERS=live needs ANTHROPIC_API_KEY in services/server/.env",
+        "TASSEL_PROVIDERS=live needs ANTHROPIC_API_KEY or OPENAI_API_KEY in services/server/.env",
     ]
 
 
@@ -223,3 +225,86 @@ def test_the_contract_loads_no_sdk_and_no_opencv():
     )
     result = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True)
     assert (result.returncode, result.stdout.strip()) == (0, "[]"), result.stderr
+
+
+@pytest.mark.parametrize(
+    "anthropic,openai,want",
+    [
+        (None, None, "fake"),
+        ("ak-dummy", None, "anthropic"),
+        (None, "sk-dummy", "openai"),
+        ("ak-dummy", "sk-dummy", "anthropic"),
+        (" ", "sk-dummy", "openai"),
+        ("", " ", "fake"),
+    ],
+)
+@pytest.mark.parametrize("override", [None, "auto"])
+def test_deepcheck_and_membership_auto_selection(anthropic, openai, want, override):
+    s = VisionSettings(
+        providers="auto",
+        deepcheck_provider=override,
+        anthropic_api_key=anthropic,
+        openai_api_key=openai,
+    )
+    # Both future readers must use this resolver, not infer a provider from fake/live.
+    assert vision_settings.resolve_deepcheck_provider(s) == want
+    assert resolve_vision_mode("deepcheck", s) == ("fake" if want == "fake" else "live")
+    assert check_vision_settings(s) == []
+
+
+@pytest.mark.parametrize("provider", ["anthropic", "openai", "fake"])
+def test_explicit_deepcheck_provider_wins_over_keys_and_global_fake(provider, monkeypatch):
+    monkeypatch.setenv("TASSEL_DEEPCHECK_PROVIDER", provider)
+    s = VisionSettings(
+        providers="fake",
+        anthropic_api_key="ak-dummy",
+        openai_api_key="sk-dummy",
+    )
+    assert vision_settings.resolve_deepcheck_provider(s) == provider
+    assert resolve_vision_mode("deepcheck", s) == ("fake" if provider == "fake" else "live")
+
+
+@pytest.mark.parametrize(
+    "provider,other_key,key_name",
+    [
+        ("anthropic", {"openai_api_key": "sk-dummy"}, "ANTHROPIC_API_KEY"),
+        ("openai", {"anthropic_api_key": "ak-dummy"}, "OPENAI_API_KEY"),
+    ],
+)
+def test_explicit_deepcheck_provider_never_silently_falls_back(provider, other_key, key_name):
+    s = VisionSettings(providers="fake", deepcheck_provider=provider, **other_key)
+    problem = f"TASSEL_DEEPCHECK_PROVIDER={provider} needs {key_name} in services/server/.env"
+    assert check_vision_settings(s) == [problem]
+    for resolve in (
+        vision_settings.resolve_deepcheck_provider,
+        lambda settings: resolve_vision_mode("deepcheck", settings),
+    ):
+        with pytest.raises(VisionConfigError) as raised:
+            resolve(s)
+        assert str(raised.value) == problem
+
+
+@pytest.mark.parametrize(
+    "keys,want",
+    [
+        ({"openai_api_key": "sk-dummy"}, "openai"),
+        ({"anthropic_api_key": "ak-dummy", "openai_api_key": "sk-dummy"}, "anthropic"),
+    ],
+)
+def test_global_live_uses_either_key(keys, want):
+    s = VisionSettings(providers="live", gate_provider="fake", **keys)
+    assert vision_settings.resolve_deepcheck_provider(s) == want
+    assert check_vision_settings(s) == []
+
+
+def test_live_is_no_longer_a_deepcheck_provider_name():
+    with pytest.raises(ValidationError):
+        VisionSettings(deepcheck_provider="live")
+
+
+def test_production_defaults_select_real_readers_when_keyed(monkeypatch):
+    # R39: product defaults must not silently stay fake when a real key is available.
+    monkeypatch.delenv("TASSEL_PROVIDERS", raising=False)
+    s = VisionSettings(openai_api_key="sk-dummy")
+    assert modes(s) == {"gate": "live", "deepcheck": "live"}
+    assert vision_settings.resolve_deepcheck_provider(s) == "openai"

@@ -4,11 +4,12 @@ They come from the environment and from ``services/server/.env``, the git-ignore
 every provider key. The app reads them in its lifespan (``VisionSettings.load``), never at import
 or in ``create_app``, so exporting the OpenAPI schema and running tests never touch a key.
 
-``TASSEL_PROVIDERS`` (P2's) picks every provider's mode, and ``TASSEL_GATE_PROVIDER`` and
-``TASSEL_DEEPCHECK_PROVIDER`` override it for the gate and the deep check: ``fake`` (the default),
-``live``, or ``auto``, which is live exactly when that kind's key is set. ``TASSEL_GATE_LIVE``
-picks the live gate, ``openai`` or ``clef``. Empty values count as unset. This module never loads
-a provider SDK.
+``TASSEL_PROVIDERS`` picks the default mode (``auto``); ``TASSEL_GATE_PROVIDER`` overrides it
+with ``fake``, ``live``, or ``auto``. ``TASSEL_GATE_LIVE`` picks ``openai`` or ``clef``.
+``TASSEL_DEEPCHECK_PROVIDER`` selects ``auto``, ``anthropic``, ``openai``, or ``fake`` for both
+the deep check and the independent membership call. Auto prefers Anthropic when its key is
+set, then OpenAI, and stays fake without either key. Explicit providers require their own key.
+Empty values count as unset. This module never loads a provider SDK.
 """
 
 import os
@@ -21,6 +22,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from tassel.vision.ports import STALL_MS
 
 Mode = Literal["fake", "live", "auto"]
+DeepcheckProvider = Literal["auto", "anthropic", "openai", "fake"]
+ResolvedDeepcheckProvider = Literal["anthropic", "openai", "fake"]
 VisionKind = Literal["gate", "deepcheck"]
 
 # src/tassel/vision/settings.py -> services/server is three levels up.
@@ -42,10 +45,10 @@ class VisionSettings(BaseSettings):
         hide_input_in_errors=True,
     )
 
-    providers: Mode = "fake"
+    providers: Mode = "auto"
     gate_provider: Mode | None = None
     gate_live: Literal["openai", "clef"] = "openai"
-    deepcheck_provider: Mode | None = None
+    deepcheck_provider: DeepcheckProvider | None = None
 
     openai_api_key: SecretStr | None = Field(None, validation_alias="OPENAI_API_KEY")
     anthropic_api_key: SecretStr | None = Field(None, validation_alias="ANTHROPIC_API_KEY")
@@ -55,7 +58,7 @@ class VisionSettings(BaseSettings):
 
     gate_model: str = "gpt-6-luna"
     clef_model: str = "clef-flash"
-    deepcheck_model: str = "claude-opus-5-5"
+    deepcheck_model: str = "claude-opus-5-5"  # Anthropic; OpenAI's model is verified later.
     deepcheck_effort: Literal["low", "medium"] = "low"
     gate_timeout_s: float = 4.0
     deepcheck_timeout_s: float = 45.0
@@ -87,10 +90,8 @@ class VisionConfigError(RuntimeError):
     """A kind resolved live without its key. The message has one line per problem."""
 
 
-def _key_of(kind: VisionKind, s: VisionSettings) -> tuple[SecretStr | None, str]:
-    """The key a live ``kind`` needs: its value and its variable's name."""
-    if kind == "deepcheck":
-        return s.anthropic_api_key, "ANTHROPIC_API_KEY"
+def _gate_key(s: VisionSettings) -> tuple[SecretStr | None, str]:
+    """The key the live gate needs: its value and its variable's name."""
     if s.gate_live == "clef":
         return s.vultr_inference_api_key, "VULTR_INFERENCE_API_KEY"
     return s.openai_api_key, "OPENAI_API_KEY"
@@ -100,16 +101,58 @@ def _is_set(value: SecretStr | None) -> bool:
     return value is not None and bool(value.get_secret_value().strip())
 
 
+def _resolve_deepcheck(s: VisionSettings) -> tuple[ResolvedDeepcheckProvider, list[str]]:
+    mode = s.deepcheck_provider if s.deepcheck_provider is not None else s.providers
+    variable = (
+        "TASSEL_DEEPCHECK_PROVIDER" if s.deepcheck_provider is not None else "TASSEL_PROVIDERS"
+    )
+    if mode == "fake":
+        return "fake", []
+    if mode in ("anthropic", "openai"):
+        value, key = (
+            (s.anthropic_api_key, "ANTHROPIC_API_KEY")
+            if mode == "anthropic"
+            else (s.openai_api_key, "OPENAI_API_KEY")
+        )
+        problems = [] if _is_set(value) else [f"{variable}={mode} needs {key} in {_ENV_FILE_NAME}"]
+        return mode, problems
+    if _is_set(s.anthropic_api_key):
+        return "anthropic", []
+    if _is_set(s.openai_api_key):
+        return "openai", []
+    if mode == "auto":
+        return "fake", []
+    return "fake", [
+        f"{variable}={mode} needs ANTHROPIC_API_KEY or OPENAI_API_KEY in {_ENV_FILE_NAME}"
+    ]
+
+
+def resolve_deepcheck_provider(s: VisionSettings) -> ResolvedDeepcheckProvider:
+    """Shared provider selection for the deep-check and membership adapters (P4-R26).
+
+    Both readers must use this identity, not infer a provider from the fake/live mode.
+    The Anthropic reader uses deepcheck_model/effort; OpenAI model selection and evaluation
+    belong to the later reader task. No client is constructed and no credential is returned.
+    """
+    provider, problems = _resolve_deepcheck(s)
+    if problems:
+        raise VisionConfigError("\n".join(problems))
+    return provider
+
+
 def _resolve(kind: VisionKind, s: VisionSettings) -> tuple[Literal["fake", "live"], list[str]]:
     """The kind's mode, and what it lacks when that mode is live."""
-    override: Mode | None = getattr(s, f"{kind}_provider")
+    if kind == "deepcheck":
+        provider, problems = _resolve_deepcheck(s)
+        return ("fake" if provider == "fake" else "live"), problems
+    override = s.gate_provider
     if override is None:
         mode, variable = s.providers, "TASSEL_PROVIDERS"
     else:
         mode, variable = override, f"TASSEL_{kind.upper()}_PROVIDER"
     if mode == "fake":
         return "fake", []
-    value, key = _key_of(kind, s)
+    value, key = _gate_key(s)
     if _is_set(value):
         return "live", []
     if mode == "auto":
