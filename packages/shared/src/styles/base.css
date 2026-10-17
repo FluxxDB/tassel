@@ -13,10 +13,15 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Negative tracking damages Hangul, and Korean needs more leading. */
+  /*
+   * Negative tracking damages Hangul, and Korean needs more leading. Hangul breaks between
+   * words, never inside one; an overlong word still wraps (R28).
+   */
   :lang(ko) {
     letter-spacing: 0;
     line-height: 1.6;
+    word-break: keep-all;
+    overflow-wrap: break-word;
   }
 }
 

@@ -27,9 +27,10 @@
       "body": "Empieza una sesión y resuelve un problema con Ada. Tus sesiones aparecerán aquí."
     },
     "noResults": {
-      "title": "Ninguna sesión coincide con “{query}”",
+      "title": "Ninguna sesión coincide con \"{query}\"",
       "body": "Prueba con otra palabra o borra la búsqueda para ver todas tus sesiones."
     },
+    "results": "{count, plural, one {# sesión} other {# sesiones}}",
     "error": {
       "title": "No se pudo conectar con el servidor de Tassel",
       "body": "Revisa tu conexión e inténtalo de nuevo.",

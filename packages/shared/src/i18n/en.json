@@ -27,9 +27,10 @@
       "body": "Start a session and work through a problem with Ada. Your sessions will show up here."
     },
     "noResults": {
-      "title": "No sessions match “{query}”",
+      "title": "No sessions match \"{query}\"",
       "body": "Try another word, or clear the search to see all your sessions."
     },
+    "results": "{count, plural, one {# session} other {# sessions}}",
     "error": {
       "title": "Couldn't reach Tassel's server",
       "body": "Check your connection, then try again.",

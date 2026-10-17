@@ -99,9 +99,10 @@ export function LibraryScreen({ tokenNotice = false, onDismissTokenNotice }: Lib
             <h1
               id={headingId}
               ref={heading}
-              // Focusable only from code, as a landing spot (see above), never by Tab.
+              // A landing spot for focus from code (see above): never a Tab stop, and no ring,
+              // since nothing here can be operated.
               tabIndex={-1}
-              className="text-[24px] leading-tight font-w520 text-balance ko:leading-[1.6]"
+              className="text-[24px] leading-tight font-w520 text-balance focus-visible:outline-none ko:leading-[1.6]"
             >
               {t('library.title')}
             </h1>
@@ -115,6 +116,14 @@ export function LibraryScreen({ tokenNotice = false, onDismissTokenNotice }: Lib
             )}
           </div>
           {content}
+          {/* Says what a search found, politely (WCAG 4.1.3); silent without a search. */}
+          <p role="status" data-testid="search-outcome" className="sr-only">
+            {sessions.status === 'ready' && sessions.query !== ''
+              ? sessions.items.length === 0
+                ? t('library.noResults.title', { query: sessions.query })
+                : t('library.results', { count: sessions.items.length })
+              : ''}
+          </p>
         </div>
       </main>
       <NewSessionSheet open={creating} onOpenChange={setCreating} />

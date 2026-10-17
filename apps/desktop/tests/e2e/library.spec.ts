@@ -91,7 +91,7 @@ test('groups by topic, and searches titles and topics', async () => {
   await expect(cardsOf(page)).toHaveCount(1);
   await expect(cardsOf(page)).toContainText('Derivadas');
   await search.fill('zzz');
-  const noResults = page.getByRole('region', { name: 'No sessions match “zzz”' });
+  const noResults = page.getByRole('region', { name: 'No sessions match "zzz"' });
   await expect(noResults).toBeVisible();
   await settle(page);
   await snap(page, 'p1-library-no-results');

@@ -149,7 +149,10 @@ describe('LibraryScreen', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Retry' })).toHaveFocus());
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     await screen.findByRole('button', { name: DFA.title ?? '' });
-    expect(screen.getByRole('heading', { level: 1, name: 'Your sessions' })).toHaveFocus();
+    const heading = screen.getByRole('heading', { level: 1, name: 'Your sessions' });
+    expect(heading).toHaveFocus();
+    // A landing spot, not a control: no focus ring around the heading.
+    expect(heading).toHaveClass('focus-visible:outline-none');
   });
 
   it('shows the error state for an error status from the server too', async () => {
@@ -213,6 +216,8 @@ describe('LibraryScreen', () => {
     const titleText = await screen.findByText(title);
     expect(titleText).toHaveClass('line-clamp-2');
     expect(titleText).toHaveAttribute('lang', 'es');
+    // Two lines at Korean leading are reserved for every title, so rows match in any language.
+    expect(titleText).toHaveClass('min-h-[3.2em]');
   });
 
   it('shows each session as a card named by its title, and opens it', async () => {
@@ -275,8 +280,13 @@ describe('LibraryScreen', () => {
     await screen.findByRole('button', { name: DFA.title ?? '' });
 
     const search = screen.getByRole('searchbox', { name: 'Search sessions' });
+    // Search outcomes are announced politely (WCAG 4.1.3).
+    const outcome = screen.getByTestId('search-outcome');
+    expect(outcome).toHaveAttribute('role', 'status');
+    expect(outcome).toBeEmptyDOMElement();
     await user.type(search, 'zzz');
-    const noResults = await screen.findByRole('region', { name: 'No sessions match “zzz”' });
+    const noResults = await screen.findByRole('region', { name: 'No sessions match "zzz"' });
+    expect(outcome).toHaveTextContent('No sessions match "zzz"');
     await user.click(within(noResults).getByRole('button', { name: 'Clear search' }));
 
     expect(search).toHaveValue('');
@@ -285,6 +295,21 @@ describe('LibraryScreen', () => {
     expect(await screen.findByRole('button', { name: DFA.title ?? '' })).toBeInTheDocument();
     // Three keystrokes made one search request.
     expect(GET.mock.calls.map(searchOf)).toEqual([undefined, 'zzz', undefined]);
+  });
+
+  it('announces how many sessions a search found', async () => {
+    const { api, GET } = fakeApi();
+    GET.mockImplementation(async (path: string, options: unknown) =>
+      listed(searchOf([path, options]) ? [DFA] : [DFA, CALCULUS]),
+    );
+    const { user } = await renderLibrary(api);
+    await screen.findByRole('button', { name: DFA.title ?? '' });
+    await user.type(screen.getByRole('searchbox'), 'dfa');
+    await waitFor(() =>
+      expect(screen.getByTestId('search-outcome')).toHaveTextContent('1 session'),
+    );
+    await user.clear(screen.getByRole('searchbox'));
+    await waitFor(() => expect(screen.getByTestId('search-outcome')).toBeEmptyDOMElement());
   });
 
   it('clears the search with Escape or the clear button in the field', async () => {
@@ -315,7 +340,7 @@ describe('LibraryScreen', () => {
     const { user } = await renderLibrary(api);
     const search = await screen.findByRole('searchbox');
     await user.type(search, 'zzz');
-    await screen.findByRole('region', { name: 'No sessions match “zzz”' });
+    await screen.findByRole('region', { name: 'No sessions match "zzz"' });
 
     await user.clear(search);
     await waitFor(() => expect(GET).toHaveBeenCalledTimes(3));

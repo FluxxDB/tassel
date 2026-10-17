@@ -3,6 +3,7 @@ import type { ApiClient, Session } from '@tassel/shared/api';
 import type { Lang } from '@tassel/shared/i18n';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRoute } from '../../src/renderer/src/app/route-store';
@@ -49,10 +50,24 @@ async function renderSheet({
   const POST = vi.fn();
   const onOpenChange = vi.fn();
   const user = userEvent.setup();
+  // The sheet is controlled: like the library, this parent closes it when asked.
+  function Parent() {
+    const [open, setOpen] = useState(true);
+    return (
+      <NewSessionSheet
+        open={open}
+        onOpenChange={(next) => {
+          onOpenChange(next);
+          setOpen(next);
+        }}
+        platform={platform}
+      />
+    );
+  }
   render(
     <I18nextProvider i18n={i18n}>
       <ApiProvider client={{ POST } as unknown as ApiClient}>
-        <NewSessionSheet open onOpenChange={onOpenChange} platform={platform} />
+        <Parent />
       </ApiProvider>
     </I18nextProvider>,
   );
@@ -177,6 +192,19 @@ describe('NewSessionSheet', () => {
 
     await user.click(start);
     await waitFor(() => expect(useRoute.getState().route).toMatchObject({ name: 'session' }));
+  });
+
+  it("can still close while Start runs, and then doesn't open the late session", async () => {
+    const { POST, onOpenChange, user } = await renderSheet();
+    const answer = pending<ReturnType<typeof created>>();
+    POST.mockReturnValue(answer.promise);
+    await user.click(screen.getByRole('button', { name: 'Start session' }));
+    expect(screen.getByRole('button', { name: 'Cancel' })).not.toHaveAttribute('aria-disabled');
+    await user.keyboard('{Escape}');
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+
+    await act(async () => answer.resolve(created(CREATED)));
+    expect(useRoute.getState().route).toEqual({ name: 'library' });
   });
 
   it('Cancel closes without creating a session', async () => {

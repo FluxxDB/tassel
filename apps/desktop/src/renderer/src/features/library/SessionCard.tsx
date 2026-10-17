@@ -41,12 +41,15 @@ export function SessionCard({ session, dated, showSubject, now, onOpen }: Sessio
         'text-left transition-shadow duration-[120ms] hover:shadow-[0_0_0_1px_var(--color-hairline)] active:shadow-[0_0_0_1px_var(--color-smoke)]',
       )}
     >
-      {/* Two lines reserved, so every card in the grid is the same height. */}
+      {/*
+        Two lines at Korean leading (2 × 1.6em) are reserved for every title, so every card in
+        the grid is the same height, whatever the session's language.
+      */}
       <span
         id={`${id}-title`}
         lang={untitled ? undefined : session.language}
         className={cn(
-          'line-clamp-2 min-h-[2lh] text-[17px] leading-[1.35] font-w520 wrap-anywhere ko:leading-[1.6] ko:break-keep',
+          'line-clamp-2 min-h-[3.2em] text-[17px] leading-[1.35] font-w520 wrap-anywhere ko:leading-[1.6] ko:break-keep',
           untitled ? 'text-smoke-text' : 'text-ink',
         )}
       >
@@ -84,7 +87,7 @@ export function SessionCardSkeleton() {
       data-testid="session-skeleton"
       className={cn(CARD, 'motion-safe:animate-[skeleton-pulse_1.6s_ease-in-out_infinite]')}
     >
-      <span className="flex min-h-[46px] flex-col gap-2.5 pt-1">
+      <span className="flex min-h-[54.4px] flex-col gap-2.5 pt-1">
         <span className="h-3.5 w-4/5 rounded-pill bg-hairline" />
         <span className="h-3.5 w-1/2 rounded-pill bg-hairline" />
       </span>

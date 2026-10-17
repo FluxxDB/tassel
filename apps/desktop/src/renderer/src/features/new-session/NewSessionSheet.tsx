@@ -8,7 +8,7 @@ import {
   UnauthorizedError,
 } from '@tassel/shared/api';
 import { type Lang, SUPPORTED_LANGS } from '@tassel/shared/i18n';
-import { type ReactNode, type RefObject, useId, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Platform } from '../../../../shared/bridge';
 import { useRoute } from '../../app/route-store';
@@ -36,19 +36,13 @@ export function NewSessionSheet({
   platform = window.tassel.platform,
 }: NewSessionSheetProps) {
   const { t } = useTranslation();
-  // While Start's request runs, the sheet stays open: Escape, a click outside and Cancel wait.
-  const starting = useRef(false);
-  const requestOpenChange = (next: boolean) => {
-    if (!next && starting.current) return;
-    onOpenChange(next);
-  };
   return (
-    <Sheet open={open} onOpenChange={requestOpenChange} title={t('newSession.title')}>
+    <Sheet open={open} onOpenChange={onOpenChange} title={t('newSession.title')}>
       {/* Mounted only while open, so every opening starts from the defaults. */}
       <NewSessionForm
+        open={open}
         platform={platform}
-        starting={starting}
-        onCancel={() => requestOpenChange(false)}
+        onCancel={() => onOpenChange(false)}
         onStarted={() => onOpenChange(false)}
       />
     </Sheet>
@@ -56,13 +50,13 @@ export function NewSessionSheet({
 }
 
 function NewSessionForm({
+  open,
   platform,
-  starting,
   onCancel,
   onStarted,
 }: {
+  open: boolean;
   platform: Platform;
-  starting: RefObject<boolean>;
   onCancel(): void;
   onStarted(): void;
 }) {
@@ -76,22 +70,36 @@ function NewSessionForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ErrorKey | null>(null);
   const windows = platform === 'win32';
+  // The ref, not the state, guards Start: a second click can land before React re-renders.
+  const starting = useRef(false);
+  // She can close the sheet while Start runs (a hung server mustn't trap her). The sheet stays
+  // mounted while it animates out, so `open`, not unmounting, says she has moved on.
+  const stillOpen = useRef(open);
+  stillOpen.current = open;
+  useEffect(
+    () => () => {
+      starting.current = false;
+    },
+    [],
+  );
 
   const start = async () => {
-    // The ref, not the state, guards: a second click can land before React re-renders.
     if (starting.current) return;
     starting.current = true;
     setBusy(true);
     setError(null);
     try {
       const session = await createSession(api, { type, language, source });
-      starting.current = false;
+      // Closed meanwhile: she changed her mind, so don't open the session.
+      if (!stillOpen.current) return;
       onStarted();
       openSession(session.id);
     } catch (failure) {
-      starting.current = false;
+      if (!stillOpen.current) return;
       setBusy(false);
       setError(errorKey(failure));
+    } finally {
+      starting.current = false;
     }
   };
 
@@ -147,7 +155,7 @@ function NewSessionForm({
             </p>
           )}
         </div>
-        <Button variant="ghost" size="lg" onClick={onCancel} aria-disabled={busy || undefined}>
+        <Button variant="ghost" size="lg" onClick={onCancel}>
           {t('common.cancel')}
         </Button>
         <Button size="lg" busy={busy} busyLabel={t('newSession.starting')} onClick={start}>
