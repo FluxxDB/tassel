@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StrictMode, useState } from 'react';
 import { I18nextProvider } from 'react-i18next';
@@ -84,6 +84,20 @@ describe('Button', () => {
     expect(within(button).getByText('Starting…').parentElement).toHaveClass('grid');
     await user.click(button);
     expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('acts once on a double click, and on every press of Enter or Space', () => {
+    const onClick = vi.fn();
+    render(<Button onClick={onClick}>Start session</Button>);
+    const button = screen.getByRole('button', { name: 'Start session' });
+    // A double click's second click lands wherever the first one led: it's ignored.
+    fireEvent.click(button, { detail: 1 });
+    fireEvent.click(button, { detail: 2 });
+    fireEvent.click(button, { detail: 3 });
+    expect(onClick).toHaveBeenCalledTimes(1);
+    // The keyboard clicks with no click count.
+    fireEvent.click(button, { detail: 0 });
+    expect(onClick).toHaveBeenCalledTimes(2);
   });
 
   it('ghost is a text button with no fill, and never submits a form by default', () => {
@@ -284,6 +298,21 @@ describe('IconButton', () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
+  it('acts once on a double click, and on every press of Enter or Space', () => {
+    const onClick = vi.fn();
+    render(
+      <IconButton label="Mic" pressed onClick={onClick}>
+        <Mic />
+      </IconButton>,
+    );
+    const button = screen.getByRole('button', { name: 'Mic' });
+    fireEvent.click(button, { detail: 1 });
+    fireEvent.click(button, { detail: 2 });
+    expect(onClick).toHaveBeenCalledTimes(1);
+    fireEvent.click(button, { detail: 0 });
+    expect(onClick).toHaveBeenCalledTimes(2);
+  });
+
   it('is unfilled when not pressed, and has no aria-pressed when it is not a toggle', () => {
     const { rerender } = render(
       <IconButton label="Camera" pressed={false}>
@@ -406,6 +435,24 @@ describe('Sheet', () => {
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await waitFor(() => expect(opener).toHaveFocus());
+  });
+
+  it('closes on a click on its scrim, but not on the second click of the double click that opened it', () => {
+    const onOpenChange = vi.fn();
+    render(
+      <Sheet open onOpenChange={onOpenChange} title="End this session?">
+        <button type="button">Keep going</button>
+      </Sheet>,
+    );
+    const scrim = screen.getByTestId('sheet-scrim');
+    // A press on the scrim never takes focus out of the sheet. (Whether the press alone closes it
+    // jsdom can't show: Radix's outside-press handling needs a real browser, so E2E covers that.)
+    expect(fireEvent.mouseDown(scrim, { detail: 2 })).toBe(false);
+    // The second click of a double click does nothing; a click of its own closes the sheet.
+    fireEvent.click(scrim, { detail: 2 });
+    expect(onOpenChange).not.toHaveBeenCalled();
+    fireEvent.click(scrim, { detail: 1 });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it('keeps scrolling inside a tall sheet', () => {
