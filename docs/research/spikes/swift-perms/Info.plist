@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>dev.tassel.permissions-probe</string>
+<key>NSCameraUsageDescription</key><string>Tassel uses the camera to see your paper through Desk View.</string>
+<key>NSMicrophoneUsageDescription</key><string>Tassel uses the microphone so you can talk with your tutor.</string>
+</dict></plist>

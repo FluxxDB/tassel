@@ -1,0 +1,7 @@
+camera before: not-determined
+camera granted: true
+microphone granted: true
+screen before: denied
+screen error: undefined
+screen after: denied
+done
