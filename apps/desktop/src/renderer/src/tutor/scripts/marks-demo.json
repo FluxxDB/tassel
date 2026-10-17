@@ -1,4 +1,5 @@
 {
+  "lang": "en",
   "steps": [
     {
       "at": 0,
@@ -26,156 +27,91 @@
     },
     {
       "at": 2400,
-      "event": {
-        "type": "state",
-        "state": "speaking"
-      }
-    },
-    {
-      "at": 2500,
-      "event": {
-        "type": "caption",
-        "speaker": "tutor",
-        "text": "Let's walk 1010 through your DFA.",
-        "lang": "en",
-        "final": true
-      }
-    },
-    {
-      "at": 2600,
-      "event": {
-        "type": "actions",
-        "actions": [
-          {
-            "kind": "paper.freeze",
-            "frame": {
-              "kind": "fixture",
-              "name": "dfa-wrong"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "at": 3200,
-      "event": {
-        "type": "actions",
-        "actions": [
-          {
-            "kind": "paper.mark",
-            "mark": {
-              "type": "step",
-              "id": "s1",
-              "n": 1,
-              "target": {
-                "el": "edge:q0>q0"
+      "turn": [
+        {
+          "say": "Let's walk 1010 through your DFA, {#freeze}one symbol at a time.",
+          "actions": {
+            "freeze": {
+              "kind": "paper.freeze",
+              "frame": {
+                "kind": "fixture",
+                "name": "dfa-wrong"
               }
             }
           }
-        ]
-      }
-    },
-    {
-      "at": 3800,
-      "event": {
-        "type": "actions",
-        "actions": [
-          {
-            "kind": "paper.mark",
-            "mark": {
-              "type": "step",
-              "id": "s2",
-              "n": 2,
-              "target": {
-                "el": "edge:q0>q1"
+        },
+        {
+          "say": "First a 1, {#s1}which keeps you on q0, {#s2}then a 0 to q1, {#s3}a 1 to q2, {#s4}and a 0 to q3. {#circle}This loop {#callout}is what lets 1010 in.",
+          "actions": {
+            "s1": {
+              "kind": "paper.mark",
+              "mark": {
+                "type": "step",
+                "id": "s1",
+                "n": 1,
+                "target": {
+                  "el": "edge:q0>q0"
+                }
+              }
+            },
+            "s2": {
+              "kind": "paper.mark",
+              "mark": {
+                "type": "step",
+                "id": "s2",
+                "n": 2,
+                "target": {
+                  "el": "edge:q0>q1"
+                }
+              }
+            },
+            "s3": {
+              "kind": "paper.mark",
+              "mark": {
+                "type": "step",
+                "id": "s3",
+                "n": 3,
+                "target": {
+                  "el": "edge:q1>q2"
+                }
+              }
+            },
+            "s4": {
+              "kind": "paper.mark",
+              "mark": {
+                "type": "step",
+                "id": "s4",
+                "n": 4,
+                "target": {
+                  "el": "edge:q2>q3"
+                }
+              }
+            },
+            "circle": {
+              "kind": "paper.mark",
+              "mark": {
+                "type": "circle",
+                "id": "circle",
+                "target": {
+                  "el": "edge:q0>q0"
+                },
+                "wash": true
+              }
+            },
+            "callout": {
+              "kind": "paper.mark",
+              "mark": {
+                "type": "callout",
+                "id": "callout",
+                "target": {
+                  "el": "edge:q0>q0"
+                },
+                "text": "A leading 1 loops here, so 1010 gets in"
               }
             }
           }
-        ]
-      }
-    },
-    {
-      "at": 4400,
-      "event": {
-        "type": "actions",
-        "actions": [
-          {
-            "kind": "paper.mark",
-            "mark": {
-              "type": "step",
-              "id": "s3",
-              "n": 3,
-              "target": {
-                "el": "edge:q1>q2"
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "at": 5000,
-      "event": {
-        "type": "actions",
-        "actions": [
-          {
-            "kind": "paper.mark",
-            "mark": {
-              "type": "step",
-              "id": "s4",
-              "n": 4,
-              "target": {
-                "el": "edge:q2>q3"
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "at": 5600,
-      "event": {
-        "type": "actions",
-        "actions": [
-          {
-            "kind": "paper.mark",
-            "mark": {
-              "type": "circle",
-              "id": "circle",
-              "target": {
-                "el": "edge:q0>q0"
-              },
-              "wash": true
-            }
-          }
-        ]
-      }
-    },
-    {
-      "at": 6200,
-      "event": {
-        "type": "actions",
-        "actions": [
-          {
-            "kind": "paper.mark",
-            "mark": {
-              "type": "callout",
-              "id": "callout",
-              "target": {
-                "el": "edge:q0>q0"
-              },
-              "text": "A leading 1 loops here, so 1010 gets in"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "at": 7000,
-      "event": {
-        "type": "state",
-        "state": "listening"
-      }
+        }
+      ]
     }
   ]
 }
