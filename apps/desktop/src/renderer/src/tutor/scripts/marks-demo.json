@@ -1,4 +1,5 @@
 {
+  "lang": "en",
   "steps": [
     {
       "at": 0,
@@ -13,6 +14,104 @@
         "type": "state",
         "state": "listening"
       }
+    },
+    {
+      "at": 1500,
+      "event": {
+        "type": "caption",
+        "speaker": "student",
+        "text": "I don't understand, can you show me?",
+        "lang": "en",
+        "final": true
+      }
+    },
+    {
+      "at": 2400,
+      "turn": [
+        {
+          "say": "Let's walk 1010 through your DFA, {#freeze}one symbol at a time.",
+          "actions": {
+            "freeze": {
+              "kind": "paper.freeze",
+              "frame": {
+                "kind": "fixture",
+                "name": "dfa-wrong"
+              }
+            }
+          }
+        },
+        {
+          "say": "First a 1, {#s1}which keeps you on q0, {#s2}then a 0 to q1, {#s3}a 1 to q2, {#s4}and a 0 to q3. {#circle}This loop {#callout}is what lets 1010 in.",
+          "actions": {
+            "s1": {
+              "kind": "paper.mark",
+              "mark": {
+                "type": "step",
+                "id": "s1",
+                "n": 1,
+                "target": {
+                  "el": "edge:q0>q0"
+                }
+              }
+            },
+            "s2": {
+              "kind": "paper.mark",
+              "mark": {
+                "type": "step",
+                "id": "s2",
+                "n": 2,
+                "target": {
+                  "el": "edge:q0>q1"
+                }
+              }
+            },
+            "s3": {
+              "kind": "paper.mark",
+              "mark": {
+                "type": "step",
+                "id": "s3",
+                "n": 3,
+                "target": {
+                  "el": "edge:q1>q2"
+                }
+              }
+            },
+            "s4": {
+              "kind": "paper.mark",
+              "mark": {
+                "type": "step",
+                "id": "s4",
+                "n": 4,
+                "target": {
+                  "el": "edge:q2>q3"
+                }
+              }
+            },
+            "circle": {
+              "kind": "paper.mark",
+              "mark": {
+                "type": "circle",
+                "id": "circle",
+                "target": {
+                  "el": "edge:q0>q0"
+                },
+                "wash": true
+              }
+            },
+            "callout": {
+              "kind": "paper.mark",
+              "mark": {
+                "type": "callout",
+                "id": "callout",
+                "target": {
+                  "el": "edge:q0>q0"
+                },
+                "text": "A leading 1 loops here, so 1010 gets in"
+              }
+            }
+          }
+        }
+      ]
     }
   ]
 }
