@@ -3,7 +3,10 @@
 // drawn. The server's Pydantic mirror (services/server/src/tassel/beats/models.py) holds to the
 // same rules, against the shared fixtures.json.
 
-/** A state's id, which is also its label: /^[A-Za-z][A-Za-z0-9_]{0,15}$/. */
+/**
+ * A state's id, which is also its label: /^[A-Za-z0-9][A-Za-z0-9_]{0,15}$/. That takes "q0" and
+ * "qd", and the textbook "0", "1" and "2" a reading of her paper may carry (M19).
+ */
 export type StateId = string;
 
 export const EPSILON = 'ε';
@@ -28,7 +31,8 @@ export type ParsedElementRef =
   | { kind: 'edge'; from: StateId; to: StateId };
 
 // JavaScript's $ matches only at the very end, so "q1\n" fails (Python's re.fullmatch agrees).
-const STATE_ID = /^[A-Za-z][A-Za-z0-9_]{0,15}$/;
+// No id starts with "_", so none can meet Graphviz's "__start" node.
+const STATE_ID = /^[A-Za-z0-9][A-Za-z0-9_]{0,15}$/;
 
 export function isStateId(id: unknown): id is StateId {
   return typeof id === 'string' && STATE_ID.test(id);

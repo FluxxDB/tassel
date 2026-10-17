@@ -33,10 +33,27 @@
       },
       "reveal": "none"
     },
+    {
+      "kind": "board.automaton",
+      "item": "parity",
+      "spec": {
+        "kind": "dfa",
+        "states": [{ "id": "0", "accept": true }, { "id": "1" }],
+        "start": "0",
+        "transitions": [
+          { "from": "0", "to": "0", "symbols": ["0"] },
+          { "from": "0", "to": "1", "symbols": ["1"] },
+          { "from": "1", "to": "1", "symbols": ["0"] },
+          { "from": "1", "to": "0", "symbols": ["1"] }
+        ]
+      },
+      "title": "Your DFA"
+    },
     { "kind": "board.addState", "item": "fix", "id": "qd", "accept": false },
     { "kind": "board.addTransition", "item": "fix", "from": "q1", "to": "qd", "symbols": ["0"] },
     { "kind": "board.reveal", "item": "fix", "els": ["start", "state:q0", "edge:q0>q1"] },
     { "kind": "board.reveal", "item": "fix" },
+    { "kind": "board.reveal", "item": "parity", "els": ["start", "state:0", "edge:0>1"] },
     { "kind": "board.highlight", "item": "wrong", "el": "edge:q0>q0", "on": true },
     { "kind": "board.highlight", "item": "wrong", "el": "edge:q0>q0", "on": false },
     { "kind": "board.pulse", "item": "wrong", "el": "state:q3" },
@@ -146,6 +163,35 @@
     },
     { "kind": "paper.freeze", "frame": { "kind": "latest" } },
     { "kind": "paper.freeze", "frame": { "kind": "live" } },
+    {
+      "kind": "paper.freeze",
+      "frame": { "kind": "latest" },
+      "elements": {
+        "states": {
+          "0": { "center": { "x": 0.3, "y": 0.5 }, "r": 0.06 },
+          "1": { "center": { "x": 0.7, "y": 0.5 }, "r": 0.06 }
+        },
+        "edges": {
+          "0>1": {
+            "path": [{ "x": 0.36, "y": 0.48 }, { "x": 0.64, "y": 0.48 }],
+            "label": { "x": 0.5, "y": 0.45 }
+          },
+          "1>0": { "path": [{ "x": 0.64, "y": 0.52 }, { "x": 0.36, "y": 0.52 }] }
+        },
+        "start": { "path": [{ "x": 0.16, "y": 0.5 }, { "x": 0.24, "y": 0.5 }] }
+      },
+      "spec": {
+        "kind": "dfa",
+        "states": [{ "id": "0", "accept": true }, { "id": "1" }],
+        "start": "0",
+        "transitions": [
+          { "from": "0", "to": "0", "symbols": ["0"] },
+          { "from": "0", "to": "1", "symbols": ["1"] },
+          { "from": "1", "to": "1", "symbols": ["0"] },
+          { "from": "1", "to": "0", "symbols": ["1"] }
+        ]
+      }
+    },
     {
       "kind": "paper.mark",
       "mark": { "type": "circle", "id": "loop", "target": { "el": "edge:q0>q0" }, "wash": true }
@@ -423,6 +469,14 @@
           ]
         }
       }
+    },
+    {
+      "why": "a state id that starts with an underscore",
+      "data": { "kind": "board.addState", "item": "fix", "id": "_0" }
+    },
+    {
+      "why": "a state id of 17 characters",
+      "data": { "kind": "board.addState", "item": "fix", "id": "q1111111111111111" }
     }
   ],
   "beats": [

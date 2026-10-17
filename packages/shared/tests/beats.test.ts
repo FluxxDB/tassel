@@ -256,13 +256,21 @@ describe('checkAutomaton', () => {
     ).toEqual(['no symbols in q1>q1']);
   });
 
-  it('holds state ids to a letter, then up to 15 letters, digits or underscores', () => {
+  it('holds state ids to a letter or digit, then up to 15 letters, digits or underscores', () => {
     const withState = (id: string) =>
       checkAutomaton({ kind: 'nfa', states: [{ id }], start: id, transitions: [] });
     expect(withState('q_dead1')).toEqual([]);
     expect(withState(`q${'1'.repeat(15)}`)).toEqual([]);
     expect(withState(`q${'1'.repeat(16)}`)).toEqual([`bad state id "q${'1'.repeat(16)}"`]);
-    expect(withState('0q')).toEqual(['bad state id "0q"']);
+    expect(withState('_q')).toEqual(['bad state id "_q"']);
+    expect(withState('q-1')).toEqual(['bad state id "q-1"']);
+  });
+
+  it('takes the textbook labels a reading of her paper may carry: 0, 1, 2, 10', () => {
+    for (const id of ['0', '1', '2', '10', '0a']) {
+      const spec: AutomatonSpec = { kind: 'dfa', states: [{ id }], start: id, transitions: [] };
+      expect(checkAutomaton(spec)).toEqual([]);
+    }
   });
 });
 
@@ -275,10 +283,13 @@ describe('element refs', () => {
     expect(parseElementRef('start')).toEqual({ kind: 'start' });
     expect(parseElementRef('state:q3')).toEqual({ kind: 'state', id: 'q3' });
     expect(parseElementRef('edge:q0>q0')).toEqual({ kind: 'edge', from: 'q0', to: 'q0' });
+    expect(parseElementRef('state:0')).toEqual({ kind: 'state', id: '0' });
+    expect(parseElementRef('edge:0>1')).toEqual({ kind: 'edge', from: '0', to: '1' });
   });
 
   it('parseElementRef rejects anything else', () => {
-    for (const ref of ['edge:q0', 'edge:q0>q1>q2', 'state:', 'state:q 1', 'q0', 'Start', '']) {
+    const refs = ['edge:q0', 'edge:q0>q1>q2', 'state:', 'state:q 1', 'state:_0', 'q0', 'Start', ''];
+    for (const ref of refs) {
       expect(parseElementRef(ref)).toBeNull();
     }
   });
