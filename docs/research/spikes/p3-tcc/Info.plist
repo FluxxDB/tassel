@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>dev.tassel.p3-probe</string>
+<key>CFBundleName</key><string>p3-probe</string>
+<key>NSCameraUsageDescription</key><string>Tassel's P3 spike checks that it can read Desk View frames. It saves none.</string>
+</dict></plist>
