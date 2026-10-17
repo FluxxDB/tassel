@@ -56,13 +56,14 @@ class MemoryObjectStore:
     """A store in this process, for unit tests."""
 
     def __init__(self) -> None:
-        self._objects: dict[str, bytes] = {}
+        self._objects: dict[str, tuple[bytes, str]] = {}
 
     async def put(self, key: str, data: bytes, content_type: str) -> None:
-        self._objects[key] = bytes(data)
+        self._objects[key] = (bytes(data), content_type)
 
     async def get(self, key: str) -> bytes | None:
-        return self._objects.get(key)
+        found = self._objects.get(key)
+        return None if found is None else found[0]
 
     async def delete_prefix(self, prefix: str) -> int:
         _check_prefix(prefix)
@@ -74,10 +75,18 @@ class MemoryObjectStore:
     def keys(self) -> list[str]:
         return sorted(self._objects)
 
+    def content_type(self, key: str) -> str | None:
+        found = self._objects.get(key)
+        return None if found is None else found[1]
+
+
+def _status(error: ClientError) -> int | None:
+    return error.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+
 
 def _is_missing(error: ClientError) -> bool:
     """A 404: no such key, or no such bucket."""
-    return error.response.get("ResponseMetadata", {}).get("HTTPStatusCode") == 404
+    return _status(error) == 404
 
 
 class S3ObjectStore:
@@ -142,9 +151,19 @@ class S3ObjectStore:
             except ClientError as error:
                 if not _is_missing(error):
                     raise
-                # No LocationConstraint: Versity runs in us-east-1, where S3 refuses one.
-                client.create_bucket(Bucket=self.bucket)
+                self._create_bucket(client)
             self._bucket_checked = True
+
+    def _create_bucket(self, client: Any) -> None:
+        try:
+            # No LocationConstraint: Versity runs in us-east-1, where S3 refuses one.
+            client.create_bucket(Bucket=self.bucket)
+        except ClientError as error:
+            if _status(error) != 409:
+                raise
+            # Another process created it first. Go on only if it is ours to use: a bucket
+            # someone else owns fails here (403).
+            client.head_bucket(Bucket=self.bucket)
 
     def _put(self, key: str, data: bytes, content_type: str) -> None:
         client = self._s3()

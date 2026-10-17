@@ -103,6 +103,16 @@ async def test_memory_store_roundtrip_and_prefix_delete():
 
 
 @pytest.mark.asyncio
+async def test_memory_store_keeps_the_content_type():
+    store = MemoryObjectStore()
+    await store.put("a/full.jpg", b"jpeg", "image/jpeg")
+    assert store.content_type("a/full.jpg") == "image/jpeg"
+    assert store.content_type("a/crop.jpg") is None
+    await store.delete_prefix("a/")
+    assert store.content_type("a/full.jpg") is None
+
+
+@pytest.mark.asyncio
 async def test_s3_store_roundtrip_against_local_s3(s3_bucket):
     store = S3ObjectStore(**LOCAL_S3, bucket=s3_bucket, page_size=2)
     admin = admin_client()
@@ -204,6 +214,49 @@ async def test_s3_store_keeps_an_existing_bucket():
         )
         await store.put("k", b"jpeg", "image/jpeg")
         stub.assert_no_pending_responses()
+
+
+@pytest.mark.asyncio
+async def test_s3_store_puts_when_another_process_created_the_bucket_first():
+    client = stubbed_client()
+    store = store_on(client)
+    with Stubber(client) as stub:
+        stub.add_client_error(
+            "head_bucket",
+            service_error_code="404",
+            http_status_code=404,
+            expected_params={"Bucket": "tassel-stub"},
+        )
+        stub.add_client_error(
+            "create_bucket",
+            service_error_code="BucketAlreadyOwnedByYou",
+            http_status_code=409,
+            expected_params={"Bucket": "tassel-stub"},
+        )
+        stub.add_response("head_bucket", {}, {"Bucket": "tassel-stub"})  # it is ours to use
+        for key in ("k1", "k2"):
+            stub.add_response(
+                "put_object",
+                {},
+                {"Bucket": "tassel-stub", "Key": key, "Body": b"jpeg", "ContentType": "image/jpeg"},
+            )
+        await store.put("k1", b"jpeg", "image/jpeg")
+        await store.put("k2", b"jpeg", "image/jpeg")
+        stub.assert_no_pending_responses()
+
+
+@pytest.mark.asyncio
+async def test_s3_store_fails_a_put_into_someone_elses_bucket():
+    client = stubbed_client()
+    store = store_on(client)
+    with Stubber(client) as stub:
+        stub.add_client_error("head_bucket", service_error_code="404", http_status_code=404)
+        stub.add_client_error(
+            "create_bucket", service_error_code="BucketAlreadyExists", http_status_code=409
+        )
+        stub.add_client_error("head_bucket", service_error_code="403", http_status_code=403)
+        with pytest.raises(ClientError, match="403"):
+            await store.put("k", b"jpeg", "image/jpeg")
 
 
 @pytest.mark.asyncio
