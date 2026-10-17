@@ -939,6 +939,9 @@
               }
             },
             "description": "Validation Error"
+          },
+          "503": {
+            "description": "The frame store is unavailable; try again later"
           }
         },
         "security": [
@@ -1173,6 +1176,9 @@
           },
           "429": {
             "description": "The session's newest frame is too recent; see Retry-After"
+          },
+          "503": {
+            "description": "The frame store is unavailable; try again later"
           }
         },
         "security": [
@@ -1249,6 +1255,9 @@
               }
             },
             "description": "Validation Error"
+          },
+          "503": {
+            "description": "The frame store is unavailable; try again later"
           }
         },
         "security": [

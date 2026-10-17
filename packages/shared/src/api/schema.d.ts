@@ -621,6 +621,13 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
+            /** @description The frame store is unavailable; try again later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     patch_session_v1_sessions__session_id__patch: {
@@ -759,6 +766,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The frame store is unavailable; try again later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     frame_image_v1_sessions__session_id__frames__frame_id__image_get: {
@@ -799,6 +813,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+            /** @description The frame store is unavailable; try again later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

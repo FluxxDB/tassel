@@ -42,4 +42,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     for router in (health.router, devices.router, sessions.router, frames.router):
         app.include_router(router, prefix="/v1")
+    for error in frames.STORE_ERRORS:
+        app.add_exception_handler(error, frames.store_unavailable)
     return app

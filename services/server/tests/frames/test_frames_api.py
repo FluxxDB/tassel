@@ -13,6 +13,7 @@ from typing import Any
 
 import httpx
 import pytest
+from botocore.exceptions import ClientError, EndpointConnectionError
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import DBAPIError
 
@@ -24,6 +25,8 @@ from tassel.frames.tables import Frame
 from tassel.storage.tables import Base
 
 NEW_SESSION = {"type": "homework", "language": "en", "source": "paper"}
+# A request from the packaged app, so responses carry its CORS headers.
+FROM_APP = {"Origin": "app://tassel"}
 
 
 def at(timestamp: str) -> datetime:
@@ -477,9 +480,10 @@ async def test_delete_session_keeps_its_rows_when_objects_survive(
         raise ObjectStoreError("1 of 1 objects weren't deleted")
 
     monkeypatch.setattr(store, "delete_prefix", fails)
-    with pytest.raises(ObjectStoreError):
-        await client.delete(f"/v1/sessions/{session_id}", headers=headers)
+    r = await client.delete(f"/v1/sessions/{session_id}", headers={**headers, **FROM_APP})
 
+    assert r.status_code == 503
+    assert r.headers["access-control-allow-origin"] == "app://tassel"
     # Nothing was deleted, so deleting again can finish the job.
     assert (await client.get(f"/v1/sessions/{session_id}", headers=headers)).status_code == 200
     assert await frame_rows(db, session_id) == 1
@@ -531,12 +535,73 @@ async def test_failed_crop_write_deletes_the_full_frame(
         await put(key, data, content_type)
 
     monkeypatch.setattr(store, "put", crop_fails)
-    with pytest.raises(ObjectStoreError):
-        await upload(
-            client, headers, session_id, ink_meta, frame=make_jpeg(64, 48), crop=make_jpeg(16, 16)
-        )
+    r = await upload(
+        client, headers, session_id, ink_meta, frame=make_jpeg(64, 48), crop=make_jpeg(16, 16)
+    )
 
+    assert r.status_code == 503
     assert store.keys() == []
+
+
+def store_down(kind: str) -> Exception:
+    """What a failing store raises: its own error, or boto's for an outage or a refusal."""
+    if kind == "object-store":
+        return ObjectStoreError("1 of 2 objects weren't deleted")
+    if kind == "unreachable":
+        return EndpointConnectionError(endpoint_url="http://127.0.0.1:7070")
+    return ClientError({"Error": {"Code": "AccessDenied"}}, "PutObject")
+
+
+STORE_FAILURES = ["object-store", "unreachable", "refused"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", STORE_FAILURES)
+async def test_store_failures_answer_503_inside_cors(
+    client, store, db, make_jpeg, ink_meta, monkeypatch, kind
+):
+    # A 503 with CORS headers lets the app tell the server's trouble from being offline.
+    headers, _, session_id = await learner_with_session(client)
+
+    async def down(*args: Any) -> None:
+        raise store_down(kind)
+
+    monkeypatch.setattr(store, "put", down)
+    r = await upload(
+        client,
+        {**headers, **FROM_APP},
+        session_id,
+        ink_meta,
+        frame=make_jpeg(64, 48),
+        crop=make_jpeg(16, 16),
+    )
+
+    assert r.status_code == 503
+    assert r.headers["access-control-allow-origin"] == "app://tassel"
+    assert "detail" in r.json()
+    assert await frame_rows(db, session_id) == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", STORE_FAILURES)
+async def test_image_answers_503_when_the_store_fails(
+    client, store, make_jpeg, ink_meta, monkeypatch, kind
+):
+    headers, _, session_id = await learner_with_session(client)
+    r = await upload(client, headers, session_id, page_of(ink_meta), frame=make_jpeg(64, 48))
+
+    async def down(key: str) -> bytes | None:
+        raise store_down(kind)
+
+    monkeypatch.setattr(store, "get", down)
+    image = await client.get(
+        image_url(session_id, r.json()["id"]),
+        params={"part": "full"},
+        headers={**headers, **FROM_APP},
+    )
+
+    assert image.status_code == 503
+    assert image.headers["access-control-allow-origin"] == "app://tassel"
 
 
 def test_frames_table_is_on_base_metadata():
@@ -560,6 +625,18 @@ async def test_openapi_declares_the_frame_routes():
     upload_body = schema["paths"][frames]["post"]["requestBody"]["content"]
     assert list(upload_body) == ["multipart/form-data"]
     assert {"FrameOut", "FrameList", "FrameMeta"} <= set(schema["components"]["schemas"])
+
+
+def test_openapi_declares_503_where_the_store_is_used():
+    paths = create_app(Settings(object_store="memory")).openapi()["paths"]
+    store_routes = [
+        paths["/v1/sessions/{session_id}/frames"]["post"],
+        paths["/v1/sessions/{session_id}/frames/{frame_id}/image"]["get"],
+        paths["/v1/sessions/{session_id}"]["delete"],
+    ]
+    for operation in store_routes:
+        assert "503" in operation["responses"]
+    assert "503" not in paths["/v1/sessions/{session_id}/frames"]["get"]["responses"]
 
 
 def test_memory_store_is_the_test_default(store):

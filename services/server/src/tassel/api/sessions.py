@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tassel.auth import current_learner
 from tassel.frames import repo as frames_repo
+from tassel.frames.api import STORE_UNAVAILABLE
 from tassel.frames.keys import session_prefix
 from tassel.frames.objects import ObjectStore, get_object_store
 from tassel.models import SessionCreate, SessionList, SessionOut, SessionPatch, SessionSort
@@ -67,7 +68,7 @@ async def patch_session(
     return SessionOut.model_validate(session)
 
 
-@router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT, responses=STORE_UNAVAILABLE)
 async def delete_session(
     session_id: uuid.UUID,
     learner: Learner = Depends(current_learner),

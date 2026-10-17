@@ -12,6 +12,7 @@ from datetime import timedelta
 from typing import Annotated, Any
 
 import anyio
+from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import (
     APIRouter,
     Depends,
@@ -24,6 +25,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import JSONResponse
 from pydantic import Json
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,7 +35,7 @@ from tassel.frames import repo
 from tassel.frames.jpeg import NotJpeg, jpeg_dimensions
 from tassel.frames.keys import FramePart, frame_key, frame_prefix
 from tassel.frames.models import FrameList, FrameMeta, FrameOut
-from tassel.frames.objects import ObjectStore, get_object_store
+from tassel.frames.objects import ObjectStore, ObjectStoreError, get_object_store
 from tassel.frames.tables import Frame
 from tassel.storage import sessions_repo
 from tassel.storage.db import get_db
@@ -46,6 +48,30 @@ router = APIRouter(prefix="/sessions/{session_id}/frames", tags=["frames"])
 JPEG = "image/jpeg"
 # The parts of FrameMeta kept in the row's meta column; the rest have columns of their own.
 _ROW_META = {"page_found", "page_quad", "crop_rect", "mask", "detector"}
+
+
+# The store's own failures, and boto's when an S3 store is down or refuses the request.
+STORE_ERRORS = (ObjectStoreError, BotoCoreError, ClientError)
+
+
+# For the OpenAPI schema of each route that uses the store.
+STORE_UNAVAILABLE: dict[int | str, dict[str, Any]] = {
+    503: {"description": "The frame store is unavailable; try again later"}
+}
+
+
+async def store_unavailable(request: Request, error: Exception) -> JSONResponse:
+    """Answers a failed object store with a 503.
+
+    ``create_app`` registers it for ``STORE_ERRORS``. Starlette runs such handlers inside the
+    CORS middleware, so the app can read the 503 and count it as the server's trouble. An
+    unhandled error would become a 500 without CORS headers, which the app sees as offline.
+    """
+    logger.error("The object store failed: %s %s", request.method, request.url.path, exc_info=error)
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": "Frame storage is unavailable. Try again later."},
+    )
 
 
 def _settings(request: Request) -> Settings:
@@ -113,6 +139,7 @@ _UPLOAD_ERRORS: dict[int | str, dict[str, Any]] = {
     413: {"description": "The frame or the crop is over its size limit"},
     415: {"description": "A part isn't a JPEG with a SOF0, SOF1 or SOF2 frame header"},
     429: {"description": "The session's newest frame is too recent; see Retry-After"},
+    **STORE_UNAVAILABLE,
 }
 
 
@@ -203,6 +230,7 @@ async def list_frames(
             "content": {JPEG: {"schema": {"type": "string", "format": "binary"}}},
         },
         404: {"description": "No such frame, no crop, or no stored image"},
+        **STORE_UNAVAILABLE,
     },
 )
 async def frame_image(
