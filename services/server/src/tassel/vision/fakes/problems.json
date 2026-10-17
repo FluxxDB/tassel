@@ -1,0 +1,68 @@
+{
+  "dfa-demo": {
+    "statement": "Binary strings that start with 010",
+    "regex": "010(0|1)*",
+    "predicate": {
+      "expressible": true,
+      "any_of": [
+        {
+          "all_of": [
+            {
+              "op": "starts_with",
+              "text": "010",
+              "symbol": null,
+              "n": null,
+              "m": null,
+              "r": null,
+              "negate": false
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "dfa-demo-hold": {
+    "statement": "Binary strings that start with 010",
+    "regex": "010(0|1)*",
+    "predicate": {
+      "expressible": true,
+      "any_of": [
+        {
+          "all_of": [
+            {
+              "op": "starts_with",
+              "text": "010",
+              "symbol": null,
+              "n": null,
+              "m": null,
+              "r": null,
+              "negate": false
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "dfa-short": {
+    "statement": "Binary strings that start with 010",
+    "regex": "010(0|1)*",
+    "predicate": {
+      "expressible": true,
+      "any_of": [
+        {
+          "all_of": [
+            {
+              "op": "starts_with",
+              "text": "010",
+              "symbol": null,
+              "n": null,
+              "m": null,
+              "r": null,
+              "negate": false
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
