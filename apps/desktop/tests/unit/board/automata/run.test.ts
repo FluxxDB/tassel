@@ -138,7 +138,7 @@ describe('runAutomaton', () => {
     expect(run.steps[0]).toMatchObject({ symbol: EPSILON, to: [], edges: [] });
   });
 
-  it('reads a symbol of several characters as one step', () => {
+  it('reads the input one character a symbol, as the contract has it, so "ab" is two', () => {
     const spec: AutomatonSpec = {
       kind: 'dfa',
       states: [{ id: 's0' }, { id: 's1', accept: true }],
@@ -150,8 +150,9 @@ describe('runAutomaton', () => {
     };
     const run = runAutomaton(spec, 'aba');
 
-    expect(run.steps.map((step) => step.symbol)).toEqual(['ab', 'a']);
-    expect(run.accepted).toBe(true);
+    expect(run.steps.map((step) => step.symbol)).toEqual(['a']);
+    expect(run.stuckAt).toBe(0);
+    expect(run.accepted).toBe(false);
   });
 });
 
@@ -160,7 +161,7 @@ describe('readSymbols', () => {
     expect(readSymbols(WRONG, '1010')).toEqual(['1', '0', '1', '0']);
   });
 
-  it('takes the longest symbol that matches, and any other character alone', () => {
+  it('reads one character (code point) a symbol, whatever the alphabet', () => {
     const spec: AutomatonSpec = {
       kind: 'dfa',
       states: [{ id: 's0' }],
@@ -168,7 +169,7 @@ describe('readSymbols', () => {
       transitions: [{ from: 's0', to: 's0', symbols: ['a', 'ab', 'abc'] }],
     };
 
-    expect(readSymbols(spec, 'abcabaz🙂')).toEqual(['abc', 'ab', 'a', 'z', '🙂']);
+    expect(readSymbols(spec, 'abcz🙂')).toEqual(['a', 'b', 'c', 'z', '🙂']);
   });
 });
 

@@ -59,24 +59,12 @@ export function mergedEdges(spec: AutomatonSpec): MergedEdge[] {
 }
 
 /**
- * The input as the automaton reads it: at each place the longest symbol of its alphabet (ε aside)
- * that matches, else a single character, which no move reads. With one-character symbols, as in
- * every demo, that is one symbol per character.
+ * The input as the automaton reads it: one symbol per character (code point), as the contract
+ * defines a trace's input, so the trace card's tape has a cell per character. A transition on a
+ * symbol of several characters is never taken by a run.
  */
-export function readSymbols(spec: AutomatonSpec, input: string): string[] {
-  const alphabet = new Set(
-    spec.transitions.flatMap(({ symbols }) => symbols).filter((symbol) => symbol !== EPSILON),
-  );
-  const longest = Math.max(1, ...[...alphabet].map((symbol) => [...symbol].length));
-  const chars = [...input];
-  const read: string[] = [];
-  for (let at = 0; at < chars.length; ) {
-    let size = Math.min(longest, chars.length - at);
-    while (size > 1 && !alphabet.has(chars.slice(at, at + size).join(''))) size -= 1;
-    read.push(chars.slice(at, at + size).join(''));
-    at += size;
-  }
-  return read;
+export function readSymbols(_spec: AutomatonSpec, input: string): string[] {
+  return [...input];
 }
 
 export function runAutomaton(spec: AutomatonSpec, input: string): AutomatonRun {
