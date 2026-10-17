@@ -11,6 +11,12 @@ dependencies = [
     "sqlalchemy[asyncio]>=2",
     "psycopg[binary]>=3",
     "alembic",
+    "automata-lib==9.2.0",
+    "opencv-python-headless==4.14.0.94",
+    "numpy>=2.5,<3",
+    "anthropic==1.15.0",
+    "openai>=3.31,<4",
+    "httpx2>=2.12,<3",
 ]
 
 [project.scripts]

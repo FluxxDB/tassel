@@ -1,0 +1,1131 @@
+{
+  "readings": {
+    "demo-wrong": {
+      "version": 1,
+      "frame_id": null,
+      "source": "fixture",
+      "kind": "dfa",
+      "alphabet": ["0", "1"],
+      "states": [
+        {
+          "id": "q0",
+          "label": "q0",
+          "start": true,
+          "accept": false,
+          "center": { "x": 0.18, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.125, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 1,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q1",
+          "label": "q1",
+          "start": false,
+          "accept": false,
+          "center": { "x": 0.39, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.335, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 2,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q2",
+          "label": "q2",
+          "start": false,
+          "accept": false,
+          "center": { "x": 0.6, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.545, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 3,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q3",
+          "label": "q3",
+          "start": false,
+          "accept": true,
+          "center": { "x": 0.81, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.755, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 4,
+          "snapped": true,
+          "confidence": 0.95
+        }
+      ],
+      "transitions": [
+        {
+          "id": "q0-0-q1",
+          "source": "q0",
+          "target": "q1",
+          "symbols": ["0"],
+          "label_box": { "x": 0.265, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 7,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q1-1-q2",
+          "source": "q1",
+          "target": "q2",
+          "symbols": ["1"],
+          "label_box": { "x": 0.475, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 8,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q2-0-q3",
+          "source": "q2",
+          "target": "q3",
+          "symbols": ["0"],
+          "label_box": { "x": 0.685, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 9,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q3-0,1-q3",
+          "source": "q3",
+          "target": "q3",
+          "symbols": ["0", "1"],
+          "label_box": { "x": 0.79, "y": 0.3602, "w": 0.04, "h": 0.04 },
+          "mark": 6,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q0-1-q0",
+          "source": "q0",
+          "target": "q0",
+          "symbols": ["1"],
+          "label_box": { "x": 0.16, "y": 0.3637, "w": 0.04, "h": 0.04 },
+          "mark": 5,
+          "snapped": true,
+          "confidence": 0.95
+        }
+      ],
+      "page": {
+        "width": 1568,
+        "height": 1212,
+        "quad": [
+          { "x": 71.9, "y": 60.28 },
+          { "x": 872.98, "y": 40.7 },
+          { "x": 888.1, "y": 659.72 },
+          { "x": 87.02, "y": 679.3 }
+        ]
+      },
+      "problem": "Binary strings that start with 010",
+      "problem_kind": "dfa",
+      "language": { "regex": "010(0|1)*", "confidence": 0.9 },
+      "uncertain": []
+    },
+    "demo-partial": {
+      "version": 1,
+      "frame_id": null,
+      "source": "fixture",
+      "kind": "dfa",
+      "alphabet": ["0", "1"],
+      "states": [
+        {
+          "id": "q0",
+          "label": "q0",
+          "start": true,
+          "accept": false,
+          "center": { "x": 0.18, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.125, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 1,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q1",
+          "label": "q1",
+          "start": false,
+          "accept": false,
+          "center": { "x": 0.39, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.335, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 2,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q2",
+          "label": "q2",
+          "start": false,
+          "accept": false,
+          "center": { "x": 0.6, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.545, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 3,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q3",
+          "label": "q3",
+          "start": false,
+          "accept": true,
+          "center": { "x": 0.81, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.755, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 4,
+          "snapped": true,
+          "confidence": 0.95
+        }
+      ],
+      "transitions": [
+        {
+          "id": "q0-0-q1",
+          "source": "q0",
+          "target": "q1",
+          "symbols": ["0"],
+          "label_box": { "x": 0.265, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 5,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q1-1-q2",
+          "source": "q1",
+          "target": "q2",
+          "symbols": ["1"],
+          "label_box": { "x": 0.475, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 6,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q2-0-q3",
+          "source": "q2",
+          "target": "q3",
+          "symbols": ["0"],
+          "label_box": { "x": 0.685, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 7,
+          "snapped": true,
+          "confidence": 0.95
+        }
+      ],
+      "page": {
+        "width": 1568,
+        "height": 1212,
+        "quad": [
+          { "x": 71.9, "y": 60.28 },
+          { "x": 872.98, "y": 40.7 },
+          { "x": 888.1, "y": 659.72 },
+          { "x": 87.02, "y": 679.3 }
+        ]
+      },
+      "problem": "Binary strings that start with 010",
+      "problem_kind": "dfa",
+      "language": { "regex": "010(0|1)*", "confidence": 0.9 },
+      "uncertain": []
+    },
+    "demo-correct": {
+      "version": 1,
+      "frame_id": null,
+      "source": "fixture",
+      "kind": "dfa",
+      "alphabet": ["0", "1"],
+      "states": [
+        {
+          "id": "q0",
+          "label": "q0",
+          "start": true,
+          "accept": false,
+          "center": { "x": 0.18, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.125, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 1,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q1",
+          "label": "q1",
+          "start": false,
+          "accept": false,
+          "center": { "x": 0.39, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.335, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 2,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q2",
+          "label": "q2",
+          "start": false,
+          "accept": false,
+          "center": { "x": 0.6, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.545, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 3,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q3",
+          "label": "q3",
+          "start": false,
+          "accept": true,
+          "center": { "x": 0.81, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.755, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 4,
+          "snapped": true,
+          "confidence": 0.95
+        }
+      ],
+      "transitions": [
+        {
+          "id": "q0-0-q1",
+          "source": "q0",
+          "target": "q1",
+          "symbols": ["0"],
+          "label_box": { "x": 0.265, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 6,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q1-1-q2",
+          "source": "q1",
+          "target": "q2",
+          "symbols": ["1"],
+          "label_box": { "x": 0.475, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 7,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q2-0-q3",
+          "source": "q2",
+          "target": "q3",
+          "symbols": ["0"],
+          "label_box": { "x": 0.685, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 8,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q3-0,1-q3",
+          "source": "q3",
+          "target": "q3",
+          "symbols": ["0", "1"],
+          "label_box": { "x": 0.79, "y": 0.3602, "w": 0.04, "h": 0.04 },
+          "mark": 5,
+          "snapped": true,
+          "confidence": 0.95
+        }
+      ],
+      "page": {
+        "width": 1568,
+        "height": 1212,
+        "quad": [
+          { "x": 71.9, "y": 60.28 },
+          { "x": 872.98, "y": 40.7 },
+          { "x": 888.1, "y": 659.72 },
+          { "x": 87.02, "y": 679.3 }
+        ]
+      },
+      "problem": "Binary strings that start with 010",
+      "problem_kind": "dfa",
+      "language": { "regex": "010(0|1)*", "confidence": 0.9 },
+      "uncertain": []
+    },
+    "demo-no-accept": {
+      "version": 1,
+      "frame_id": null,
+      "source": "fixture",
+      "kind": "dfa",
+      "alphabet": ["0", "1"],
+      "states": [
+        {
+          "id": "q0",
+          "label": "q0",
+          "start": true,
+          "accept": false,
+          "center": { "x": 0.18, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.125, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 1,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q1",
+          "label": "q1",
+          "start": false,
+          "accept": false,
+          "center": { "x": 0.39, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.335, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 2,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q2",
+          "label": "q2",
+          "start": false,
+          "accept": false,
+          "center": { "x": 0.6, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.545, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 3,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q3",
+          "label": "q3",
+          "start": false,
+          "accept": false,
+          "center": { "x": 0.81, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.755, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 4,
+          "snapped": true,
+          "confidence": 0.95
+        }
+      ],
+      "transitions": [
+        {
+          "id": "q0-0-q1",
+          "source": "q0",
+          "target": "q1",
+          "symbols": ["0"],
+          "label_box": { "x": 0.265, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 6,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q1-1-q2",
+          "source": "q1",
+          "target": "q2",
+          "symbols": ["1"],
+          "label_box": { "x": 0.475, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 7,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q2-0-q3",
+          "source": "q2",
+          "target": "q3",
+          "symbols": ["0"],
+          "label_box": { "x": 0.685, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 8,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q3-0,1-q3",
+          "source": "q3",
+          "target": "q3",
+          "symbols": ["0", "1"],
+          "label_box": { "x": 0.79, "y": 0.3602, "w": 0.04, "h": 0.04 },
+          "mark": 5,
+          "snapped": true,
+          "confidence": 0.95
+        }
+      ],
+      "page": {
+        "width": 1568,
+        "height": 1212,
+        "quad": [
+          { "x": 71.9, "y": 60.28 },
+          { "x": 872.98, "y": 40.7 },
+          { "x": 888.1, "y": 659.72 },
+          { "x": 87.02, "y": 679.3 }
+        ]
+      },
+      "problem": "Binary strings that start with 010",
+      "problem_kind": "dfa",
+      "language": { "regex": "010(0|1)*", "confidence": 0.9 },
+      "uncertain": []
+    },
+    "nondeterministic": {
+      "version": 1,
+      "frame_id": null,
+      "source": "fixture",
+      "kind": "dfa",
+      "alphabet": ["0", "1"],
+      "states": [
+        {
+          "id": "q0",
+          "label": "q0",
+          "start": true,
+          "accept": false,
+          "center": { "x": 0.18, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.125, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 1,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q1",
+          "label": "q1",
+          "start": false,
+          "accept": false,
+          "center": { "x": 0.39, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.335, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 2,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q2",
+          "label": "q2",
+          "start": false,
+          "accept": true,
+          "center": { "x": 0.6, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.545, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 3,
+          "snapped": true,
+          "confidence": 0.95
+        }
+      ],
+      "transitions": [
+        {
+          "id": "q0-0-q1",
+          "source": "q0",
+          "target": "q1",
+          "symbols": ["0"],
+          "label_box": { "x": 0.265, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 5,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q0-0-q2",
+          "source": "q0",
+          "target": "q2",
+          "symbols": ["0"],
+          "label_box": { "x": 0.37, "y": 0.34, "w": 0.04, "h": 0.04 },
+          "mark": 4,
+          "snapped": true,
+          "confidence": 0.95
+        }
+      ],
+      "page": {
+        "width": 1568,
+        "height": 1212,
+        "quad": [
+          { "x": 71.9, "y": 60.28 },
+          { "x": 872.98, "y": 40.7 },
+          { "x": 888.1, "y": 659.72 },
+          { "x": 87.02, "y": 679.3 }
+        ]
+      },
+      "problem": "Binary strings that start with 010",
+      "problem_kind": "dfa",
+      "language": { "regex": "010(0|1)*", "confidence": 0.9 },
+      "uncertain": []
+    },
+    "nfa-ends-with-01": {
+      "version": 1,
+      "frame_id": null,
+      "source": "fixture",
+      "kind": "nfa",
+      "alphabet": ["0", "1"],
+      "states": [
+        {
+          "id": "q0",
+          "label": "q0",
+          "start": true,
+          "accept": false,
+          "center": { "x": 0.18, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.125, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 1,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q1",
+          "label": "q1",
+          "start": false,
+          "accept": false,
+          "center": { "x": 0.39, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.335, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 2,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q2",
+          "label": "q2",
+          "start": false,
+          "accept": true,
+          "center": { "x": 0.6, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.545, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 3,
+          "snapped": true,
+          "confidence": 0.95
+        }
+      ],
+      "transitions": [
+        {
+          "id": "q0-0,1-q0",
+          "source": "q0",
+          "target": "q0",
+          "symbols": ["0", "1"],
+          "label_box": { "x": 0.16, "y": 0.3602, "w": 0.04, "h": 0.04 },
+          "mark": 4,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q0-0-q1",
+          "source": "q0",
+          "target": "q1",
+          "symbols": ["0"],
+          "label_box": { "x": 0.265, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 5,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q1-1-q2",
+          "source": "q1",
+          "target": "q2",
+          "symbols": ["1"],
+          "label_box": { "x": 0.475, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 6,
+          "snapped": true,
+          "confidence": 0.95
+        }
+      ],
+      "page": {
+        "width": 1568,
+        "height": 1212,
+        "quad": [
+          { "x": 71.9, "y": 60.28 },
+          { "x": 872.98, "y": 40.7 },
+          { "x": 888.1, "y": 659.72 },
+          { "x": 87.02, "y": 679.3 }
+        ]
+      },
+      "problem": "Binary strings that end with 01",
+      "problem_kind": "nfa",
+      "language": { "regex": "(0|1)*01", "confidence": 0.9 },
+      "uncertain": []
+    },
+    "unknown-symbol": {
+      "version": 1,
+      "frame_id": null,
+      "source": "fixture",
+      "kind": "dfa",
+      "alphabet": ["0", "1"],
+      "states": [
+        {
+          "id": "q0",
+          "label": "q0",
+          "start": true,
+          "accept": false,
+          "center": { "x": 0.18, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.125, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 1,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q1",
+          "label": "q1",
+          "start": false,
+          "accept": false,
+          "center": { "x": 0.39, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.335, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 2,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q2",
+          "label": "q2",
+          "start": false,
+          "accept": false,
+          "center": { "x": 0.6, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.545, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 3,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q3",
+          "label": "q3",
+          "start": false,
+          "accept": true,
+          "center": { "x": 0.81, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.755, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 4,
+          "snapped": true,
+          "confidence": 0.95
+        }
+      ],
+      "transitions": [
+        {
+          "id": "q0-0-q1",
+          "source": "q0",
+          "target": "q1",
+          "symbols": ["0"],
+          "label_box": { "x": 0.265, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 7,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q1-1-q2",
+          "source": "q1",
+          "target": "q2",
+          "symbols": ["1"],
+          "label_box": { "x": 0.475, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 8,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q2-0-q3",
+          "source": "q2",
+          "target": "q3",
+          "symbols": ["0"],
+          "label_box": { "x": 0.685, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 9,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q3-0,1-q3",
+          "source": "q3",
+          "target": "q3",
+          "symbols": ["0", "1"],
+          "label_box": { "x": 0.79, "y": 0.3602, "w": 0.04, "h": 0.04 },
+          "mark": 6,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q1-2-q1",
+          "source": "q1",
+          "target": "q1",
+          "symbols": ["2"],
+          "label_box": { "x": 0.37, "y": 0.3637, "w": 0.04, "h": 0.04 },
+          "mark": 5,
+          "snapped": true,
+          "confidence": 0.95
+        }
+      ],
+      "page": {
+        "width": 1568,
+        "height": 1212,
+        "quad": [
+          { "x": 71.9, "y": 60.28 },
+          { "x": 872.98, "y": 40.7 },
+          { "x": 888.1, "y": 659.72 },
+          { "x": 87.02, "y": 679.3 }
+        ]
+      },
+      "problem": "Binary strings that start with 010",
+      "problem_kind": "dfa",
+      "language": { "regex": "010(0|1)*", "confidence": 0.9 },
+      "uncertain": []
+    },
+    "uncertain": {
+      "version": 1,
+      "frame_id": null,
+      "source": "fixture",
+      "kind": "dfa",
+      "alphabet": ["0", "1"],
+      "states": [
+        {
+          "id": "q0",
+          "label": "q0",
+          "start": true,
+          "accept": false,
+          "center": { "x": 0.18, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.125, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 1,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q1",
+          "label": "q1",
+          "start": false,
+          "accept": false,
+          "center": { "x": 0.39, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.335, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 2,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q2",
+          "label": "q2",
+          "start": false,
+          "accept": false,
+          "center": { "x": 0.6, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.545, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 3,
+          "snapped": true,
+          "confidence": 0.4
+        },
+        {
+          "id": "q3",
+          "label": "q3",
+          "start": false,
+          "accept": true,
+          "center": { "x": 0.81, "y": 0.55 },
+          "r": 0.055,
+          "box": { "x": 0.755, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+          "mark": 4,
+          "snapped": true,
+          "confidence": 0.95
+        }
+      ],
+      "transitions": [
+        {
+          "id": "q0-0-q1",
+          "source": "q0",
+          "target": "q1",
+          "symbols": ["0"],
+          "label_box": { "x": 0.265, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 7,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q1-1-q2",
+          "source": "q1",
+          "target": "q2",
+          "symbols": ["1"],
+          "label_box": { "x": 0.475, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 8,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q2-0-q3",
+          "source": "q2",
+          "target": "q3",
+          "symbols": ["0"],
+          "label_box": { "x": 0.685, "y": 0.4954, "w": 0.04, "h": 0.04 },
+          "mark": 9,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q3-0,1-q3",
+          "source": "q3",
+          "target": "q3",
+          "symbols": ["0", "1"],
+          "label_box": { "x": 0.79, "y": 0.3602, "w": 0.04, "h": 0.04 },
+          "mark": 6,
+          "snapped": true,
+          "confidence": 0.95
+        },
+        {
+          "id": "q0-1-q0",
+          "source": "q0",
+          "target": "q0",
+          "symbols": ["1"],
+          "label_box": { "x": 0.16, "y": 0.3637, "w": 0.04, "h": 0.04 },
+          "mark": 5,
+          "snapped": true,
+          "confidence": 0.95
+        }
+      ],
+      "page": {
+        "width": 1568,
+        "height": 1212,
+        "quad": [
+          { "x": 71.9, "y": 60.28 },
+          { "x": 872.98, "y": 40.7 },
+          { "x": 888.1, "y": 659.72 },
+          { "x": 87.02, "y": 679.3 }
+        ]
+      },
+      "problem": "Binary strings that start with 010",
+      "problem_kind": "dfa",
+      "language": { "regex": "010(0|1)*", "confidence": 0.9 },
+      "uncertain": ["q2"]
+    }
+  },
+  "expected": {
+    "demo-wrong": {
+      "reference": "starts-with-010",
+      "status": "wrong",
+      "counterexample": {
+        "input": "1010",
+        "direction": "false_accept",
+        "blame": {
+          "step": 1,
+          "kind": "transition",
+          "state": "q0",
+          "symbol": "1",
+          "target": "q0",
+          "prefix": ""
+        }
+      }
+    },
+    "demo-partial": {
+      "reference": "starts-with-010",
+      "status": "wrong",
+      "counterexample": {
+        "input": "0100",
+        "direction": "false_reject",
+        "blame": {
+          "step": 4,
+          "kind": "missing_transition",
+          "state": "q3",
+          "symbol": "0",
+          "target": null,
+          "prefix": "010"
+        }
+      }
+    },
+    "demo-correct": { "reference": "starts-with-010", "status": "correct", "counterexample": null },
+    "demo-no-accept": {
+      "reference": "starts-with-010",
+      "status": "wrong",
+      "counterexample": {
+        "input": "010",
+        "direction": "false_reject",
+        "blame": {
+          "step": 3,
+          "kind": "accept_flag",
+          "state": "q3",
+          "symbol": null,
+          "target": null,
+          "prefix": "010"
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "kind": "readback",
+      "reading": {
+        "version": 1,
+        "frame_id": null,
+        "source": "fixture",
+        "kind": "dfa",
+        "alphabet": ["0", "1"],
+        "states": [
+          {
+            "id": "q0",
+            "label": "q0",
+            "start": true,
+            "accept": false,
+            "center": { "x": 0.18, "y": 0.55 },
+            "r": 0.055,
+            "box": { "x": 0.125, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+            "mark": 1,
+            "snapped": true,
+            "confidence": 0.95
+          },
+          {
+            "id": "q1",
+            "label": "q1",
+            "start": false,
+            "accept": false,
+            "center": { "x": 0.39, "y": 0.55 },
+            "r": 0.055,
+            "box": { "x": 0.335, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+            "mark": 2,
+            "snapped": true,
+            "confidence": 0.95
+          },
+          {
+            "id": "q2",
+            "label": "q2",
+            "start": false,
+            "accept": false,
+            "center": { "x": 0.6, "y": 0.55 },
+            "r": 0.055,
+            "box": { "x": 0.545, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+            "mark": 3,
+            "snapped": true,
+            "confidence": 0.95
+          },
+          {
+            "id": "q3",
+            "label": "q3",
+            "start": false,
+            "accept": true,
+            "center": { "x": 0.81, "y": 0.55 },
+            "r": 0.055,
+            "box": { "x": 0.755, "y": 0.4788, "w": 0.11, "h": 0.1424 },
+            "mark": 4,
+            "snapped": true,
+            "confidence": 0.95
+          }
+        ],
+        "transitions": [
+          {
+            "id": "q0-0-q1",
+            "source": "q0",
+            "target": "q1",
+            "symbols": ["0"],
+            "label_box": { "x": 0.265, "y": 0.4954, "w": 0.04, "h": 0.04 },
+            "mark": 7,
+            "snapped": true,
+            "confidence": 0.95
+          },
+          {
+            "id": "q1-1-q2",
+            "source": "q1",
+            "target": "q2",
+            "symbols": ["1"],
+            "label_box": { "x": 0.475, "y": 0.4954, "w": 0.04, "h": 0.04 },
+            "mark": 8,
+            "snapped": true,
+            "confidence": 0.95
+          },
+          {
+            "id": "q2-0-q3",
+            "source": "q2",
+            "target": "q3",
+            "symbols": ["0"],
+            "label_box": { "x": 0.685, "y": 0.4954, "w": 0.04, "h": 0.04 },
+            "mark": 9,
+            "snapped": true,
+            "confidence": 0.95
+          },
+          {
+            "id": "q3-0,1-q3",
+            "source": "q3",
+            "target": "q3",
+            "symbols": ["0", "1"],
+            "label_box": { "x": 0.79, "y": 0.3602, "w": 0.04, "h": 0.04 },
+            "mark": 6,
+            "snapped": true,
+            "confidence": 0.95
+          },
+          {
+            "id": "q0-1-q0",
+            "source": "q0",
+            "target": "q0",
+            "symbols": ["1"],
+            "label_box": { "x": 0.16, "y": 0.3637, "w": 0.04, "h": 0.04 },
+            "mark": 5,
+            "snapped": true,
+            "confidence": 0.95
+          }
+        ],
+        "page": {
+          "width": 1568,
+          "height": 1212,
+          "quad": [
+            { "x": 71.9, "y": 60.28 },
+            { "x": 872.98, "y": 40.7 },
+            { "x": 888.1, "y": 659.72 },
+            { "x": 87.02, "y": 679.3 }
+          ]
+        },
+        "problem": "Binary strings that start with 010",
+        "problem_kind": "dfa",
+        "language": { "regex": "010(0|1)*", "confidence": 0.9 },
+        "uncertain": []
+      },
+      "verdict": {
+        "status": "wrong",
+        "computed": true,
+        "counterexample": {
+          "input": "1010",
+          "direction": "false_accept",
+          "student_trace": [["q0"], ["q0"], ["q1"], ["q2"], ["q3"]],
+          "reference_trace": ["q0", "dead", "dead", "dead", "dead"],
+          "blame": {
+            "step": 1,
+            "kind": "transition",
+            "state": "q0",
+            "symbol": "1",
+            "target": "q0",
+            "prefix": ""
+          }
+        },
+        "issues": [
+          { "kind": "implicit_dead_state", "states": ["q1"], "symbols": ["0"] },
+          { "kind": "implicit_dead_state", "states": ["q2"], "symbols": ["1"] }
+        ],
+        "fixes": [{ "kind": "remove_transition", "state": "q0", "symbol": "1", "target": null }],
+        "reference": {
+          "id": "starts-with-010",
+          "source": "catalog",
+          "trusted": true,
+          "regex": "010(0|1)*",
+          "title": "Binary strings that start with 010",
+          "machine": {
+            "states": ["q0", "q1", "q2", "q3", "dead"],
+            "alphabet": ["0", "1"],
+            "start": "q0",
+            "accepts": ["q3"],
+            "transitions": {
+              "q0": { "0": "q1", "1": "dead" },
+              "q1": { "0": "dead", "1": "q2" },
+              "q2": { "0": "q3", "1": "dead" },
+              "q3": { "0": "q3", "1": "q3" },
+              "dead": { "0": "dead", "1": "dead" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "kind": "vision-debug",
+      "debug": {
+        "stage": "gate",
+        "reason": "speech",
+        "probs": {
+          "diagram_attempt_complete": 0.93,
+          "new_work_worth_checking": 0.71,
+          "student_seems_stuck": 0.04,
+          "not_schoolwork": 0.01
+        },
+        "ms": 612,
+        "provider": "openai"
+      }
+    },
+    {
+      "kind": "vision-debug",
+      "debug": {
+        "stage": "check",
+        "status": "wrong",
+        "witness": "1010",
+        "blame": "q0 -1-> q0",
+        "ms": 2140
+      }
+    },
+    {
+      "kind": "vision-debug",
+      "debug": {
+        "stage": "policy",
+        "action": "speak",
+        "rung": "counterexample",
+        "why": "invited: she asked whether it is right"
+      }
+    },
+    { "kind": "pen", "busy": false }
+  ]
+}
