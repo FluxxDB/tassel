@@ -182,9 +182,32 @@ Run at 14:42:55 with `node docs/research/spikes/p3-tcc/run.mjs S`, with Desk Vie
 10. **S's caveat.** Electron holds Screen Recording on this Mac (`screen: granted`), so S, like T, can't show that capture works without the grant. The owner saw no Screen Recording prompt.
 11. **A picked window's track has an empty label** (S), and its frames were 1664×1248 here. Task 10's window-capture source shouldn't rely on `track.label`.
 
+## Task 3: the Desk View helper through the harness (HC, HH)
+
+Task 3 added a `helper` mode to `main.cjs`, and two checks that use it. The mode spawns the Desk View helper (`--probe` names it) with a fresh token in its env alone. A hidden window on `app://tassel/` (a privileged scheme, as in the app) then connects to `ws://127.0.0.1:<port>`, so Chromium sends the helper's allowed `Origin` itself. The window sends `hello`, `list` and `start` (fps 15, maxWidth 1920, quality 0.85) and counts 30 frames from their headers, keeping only counts, sizes and timing. Then `main.cjs` closes the helper's stdin, as Electron dying would, and records how the helper exited. Both checks need `node scripts/native.mjs build` first.
+
+| Check | Verdict | Evidence |
+|---|---|---|
+| **HC** | PASS | Unattended, from an agent-started Electron, with the helper playing this spike's synthetic 960×720 clip (`TASSEL_HELPER_CLIP`), so no camera is involved. 30 frames at 960×720 and 15 fps; `welcome` said camera `authorized`; the helper exited 0 6 ms after stdin EOF |
+| **HH** | NOT RUN (pending the owner's GO) | Task 3's Step 6: the same flow under a LaunchServices launch, as H ran, with the helper on the real Desk View camera. Run it with the owner at the Mac: `node scripts/native.mjs build && node docs/research/spikes/p3-tcc/run.mjs HH`. Expected: 30 frames at 1920×1440, and an exit 0 within 1 s of stdin EOF (the camera released) |
+
+### HC: the helper over a synthetic clip (unattended)
+
+```
+{"check":"write-mjpeg","path":"<repo>/docs/research/spikes/p3-tcc/.out/spike-clip.mjpeg","frames":60,"width":960,"height":720,"bytes":878220}
+{"check":"media-access","camera":"not-determined","microphone":"granted","screen":"granted"}
+{"check":"env","TASSEL_SPIKE":null}
+{"check":"helper","clip":"spike-clip.mjpeg","protocol":1,"frames":30,"sizes":["960x720"],"statuses":["starting","running"],"camera":"authorized","helperVersion":"0.1.0","devices":[{"name":"Test clip","builtIn":true}],"fps":15}
+{"check":"helper-exit","code":0,"signal":null,"ms":6,"log":["[deskview-helper] tag p3-spike","[deskview-helper] listening on 127.0.0.1:58240 with a test clip","[deskview-helper] clip: 60 frames, 960x720","[deskview-helper] stream started at 15 fps","[deskview-helper] stream stopped","[deskview-helper] client gone: POSIXErrorCode(rawValue: 57): Socket is not connected","[deskview-helper] send failed: POSIXErrorCode(rawValue: 89): Operation canceled","[deskview-helper] exiting: stdin closed"]}
+{"check":"quit","mode":"helper"}
+{"check":"HC","verdict":"PASS","why":"30 frames at 960x720, 15 fps, camera authorized, from \"Test clip\"; the helper exited 0 6 ms after stdin EOF"}
+```
+
+The page sends `stop` and closes at once, so the helper's `status stopped` reply meets a closed socket: that is the "send failed" line.
+
 ## Files
 
 - `probe.swift`, `Info.plist`: the probe (`dev.tassel.p3-probe`). `--status` never asks for access. `--capture <n>` counts Desk View frames and keeps none. `--present-setup` presents the Desk View app. `--write-mjpeg` writes the synthetic test clip.
-- `main.cjs`: the Electron main with the spike's modes. It writes its pid, then one JSON line per result, to `--out`.
-- `run.mjs`: builds the probe and runs the named checks: directly spawned (A, F, P, T), or through LaunchServices (H, E, D, S, and C without `-W`).
+- `main.cjs`: the Electron main with the spike's modes, `helper` (Task 3) among them. It writes its pid, then one JSON line per result, to `--out`.
+- `run.mjs`: builds the probe and runs the named checks: directly spawned (A, F, P, T, HC), or through LaunchServices (H, E, D, S, HH, and C without `-W`).
 - `.out/` (git-ignored): the probe, the synthetic clip, and each check's `--out` file. `pnpm check` refuses to commit any `.jpg`, `.jpeg`, `.mjpeg`, `.y4m`, `.mjpg`, `.jfif`, `.jpe`, `.heic` or `.heif` (`scripts/check-no-frames.mjs`).
