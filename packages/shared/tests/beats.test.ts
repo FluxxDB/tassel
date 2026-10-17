@@ -98,6 +98,24 @@ describe('parseAction', () => {
       expect(parseAction(data)).toBeNull();
     }
   });
+
+  it('caps a trace input at 64 symbols, on the board and on the paper', () => {
+    const board = (input: string) =>
+      parseAction({ kind: 'board.trace', item: 'run', spec: WRONG, input });
+    const paper = (input: string) => parseAction({ kind: 'paper.trace', input });
+    expect(board('1'.repeat(64))).not.toBeNull();
+    expect(board('1'.repeat(65))).toBeNull();
+    expect(paper('0'.repeat(64))).not.toBeNull();
+    expect(paper('0'.repeat(65))).toBeNull();
+    // The empty input is a trace too: does the start state accept?
+    expect(paper('')).toEqual({ kind: 'paper.trace', input: '' });
+  });
+
+  it('rejects a transition with no symbols, as checkAutomaton does', () => {
+    const spec = { ...WRONG, transitions: [{ from: 'q0', to: 'q1', symbols: [] }] };
+    expect(parseAction({ kind: 'board.automaton', item: 'wrong', spec })).toBeNull();
+    expect(checkAutomaton(spec)).not.toEqual([]);
+  });
 });
 
 describe('parseBeatDoc', () => {
@@ -232,13 +250,27 @@ describe('checkAutomaton', () => {
     expect(withSymbol('a b')).toEqual(['bad symbol "a b"']);
   });
 
-  it('holds state ids to a letter, then up to 15 letters, digits or underscores', () => {
+  it('names a transition with no symbols', () => {
+    expect(
+      checkAutomaton({ ...WRONG, transitions: [{ from: 'q1', to: 'q1', symbols: [] }] }),
+    ).toEqual(['no symbols in q1>q1']);
+  });
+
+  it('holds state ids to a letter or digit, then up to 15 letters, digits or underscores', () => {
     const withState = (id: string) =>
       checkAutomaton({ kind: 'nfa', states: [{ id }], start: id, transitions: [] });
     expect(withState('q_dead1')).toEqual([]);
     expect(withState(`q${'1'.repeat(15)}`)).toEqual([]);
     expect(withState(`q${'1'.repeat(16)}`)).toEqual([`bad state id "q${'1'.repeat(16)}"`]);
-    expect(withState('0q')).toEqual(['bad state id "0q"']);
+    expect(withState('_q')).toEqual(['bad state id "_q"']);
+    expect(withState('q-1')).toEqual(['bad state id "q-1"']);
+  });
+
+  it('takes the textbook labels a reading of her paper may carry: 0, 1, 2, 10', () => {
+    for (const id of ['0', '1', '2', '10', '0a']) {
+      const spec: AutomatonSpec = { kind: 'dfa', states: [{ id }], start: id, transitions: [] };
+      expect(checkAutomaton(spec)).toEqual([]);
+    }
   });
 });
 
@@ -251,10 +283,13 @@ describe('element refs', () => {
     expect(parseElementRef('start')).toEqual({ kind: 'start' });
     expect(parseElementRef('state:q3')).toEqual({ kind: 'state', id: 'q3' });
     expect(parseElementRef('edge:q0>q0')).toEqual({ kind: 'edge', from: 'q0', to: 'q0' });
+    expect(parseElementRef('state:0')).toEqual({ kind: 'state', id: '0' });
+    expect(parseElementRef('edge:0>1')).toEqual({ kind: 'edge', from: '0', to: '1' });
   });
 
   it('parseElementRef rejects anything else', () => {
-    for (const ref of ['edge:q0', 'edge:q0>q1>q2', 'state:', 'state:q 1', 'q0', 'Start', '']) {
+    const refs = ['edge:q0', 'edge:q0>q1>q2', 'state:', 'state:q 1', 'state:_0', 'q0', 'Start', ''];
+    for (const ref of refs) {
       expect(parseElementRef(ref)).toBeNull();
     }
   });
@@ -280,6 +315,7 @@ describe('cues and words', () => {
 
   it('normalizeWord reads a curly apostrophe as a straight one and trims outer ones', () => {
     expect(normalizeWord('I’m')).toBe("i'm");
+    expect(normalizeWord('‘q0’')).toBe('q0');
     expect(normalizeWord("'tis")).toBe('tis');
     expect(normalizeWord("dogs'")).toBe('dogs');
   });

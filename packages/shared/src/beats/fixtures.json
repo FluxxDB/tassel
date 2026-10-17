@@ -33,10 +33,27 @@
       },
       "reveal": "none"
     },
+    {
+      "kind": "board.automaton",
+      "item": "parity",
+      "spec": {
+        "kind": "dfa",
+        "states": [{ "id": "0", "accept": true }, { "id": "1" }],
+        "start": "0",
+        "transitions": [
+          { "from": "0", "to": "0", "symbols": ["0"] },
+          { "from": "0", "to": "1", "symbols": ["1"] },
+          { "from": "1", "to": "1", "symbols": ["0"] },
+          { "from": "1", "to": "0", "symbols": ["1"] }
+        ]
+      },
+      "title": "Your DFA"
+    },
     { "kind": "board.addState", "item": "fix", "id": "qd", "accept": false },
     { "kind": "board.addTransition", "item": "fix", "from": "q1", "to": "qd", "symbols": ["0"] },
     { "kind": "board.reveal", "item": "fix", "els": ["start", "state:q0", "edge:q0>q1"] },
     { "kind": "board.reveal", "item": "fix" },
+    { "kind": "board.reveal", "item": "parity", "els": ["start", "state:0", "edge:0>1"] },
     { "kind": "board.highlight", "item": "wrong", "el": "edge:q0>q0", "on": true },
     { "kind": "board.highlight", "item": "wrong", "el": "edge:q0>q0", "on": false },
     { "kind": "board.pulse", "item": "wrong", "el": "state:q3" },
@@ -65,6 +82,23 @@
       "subject": "student",
       "on": "wrong",
       "title": "Your DFA on 1010"
+    },
+    {
+      "kind": "board.trace",
+      "item": "long",
+      "spec": {
+        "kind": "dfa",
+        "states": [{ "id": "q0" }, { "id": "q1" }, { "id": "q2" }, { "id": "q3", "accept": true }],
+        "start": "q0",
+        "transitions": [
+          { "from": "q0", "to": "q0", "symbols": ["1"] },
+          { "from": "q0", "to": "q1", "symbols": ["0"] },
+          { "from": "q1", "to": "q2", "symbols": ["1"] },
+          { "from": "q2", "to": "q3", "symbols": ["0"] },
+          { "from": "q3", "to": "q3", "symbols": ["0", "1"] }
+        ]
+      },
+      "input": "1010101010101010101010101010101010101010101010101010101010101010"
     },
     { "kind": "board.traceStep", "item": "run", "step": 2 },
     { "kind": "board.traceStep", "item": "run" },
@@ -130,6 +164,35 @@
     { "kind": "paper.freeze", "frame": { "kind": "latest" } },
     { "kind": "paper.freeze", "frame": { "kind": "live" } },
     {
+      "kind": "paper.freeze",
+      "frame": { "kind": "latest" },
+      "elements": {
+        "states": {
+          "0": { "center": { "x": 0.3, "y": 0.5 }, "r": 0.06 },
+          "1": { "center": { "x": 0.7, "y": 0.5 }, "r": 0.06 }
+        },
+        "edges": {
+          "0>1": {
+            "path": [{ "x": 0.36, "y": 0.48 }, { "x": 0.64, "y": 0.48 }],
+            "label": { "x": 0.5, "y": 0.45 }
+          },
+          "1>0": { "path": [{ "x": 0.64, "y": 0.52 }, { "x": 0.36, "y": 0.52 }] }
+        },
+        "start": { "path": [{ "x": 0.16, "y": 0.5 }, { "x": 0.24, "y": 0.5 }] }
+      },
+      "spec": {
+        "kind": "dfa",
+        "states": [{ "id": "0", "accept": true }, { "id": "1" }],
+        "start": "0",
+        "transitions": [
+          { "from": "0", "to": "0", "symbols": ["0"] },
+          { "from": "0", "to": "1", "symbols": ["1"] },
+          { "from": "1", "to": "1", "symbols": ["0"] },
+          { "from": "1", "to": "0", "symbols": ["1"] }
+        ]
+      }
+    },
+    {
       "kind": "paper.mark",
       "mark": { "type": "circle", "id": "loop", "target": { "el": "edge:q0>q0" }, "wash": true }
     },
@@ -187,6 +250,10 @@
     },
     { "kind": "paper.unmark", "id": "c1" },
     { "kind": "paper.trace", "input": "1010" },
+    {
+      "kind": "paper.trace",
+      "input": "1010101010101010101010101010101010101010101010101010101010101010"
+    },
     { "kind": "paper.traceStep", "step": 1 },
     { "kind": "paper.traceStep" },
     { "kind": "paper.clear" },
@@ -345,7 +412,72 @@
       "data": { "kind": "paper.freeze", "frame": { "kind": "fixture", "name": "dfa-right" } }
     },
     { "why": "a view that does not exist", "data": { "kind": "stage", "view": "both" } },
-    { "why": "an empty note", "data": { "kind": "board.note", "item": "why", "text": "" } }
+    { "why": "an empty note", "data": { "kind": "board.note", "item": "why", "text": "" } },
+    {
+      "why": "a trace input over 64 symbols",
+      "data": {
+        "kind": "board.trace",
+        "item": "long",
+        "spec": {
+          "kind": "dfa",
+          "states": [
+            { "id": "q0" },
+            { "id": "q1" },
+            { "id": "q2" },
+            { "id": "q3", "accept": true }
+          ],
+          "start": "q0",
+          "transitions": [
+            { "from": "q0", "to": "q0", "symbols": ["1"] },
+            { "from": "q0", "to": "q1", "symbols": ["0"] },
+            { "from": "q1", "to": "q2", "symbols": ["1"] },
+            { "from": "q2", "to": "q3", "symbols": ["0"] },
+            { "from": "q3", "to": "q3", "symbols": ["0", "1"] }
+          ]
+        },
+        "input": "10101010101010101010101010101010101010101010101010101010101010101"
+      }
+    },
+    {
+      "why": "a paper trace input over 64 symbols",
+      "data": {
+        "kind": "paper.trace",
+        "input": "10101010101010101010101010101010101010101010101010101010101010101"
+      }
+    },
+    {
+      "why": "a transition with no symbols",
+      "data": {
+        "kind": "board.automaton",
+        "item": "wrong",
+        "spec": {
+          "kind": "dfa",
+          "states": [
+            { "id": "q0" },
+            { "id": "q1" },
+            { "id": "q2" },
+            { "id": "q3", "accept": true }
+          ],
+          "start": "q0",
+          "transitions": [
+            { "from": "q0", "to": "q0", "symbols": ["1"] },
+            { "from": "q0", "to": "q1", "symbols": ["0"] },
+            { "from": "q1", "to": "q2", "symbols": ["1"] },
+            { "from": "q2", "to": "q3", "symbols": ["0"] },
+            { "from": "q3", "to": "q3", "symbols": ["0", "1"] },
+            { "from": "q1", "to": "q1", "symbols": [] }
+          ]
+        }
+      }
+    },
+    {
+      "why": "a state id that starts with an underscore",
+      "data": { "kind": "board.addState", "item": "fix", "id": "_0" }
+    },
+    {
+      "why": "a state id of 17 characters",
+      "data": { "kind": "board.addState", "item": "fix", "id": "q1111111111111111" }
+    }
   ],
   "beats": [
     {
@@ -825,6 +957,35 @@
             "id": "m1",
             "word": 1,
             "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+          }
+        ]
+      }
+    },
+    {
+      "problem": "marker m3 has an invalid action",
+      "data": {
+        "version": 1,
+        "id": "beat-bad",
+        "turn": "turn-9",
+        "segment": "seg-9-0",
+        "lang": "en",
+        "text": "Try this one.",
+        "durationSec": 0.9,
+        "shapeSet": "rhubarb9",
+        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "words": [
+          { "text": "Try", "start": 0, "end": 0.2 },
+          { "text": "this", "start": 0.3, "end": 0.5 },
+          { "text": "one.", "start": 0.6, "end": 0.9 }
+        ],
+        "markers": [
+          {
+            "id": "m3",
+            "word": 0,
+            "action": {
+              "kind": "paper.trace",
+              "input": "10101010101010101010101010101010101010101010101010101010101010101"
+            }
           }
         ]
       }

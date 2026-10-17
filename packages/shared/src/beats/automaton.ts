@@ -3,7 +3,10 @@
 // drawn. The server's Pydantic mirror (services/server/src/tassel/beats/models.py) holds to the
 // same rules, against the shared fixtures.json.
 
-/** A state's id, which is also its label: /^[A-Za-z][A-Za-z0-9_]{0,15}$/. */
+/**
+ * A state's id, which is also its label: /^[A-Za-z0-9][A-Za-z0-9_]{0,15}$/. That takes "q0" and
+ * "qd", and the textbook "0", "1" and "2" a reading of her paper may carry (M19).
+ */
 export type StateId = string;
 
 export const EPSILON = 'ε';
@@ -28,7 +31,8 @@ export type ParsedElementRef =
   | { kind: 'edge'; from: StateId; to: StateId };
 
 // JavaScript's $ matches only at the very end, so "q1\n" fails (Python's re.fullmatch agrees).
-const STATE_ID = /^[A-Za-z][A-Za-z0-9_]{0,15}$/;
+// No id starts with "_", so none can meet Graphviz's "__start" node.
+const STATE_ID = /^[A-Za-z0-9][A-Za-z0-9_]{0,15}$/;
 
 export function isStateId(id: unknown): id is StateId {
   return typeof id === 'string' && STATE_ID.test(id);
@@ -65,10 +69,10 @@ export function isSymbol(symbol: unknown): symbol is string {
 
 /**
  * Every problem with a spec, each named once, in this order: bad and duplicate state ids, an
- * unknown start, then per transition its unknown states, bad symbols, ε in a DFA and a second
- * move on one symbol. [] when the spec is valid. The exact strings:
+ * unknown start, then per transition its unknown states, no symbols at all, bad symbols, ε in a
+ * DFA and a second move on one symbol. [] when the spec is valid. The exact strings:
  * `bad state id "q 1"`, `duplicate state q1`, `unknown start q9`, `unknown state q9 in q0>q9`,
- * `bad symbol "0,1"`, `ε in a DFA`, `two moves from q0 on 1`.
+ * `no symbols in q0>q1`, `bad symbol "0,1"`, `ε in a DFA`, `two moves from q0 on 1`.
  */
 export function checkAutomaton(spec: AutomatonSpec): string[] {
   const problems = new Set<string>();
@@ -86,6 +90,8 @@ export function checkAutomaton(spec: AutomatonSpec): string[] {
     for (const end of [from, to]) {
       if (!known.has(end)) problems.add(`unknown state ${end} in ${from}>${to}`);
     }
+    // An edge with no label: nothing could ever take it.
+    if (symbols.length === 0) problems.add(`no symbols in ${from}>${to}`);
     for (const symbol of symbols) {
       if (!isSymbol(symbol)) {
         problems.add(`bad symbol ${JSON.stringify(symbol)}`);
