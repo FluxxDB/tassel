@@ -31,16 +31,26 @@ export function tokenStoreMode(env: NodeJS.ProcessEnv = process.env): 'safe' | '
   return env.TASSEL_TOKEN_STORE === 'file' ? 'file' : 'safe';
 }
 
+/** Hosts the renderer may reach over plain http: its CSP's connect-src lists exactly these. */
+const LOCAL_HOSTS = ['127.0.0.1', 'localhost'];
+
 /**
- * TASSEL_SERVER_URL without trailing slashes. The API client needs an absolute http(s) URL, so
- * anything else falls back to the local dev server, with a warning, instead of a blank window.
+ * TASSEL_SERVER_URL without trailing slashes, if the renderer's CSP lets it reach that server
+ * (connect-src in src/renderer/index.html): https anywhere, or http on this machine. Anything
+ * else falls back to the local dev server, with a warning, instead of a blank window or a
+ * library that can never load.
  */
 function serverUrl(requested: string | undefined): string {
   if (!requested) return DEFAULT_SERVER_URL;
   const url = requested.replace(/\/+$/, '');
-  if (URL.canParse(url) && ['http:', 'https:'].includes(new URL(url).protocol)) return url;
+  if (URL.canParse(url)) {
+    const { protocol, hostname } = new URL(url);
+    if (protocol === 'https:' || (protocol === 'http:' && LOCAL_HOSTS.includes(hostname))) {
+      return url;
+    }
+  }
   console.warn(
-    `[tassel] TASSEL_SERVER_URL=${JSON.stringify(requested)} isn't an http(s) URL, so the app uses ${DEFAULT_SERVER_URL}.`,
+    `[tassel] TASSEL_SERVER_URL=${JSON.stringify(requested)} isn't https, or http on 127.0.0.1 or localhost, so the app uses ${DEFAULT_SERVER_URL}.`,
   );
   return DEFAULT_SERVER_URL;
 }

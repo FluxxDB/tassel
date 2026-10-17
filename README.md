@@ -62,7 +62,7 @@ The desktop app reads these environment variables:
 
 | Variable | Default | Use |
 |---|---|---|
-| `TASSEL_SERVER_URL` | `http://127.0.0.1:8787` | The server |
+| `TASSEL_SERVER_URL` | `http://127.0.0.1:8787` | The server: https, or http on `127.0.0.1` or `localhost` (all the renderer's CSP allows) |
 | `TASSEL_UI_LANG` | the system language, else `en` | `en`, `es` or `ko` |
 | `TASSEL_TUTOR` | `fake` | `fake`, or `live` (P2) |
 | `TASSEL_FAKE_SCRIPT` | `dfa-opening` | The fake tutor's script |
