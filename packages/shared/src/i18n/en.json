@@ -144,5 +144,56 @@
     "network": "Can't reach the server. Check your connection and try again.",
     "server": "Something went wrong on our end. Try again in a moment.",
     "unknown": "Something went wrong. Try again."
+  },
+  "board": {
+    "tools": {
+      "label": "Board tools",
+      "select": "Select",
+      "pen": "Pen",
+      "arrow": "Arrow",
+      "eraser": "Eraser"
+    },
+    "description": {
+      "label": "What's on Ada's board",
+      "states": "States: {list}",
+      "start": "Start: {state}",
+      "accepting": "Accepting: {list}",
+      "transition": "{from} to {to} on {symbols}"
+    },
+    "trace": {
+      "title": "Trace · input {input}",
+      "step": "Step {n}",
+      "read": "read {symbol}",
+      "loops": "loops",
+      "stuck": "no move: rejected"
+    },
+    "verdict": {
+      "yours": "Your {kind}: {verdict}",
+      "this": "This {kind}: {verdict}",
+      "accept": "accept",
+      "reject": "reject"
+    },
+    "kind": {
+      "dfa": "DFA",
+      "nfa": "NFA"
+    }
+  },
+  "marks": {
+    "snapshot": "Snapshot {time}",
+    "backToLive": "Back to live",
+    "loading": "Getting the snapshot…",
+    "failed": "Couldn't load the snapshot",
+    "description": {
+      "label": "Ada's marks on your paper",
+      "step": "Step {n}: {target}",
+      "circle": "Circled: {target}",
+      "note": "Note: {text}"
+    },
+    "target": {
+      "state": "state {id}",
+      "edge": "{from} to {to}",
+      "start": "the start arrow",
+      "point": "a spot on your paper"
+    }
   }
 }

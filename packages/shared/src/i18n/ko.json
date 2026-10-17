@@ -144,5 +144,56 @@
     "network": "서버에 연결할 수 없어요. 인터넷 연결을 확인하고 다시 시도해 주세요.",
     "server": "서버에 문제가 생겼어요. 잠시 후 다시 시도해 주세요.",
     "unknown": "문제가 생겼어요. 다시 시도해 주세요."
+  },
+  "board": {
+    "tools": {
+      "label": "보드 도구",
+      "select": "선택",
+      "pen": "펜",
+      "arrow": "화살표",
+      "eraser": "지우개"
+    },
+    "description": {
+      "label": "Ada의 보드에 있는 것",
+      "states": "상태: {list}",
+      "start": "시작: {state}",
+      "accepting": "수락 상태: {list}",
+      "transition": "{from} → {to}, 입력 {symbols}"
+    },
+    "trace": {
+      "title": "추적 · 입력 {input}",
+      "step": "{n}단계",
+      "read": "{symbol} 읽음",
+      "loops": "제자리",
+      "stuck": "전이 없음: 거부"
+    },
+    "verdict": {
+      "yours": "내 {kind}: {verdict}",
+      "this": "이 {kind}: {verdict}",
+      "accept": "수락",
+      "reject": "거부"
+    },
+    "kind": {
+      "dfa": "DFA",
+      "nfa": "NFA"
+    }
+  },
+  "marks": {
+    "snapshot": "스냅샷 {time}",
+    "backToLive": "실시간 보기",
+    "loading": "스냅샷을 가져오는 중이에요…",
+    "failed": "스냅샷을 불러오지 못했어요",
+    "description": {
+      "label": "내 종이에 Ada가 남긴 표시",
+      "step": "{n}단계: {target}",
+      "circle": "표시: {target}",
+      "note": "메모: {text}"
+    },
+    "target": {
+      "state": "상태 {id}",
+      "edge": "{from} → {to}",
+      "start": "시작 화살표",
+      "point": "종이의 한 곳"
+    }
   }
 }

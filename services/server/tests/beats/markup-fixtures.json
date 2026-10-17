@@ -1,0 +1,321 @@
+[
+  {
+    "name": "en: an automaton drawn hidden anchors at word 0",
+    "text": "[[dfa fix hidden start=q0 accept=q3 q0-0-q1 q1-1-q2 q2-0-q3 q3-0,1-q3 q0-1-qd q1-0-qd q2-1-qd qd-0,1-qd]]Here's one that works.",
+    "clean": "Here's one that works.",
+    "anchors": [
+      [
+        0,
+        {
+          "kind": "board.automaton",
+          "item": "fix",
+          "spec": {
+            "kind": "dfa",
+            "states": [
+              {
+                "id": "q0"
+              },
+              {
+                "id": "q1"
+              },
+              {
+                "id": "q2"
+              },
+              {
+                "id": "q3",
+                "accept": true
+              },
+              {
+                "id": "qd"
+              }
+            ],
+            "start": "q0",
+            "transitions": [
+              {
+                "from": "q0",
+                "to": "q1",
+                "symbols": ["0"]
+              },
+              {
+                "from": "q1",
+                "to": "q2",
+                "symbols": ["1"]
+              },
+              {
+                "from": "q2",
+                "to": "q3",
+                "symbols": ["0"]
+              },
+              {
+                "from": "q3",
+                "to": "q3",
+                "symbols": ["0", "1"]
+              },
+              {
+                "from": "q0",
+                "to": "qd",
+                "symbols": ["1"]
+              },
+              {
+                "from": "q1",
+                "to": "qd",
+                "symbols": ["0"]
+              },
+              {
+                "from": "q2",
+                "to": "qd",
+                "symbols": ["1"]
+              },
+              {
+                "from": "qd",
+                "to": "qd",
+                "symbols": ["0", "1"]
+              }
+            ]
+          },
+          "reveal": "none"
+        }
+      ]
+    ]
+  },
+  {
+    "name": "en: a reveal anchors to the word after it",
+    "text": "We start at [[reveal fix start q0]]q zero.",
+    "clean": "We start at q zero.",
+    "anchors": [
+      [
+        3,
+        {
+          "kind": "board.reveal",
+          "item": "fix",
+          "els": ["start", "state:q0"]
+        }
+      ]
+    ]
+  },
+  {
+    "name": "es: a reveal mid-sentence",
+    "text": "Empezamos en [[reveal fix start q0]]q cero.",
+    "clean": "Empezamos en q cero.",
+    "anchors": [
+      [
+        2,
+        {
+          "kind": "board.reveal",
+          "item": "fix",
+          "els": ["start", "state:q0"]
+        }
+      ]
+    ]
+  },
+  {
+    "name": "ko: a callout with a quoted string",
+    "text": "이 루프 [[callout q0>q0 \"이 루프 때문에 1010이 통과해요.\"]]때문에 1010이 통과해요.",
+    "clean": "이 루프 때문에 1010이 통과해요.",
+    "anchors": [
+      [
+        2,
+        {
+          "kind": "paper.mark",
+          "mark": {
+            "type": "callout",
+            "id": "m1",
+            "target": {
+              "el": "edge:q0>q0"
+            },
+            "text": "이 루프 때문에 1010이 통과해요."
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "name": "en: an unknown verb is dropped with a problem",
+    "text": "Let me [[erase fix]]think.",
+    "clean": "Let me think.",
+    "anchors": [],
+    "problems": 1
+  },
+  {
+    "name": "en: single brackets are text",
+    "text": "Its alphabet is [0,1], with [[pulse wrong q0]]q0 first.",
+    "clean": "Its alphabet is [0,1], with q0 first.",
+    "anchors": [
+      [
+        5,
+        {
+          "kind": "board.pulse",
+          "item": "wrong",
+          "el": "state:q0"
+        }
+      ]
+    ]
+  },
+  {
+    "name": "es: a tag inside a word anchors to that word",
+    "text": "Mira este bu[[pulse wrong q0>q0]]cle.",
+    "clean": "Mira este bucle.",
+    "anchors": [
+      [
+        2,
+        {
+          "kind": "board.pulse",
+          "item": "wrong",
+          "el": "edge:q0>q0"
+        }
+      ]
+    ]
+  },
+  {
+    "name": "en: a tag after the last word fires with it",
+    "text": "That loop is the bug. [[highlight wrong q0>q0]]",
+    "clean": "That loop is the bug.",
+    "anchors": [
+      [
+        5,
+        {
+          "kind": "board.highlight",
+          "item": "wrong",
+          "el": "edge:q0>q0",
+          "on": true
+        }
+      ]
+    ]
+  },
+  {
+    "name": "es: a note near an edge",
+    "text": "[[note why \"Este bucle deja pasar 1010.\" near=wrong:q0>q0]]Este bucle es el problema.",
+    "clean": "Este bucle es el problema.",
+    "anchors": [
+      [
+        0,
+        {
+          "kind": "board.note",
+          "item": "why",
+          "text": "Este bucle deja pasar 1010.",
+          "near": {
+            "item": "wrong",
+            "el": "edge:q0>q0"
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "name": "ko: a stage split and a numbered step",
+    "text": "[[stage split]]종이를 [[number 1 q0>q0]]보세요.",
+    "clean": "종이를 보세요.",
+    "anchors": [
+      [
+        0,
+        {
+          "kind": "stage",
+          "view": "split"
+        }
+      ],
+      [
+        1,
+        {
+          "kind": "paper.mark",
+          "mark": {
+            "type": "step",
+            "id": "m1",
+            "n": 1,
+            "target": {
+              "el": "edge:q0>q0"
+            }
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "name": "en: digit-led states (M19)",
+    "text": "[[dfa parity start=0 accept=0 0-0-0 0-1-1 1-0-1 1-1-0]]This one counts the 1s.",
+    "clean": "This one counts the 1s.",
+    "anchors": [
+      [
+        0,
+        {
+          "kind": "board.automaton",
+          "item": "parity",
+          "spec": {
+            "kind": "dfa",
+            "states": [
+              {
+                "id": "0",
+                "accept": true
+              },
+              {
+                "id": "1"
+              }
+            ],
+            "start": "0",
+            "transitions": [
+              {
+                "from": "0",
+                "to": "0",
+                "symbols": ["0"]
+              },
+              {
+                "from": "0",
+                "to": "1",
+                "symbols": ["1"]
+              },
+              {
+                "from": "1",
+                "to": "1",
+                "symbols": ["0"]
+              },
+              {
+                "from": "1",
+                "to": "0",
+                "symbols": ["1"]
+              }
+            ]
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "name": "en: a freeze on the latest frame (I8)",
+    "text": "[[freeze]][[stage split]]Look at your paper.",
+    "clean": "Look at your paper.",
+    "anchors": [
+      [
+        0,
+        {
+          "kind": "paper.freeze",
+          "frame": {
+            "kind": "latest"
+          }
+        }
+      ],
+      [
+        0,
+        {
+          "kind": "stage",
+          "view": "split"
+        }
+      ]
+    ]
+  },
+  {
+    "name": "es: a verdict with what was expected and a note",
+    "text": "Tu AFD [[verdict run accept expected=reject note=\"1010 no empieza con 010.\"]]acepta 1010.",
+    "clean": "Tu AFD acepta 1010.",
+    "anchors": [
+      [
+        2,
+        {
+          "kind": "board.verdict",
+          "item": "run",
+          "got": "accept",
+          "expected": "reject",
+          "note": "1010 no empieza con 010."
+        }
+      ]
+    ]
+  }
+]

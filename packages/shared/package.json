@@ -11,7 +11,9 @@
     "./i18n": "./src/i18n/index.ts",
     "./api": "./src/api/index.ts",
     "./vision": "./src/vision/contract.ts",
-    "./vision/fixtures.json": "./src/vision/fixtures.json"
+    "./vision/fixtures.json": "./src/vision/fixtures.json",
+    "./beats": "./src/beats/index.ts",
+    "./beats/fixtures.json": "./src/beats/fixtures.json"
   },
   "scripts": {
     "postinstall": "node scripts/copy-fonts.mjs",
