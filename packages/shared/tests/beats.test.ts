@@ -280,6 +280,7 @@ describe('cues and words', () => {
 
   it('normalizeWord reads a curly apostrophe as a straight one and trims outer ones', () => {
     expect(normalizeWord('I’m')).toBe("i'm");
+    expect(normalizeWord('‘q0’')).toBe('q0');
     expect(normalizeWord("'tis")).toBe('tis');
     expect(normalizeWord("dogs'")).toBe('dogs');
   });
