@@ -1,0 +1,41 @@
+{
+  "name": "ptt",
+  "langs": {
+    "en": {
+      "greeting": "Hi, I'm Ada. Hold Space when you want to talk.",
+      "after_switch": "Okay, we'll keep going in English.",
+      "fallback": "Tell me more about what you're trying.",
+      "turns": [
+        {
+          "when": "hear me",
+          "say": "Yes, I can hear you clearly."
+        }
+      ],
+      "student": ["Can you hear me now?"]
+    },
+    "es": {
+      "greeting": "Hola, soy Ada. Mantén pulsada la barra espaciadora cuando quieras hablar.",
+      "after_switch": "Perfecto, seguimos en español.",
+      "fallback": "Cuéntame un poco más sobre lo que estás intentando.",
+      "turns": [
+        {
+          "when": "oyes",
+          "say": "Sí, te oigo con claridad."
+        }
+      ],
+      "student": ["¿Me oyes ahora?"]
+    },
+    "ko": {
+      "greeting": "안녕하세요, 에이다예요. 말씀하고 싶을 때 스페이스 키를 누르고 계세요.",
+      "after_switch": "좋아요, 이제 한국어로 계속할게요.",
+      "fallback": "어떻게 풀고 있는지 조금 더 말씀해 주세요.",
+      "turns": [
+        {
+          "when": "들려요",
+          "say": "네, 잘 들려요."
+        }
+      ],
+      "student": ["이제 들려요?"]
+    }
+  }
+}
