@@ -1,10 +1,14 @@
 // The stage: her paper, Ada's board, or both side by side at exactly 1:1, with Ada's tile in the
 // top right corner. A change of view reflows the panels over 240 ms with an exponential
 // ease-out while their contents cross-fade: the same for Ada's requests and the Board control,
-// instant under reduced motion, and never on first mount.
+// instant under reduced motion, and never on first mount. P5 mounts Ada's board in the board
+// panel and her paper marks over the paper's body; both stay mounted while their panel hides.
 import type { Source } from '@tassel/shared/api';
 import { type ReactNode, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { BoardPanel } from '../../board/BoardPanel';
+import { PaperMarksLayer } from '../../board/marks/PaperMarksLayer';
+import { SnapshotTag } from '../../board/marks/SnapshotTag';
 import { Mic, Pin, Screen } from '../../components/icons';
 import { cn } from '../../lib/cn';
 import { type StageMode, useStageStore } from './stage-store';
@@ -32,7 +36,9 @@ export function Stage({ source, onUnpinned }: StageProps) {
     <div data-testid="stage" className="absolute top-2 right-4 bottom-[104px] left-4 flex">
       <Panel shown={paperShown} label={t(`session.placeholder.${source}.tag`)}>
         <Waiting source={source} />
-        <TopLine pinIndicator={paperShown} onUnpinned={onUnpinned}>
+        {/* Ada's marks over a snapshot of her paper (P5-R8). */}
+        <PaperMarksLayer />
+        <TopLine pinIndicator={paperShown} onUnpinned={onUnpinned} trailing={<SnapshotTag />}>
           <Tag className="bg-paper text-ink shadow-[0_0_0_1px_var(--color-hairline)]">
             {t(`session.placeholder.${source}.tag`)}
           </Tag>
@@ -43,6 +49,8 @@ export function Stage({ source, onUnpinned }: StageProps) {
         label={t('session.board.tag')}
         className={cn('board-canvas', paperShown && boardShown && 'ml-3')}
       >
+        {/* Mounted while hidden too, so what Ada draws there is never lost (P5-R8). */}
+        <BoardPanel />
         {/* The leftmost panel carries the pin indicator: the board only when it's alone. */}
         <TopLine pinIndicator={!paperShown} onUnpinned={onUnpinned}>
           <Tag className="bg-ink text-paper">{t('session.board.tag')}</Tag>
@@ -87,21 +95,25 @@ function Panel({
 
 /**
  * A panel's top line, 14px in from its top left: its tag, then 8px on, the pin indicator when
- * this is the leftmost panel. If the indicator doesn't fit beside the tag, it wraps below it.
+ * this is the leftmost panel, then the panel's own pills (`trailing`). What doesn't fit beside
+ * the tag wraps below it.
  */
 function TopLine({
   pinIndicator,
   onUnpinned,
+  trailing,
   children,
 }: {
   pinIndicator: boolean;
   onUnpinned?(): void;
+  trailing?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div className="pointer-events-none absolute top-3.5 right-3.5 left-3.5 z-10 flex flex-wrap items-center gap-2">
       {children}
       {pinIndicator && <PinIndicator onUnpinned={onUnpinned} />}
+      {trailing}
     </div>
   );
 }

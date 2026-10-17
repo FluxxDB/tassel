@@ -144,5 +144,56 @@
     "network": "No se puede conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.",
     "server": "Algo salió mal de nuestro lado. Inténtalo de nuevo en un momento.",
     "unknown": "Algo salió mal. Inténtalo de nuevo."
+  },
+  "board": {
+    "tools": {
+      "label": "Herramientas de la pizarra",
+      "select": "Seleccionar",
+      "pen": "Lápiz",
+      "arrow": "Flecha",
+      "eraser": "Borrador"
+    },
+    "description": {
+      "label": "Lo que hay en la pizarra de Ada",
+      "states": "Estados: {list}",
+      "start": "Inicio: {state}",
+      "accepting": "De aceptación: {list}",
+      "transition": "De {from} a {to} con {symbols}"
+    },
+    "trace": {
+      "title": "Traza · entrada {input}",
+      "step": "Paso {n}",
+      "read": "lee {symbol}",
+      "loops": "se queda",
+      "stuck": "sin transición: rechaza"
+    },
+    "verdict": {
+      "yours": "Tu {kind}: {verdict}",
+      "this": "Este {kind}: {verdict}",
+      "accept": "acepta",
+      "reject": "rechaza"
+    },
+    "kind": {
+      "dfa": "AFD",
+      "nfa": "AFN"
+    }
+  },
+  "marks": {
+    "snapshot": "Instantánea {time}",
+    "backToLive": "Ver en vivo",
+    "loading": "Cargando la instantánea…",
+    "failed": "No se pudo cargar la instantánea",
+    "description": {
+      "label": "Las marcas de Ada en tu papel",
+      "step": "Paso {n}: {target}",
+      "circle": "Marcado: {target}",
+      "note": "Nota: {text}"
+    },
+    "target": {
+      "state": "estado {id}",
+      "edge": "de {from} a {to}",
+      "start": "la flecha de inicio",
+      "point": "un punto de tu papel"
+    }
   }
 }

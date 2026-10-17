@@ -1,0 +1,833 @@
+{
+  "actions": [
+    {
+      "kind": "board.automaton",
+      "item": "wrong",
+      "spec": {
+        "kind": "dfa",
+        "states": [{ "id": "q0" }, { "id": "q1" }, { "id": "q2" }, { "id": "q3", "accept": true }],
+        "start": "q0",
+        "transitions": [
+          { "from": "q0", "to": "q0", "symbols": ["1"] },
+          { "from": "q0", "to": "q1", "symbols": ["0"] },
+          { "from": "q1", "to": "q2", "symbols": ["1"] },
+          { "from": "q2", "to": "q3", "symbols": ["0"] },
+          { "from": "q3", "to": "q3", "symbols": ["0", "1"] }
+        ]
+      },
+      "title": "Your DFA",
+      "reveal": "all"
+    },
+    {
+      "kind": "board.automaton",
+      "item": "guess",
+      "spec": {
+        "kind": "nfa",
+        "states": [{ "id": "p0" }, { "id": "p1" }, { "id": "p2", "accept": true }],
+        "start": "p0",
+        "transitions": [
+          { "from": "p0", "to": "p0", "symbols": ["0", "1"] },
+          { "from": "p0", "to": "p1", "symbols": ["ε"] },
+          { "from": "p1", "to": "p2", "symbols": ["0"] }
+        ]
+      },
+      "reveal": "none"
+    },
+    { "kind": "board.addState", "item": "fix", "id": "qd", "accept": false },
+    { "kind": "board.addTransition", "item": "fix", "from": "q1", "to": "qd", "symbols": ["0"] },
+    { "kind": "board.reveal", "item": "fix", "els": ["start", "state:q0", "edge:q0>q1"] },
+    { "kind": "board.reveal", "item": "fix" },
+    { "kind": "board.highlight", "item": "wrong", "el": "edge:q0>q0", "on": true },
+    { "kind": "board.highlight", "item": "wrong", "el": "edge:q0>q0", "on": false },
+    { "kind": "board.pulse", "item": "wrong", "el": "state:q3" },
+    {
+      "kind": "board.note",
+      "item": "why",
+      "text": "This loop lets 1010 in.",
+      "near": { "item": "wrong", "el": "edge:q0>q0" }
+    },
+    {
+      "kind": "board.trace",
+      "item": "run",
+      "spec": {
+        "kind": "dfa",
+        "states": [{ "id": "q0" }, { "id": "q1" }, { "id": "q2" }, { "id": "q3", "accept": true }],
+        "start": "q0",
+        "transitions": [
+          { "from": "q0", "to": "q0", "symbols": ["1"] },
+          { "from": "q0", "to": "q1", "symbols": ["0"] },
+          { "from": "q1", "to": "q2", "symbols": ["1"] },
+          { "from": "q2", "to": "q3", "symbols": ["0"] },
+          { "from": "q3", "to": "q3", "symbols": ["0", "1"] }
+        ]
+      },
+      "input": "1010",
+      "subject": "student",
+      "on": "wrong",
+      "title": "Your DFA on 1010"
+    },
+    { "kind": "board.traceStep", "item": "run", "step": 2 },
+    { "kind": "board.traceStep", "item": "run" },
+    {
+      "kind": "board.verdict",
+      "item": "run",
+      "got": "accept",
+      "expected": "reject",
+      "note": "1010 doesn't start with 010."
+    },
+    { "kind": "board.focus", "item": "fix" },
+    { "kind": "board.focus" },
+    { "kind": "board.clear", "item": "run" },
+    { "kind": "board.clear" },
+    { "kind": "paper.freeze", "frame": { "kind": "fixture", "name": "dfa-wrong" } },
+    {
+      "kind": "paper.freeze",
+      "frame": { "kind": "frame", "id": "6f1c2d3e-4b5a-4c6d-8e7f-9a0b1c2d3e4f" },
+      "elements": {
+        "states": {
+          "q0": { "center": { "x": 0.18, "y": 0.55 }, "r": 0.055 },
+          "q1": { "center": { "x": 0.39, "y": 0.55 }, "r": 0.055 },
+          "q2": { "center": { "x": 0.6, "y": 0.55 }, "r": 0.055 },
+          "q3": { "center": { "x": 0.81, "y": 0.55 }, "r": 0.055 }
+        },
+        "edges": {
+          "q0>q0": {
+            "path": [{ "x": 0.15, "y": 0.505 }, { "x": 0.18, "y": 0.4 }, { "x": 0.21, "y": 0.505 }],
+            "label": { "x": 0.18, "y": 0.38 }
+          },
+          "q0>q1": {
+            "path": [{ "x": 0.235, "y": 0.55 }, { "x": 0.335, "y": 0.55 }],
+            "label": { "x": 0.285, "y": 0.525 }
+          },
+          "q1>q2": {
+            "path": [{ "x": 0.445, "y": 0.55 }, { "x": 0.545, "y": 0.55 }],
+            "label": { "x": 0.495, "y": 0.525 }
+          },
+          "q2>q3": {
+            "path": [{ "x": 0.655, "y": 0.55 }, { "x": 0.755, "y": 0.55 }],
+            "label": { "x": 0.705, "y": 0.525 }
+          },
+          "q3>q3": {
+            "path": [{ "x": 0.78, "y": 0.505 }, { "x": 0.81, "y": 0.4 }, { "x": 0.84, "y": 0.505 }],
+            "label": { "x": 0.81, "y": 0.38 }
+          }
+        },
+        "start": { "path": [{ "x": 0.08, "y": 0.55 }, { "x": 0.125, "y": 0.55 }] }
+      },
+      "spec": {
+        "kind": "dfa",
+        "states": [{ "id": "q0" }, { "id": "q1" }, { "id": "q2" }, { "id": "q3", "accept": true }],
+        "start": "q0",
+        "transitions": [
+          { "from": "q0", "to": "q0", "symbols": ["1"] },
+          { "from": "q0", "to": "q1", "symbols": ["0"] },
+          { "from": "q1", "to": "q2", "symbols": ["1"] },
+          { "from": "q2", "to": "q3", "symbols": ["0"] },
+          { "from": "q3", "to": "q3", "symbols": ["0", "1"] }
+        ]
+      }
+    },
+    { "kind": "paper.freeze", "frame": { "kind": "latest" } },
+    { "kind": "paper.freeze", "frame": { "kind": "live" } },
+    {
+      "kind": "paper.mark",
+      "mark": { "type": "circle", "id": "loop", "target": { "el": "edge:q0>q0" }, "wash": true }
+    },
+    {
+      "kind": "paper.mark",
+      "mark": { "type": "circle", "id": "start", "target": { "el": "start" } }
+    },
+    {
+      "kind": "paper.mark",
+      "mark": {
+        "type": "arrow",
+        "id": "m2",
+        "from": { "at": { "x": 0.5, "y": 0.2 } },
+        "to": { "el": "state:q1" }
+      }
+    },
+    {
+      "kind": "paper.mark",
+      "mark": { "type": "step", "id": "s1", "n": 1, "target": { "el": "edge:q0>q0" } }
+    },
+    {
+      "kind": "paper.mark",
+      "mark": {
+        "type": "callout",
+        "id": "c1",
+        "target": { "box": { "x": 0.1, "y": 0.4, "w": 0.2, "h": 0.15 } },
+        "text": "This loop is what lets 1010 in."
+      }
+    },
+    {
+      "kind": "paper.mark",
+      "mark": {
+        "type": "callout",
+        "id": "c2",
+        "target": { "el": "state:q3" },
+        "text": "Este bucle en q0 es lo que deja pasar a 1010: con un 1 al principio te quedas en q0, Este bucle en q0 es lo que deja pasar a 1010: con un 1 al principio te quedas en q0, Este bucle en q0 es lo que deja pasar a 1010: con un 1 al principio te quedas en q0, Este bucle en q0 es lo q🙂"
+      }
+    },
+    {
+      "kind": "paper.mark",
+      "mark": {
+        "type": "callout",
+        "id": "c3",
+        "target": { "el": "edge:q0>q0" },
+        "text": "이 루프 때문에 1010이 통과해요."
+      }
+    },
+    {
+      "kind": "paper.mark",
+      "mark": { "type": "strike", "id": "m5", "target": { "el": "edge:q2>q3" } }
+    },
+    {
+      "kind": "paper.mark",
+      "mark": { "type": "check", "id": "m6", "target": { "at": { "x": 0.81, "y": 0.4 } } }
+    },
+    { "kind": "paper.unmark", "id": "c1" },
+    { "kind": "paper.trace", "input": "1010" },
+    { "kind": "paper.traceStep", "step": 1 },
+    { "kind": "paper.traceStep" },
+    { "kind": "paper.clear" },
+    { "kind": "paper.live" },
+    { "kind": "stage", "view": "split" }
+  ],
+  "invalidActions": [
+    {
+      "why": "an unknown start",
+      "data": {
+        "kind": "board.automaton",
+        "item": "wrong",
+        "spec": {
+          "kind": "dfa",
+          "states": [
+            { "id": "q0" },
+            { "id": "q1" },
+            { "id": "q2" },
+            { "id": "q3", "accept": true }
+          ],
+          "start": "q9",
+          "transitions": [
+            { "from": "q0", "to": "q0", "symbols": ["1"] },
+            { "from": "q0", "to": "q1", "symbols": ["0"] },
+            { "from": "q1", "to": "q2", "symbols": ["1"] },
+            { "from": "q2", "to": "q3", "symbols": ["0"] },
+            { "from": "q3", "to": "q3", "symbols": ["0", "1"] }
+          ]
+        }
+      }
+    },
+    {
+      "why": "two moves on one symbol",
+      "data": {
+        "kind": "board.automaton",
+        "item": "wrong",
+        "spec": {
+          "kind": "dfa",
+          "states": [
+            { "id": "q0" },
+            { "id": "q1" },
+            { "id": "q2" },
+            { "id": "q3", "accept": true }
+          ],
+          "start": "q0",
+          "transitions": [
+            { "from": "q0", "to": "q0", "symbols": ["1"] },
+            { "from": "q0", "to": "q1", "symbols": ["0"] },
+            { "from": "q1", "to": "q2", "symbols": ["1"] },
+            { "from": "q2", "to": "q3", "symbols": ["0"] },
+            { "from": "q3", "to": "q3", "symbols": ["0", "1"] },
+            { "from": "q0", "to": "q2", "symbols": ["1"] }
+          ]
+        }
+      }
+    },
+    {
+      "why": "ε in a DFA",
+      "data": {
+        "kind": "board.trace",
+        "item": "run",
+        "spec": {
+          "kind": "dfa",
+          "states": [
+            { "id": "q0" },
+            { "id": "q1" },
+            { "id": "q2" },
+            { "id": "q3", "accept": true }
+          ],
+          "start": "q0",
+          "transitions": [
+            { "from": "q0", "to": "q0", "symbols": ["1"] },
+            { "from": "q0", "to": "q1", "symbols": ["0"] },
+            { "from": "q1", "to": "q2", "symbols": ["1"] },
+            { "from": "q2", "to": "q3", "symbols": ["0"] },
+            { "from": "q3", "to": "q3", "symbols": ["0", "1"] },
+            { "from": "q1", "to": "q3", "symbols": ["ε"] }
+          ]
+        },
+        "input": "1010"
+      }
+    },
+    {
+      "why": "a mark with no target",
+      "data": { "kind": "paper.mark", "mark": { "type": "circle", "id": "loop" } }
+    },
+    {
+      "why": "edge:q0 as a ref",
+      "data": { "kind": "board.highlight", "item": "wrong", "el": "edge:q0", "on": true }
+    },
+    { "why": "an unknown kind", "data": { "kind": "board.erase", "item": "wrong" } },
+    {
+      "why": "a 281-character callout",
+      "data": {
+        "kind": "paper.mark",
+        "mark": {
+          "type": "callout",
+          "id": "c2",
+          "target": { "el": "state:q3" },
+          "text": "Este bucle en q0 es lo que deja pasar a 1010: con un 1 al principio te quedas en q0, Este bucle en q0 es lo que deja pasar a 1010: con un 1 al principio te quedas en q0, Este bucle en q0 es lo que deja pasar a 1010: con un 1 al principio te quedas en q0, Este bucle en q0 es lo qab"
+        }
+      }
+    },
+    { "why": "an unknown field", "data": { "kind": "board.focus", "item": "fix", "zoom": 2 } },
+    { "why": "an item id with a space", "data": { "kind": "board.clear", "item": "your dfa" } },
+    {
+      "why": "a state id with a space",
+      "data": { "kind": "board.addState", "item": "fix", "id": "q 1" }
+    },
+    {
+      "why": "a newline after a state id",
+      "data": { "kind": "board.addState", "item": "fix", "id": "q1\n" }
+    },
+    {
+      "why": "a symbol with a comma",
+      "data": {
+        "kind": "board.addTransition",
+        "item": "fix",
+        "from": "q3",
+        "to": "q3",
+        "symbols": ["0,1"]
+      }
+    },
+    {
+      "why": "a highlight without on",
+      "data": { "kind": "board.highlight", "item": "wrong", "el": "state:q0" }
+    },
+    {
+      "why": "a step that is not a whole number",
+      "data": { "kind": "board.traceStep", "item": "run", "step": 1.5 }
+    },
+    {
+      "why": "a target with two anchors",
+      "data": {
+        "kind": "paper.mark",
+        "mark": {
+          "type": "check",
+          "id": "m6",
+          "target": { "el": "state:q3", "at": { "x": 0.81, "y": 0.4 } }
+        }
+      }
+    },
+    {
+      "why": "a box with a negative width",
+      "data": {
+        "kind": "paper.mark",
+        "mark": {
+          "type": "circle",
+          "id": "b1",
+          "target": { "box": { "x": 0.3, "y": 0.4, "w": -0.1, "h": 0.1 } }
+        }
+      }
+    },
+    {
+      "why": "a fixture page that does not exist",
+      "data": { "kind": "paper.freeze", "frame": { "kind": "fixture", "name": "dfa-right" } }
+    },
+    { "why": "a view that does not exist", "data": { "kind": "stage", "view": "both" } },
+    { "why": "an empty note", "data": { "kind": "board.note", "item": "why", "text": "" } }
+  ],
+  "beats": [
+    {
+      "version": 1,
+      "id": "marks-demo-1-0",
+      "turn": "marks-demo-1",
+      "segment": "marks-demo-1-0",
+      "lang": "en",
+      "text": "Let's walk 1010 through your DFA, one symbol at a time.",
+      "durationSec": 4.02,
+      "shapeSet": "rhubarb9",
+      "mouthCues": [{ "start": 0, "end": 4.02, "value": "X" }],
+      "words": [
+        { "text": "Let's", "start": 0, "end": 0.31 },
+        { "text": "walk", "start": 0.37, "end": 0.68 },
+        { "text": "1010", "start": 0.74, "end": 1.05 },
+        { "text": "through", "start": 1.11, "end": 1.585 },
+        { "text": "your", "start": 1.645, "end": 1.955 },
+        { "text": "DFA,", "start": 2.015, "end": 2.27 },
+        { "text": "one", "start": 2.45, "end": 2.705 },
+        { "text": "symbol", "start": 2.765, "end": 3.185 },
+        { "text": "at", "start": 3.245, "end": 3.445 },
+        { "text": "a", "start": 3.505, "end": 3.65 },
+        { "text": "time.", "start": 3.71, "end": 4.02 }
+      ],
+      "markers": [
+        {
+          "id": "marks-demo-1-0.1",
+          "word": 6,
+          "action": { "kind": "paper.freeze", "frame": { "kind": "fixture", "name": "dfa-wrong" } }
+        },
+        { "id": "marks-demo-1-0.2", "word": 11, "action": { "kind": "stage", "view": "split" } }
+      ]
+    },
+    {
+      "version": 1,
+      "id": "beat-3f9a",
+      "turn": "turn-12",
+      "segment": "seg-12-0",
+      "lang": "es",
+      "text": "Empezamos en q cero.",
+      "durationSec": null,
+      "shapeSet": "rhubarb9",
+      "mouthCues": [],
+      "words": [
+        { "text": "Empezamos", "start": null, "end": null },
+        { "text": "en", "start": null, "end": null },
+        { "text": "q", "start": null, "end": null },
+        { "text": "cero.", "start": null, "end": null }
+      ],
+      "markers": [
+        {
+          "id": "beat-3f9a.1",
+          "word": 2,
+          "action": { "kind": "board.reveal", "item": "fix", "els": ["start", "state:q0"] }
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "id": "beat-3f9c",
+      "turn": "turn-13",
+      "segment": "seg-13-0",
+      "lang": "ko",
+      "text": "이 루프 때문에 1010이 통과해요.",
+      "durationSec": null,
+      "shapeSet": "rhubarb9",
+      "mouthCues": [],
+      "words": [
+        { "text": "이", "start": null, "end": null },
+        { "text": "루프", "start": null, "end": null },
+        { "text": "때문에", "start": null, "end": null },
+        { "text": "1010이", "start": null, "end": null },
+        { "text": "통과해요.", "start": null, "end": null }
+      ],
+      "markers": [
+        {
+          "id": "beat-3f9c.1",
+          "word": 1,
+          "action": {
+            "kind": "paper.mark",
+            "mark": { "type": "circle", "id": "m1", "target": { "el": "edge:q0>q0" }, "wash": true }
+          }
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "id": "beat-3f9b",
+      "turn": "turn-12",
+      "segment": "seg-12-1",
+      "lang": "en",
+      "text": "",
+      "durationSec": null,
+      "shapeSet": "rhubarb9",
+      "mouthCues": [],
+      "words": [],
+      "markers": [
+        { "id": "beat-3f9b.1", "word": 0, "action": { "kind": "stage", "view": "split" } },
+        {
+          "id": "beat-3f9b.2",
+          "word": 0,
+          "action": {
+            "kind": "board.automaton",
+            "item": "fix",
+            "spec": {
+              "kind": "dfa",
+              "states": [
+                { "id": "q0" },
+                { "id": "q1" },
+                { "id": "q2" },
+                { "id": "q3", "accept": true },
+                { "id": "qd" }
+              ],
+              "start": "q0",
+              "transitions": [
+                { "from": "q0", "to": "q1", "symbols": ["0"] },
+                { "from": "q1", "to": "q2", "symbols": ["1"] },
+                { "from": "q2", "to": "q3", "symbols": ["0"] },
+                { "from": "q3", "to": "q3", "symbols": ["0", "1"] },
+                { "from": "q0", "to": "qd", "symbols": ["1"] },
+                { "from": "q1", "to": "qd", "symbols": ["0"] },
+                { "from": "q2", "to": "qd", "symbols": ["1"] },
+                { "from": "qd", "to": "qd", "symbols": ["0", "1"] }
+              ]
+            },
+            "title": "A DFA that works",
+            "reveal": "none"
+          }
+        }
+      ]
+    }
+  ],
+  "invalidBeats": [
+    {
+      "problem": "bad version",
+      "data": {
+        "version": 2,
+        "id": "beat-bad",
+        "turn": "turn-9",
+        "segment": "seg-9-0",
+        "lang": "en",
+        "text": "Try this one.",
+        "durationSec": 0.9,
+        "shapeSet": "rhubarb9",
+        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "words": [
+          { "text": "Try", "start": 0, "end": 0.2 },
+          { "text": "this", "start": 0.3, "end": 0.5 },
+          { "text": "one.", "start": 0.6, "end": 0.9 }
+        ],
+        "markers": [
+          {
+            "id": "m1",
+            "word": 1,
+            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+          }
+        ]
+      }
+    },
+    {
+      "problem": "words out of order at 2",
+      "data": {
+        "version": 1,
+        "id": "beat-bad",
+        "turn": "turn-9",
+        "segment": "seg-9-0",
+        "lang": "en",
+        "text": "Try this one.",
+        "durationSec": 0.9,
+        "shapeSet": "rhubarb9",
+        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "words": [
+          { "text": "Try", "start": 0, "end": 0.2 },
+          { "text": "this", "start": 0.3, "end": 0.5 },
+          { "text": "one.", "start": 0.25, "end": 0.9 }
+        ],
+        "markers": [
+          {
+            "id": "m1",
+            "word": 1,
+            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+          }
+        ]
+      }
+    },
+    {
+      "problem": "mouthCues must start at 0 and end on X",
+      "data": {
+        "version": 1,
+        "id": "beat-bad",
+        "turn": "turn-9",
+        "segment": "seg-9-0",
+        "lang": "en",
+        "text": "Try this one.",
+        "durationSec": 0.9,
+        "shapeSet": "rhubarb9",
+        "mouthCues": [
+          { "start": 0, "end": 0.4, "value": "B" },
+          { "start": 0.4, "end": 0.9, "value": "C" }
+        ],
+        "words": [
+          { "text": "Try", "start": 0, "end": 0.2 },
+          { "text": "this", "start": 0.3, "end": 0.5 },
+          { "text": "one.", "start": 0.6, "end": 0.9 }
+        ],
+        "markers": [
+          {
+            "id": "m1",
+            "word": 1,
+            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+          }
+        ]
+      }
+    },
+    {
+      "problem": "mouthCues have a gap at 0.20",
+      "data": {
+        "version": 1,
+        "id": "beat-bad",
+        "turn": "turn-9",
+        "segment": "seg-9-0",
+        "lang": "en",
+        "text": "Try this one.",
+        "durationSec": 0.9,
+        "shapeSet": "rhubarb9",
+        "mouthCues": [
+          { "start": 0, "end": 0.2, "value": "B" },
+          { "start": 0.25, "end": 0.9, "value": "X" }
+        ],
+        "words": [
+          { "text": "Try", "start": 0, "end": 0.2 },
+          { "text": "this", "start": 0.3, "end": 0.5 },
+          { "text": "one.", "start": 0.6, "end": 0.9 }
+        ],
+        "markers": [
+          {
+            "id": "m1",
+            "word": 1,
+            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+          }
+        ]
+      }
+    },
+    {
+      "problem": "mouthCues need durationSec",
+      "data": {
+        "version": 1,
+        "id": "beat-bad",
+        "turn": "turn-9",
+        "segment": "seg-9-0",
+        "lang": "en",
+        "text": "Try this one.",
+        "durationSec": null,
+        "shapeSet": "rhubarb9",
+        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "words": [
+          { "text": "Try", "start": 0, "end": 0.2 },
+          { "text": "this", "start": 0.3, "end": 0.5 },
+          { "text": "one.", "start": 0.6, "end": 0.9 }
+        ],
+        "markers": [
+          {
+            "id": "m1",
+            "word": 1,
+            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+          }
+        ]
+      }
+    },
+    {
+      "problem": "marker m2 anchors to word 7 of 3",
+      "data": {
+        "version": 1,
+        "id": "beat-bad",
+        "turn": "turn-9",
+        "segment": "seg-9-0",
+        "lang": "en",
+        "text": "Try this one.",
+        "durationSec": 0.9,
+        "shapeSet": "rhubarb9",
+        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "words": [
+          { "text": "Try", "start": 0, "end": 0.2 },
+          { "text": "this", "start": 0.3, "end": 0.5 },
+          { "text": "one.", "start": 0.6, "end": 0.9 }
+        ],
+        "markers": [
+          {
+            "id": "m1",
+            "word": 1,
+            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+          },
+          {
+            "id": "m2",
+            "word": 7,
+            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+          }
+        ]
+      }
+    },
+    {
+      "problem": "marker m1 has an invalid action",
+      "data": {
+        "version": 1,
+        "id": "beat-bad",
+        "turn": "turn-9",
+        "segment": "seg-9-0",
+        "lang": "en",
+        "text": "Try this one.",
+        "durationSec": 0.9,
+        "shapeSet": "rhubarb9",
+        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "words": [
+          { "text": "Try", "start": 0, "end": 0.2 },
+          { "text": "this", "start": 0.3, "end": 0.5 },
+          { "text": "one.", "start": 0.6, "end": 0.9 }
+        ],
+        "markers": [{ "id": "m1", "word": 0, "action": { "kind": "board.erase", "item": "wrong" } }]
+      }
+    },
+    {
+      "problem": "duplicate marker m1",
+      "data": {
+        "version": 1,
+        "id": "beat-bad",
+        "turn": "turn-9",
+        "segment": "seg-9-0",
+        "lang": "en",
+        "text": "Try this one.",
+        "durationSec": 0.9,
+        "shapeSet": "rhubarb9",
+        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "words": [
+          { "text": "Try", "start": 0, "end": 0.2 },
+          { "text": "this", "start": 0.3, "end": 0.5 },
+          { "text": "one.", "start": 0.6, "end": 0.9 }
+        ],
+        "markers": [
+          {
+            "id": "m1",
+            "word": 0,
+            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+          },
+          {
+            "id": "m1",
+            "word": 2,
+            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+          }
+        ]
+      }
+    },
+    {
+      "problem": "bad lang",
+      "data": {
+        "version": 1,
+        "id": "beat-bad",
+        "turn": "turn-9",
+        "segment": "seg-9-0",
+        "lang": "fr",
+        "text": "Try this one.",
+        "durationSec": 0.9,
+        "shapeSet": "rhubarb9",
+        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "words": [
+          { "text": "Try", "start": 0, "end": 0.2 },
+          { "text": "this", "start": 0.3, "end": 0.5 },
+          { "text": "one.", "start": 0.6, "end": 0.9 }
+        ],
+        "markers": [
+          {
+            "id": "m1",
+            "word": 1,
+            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+          }
+        ]
+      }
+    },
+    {
+      "problem": "bad shapeSet",
+      "data": {
+        "version": 1,
+        "id": "beat-bad",
+        "turn": "turn-9",
+        "segment": "seg-9-0",
+        "lang": "en",
+        "text": "Try this one.",
+        "durationSec": 0.9,
+        "shapeSet": "preston",
+        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "words": [
+          { "text": "Try", "start": 0, "end": 0.2 },
+          { "text": "this", "start": 0.3, "end": 0.5 },
+          { "text": "one.", "start": 0.6, "end": 0.9 }
+        ],
+        "markers": [
+          {
+            "id": "m1",
+            "word": 1,
+            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+          }
+        ]
+      }
+    },
+    {
+      "problem": "unknown field mood",
+      "data": {
+        "version": 1,
+        "id": "beat-bad",
+        "turn": "turn-9",
+        "segment": "seg-9-0",
+        "lang": "en",
+        "text": "Try this one.",
+        "durationSec": 0.9,
+        "shapeSet": "rhubarb9",
+        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "words": [
+          { "text": "Try", "start": 0, "end": 0.2 },
+          { "text": "this", "start": 0.3, "end": 0.5 },
+          { "text": "one.", "start": 0.6, "end": 0.9 }
+        ],
+        "markers": [
+          {
+            "id": "m1",
+            "word": 1,
+            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+          }
+        ],
+        "mood": "happy"
+      }
+    },
+    {
+      "problem": "bad word 1",
+      "data": {
+        "version": 1,
+        "id": "beat-bad",
+        "turn": "turn-9",
+        "segment": "seg-9-0",
+        "lang": "en",
+        "text": "Try this one.",
+        "durationSec": 0.9,
+        "shapeSet": "rhubarb9",
+        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "words": [
+          { "text": "Try", "start": 0, "end": 0.2 },
+          { "text": "this", "start": 0.3, "end": null },
+          { "text": "one.", "start": 0.6, "end": 0.9 }
+        ],
+        "markers": [
+          {
+            "id": "m1",
+            "word": 1,
+            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+          }
+        ]
+      }
+    },
+    {
+      "problem": "text too long",
+      "data": {
+        "version": 1,
+        "id": "beat-bad",
+        "turn": "turn-9",
+        "segment": "seg-9-0",
+        "lang": "en",
+        "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "durationSec": 0.9,
+        "shapeSet": "rhubarb9",
+        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "words": [
+          { "text": "Try", "start": 0, "end": 0.2 },
+          { "text": "this", "start": 0.3, "end": 0.5 },
+          { "text": "one.", "start": 0.6, "end": 0.9 }
+        ],
+        "markers": [
+          {
+            "id": "m1",
+            "word": 1,
+            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+          }
+        ]
+      }
+    }
+  ]
+}

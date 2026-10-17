@@ -1,0 +1,18 @@
+{
+  "steps": [
+    {
+      "at": 0,
+      "event": {
+        "type": "state",
+        "state": "connecting"
+      }
+    },
+    {
+      "at": 800,
+      "event": {
+        "type": "state",
+        "state": "listening"
+      }
+    }
+  ]
+}
