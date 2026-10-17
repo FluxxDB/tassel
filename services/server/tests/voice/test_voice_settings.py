@@ -24,7 +24,7 @@ from tassel.voice.settings import (
 )
 
 KINDS = ("stt", "llm", "tts", "titles")
-KEYS = ("DEEPGRAM_API_KEY", "OPENROUTER_API_KEY", "ELEVENLABS_API_KEY")
+KEYS = ("DEEPGRAM_API_KEY", "OPENROUTER_API_KEY", "ELEVENLABS_API_KEY", "OPENAI_API_KEY")
 ALL_LIVE = {
     "deepgram_api_key": "dg-dummy",
     "openrouter_api_key": "or-dummy",
@@ -51,22 +51,60 @@ def test_auto_is_live_only_with_its_key():
 
 
 def test_live_without_key_is_reported():
-    s = VoiceSettings(_env_file=None, llm_provider="live")
-    problem = "TASSEL_LLM_PROVIDER=live needs OPENROUTER_API_KEY in services/server/.env"
+    s = VoiceSettings(_env_file=None, llm_provider="openrouter")
+    problem = "TASSEL_LLM_PROVIDER=openrouter needs OPENROUTER_API_KEY in services/server/.env"
     assert check_voice_settings(s) == [problem]
     with pytest.raises(VoiceConfigError) as raised:
         resolve_mode("llm", s)
     assert str(raised.value) == problem
 
 
-def test_live_tts_needs_a_voice_per_language():
-    s = VoiceSettings(_env_file=None, providers="auto", elevenlabs_api_key="el", voice_en="v-en")
+@pytest.mark.parametrize("override", [None, "", "   "])
+def test_live_tts_defaults_to_matilda(override):
+    s = VoiceSettings(
+        _env_file=None,
+        providers="auto",
+        elevenlabs_api_key="el",
+        voice_en=override,
+        voice_es=override,
+        voice_ko=override,
+    )
+    assert check_voice_settings(s) == []
+    assert resolve_mode("tts", s) == "live"
+    assert [s.voice_en, s.voice_es, s.voice_ko] == ["XrExE9yKIg1WjnnlVkGX"] * 3
+
+
+def test_voice_override_is_preserved():
+    s = VoiceSettings(_env_file=None, voice_ko="native-ko")
+    assert s.voice_ko == "native-ko"
+    assert s.voice_en == "XrExE9yKIg1WjnnlVkGX"
+
+
+@pytest.mark.parametrize(
+    "provider,key",
+    [
+        ("openai", "openai_api_key"),
+        ("openrouter", "openrouter_api_key"),
+        ("auto", "openai_api_key"),
+        ("auto", "openrouter_api_key"),
+    ],
+)
+def test_llm_provider_accepts_r18_modes(provider, key):
+    s = VoiceSettings(_env_file=None, llm_provider=provider, **{key: "dummy"})
+    assert resolve_mode("llm", s) == "live"
+
+
+def test_explicit_openai_needs_its_own_key():
+    s = VoiceSettings(_env_file=None, llm_provider="openai", openrouter_api_key="dummy")
     assert check_voice_settings(s) == [
-        "TASSEL_PROVIDERS=auto needs TASSEL_VOICE_ES in services/server/.env",
-        "TASSEL_PROVIDERS=auto needs TASSEL_VOICE_KO in services/server/.env",
+        "TASSEL_LLM_PROVIDER=openai needs OPENAI_API_KEY in services/server/.env"
     ]
-    with pytest.raises(VoiceConfigError, match="TASSEL_VOICE_ES"):
-        resolve_mode("tts", s)
+
+
+def test_configured_providers_are_live_by_default():
+    s = VoiceSettings(_env_file=None, deepgram_api_key="dummy")
+    assert s.providers == "auto"
+    assert resolve_mode("stt", s) == "live"
 
 
 def test_empty_values_count_as_unset(tmp_path):
@@ -118,11 +156,12 @@ def test_secrets_never_print():
         _env_file=None,
         deepgram_api_key="dg-secret-1",
         openrouter_api_key="or-secret-2",
+        openai_api_key="oa-secret-5",
         elevenlabs_api_key="el-secret-3",
         ice_servers=[turn],
     )
     for text in (repr(s), str(s), s.model_dump_json(), repr(turn)):
-        for secret in ("dg-secret-1", "or-secret-2", "el-secret-3", "turn-secret-4"):
+        for secret in ("dg-secret-1", "or-secret-2", "el-secret-3", "turn-secret-4", "oa-secret-5"):
             assert secret not in text
 
 
@@ -152,9 +191,6 @@ def test_global_live_names_tassel_providers_once_per_missing_key():
         "TASSEL_PROVIDERS=live needs DEEPGRAM_API_KEY in services/server/.env",
         "TASSEL_PROVIDERS=live needs OPENROUTER_API_KEY in services/server/.env",
         "TASSEL_PROVIDERS=live needs ELEVENLABS_API_KEY in services/server/.env",
-        "TASSEL_PROVIDERS=live needs TASSEL_VOICE_EN in services/server/.env",
-        "TASSEL_PROVIDERS=live needs TASSEL_VOICE_ES in services/server/.env",
-        "TASSEL_PROVIDERS=live needs TASSEL_VOICE_KO in services/server/.env",
     ]
 
 
@@ -163,7 +199,9 @@ def test_titles_use_the_openrouter_key():
     assert check_voice_settings(s) == [
         "TASSEL_TITLES_PROVIDER=live needs OPENROUTER_API_KEY in services/server/.env"
     ]
-    keyed = VoiceSettings(_env_file=None, titles_provider="auto", openrouter_api_key="or")
+    keyed = VoiceSettings(
+        _env_file=None, providers="fake", titles_provider="auto", openrouter_api_key="or"
+    )
     assert modes(keyed) == {"stt": "fake", "llm": "fake", "tts": "fake", "titles": "live"}
 
 
@@ -171,9 +209,8 @@ def test_blank_keys_and_voices_count_as_missing():
     s = VoiceSettings(_env_file=None, providers="auto", **{**ALL_LIVE, "deepgram_api_key": " "})
     assert resolve_mode("stt", s) == "fake"
     s = VoiceSettings(_env_file=None, tts_provider="live", **{**ALL_LIVE, "voice_es": ""})
-    assert check_voice_settings(s) == [
-        "TASSEL_TTS_PROVIDER=live needs TASSEL_VOICE_ES in services/server/.env"
-    ]
+    assert check_voice_settings(s) == []
+    assert s.voice_es == "XrExE9yKIg1WjnnlVkGX"
 
 
 def test_the_example_file_loads_as_all_fake():

@@ -32,7 +32,7 @@ TEST_DATABASE_URL = os.environ.get(
 )
 
 
-_VOICE_KEYS = ("DEEPGRAM_API_KEY", "OPENROUTER_API_KEY", "ELEVENLABS_API_KEY")
+_VOICE_KEYS = ("DEEPGRAM_API_KEY", "OPENROUTER_API_KEY", "ELEVENLABS_API_KEY", "OPENAI_API_KEY")
 
 
 def _is_voice_setting(name: str) -> bool:
@@ -47,7 +47,7 @@ def _is_voice_setting(name: str) -> bool:
 def scrub_voice_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """No test reaches a live provider or reads services/server/.env (P2-R16).
 
-    Deletes every ``TASSEL_*PROVIDER*`` and ``TASSEL_VOICE_*`` variable and the three provider
+    Deletes every ``TASSEL_*PROVIDER*`` and ``TASSEL_VOICE_*`` variable and the four provider
     keys, and sets ``TASSEL_VOICE_ENV_FILE`` to empty, so ``VoiceSettings.load()`` reads no file
     and every provider is fake. A test that wants live settings constructs ``VoiceSettings(...)``.
     """

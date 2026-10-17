@@ -5,7 +5,7 @@ and is git-ignored. The app reads them in its lifespan (``VoiceSettings.load``),
 in ``create_app``, so exporting the OpenAPI schema and running tests never touch a key.
 
 ``TASSEL_PROVIDERS`` picks every provider's mode, and ``TASSEL_<KIND>_PROVIDER`` overrides it for
-one kind: ``fake`` (the default), ``live``, or ``auto``, which is live exactly when that provider's
+one kind: ``fake``, ``live``, or ``auto`` (the default), which is live exactly when that provider's
 key is set. Empty values count as unset. This module never loads Pipecat.
 """
 
@@ -13,12 +13,12 @@ import os
 from pathlib import Path
 from typing import Literal, get_args
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from tassel.models import Lang
-
 Mode = Literal["fake", "live", "auto"]
+LLMProvider = Literal["auto", "openrouter", "openai", "fake"]
+DEFAULT_VOICE_ID = "XrExE9yKIg1WjnnlVkGX"
 ProviderKind = Literal["stt", "llm", "tts", "titles"]
 
 # src/tassel/voice/settings.py -> services/server is three levels up.
@@ -49,20 +49,21 @@ class VoiceSettings(BaseSettings):
         hide_input_in_errors=True,
     )
 
-    providers: Mode = "fake"
+    providers: Mode = "auto"
     stt_provider: Mode | None = None
-    llm_provider: Mode | None = None
+    llm_provider: LLMProvider | None = None
     tts_provider: Mode | None = None
     titles_provider: Mode | None = None
 
     deepgram_api_key: SecretStr | None = Field(None, validation_alias="DEEPGRAM_API_KEY")
     openrouter_api_key: SecretStr | None = Field(None, validation_alias="OPENROUTER_API_KEY")
+    openai_api_key: SecretStr | None = Field(None, validation_alias="OPENAI_API_KEY")
     elevenlabs_api_key: SecretStr | None = Field(None, validation_alias="ELEVENLABS_API_KEY")
 
-    # The tutor's ElevenLabs voice per session language (the owner supplies them; P2-R12).
-    voice_en: str | None = None
-    voice_es: str | None = None
-    voice_ko: str | None = None
+    # Optional overrides resolve to ElevenLabs' premade Matilda voice (P2-R17).
+    voice_en: str = DEFAULT_VOICE_ID
+    voice_es: str = DEFAULT_VOICE_ID
+    voice_ko: str = DEFAULT_VOICE_ID
 
     llm_model: str = "qwen/qwen3.8-27b"
     llm_max_tokens: int = 400
@@ -72,6 +73,11 @@ class VoiceSettings(BaseSettings):
 
     ice_servers: list[IceServerConfig] = []
     voice_metrics_log: Path | None = None
+
+    @field_validator("voice_en", "voice_es", "voice_ko", mode="before")
+    @classmethod
+    def default_blank_voice(cls, value: str | None) -> str:
+        return value if value and value.strip() else DEFAULT_VOICE_ID
 
     @classmethod
     def load(cls) -> "VoiceSettings":
@@ -109,7 +115,7 @@ def _is_set(value: SecretStr | str | None) -> bool:
 
 def _resolve(kind: ProviderKind, s: VoiceSettings) -> tuple[Literal["fake", "live"], list[str]]:
     """The kind's mode, and what it lacks when that mode is live."""
-    override: Mode | None = getattr(s, f"{kind}_provider")
+    override: Mode | LLMProvider | None = getattr(s, f"{kind}_provider")
     if override is None:
         mode, variable = s.providers, "TASSEL_PROVIDERS"
     else:
@@ -117,16 +123,19 @@ def _resolve(kind: ProviderKind, s: VoiceSettings) -> tuple[Literal["fake", "liv
     if mode == "fake":
         return "fake", []
     field, key = _KEYS[kind]
+    if kind == "llm":
+        # Runtime OpenRouter credit/refusal fallback belongs to Task 6. Settings select
+        # an available credential without making network calls.
+        if mode == "openai" or (
+            mode in ("auto", "live")
+            and not _is_set(s.openrouter_api_key)
+            and _is_set(s.openai_api_key)
+        ):
+            field, key = "openai_api_key", "OPENAI_API_KEY"
     has_key = _is_set(getattr(s, field))
     if mode == "auto" and not has_key:
         return "fake", []
     needs = [] if has_key else [key]
-    if kind == "tts":
-        needs += [
-            f"TASSEL_VOICE_{lang.upper()}"
-            for lang in get_args(Lang)
-            if not _is_set(getattr(s, f"voice_{lang}"))
-        ]
     return "live", [f"{variable}={mode} needs {need} in {_ENV_FILE_NAME}" for need in needs]
 
 
