@@ -73,6 +73,20 @@ describe('dispatchActions', () => {
     expect(stage().mode).toBe('split');
   });
 
+  it("judges by Ada's own view while a view is pinned, not by the pinned one", () => {
+    // Board pinned, and Ada has since asked for the paper: her drawing must come back beside it.
+    stage().pin('board');
+    stage().requestMode('paper');
+    dispatchActions([PULSE]);
+    expect(stage()).toMatchObject({ mode: 'board', pinned: 'board', requested: 'split' });
+    // Paper pinned, and Ada has already asked for the board: that request stands.
+    stage().reset();
+    stage().pin('paper');
+    stage().requestMode('board');
+    dispatchActions([PULSE]);
+    expect(stage()).toMatchObject({ mode: 'paper', pinned: 'paper', requested: 'board' });
+  });
+
   it('a showing paper action on the board view requests split', () => {
     stage().requestMode('board');
     log = [];
