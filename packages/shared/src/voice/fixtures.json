@@ -1,0 +1,72 @@
+{
+  "budgets": {
+    "ttfa_ms": { "en": 1200, "es": 1200, "ko": 1400 },
+    "yield_ms": 300,
+    "silence_ms": 600,
+    "silence_instant_ms": 300
+  },
+  "endpoints": {
+    "offer": "/v1/sessions/{session_id}/voice/offer",
+    "ice_servers": "/v1/voice/ice-servers"
+  },
+  "server": [
+    { "kind": "route", "lang": "en", "stt": "flux", "llm": "openrouter", "tts": "elevenlabs" },
+    {
+      "kind": "turn-metrics",
+      "metrics": {
+        "turn": 1,
+        "lang": "en",
+        "input": "voice",
+        "stt_ms": 250,
+        "llm_ttfb_ms": 240,
+        "tts_ttfb_ms": 150,
+        "server_ttfa_ms": 700,
+        "interrupted": false,
+        "budget_ms": 1200
+      }
+    },
+    { "kind": "backchannel", "text": "네" },
+    { "kind": "title", "title": "Strings that start with 010", "subject": "Automata · DFA" },
+    { "kind": "stage", "view": "split" },
+    { "kind": "language", "lang": "ko" },
+    { "kind": "vad", "speaking": true }
+  ],
+  "client": [
+    { "kind": "ptt", "enabled": true, "held": true },
+    { "kind": "sensitivity", "level": "high" },
+    {
+      "kind": "client-metrics",
+      "ttfa_ms": 900,
+      "barge_in_ms": 420,
+      "yield_ms": 250,
+      "sensitivity": "normal"
+    }
+  ],
+  "offer_request_data": { "scenario": "dfa-opening", "sensitivity": "normal", "ptt": false },
+  "scenario_lines": {
+    "dfa-opening": {
+      "en": [
+        "Hi Ada, I'm working on a DFA for binary strings that start with 010.",
+        "I think that's it. If it starts with a 1, I just wait on q0 until I see a 0."
+      ],
+      "es": [
+        "Hola Ada, estoy haciendo un AFD para cadenas binarias que empiezan con 010.",
+        "Creo que ya está. Si empieza con un 1, me quedo en q0 hasta ver un 0."
+      ],
+      "ko": [
+        "에이다, 010으로 시작하는 이진 문자열 DFA를 만들고 있어요.",
+        "왜 죽은 상태가 필요해요?"
+      ]
+    },
+    "barge-in": {
+      "en": ["uh-huh", "Wait, can I ask something?"],
+      "es": ["ajá", "Espera, ¿puedo preguntar algo?"],
+      "ko": ["네", "잠깐만요, 질문이 있어요."]
+    },
+    "ptt": {
+      "en": ["Can you hear me now?"],
+      "es": ["¿Me oyes ahora?"],
+      "ko": ["이제 들려요?"]
+    }
+  }
+}

@@ -9,7 +9,9 @@
     "./base.css": "./src/styles/base.css",
     "./fonts/*": "./src/fonts/*",
     "./i18n": "./src/i18n/index.ts",
-    "./api": "./src/api/index.ts"
+    "./api": "./src/api/index.ts",
+    "./voice": "./src/voice/messages.ts",
+    "./voice/fixtures.json": "./src/voice/fixtures.json"
   },
   "scripts": {
     "postinstall": "node scripts/copy-fonts.mjs",

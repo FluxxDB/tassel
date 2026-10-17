@@ -36,6 +36,13 @@ export function useTutorSession(sessionId: string, client: TutorClient): void {
           patchSession(api, sessionId, changes).catch(() => {});
           break;
         }
+        case 'connection':
+        case 'mic':
+        case 'language':
+        case 'word':
+        case 'voice-debug':
+          // The live voice tutor's own events: the session screen takes them up in P2 Task 17.
+          break;
       }
     });
     void client.connect(sessionId);
