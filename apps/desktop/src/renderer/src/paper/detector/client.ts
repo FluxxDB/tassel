@@ -19,6 +19,12 @@ export interface ChangeDetectorOptions {
   onStats(stats: DetectorStats): void;
   onTrigger(trigger: DetectorTrigger): void;
   onError(message: string): void;
+  /**
+   * Once OpenCV has settled in the worker: true when it loaded, false when the page finder is off
+   * and the central crop is compared instead. The frame watchdog arms here, since loading and
+   * starting OpenCV can hold the worker's thread for seconds (re-review N4).
+   */
+  onReady?(opencv: boolean): void;
   createWorker?: () => Worker;
   createProcessor?: (track: MediaStreamTrack) => { readable: ReadableStream<VideoFrame> };
 }
@@ -44,6 +50,7 @@ export function createChangeDetector(
     if (message.type === 'stats') opts.onStats(message.stats);
     else if (message.type === 'trigger') opts.onTrigger(message.trigger);
     else if (message.type === 'error') opts.onError(message.message);
+    else if (message.type === 'ready') opts.onReady?.(message.opencv);
   };
   worker.onerror = (event: ErrorEvent) => {
     if (!stopped) opts.onError(event.message || 'The change detector stopped');

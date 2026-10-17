@@ -137,6 +137,56 @@
       "cancel": "Keep going"
     }
   },
+  "paper": {
+    "tag": {
+      "window": "Your paper · Desk View window"
+    },
+    "state": {
+      "starting": {
+        "title": "Getting your paper ready…"
+      },
+      "off": {
+        "title": "Camera is off",
+        "body": "Turn it on when you want Ada to see your paper.",
+        "action": "Turn camera on"
+      },
+      "denied": {
+        "title": "Tassel can't use the camera",
+        "body": "Allow camera access for Tassel in System Settings, then try again. If it still doesn't work, quit and reopen Tassel.",
+        "settings": "Open System Settings"
+      },
+      "unavailable": {
+        "title": "No Desk View camera found",
+        "body": "Desk View needs a recent Mac camera or an iPhone on a stand.",
+        "setup": "Open Desk View setup",
+        "useWindow": "Share the Desk View window instead"
+      },
+      "lost": {
+        "title": "Desk View stopped",
+        "body": "The camera disconnected or another app is using it."
+      },
+      "ended": {
+        "title": "Sharing stopped",
+        "body": "Share the Desk View window again when you're ready. If nothing appears, allow Screen & System Audio Recording for Tassel in System Settings.",
+        "action": "Share again"
+      },
+      "error": {
+        "title": "Something went wrong with the camera",
+        "body": "Try again. If it keeps happening, quit and reopen Tassel."
+      }
+    },
+    "devices": {
+      "switch": "Switch camera"
+    },
+    "upload": {
+      "failing": "Ada can't see your latest work yet. Reconnecting…"
+    },
+    "debug": {
+      "toggle": "Heatmap",
+      "stats": "{kind} · {changed} changed · quiet {quiet}/{stable} · {sent} sent",
+      "noOpenCv": "OpenCV didn't load: using the central crop"
+    }
+  },
   "platform": {
     "windowsNoDeskView": "Desk View isn't available on Windows. Share your screen instead."
   },

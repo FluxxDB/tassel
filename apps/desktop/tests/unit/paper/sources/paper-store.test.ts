@@ -15,6 +15,7 @@ const INITIAL = {
   restartNonce: 0,
   retrying: false,
   stats: null,
+  opencv: null,
   uploads: { sent: 0, pending: 0, failed: 0, lastError: null },
 };
 
@@ -79,6 +80,15 @@ describe('usePaperStore', () => {
     });
   });
 
+  it("setOpenCv records whether the detector's OpenCV loaded (Task 12)", () => {
+    state().setOpenCv(false);
+    expect(state().opencv).toBe(false);
+    state().setOpenCv(true);
+    expect(state().opencv).toBe(true);
+    state().setOpenCv(null);
+    expect(state().opencv).toBeNull();
+  });
+
   it('reset clears everything', () => {
     state().setFeed(FEED);
     state().setStatus('live');
@@ -100,6 +110,7 @@ describe('usePaperStore', () => {
       opencv: true,
     });
     state().setUploads({ sent: 3, pending: 1, failed: 1, lastError: 'offline' });
+    state().setOpenCv(true);
     state().reset();
     expect(state()).toMatchObject(INITIAL);
   });

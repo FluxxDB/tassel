@@ -25,12 +25,18 @@ export interface PaperStore {
   /** True from retry() until the restarted run settles. */
   retrying: boolean;
   stats: DetectorStats | null;
+  /**
+   * Whether the detector's OpenCV loaded: null while it loads (or before a detector runs), false
+   * when the worker fell back to the central crop (Task 12).
+   */
+  opencv: boolean | null;
   uploads: UploadStats;
   /** Any status but `starting` settles the run, and so ends a retry. */
   setStatus(s: PaperStatus): void;
   /** A feed brings its kind, stream, crop and devices; null drops all but the kind. */
   setFeed(f: PaperFeed | null): void;
   setStats(s: DetectorStats | null): void;
+  setOpenCv(ready: boolean | null): void;
   setUploads(u: UploadStats): void;
   retry(): void;
   useInstead(kind: PaperSourceKind): void;
@@ -43,6 +49,7 @@ type PaperState = Omit<
   | 'setStatus'
   | 'setFeed'
   | 'setStats'
+  | 'setOpenCv'
   | 'setUploads'
   | 'retry'
   | 'useInstead'
@@ -62,6 +69,7 @@ function initialState(): PaperState {
     restartNonce: 0,
     retrying: false,
     stats: null,
+    opencv: null,
     uploads: { sent: 0, pending: 0, failed: 0, lastError: null },
   };
 }
@@ -81,6 +89,7 @@ export const usePaperStore: UseBoundStore<StoreApi<PaperStore>> = create<PaperSt
         : { stream: null, contentRect: null, devices: [] },
     ),
   setStats: (stats) => set({ stats }),
+  setOpenCv: (opencv) => set({ opencv }),
   setUploads: (uploads) => set({ uploads }),
   retry: () => set((state) => ({ restartNonce: state.restartNonce + 1, retrying: true })),
   useInstead: (kind) => set((state) => ({ override: kind, restartNonce: state.restartNonce + 1 })),
