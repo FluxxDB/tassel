@@ -62,7 +62,8 @@
 @layer components {
   /*
    * The window's title strip: it drags the window, and controls inside it stay clickable.
-   * Static text stays draggable, so the window moves by its title like any macOS app.
+   * Static text stays draggable, so the window moves by its title like any macOS app. That
+   * includes the session title, a focus landing spot (tabindex -1) rather than a control.
    */
   .app-drag {
     -webkit-app-region: drag;
@@ -70,7 +71,16 @@
   }
 
   .app-drag
-    :where(button, a, input, select, textarea, [role="button"], [role="radiogroup"], [tabindex]) {
+    :where(
+      button,
+      a,
+      input,
+      select,
+      textarea,
+      [role="button"],
+      [role="radiogroup"],
+      [tabindex]:not([tabindex="-1"])
+    ) {
     -webkit-app-region: no-drag;
   }
 

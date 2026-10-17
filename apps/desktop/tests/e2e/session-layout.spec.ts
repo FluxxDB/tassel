@@ -229,6 +229,25 @@ test('keeps keyboard focus moving: the title on arrival, and the Board control a
   await closeApp(app);
 });
 
+test('drags the window by the session title, and not by the controls in a strip', async () => {
+  const { app, page } = await launchApp();
+  await openSession(page);
+  // The title is only a focus landing spot (tabindex -1), so it moves the window like the strip.
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCSS('-webkit-app-region', 'drag');
+  await page.getByRole('button', { name: 'End session' }).click();
+  await page
+    .getByRole('dialog', { name: 'End this session?' })
+    .getByRole('button', { name: 'End session' })
+    .click();
+  const strip = page.getByRole('banner');
+  await expect(strip.getByRole('searchbox')).toHaveCSS('-webkit-app-region', 'no-drag');
+  await expect(strip.getByRole('button', { name: 'New session' })).toHaveCSS(
+    '-webkit-app-region',
+    'no-drag',
+  );
+  await closeApp(app);
+});
+
 test('a double click on End session opens its sheet once, with focus inside', async () => {
   const { app, page } = await launchApp();
   await openSession(page);
