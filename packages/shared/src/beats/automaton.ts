@@ -65,10 +65,10 @@ export function isSymbol(symbol: unknown): symbol is string {
 
 /**
  * Every problem with a spec, each named once, in this order: bad and duplicate state ids, an
- * unknown start, then per transition its unknown states, bad symbols, ε in a DFA and a second
- * move on one symbol. [] when the spec is valid. The exact strings:
+ * unknown start, then per transition its unknown states, no symbols at all, bad symbols, ε in a
+ * DFA and a second move on one symbol. [] when the spec is valid. The exact strings:
  * `bad state id "q 1"`, `duplicate state q1`, `unknown start q9`, `unknown state q9 in q0>q9`,
- * `bad symbol "0,1"`, `ε in a DFA`, `two moves from q0 on 1`.
+ * `no symbols in q0>q1`, `bad symbol "0,1"`, `ε in a DFA`, `two moves from q0 on 1`.
  */
 export function checkAutomaton(spec: AutomatonSpec): string[] {
   const problems = new Set<string>();
@@ -86,6 +86,8 @@ export function checkAutomaton(spec: AutomatonSpec): string[] {
     for (const end of [from, to]) {
       if (!known.has(end)) problems.add(`unknown state ${end} in ${from}>${to}`);
     }
+    // An edge with no label: nothing could ever take it.
+    if (symbols.length === 0) problems.add(`no symbols in ${from}>${to}`);
     for (const symbol of symbols) {
       if (!isSymbol(symbol)) {
         problems.add(`bad symbol ${JSON.stringify(symbol)}`);

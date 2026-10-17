@@ -66,6 +66,23 @@
       "on": "wrong",
       "title": "Your DFA on 1010"
     },
+    {
+      "kind": "board.trace",
+      "item": "long",
+      "spec": {
+        "kind": "dfa",
+        "states": [{ "id": "q0" }, { "id": "q1" }, { "id": "q2" }, { "id": "q3", "accept": true }],
+        "start": "q0",
+        "transitions": [
+          { "from": "q0", "to": "q0", "symbols": ["1"] },
+          { "from": "q0", "to": "q1", "symbols": ["0"] },
+          { "from": "q1", "to": "q2", "symbols": ["1"] },
+          { "from": "q2", "to": "q3", "symbols": ["0"] },
+          { "from": "q3", "to": "q3", "symbols": ["0", "1"] }
+        ]
+      },
+      "input": "1010101010101010101010101010101010101010101010101010101010101010"
+    },
     { "kind": "board.traceStep", "item": "run", "step": 2 },
     { "kind": "board.traceStep", "item": "run" },
     {
@@ -187,6 +204,10 @@
     },
     { "kind": "paper.unmark", "id": "c1" },
     { "kind": "paper.trace", "input": "1010" },
+    {
+      "kind": "paper.trace",
+      "input": "1010101010101010101010101010101010101010101010101010101010101010"
+    },
     { "kind": "paper.traceStep", "step": 1 },
     { "kind": "paper.traceStep" },
     { "kind": "paper.clear" },
@@ -345,7 +366,64 @@
       "data": { "kind": "paper.freeze", "frame": { "kind": "fixture", "name": "dfa-right" } }
     },
     { "why": "a view that does not exist", "data": { "kind": "stage", "view": "both" } },
-    { "why": "an empty note", "data": { "kind": "board.note", "item": "why", "text": "" } }
+    { "why": "an empty note", "data": { "kind": "board.note", "item": "why", "text": "" } },
+    {
+      "why": "a trace input over 64 symbols",
+      "data": {
+        "kind": "board.trace",
+        "item": "long",
+        "spec": {
+          "kind": "dfa",
+          "states": [
+            { "id": "q0" },
+            { "id": "q1" },
+            { "id": "q2" },
+            { "id": "q3", "accept": true }
+          ],
+          "start": "q0",
+          "transitions": [
+            { "from": "q0", "to": "q0", "symbols": ["1"] },
+            { "from": "q0", "to": "q1", "symbols": ["0"] },
+            { "from": "q1", "to": "q2", "symbols": ["1"] },
+            { "from": "q2", "to": "q3", "symbols": ["0"] },
+            { "from": "q3", "to": "q3", "symbols": ["0", "1"] }
+          ]
+        },
+        "input": "10101010101010101010101010101010101010101010101010101010101010101"
+      }
+    },
+    {
+      "why": "a paper trace input over 64 symbols",
+      "data": {
+        "kind": "paper.trace",
+        "input": "10101010101010101010101010101010101010101010101010101010101010101"
+      }
+    },
+    {
+      "why": "a transition with no symbols",
+      "data": {
+        "kind": "board.automaton",
+        "item": "wrong",
+        "spec": {
+          "kind": "dfa",
+          "states": [
+            { "id": "q0" },
+            { "id": "q1" },
+            { "id": "q2" },
+            { "id": "q3", "accept": true }
+          ],
+          "start": "q0",
+          "transitions": [
+            { "from": "q0", "to": "q0", "symbols": ["1"] },
+            { "from": "q0", "to": "q1", "symbols": ["0"] },
+            { "from": "q1", "to": "q2", "symbols": ["1"] },
+            { "from": "q2", "to": "q3", "symbols": ["0"] },
+            { "from": "q3", "to": "q3", "symbols": ["0", "1"] },
+            { "from": "q1", "to": "q1", "symbols": [] }
+          ]
+        }
+      }
+    }
   ],
   "beats": [
     {
@@ -825,6 +903,35 @@
             "id": "m1",
             "word": 1,
             "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+          }
+        ]
+      }
+    },
+    {
+      "problem": "marker m3 has an invalid action",
+      "data": {
+        "version": 1,
+        "id": "beat-bad",
+        "turn": "turn-9",
+        "segment": "seg-9-0",
+        "lang": "en",
+        "text": "Try this one.",
+        "durationSec": 0.9,
+        "shapeSet": "rhubarb9",
+        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "words": [
+          { "text": "Try", "start": 0, "end": 0.2 },
+          { "text": "this", "start": 0.3, "end": 0.5 },
+          { "text": "one.", "start": 0.6, "end": 0.9 }
+        ],
+        "markers": [
+          {
+            "id": "m3",
+            "word": 0,
+            "action": {
+              "kind": "paper.trace",
+              "input": "10101010101010101010101010101010101010101010101010101010101010101"
+            }
           }
         ]
       }

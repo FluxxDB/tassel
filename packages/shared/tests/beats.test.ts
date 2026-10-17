@@ -98,6 +98,24 @@ describe('parseAction', () => {
       expect(parseAction(data)).toBeNull();
     }
   });
+
+  it('caps a trace input at 64 symbols, on the board and on the paper', () => {
+    const board = (input: string) =>
+      parseAction({ kind: 'board.trace', item: 'run', spec: WRONG, input });
+    const paper = (input: string) => parseAction({ kind: 'paper.trace', input });
+    expect(board('1'.repeat(64))).not.toBeNull();
+    expect(board('1'.repeat(65))).toBeNull();
+    expect(paper('0'.repeat(64))).not.toBeNull();
+    expect(paper('0'.repeat(65))).toBeNull();
+    // The empty input is a trace too: does the start state accept?
+    expect(paper('')).toEqual({ kind: 'paper.trace', input: '' });
+  });
+
+  it('rejects a transition with no symbols, as checkAutomaton does', () => {
+    const spec = { ...WRONG, transitions: [{ from: 'q0', to: 'q1', symbols: [] }] };
+    expect(parseAction({ kind: 'board.automaton', item: 'wrong', spec })).toBeNull();
+    expect(checkAutomaton(spec)).not.toEqual([]);
+  });
 });
 
 describe('parseBeatDoc', () => {
@@ -230,6 +248,12 @@ describe('checkAutomaton', () => {
     expect(withSymbol('abcde')).toEqual(['bad symbol "abcde"']);
     expect(withSymbol('')).toEqual(['bad symbol ""']);
     expect(withSymbol('a b')).toEqual(['bad symbol "a b"']);
+  });
+
+  it('names a transition with no symbols', () => {
+    expect(
+      checkAutomaton({ ...WRONG, transitions: [{ from: 'q1', to: 'q1', symbols: [] }] }),
+    ).toEqual(['no symbols in q1>q1']);
   });
 
   it('holds state ids to a letter, then up to 15 letters, digits or underscores', () => {
