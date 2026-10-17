@@ -45,10 +45,14 @@ export function cubicBezier(css: string): (t: number) => number {
 const ease = cubicBezier(MOTION.ease);
 const glideEase = cubicBezier(MOTION.glideEase);
 
-/** The pulse around a state of radius `r`, `elapsedMs` in: a ring from r + 4 to r + 14, fading. */
+/**
+ * The pulse around a state of radius `r`, `elapsedMs` in: a ring from r + 4 to r + 14 on
+ * MOTION.ease, fading evenly over MOTION.pulseMs. (On the ease the fade was a flash: 85% gone a
+ * quarter of the way in.)
+ */
 export function pulseRingAt(r: number, elapsedMs: number): { r: number; alpha: number } {
-  const t = ease(Math.min(1, Math.max(0, elapsedMs / MOTION.pulseMs)));
-  return { r: r + 4 + 10 * t, alpha: 1 - t };
+  const progress = Math.min(1, Math.max(0, elapsedMs / MOTION.pulseMs));
+  return { r: r + 4 + 10 * ease(progress), alpha: 1 - progress };
 }
 
 /**

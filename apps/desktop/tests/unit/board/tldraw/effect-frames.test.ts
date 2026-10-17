@@ -37,6 +37,14 @@ describe('pulseRingAt', () => {
     expect(mid.alpha).toBeLessThan(1);
   });
 
+  it('stays in sight through its time: it grows on the ease, and fades evenly', () => {
+    // On the exponential ease the ring was 85% faded by a quarter of its time: a flash in the
+    // running app, seen nowhere in its screenshots.
+    expect(pulseRingAt(32, MOTION.pulseMs / 4).alpha).toBeCloseTo(0.75, 5);
+    expect(pulseRingAt(32, MOTION.pulseMs / 2).alpha).toBeCloseTo(0.5, 5);
+    expect(pulseRingAt(32, MOTION.pulseMs / 4).r).toBeGreaterThan(36 + 10 * 0.5);
+  });
+
   it('holds its last frame past its time', () => {
     expect(pulseRingAt(32, MOTION.pulseMs * 3)).toEqual(pulseRingAt(32, MOTION.pulseMs));
   });

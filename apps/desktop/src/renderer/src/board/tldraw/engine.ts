@@ -125,13 +125,12 @@ export function createTldrawEngine(
     async play(effect: BoardEffect) {
       if (reduced()) return;
       if (effect.type === 'pulse') {
-        const bounds = editor.getShapePageBounds(adaShapeId(effect.item, effect.el) as TLShapeId);
-        if (!bounds) return;
-        await effects.play({
-          type: 'pulse',
-          center: bounds.center,
-          r: Math.min(bounds.w, bounds.h) / 2,
-        });
+        // Around the state's own circle: its page bounds come from a polygon, a little smaller.
+        const state = editor.getShape(adaShapeId(effect.item, effect.el) as TLShapeId);
+        if (state?.type !== 'tassel-state') return;
+        const r = state.props.w / 2;
+        const center = editor.getShapePageTransform(state).applyToPoint({ x: r, y: r });
+        await effects.play({ type: 'pulse', center: { x: center.x, y: center.y }, r });
         return;
       }
       // Each edge from its tail state's center to its head's, where they are now (Task 10 follows

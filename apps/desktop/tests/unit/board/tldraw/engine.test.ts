@@ -93,7 +93,7 @@ afterEach(() => {
 });
 
 /** A tldraw editor as the board panel makes it, and Ada's engine on it. */
-function board(stage: StageGeometry | null = null) {
+function board(stage: StageGeometry | null = null, reducedMotion = true) {
   const shapeUtils = [...defaultShapeUtils.filter((util) => util.type !== 'arrow'), ...SHAPE_UTILS];
   const bindingUtils = [...defaultBindingUtils];
   const container = document.createElement('div');
@@ -118,7 +118,7 @@ function board(stage: StageGeometry | null = null) {
   const engine = createTldrawEngine(editor, {
     lang: 'en',
     t,
-    reducedMotion: () => true,
+    reducedMotion: () => reducedMotion,
     stage: () => stage,
   });
   made.push({ editor, engine });
@@ -250,6 +250,30 @@ describe('the tldraw engine', () => {
         expect(away, `${side} loop at ${x},${y}`).toBeGreaterThan(32);
       }
     }
+  });
+
+  it('plays a pulse on the overlay: an iris-ink ring around the state, nothing stored', async () => {
+    const { editor, engine } = board(null, false);
+    engine.render(sceneAfter(draw(CORRECT)), { fix: fallbackLayout(CORRECT) });
+    const before = editor.store.serialize('document');
+    const played = engine.play({ type: 'pulse', item: 'fix', el: 'state:qd' });
+    const entries = editor.overlays.getActiveOverlayEntries();
+    expect(
+      entries.map(({ util }) => (util.constructor as unknown as { type: string }).type),
+    ).toEqual(['ada-effects']);
+    const [ring] = entries[0].overlays;
+    // Around qd's circle, r 32, from r + 4.
+    const { x, y } = fallbackLayout(CORRECT).states.qd;
+    expect(ring.props).toMatchObject({ kind: 'ring', x, y, r: 36, alpha: 1 });
+    expect(editor.store.serialize('document')).toEqual(before);
+    void played;
+  });
+
+  it('plays nothing under reduced motion', async () => {
+    const { editor, engine } = board();
+    engine.render(sceneAfter(draw(CORRECT)), { fix: fallbackLayout(CORRECT) });
+    await engine.play({ type: 'pulse', item: 'fix', el: 'state:qd' });
+    expect(editor.overlays.getActiveOverlayEntries()).toEqual([]);
   });
 
   it('fits the camera as fitBoard says, and says how in data-fit (P5-R9)', () => {
