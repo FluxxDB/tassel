@@ -28,8 +28,9 @@ export function toDot(spec: AutomatonSpec): string {
 }
 
 /**
- * A DOT string. State ids are plain, but a symbol may hold a quote or a backslash, which would
- * end the string or start one of Graphviz's label escapes (\N is the node's name).
+ * A DOT string. Every id is quoted: a digit-led one such as "0a" isn't a DOT id when bare (M19),
+ * and "node", "edge" and "graph" are keywords. A symbol may hold a quote or a backslash, which
+ * would end the string or start one of Graphviz's label escapes (\N is the node's name).
  */
 function quote(text: string): string {
   return `"${text.replace(/["\\]/g, '\\$&')}"`;

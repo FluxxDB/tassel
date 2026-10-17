@@ -15,6 +15,24 @@ export const WRONG: AutomatonSpec = {
   ],
 };
 
+/**
+ * State ids DOT can't take bare: digit-led ones, which the contract allows (M19), and one of
+ * DOT's reserved words.
+ */
+export const ODD_IDS: AutomatonSpec = {
+  kind: 'dfa',
+  states: [{ id: '0' }, { id: '1' }, { id: '10' }, { id: '0a', accept: true }, { id: 'node' }],
+  start: '0',
+  transitions: [
+    { from: '0', to: '1', symbols: ['a'] },
+    { from: '1', to: '10', symbols: ['b'] },
+    { from: '10', to: '0a', symbols: ['a'] },
+    { from: '0a', to: '0a', symbols: ['a', 'b'] },
+    { from: '0', to: 'node', symbols: ['b'] },
+    { from: 'node', to: '0', symbols: ['a'] },
+  ],
+};
+
 export const CORRECT: AutomatonSpec = {
   kind: 'dfa',
   states: [{ id: 'q0' }, { id: 'q1' }, { id: 'q2' }, { id: 'q3', accept: true }, { id: 'qd' }],

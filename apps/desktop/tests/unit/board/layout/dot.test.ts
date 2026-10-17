@@ -1,7 +1,7 @@
 import { type AutomatonSpec, EPSILON } from '@tassel/shared/beats';
 import { describe, expect, it } from 'vitest';
 import { toDot } from '../../../../src/renderer/src/board/layout/dot';
-import { CORRECT, WRONG } from '../fixtures';
+import { CORRECT, ODD_IDS, WRONG } from '../fixtures';
 
 describe('toDot', () => {
   it('writes the reference DFA left to right, with its accepting state and merged loop', () => {
@@ -50,6 +50,15 @@ describe('toDot', () => {
 
     expect(dot).toContain('  "q3" -> "q3" [id="q3>q3", label="1,0"];\n  "q0" -> "q1"');
     expect(dot.match(/"q3" -> "q3"/g)).toHaveLength(1);
+  });
+
+  it('quotes every state id, digit-led ones and DOT reserved words too', () => {
+    const dot = toDot(ODD_IDS);
+
+    expect(dot).toContain('  "0"; "1"; "10"; "0a" [shape=doublecircle]; "node";\n');
+    expect(dot).toContain('  "__start" -> "0" [id="start"];\n');
+    expect(dot).toContain('  "0" -> "1" [id="0>1", label="a"];\n');
+    expect(dot).toContain('  "node" -> "0" [id="node>0", label="a"];\n');
   });
 
   it('labels ε as ε and escapes quotes and backslashes in symbols', () => {

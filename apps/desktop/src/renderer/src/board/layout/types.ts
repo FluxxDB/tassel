@@ -30,7 +30,10 @@ export interface EdgeLayout {
 export interface AutomatonLayout {
   width: number;
   height: number;
-  /** State centers. */
+  /**
+   * State centers. Take the states' order from the spec, not from this object: it lists
+   * integer-like ids such as "0" and "10" (M19) first.
+   */
   states: Record<StateId, { x: number; y: number; r: number }>;
   /** One per merged edge, keyed 'q0>q1'. */
   edges: Record<string, EdgeLayout>;

@@ -11,7 +11,7 @@ import {
   STATE_RADIUS,
 } from '../../../../src/renderer/src/board/layout/types';
 import { layoutWithViz } from '../../../../src/renderer/src/board/layout/viz';
-import { CORRECT, WRONG } from '../fixtures';
+import { CORRECT, ODD_IDS, WRONG } from '../fixtures';
 
 /** q0 -a→ q1 and q1 -b→ q0: a pair of opposite edges. */
 const PAIR: AutomatonSpec = {
@@ -45,6 +45,23 @@ function expectFitsBox(layout: AutomatonLayout) {
   for (const edge of Object.values(layout.edges)) expectInBox(layout, edge.label);
   expectInBox(layout, layout.start.from);
   expectInBox(layout, layout.start.to);
+}
+
+/**
+ * Every state placed, every merged edge keyed, all inside the box and the states apart. Keys are
+ * compared as sets: an object puts integer-like keys such as "10" first, whatever the spec's order.
+ */
+function expectSameContract(layout: AutomatonLayout, spec: AutomatonSpec) {
+  const ids = spec.states.map(({ id }) => id);
+  expect(Object.keys(layout.states).sort()).toEqual(ids.sort());
+  for (const state of Object.values(layout.states)) expect(state.r).toBe(STATE_RADIUS);
+  expect(Object.keys(layout.edges).sort()).toEqual(
+    mergedEdges(spec)
+      .map(({ from, to }) => `${from}>${to}`)
+      .sort(),
+  );
+  expectFitsBox(layout);
+  expectStatesApart(layout);
 }
 
 /**
@@ -127,6 +144,14 @@ describe('layoutWithViz', { timeout: 30_000 }, () => {
     expect(side(q0, q1, apex(layout, 'q0', 'q1'))).not.toBe(side(q0, q1, apex(layout, 'q1', 'q0')));
   });
 
+  it('lays out digit-led state ids and one named like a DOT keyword', async () => {
+    const layout = await layoutWithViz(ODD_IDS);
+
+    expectSameContract(layout, ODD_IDS);
+    expect(layout.edges['0a>0a'].loop).not.toBeNull();
+    expect(distance(layout.start.to, layout.states['0'])).toBeCloseTo(STATE_RADIUS, 6);
+  });
+
   it('lays out symbols that DOT has to escape', async () => {
     const spec: AutomatonSpec = {
       ...PAIR,
@@ -155,6 +180,15 @@ describe('fallbackLayout', () => {
     expect(layout.edges['qd>qd'].label.y).toBeLessThan(layout.states.qd.y - STATE_RADIUS);
     expectFitsBox(layout);
     expectStatesApart(layout);
+  });
+
+  it('lays out digit-led state ids and one named like a DOT keyword', () => {
+    const layout = fallbackLayout(ODD_IDS);
+    const centers = ODD_IDS.states.map(({ id }) => layout.states[id]);
+
+    expectSameContract(layout, ODD_IDS);
+    for (const [i, center] of centers.entries()) expect(center.x).toBe(centers[0].x + 112 * i);
+    expect(layout.edges['0a>0a']).toMatchObject({ loop: 'top', bend: 0 });
   });
 
   it('puts a 48 px start arrow on the start state’s left', () => {
