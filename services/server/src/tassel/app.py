@@ -12,6 +12,9 @@ from tassel.config import Settings
 from tassel.frames import api as frames
 from tassel.frames.objects import make_object_store
 from tassel.storage.db import make_engine, session_factory
+from tassel.vision import api as vision
+from tassel.vision.registry import VisionRegistry
+from tassel.vision.settings import VisionConfigError, VisionSettings, check_vision_settings
 
 
 @asynccontextmanager
@@ -19,17 +22,31 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine = make_engine(app.state.settings.database_url)
     app.state.engine = engine
     app.state.session_factory = session_factory(engine)
+    registry = None
     try:
+        settings = app.state.vision_settings or VisionSettings.load()
+        problems = check_vision_settings(settings)
+        if problems:
+            raise VisionConfigError("\n".join(problems))
+        registry = VisionRegistry(settings=settings, sessions=app.state.session_factory)
+        app.state.vision = registry
         yield
     finally:
-        await engine.dispose()
+        try:
+            if registry is not None:
+                await registry.shutdown()
+        finally:
+            await engine.dispose()
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None, *, vision_settings: VisionSettings | None = None
+) -> FastAPI:
     if settings is None:
         settings = Settings()
     app = FastAPI(title="Tassel", version=__version__, lifespan=lifespan)
     app.state.settings = settings
+    app.state.vision_settings = vision_settings
     # Here, not in the lifespan, so tests can swap it. The S3 store connects on first use.
     app.state.object_store = make_object_store(settings)
     app.add_middleware(
@@ -40,7 +57,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # So the app can read how long a 429 asks it to wait.
         expose_headers=["Retry-After"],
     )
-    for router in (health.router, devices.router, sessions.router, frames.router):
+    for router in (health.router, devices.router, sessions.router, frames.router, vision.router):
         app.include_router(router, prefix="/v1")
     for error in frames.STORE_ERRORS:
         app.add_exception_handler(error, frames.store_unavailable)

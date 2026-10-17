@@ -11,7 +11,7 @@ import numpy as np
 
 from tassel.domains.dfa.contract import DfaReading, MembershipPredicate
 from tassel.vision.clips import REPO_DIR
-from tassel.vision.deepcheck import PreparedPage, ProblemContext, TranscriptionResult
+from tassel.vision.deepcheck import CPU_LIMITER, PreparedPage, ProblemContext, TranscriptionResult
 from tassel.vision.page import ink_mask
 from tassel.vision.transcription import DfaTranscription, TBox, TLanguage, TState, TTransition
 
@@ -157,7 +157,12 @@ class FixtureDeepCheck:
         if self._delay_ms:
             await anyio.sleep(self._delay_ms / 1000)
         transcription = await anyio.to_thread.run_sync(
-            _sample, prepared, self._truth, self._problem
+            _sample,
+            prepared,
+            self._truth,
+            self._problem,
+            limiter=CPU_LIMITER.get(),
+            abandon_on_cancel=True,
         )
         return TranscriptionResult("ok", transcription, round((perf_counter() - started) * 1000))
 

@@ -9,6 +9,7 @@ import json
 import logging
 import re
 from collections.abc import Sequence
+from contextvars import ContextVar
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from time import perf_counter
@@ -16,6 +17,7 @@ from typing import Literal, Protocol
 
 import anthropic
 import openai
+from anyio import CapacityLimiter
 from pydantic import SecretStr, ValidationError
 
 from tassel.domains.dfa.contract import PREDICATE_SCHEMA, DfaReading, MembershipPredicate, Pt
@@ -38,6 +40,9 @@ _REFUSAL_CATEGORIES = frozenset(
 )
 _LOG = logging.getLogger(__name__)
 Status = Literal["ok", "refused", "failed", "timeout"]
+# Local readers inherit the orchestrator's shared worker budget without changing the network
+# port. Context-local storage also supports one injected reader shared by multiple sessions.
+CPU_LIMITER: ContextVar[CapacityLimiter | None] = ContextVar("vision_cpu_limiter", default=None)
 
 
 @dataclass(frozen=True)

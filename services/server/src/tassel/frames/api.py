@@ -40,6 +40,7 @@ from tassel.frames.tables import Frame
 from tassel.storage import sessions_repo
 from tassel.storage.db import get_db
 from tassel.storage.tables import Learner
+from tassel.vision.registry import VisionRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,10 @@ async def store_unavailable(request: Request, error: Exception) -> JSONResponse:
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         content={"detail": "Frame storage is unavailable. Try again later."},
     )
+
+
+def _vision(request: Request) -> VisionRegistry | None:
+    return getattr(request.app.state, "vision", None)
 
 
 def _settings(request: Request) -> Settings:
@@ -157,6 +162,7 @@ async def upload_frame(
     db: AsyncSession = Depends(get_db),
     store: ObjectStore = Depends(get_object_store),
     settings: Settings = Depends(_settings),
+    vision: VisionRegistry | None = Depends(_vision),
 ) -> FrameOut:
     if meta.reason == "ink" and crop is None:
         raise HTTPException(
@@ -166,7 +172,8 @@ async def upload_frame(
     full, width, height = await _read_jpeg(frame, "frame", settings.frame_max_bytes)
     cropped = None if crop is None else (await _read_jpeg(crop, "crop", settings.crop_max_bytes))[0]
 
-    if await repo.lock_session(db, learner.id, session_id) is None:
+    session = await repo.lock_session(db, learner.id, session_id)
+    if session is None:
         raise _not_found("Session")
     newest = await repo.newest(db, session_id)
     if newest is not None and newest.age < timedelta(seconds=settings.frame_min_interval_s):
@@ -205,7 +212,16 @@ async def upload_frame(
     except BaseException:
         await _undo_upload(db, store, frame_prefix(learner.id, session_id, frame_id))
         raise
-    return frame_out(row)
+    out = frame_out(row)
+    if vision is not None:
+        try:
+            vision.on_frame(
+                learner_id=learner.id, session=session, frame=out, full=full, crop=cropped
+            )
+        except Exception:
+            # Never echo provider exception text or let vision undo a committed upload.
+            logger.warning("Vision hook failed for session %s", session_id)
+    return out
 
 
 @router.get("", responses={404: {"description": "No such session for this learner"}})
