@@ -1,5 +1,6 @@
 // The dock: a white pill at the bottom center holding the session's controls. Mic (with its
 // level meter), Camera, Share, the Board control, Captions, and End session, its primary action.
+import type { Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { Button } from '../../components/Button';
@@ -15,7 +16,13 @@ import {
 import { SHORTCUT_KEYS } from './shortcuts';
 import { cycleBoardView, useStageStore } from './stage-store';
 
-export function Dock({ onEnd }: { onEnd(): void }) {
+export interface DockProps {
+  onEnd(): void;
+  /** The Board control, which Unpin hands focus to (see Stage). */
+  boardRef?: Ref<HTMLButtonElement>;
+}
+
+export function Dock({ onEnd, boardRef }: DockProps) {
   const { t } = useTranslation();
   const { micOn, cameraOn, captionsOn, pinned, toggleMic, toggleCamera, toggleCaptions } =
     useStageStore(
@@ -53,7 +60,12 @@ export function Dock({ onEnd }: { onEnd(): void }) {
         {micOn ? <Mic /> : <MicOff />}
       </IconButton>
       <LevelMeter on={micOn} />
-      <IconButton label={t('session.dock.camera')} pressed={cameraOn} onClick={toggleCamera}>
+      <IconButton
+        label={t('session.dock.camera')}
+        pressed={cameraOn}
+        onClick={toggleCamera}
+        title={t('session.dock.camera')}
+      >
         <Camera />
       </IconButton>
       {/* Visible but unavailable until screen sharing lands (R18). */}
@@ -65,6 +77,7 @@ export function Dock({ onEnd }: { onEnd(): void }) {
         <Screen />
       </IconButton>
       <IconButton
+        ref={boardRef}
         label={board}
         active={pinned !== null}
         onClick={cycleBoardView}

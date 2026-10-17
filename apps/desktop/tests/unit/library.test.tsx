@@ -478,6 +478,22 @@ describe('useSessions', () => {
 });
 
 describe('App', () => {
+  it('lands focus on the library heading when she comes back from a session, not at launch', async () => {
+    const { api, GET } = fakeApi();
+    GET.mockResolvedValue(listed([]));
+    const i18n = await initI18n('en');
+    render(
+      <I18nextProvider i18n={i18n}>
+        <App api={api} />
+      </I18nextProvider>,
+    );
+    const heading = screen.getByRole('heading', { level: 1, name: 'Your sessions' });
+    expect(heading).not.toHaveFocus();
+    act(() => useRoute.getState().openSession(DFA.id));
+    act(() => useRoute.getState().goLibrary());
+    expect(screen.getByRole('heading', { level: 1, name: 'Your sessions' })).toHaveFocus();
+  });
+
   it('keeps the fresh-library notice until it is dismissed, across a visit to a session', async () => {
     const { api, GET } = fakeApi();
     GET.mockResolvedValue(listed([]));

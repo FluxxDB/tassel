@@ -124,7 +124,8 @@ for (const lang of ['ko', 'es'] as const) {
     await openSession(
       page,
       { type: 'studying', language: 'es', source: 'paper' },
-      { title: LONG_SPANISH_TITLE, subject: 'Matemáticas discretas' },
+      // The longest subject the server takes: 40 characters.
+      { title: LONG_SPANISH_TITLE, subject: 'Matemáticas discretas y teoría de grafos' },
     );
     await setWindowSize(app, page, 1024, 680);
     const title = page.getByRole('heading', { level: 1 });
@@ -133,6 +134,10 @@ for (const lang of ['ko', 'es'] as const) {
     expect(await title.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
     await expect(title).toHaveCSS('text-overflow', 'ellipsis');
     await expect(title).toHaveCSS('white-space', 'nowrap');
+    // The subject chip stops at 200px and ellipsizes, leaving the title its room.
+    const subject = page.getByRole('banner').getByText('Matemáticas discretas y teoría de grafos');
+    expect((await subject.boundingBox())?.width).toBeLessThanOrEqual(200);
+    await expect(subject).toHaveCSS('text-overflow', 'ellipsis');
     await settle(page);
     if (lang === 'ko') await snap(page, 'p1-session-ko');
     await closeApp(app);
@@ -198,6 +203,20 @@ test('End session confirms through the sheet, and is the only way back', async (
   await settle(page);
   await snap(page, 'p1-session-end');
   await confirm.getByRole('button', { name: 'End session' }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Your sessions' })).toBeVisible();
+  // Back in the library, focus lands on its heading rather than the page body.
+  await expect(page.getByRole('heading', { level: 1, name: 'Your sessions' })).toBeFocused();
+  await closeApp(app);
+});
+
+test('keeps keyboard focus moving: the title on arrival, and the Board control after Unpin', async () => {
+  const { app, page } = await launchApp();
+  await openSession(page);
+  // Arriving from the card she pressed, focus lands on the session's title.
+  await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+  await page.keyboard.press('b');
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Unpin' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', { name: 'Board: following Ada' })).toBeFocused();
   await closeApp(app);
 });

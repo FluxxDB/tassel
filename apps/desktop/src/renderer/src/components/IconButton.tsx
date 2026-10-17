@@ -39,7 +39,8 @@ export function IconButton({
       onClick={unavailable ? undefined : onClick}
       className={cn(
         'grid size-12 shrink-0 place-items-center rounded-pill transition-[color,background-color] duration-150 disabled:pointer-events-none disabled:opacity-40 [&>svg]:size-[22px]',
-        unavailable && 'cursor-default text-ink opacity-40',
+        // Only the icon dims, so the focus ring stays full ink.
+        unavailable && 'cursor-default text-ink [&>svg]:opacity-40',
         !unavailable &&
           (ink
             ? 'bg-ink text-paper hover:bg-ink/85'

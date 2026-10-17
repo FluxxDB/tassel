@@ -1,7 +1,7 @@
 // The live session screen, "One stage, her work first": the title strip, the stage (her paper,
 // Ada's board, or both), Ada's tile, the captions and the dock. End session, confirmed through
 // a sheet, is the only way back to the library (R18).
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRoute } from '../../app/route-store';
 import { Button } from '../../components/Button';
@@ -9,7 +9,7 @@ import { Sheet } from '../../components/Sheet';
 import type { TutorClient } from '../../tutor/types';
 import { useTutorSession } from '../../tutor/use-tutor-session';
 import { Captions } from './Captions';
-import { useCurrentSession } from './current-session';
+import { forgetCurrentSession, useCurrentSession } from './current-session';
 import { Dock } from './Dock';
 import { Stage } from './Stage';
 import { useSessionShortcuts } from './shortcuts';
@@ -38,11 +38,13 @@ export function SessionScreen({ sessionId, createTutor }: SessionScreenProps) {
   // The timer counts from when this screen opens, not from the session's creation (R7).
   const [startedAt] = useState(() => new Date());
   const [confirmingEnd, setConfirmingEnd] = useState(false);
+  const boardControl = useRef<HTMLButtonElement>(null);
 
   // Every session opens on a fresh stage, before its first paint, so nothing animates in.
   useLayoutEffect(() => useStageStore.getState().reset(), []);
   useEffect(() => {
     void load(sessionId);
+    return forgetCurrentSession;
   }, [load, sessionId]);
   // One tutor for the life of this screen; it connects on mount and disconnects on unmount.
   const [tutor] = useState<TutorClient>(() => {
@@ -68,9 +70,12 @@ export function SessionScreen({ sessionId, createTutor }: SessionScreenProps) {
       <TitleStrip session={session} failed={failed} startedAt={startedAt} />
       <main className="relative min-h-0 flex-1">
         {/* Until the session loads, the stage shows her paper, as a paper session would. */}
-        <Stage source={session?.source ?? 'paper'} />
+        <Stage
+          source={session?.source ?? 'paper'}
+          onUnpinned={() => boardControl.current?.focus()}
+        />
         <Captions />
-        <Dock onEnd={() => setConfirmingEnd(true)} />
+        <Dock onEnd={() => setConfirmingEnd(true)} boardRef={boardControl} />
       </main>
       <Sheet open={confirmingEnd} onOpenChange={setConfirmingEnd} title={t('session.end.title')}>
         {/* Keep going comes first, so it has focus when the sheet opens. */}

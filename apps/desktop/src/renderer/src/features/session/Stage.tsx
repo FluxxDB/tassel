@@ -14,7 +14,16 @@ import { TutorTile } from './TutorTile';
 const REFLOW =
   'motion-safe:transition-[flex-grow,margin-left,opacity] motion-safe:duration-[240ms] motion-safe:ease-[cubic-bezier(0.16,1,0.3,1)]';
 
-export function Stage({ source }: { source: Source }) {
+export interface StageProps {
+  source: Source;
+  /**
+   * After Unpin, which takes its own pill (and focus) away: the session screen moves focus on to
+   * the dock's Board control, whose name then reads "Board: following Ada".
+   */
+  onUnpinned?(): void;
+}
+
+export function Stage({ source, onUnpinned }: StageProps) {
   const { t } = useTranslation();
   const mode = useStageStore((state) => state.mode);
   const paperShown = mode !== 'board';
@@ -23,7 +32,7 @@ export function Stage({ source }: { source: Source }) {
     <div data-testid="stage" className="absolute top-2 right-4 bottom-[104px] left-4 flex">
       <Panel shown={paperShown} label={t(`session.placeholder.${source}.tag`)}>
         <Waiting source={source} />
-        <TopLine pinIndicator={paperShown}>
+        <TopLine pinIndicator={paperShown} onUnpinned={onUnpinned}>
           <Tag className="bg-paper text-ink shadow-[0_0_0_1px_var(--color-hairline)]">
             {t(`session.placeholder.${source}.tag`)}
           </Tag>
@@ -35,7 +44,7 @@ export function Stage({ source }: { source: Source }) {
         className={cn('board-canvas', paperShown && boardShown && 'ml-3')}
       >
         {/* The leftmost panel carries the pin indicator: the board only when it's alone. */}
-        <TopLine pinIndicator={!paperShown}>
+        <TopLine pinIndicator={!paperShown} onUnpinned={onUnpinned}>
           <Tag className="bg-ink text-paper">{t('session.board.tag')}</Tag>
         </TopLine>
       </Panel>
@@ -80,11 +89,19 @@ function Panel({
  * A panel's top line, 14px in from its top left: its tag, then 8px on, the pin indicator when
  * this is the leftmost panel. If the indicator doesn't fit beside the tag, it wraps below it.
  */
-function TopLine({ pinIndicator, children }: { pinIndicator: boolean; children: ReactNode }) {
+function TopLine({
+  pinIndicator,
+  onUnpinned,
+  children,
+}: {
+  pinIndicator: boolean;
+  onUnpinned?(): void;
+  children: ReactNode;
+}) {
   return (
     <div className="pointer-events-none absolute top-3.5 right-3.5 left-3.5 z-10 flex flex-wrap items-center gap-2">
       {children}
-      {pinIndicator && <PinIndicator />}
+      {pinIndicator && <PinIndicator onUnpinned={onUnpinned} />}
     </div>
   );
 }
@@ -108,7 +125,7 @@ function Tag({ className, children }: { className: string; children: ReactNode }
  * for since the pin when it differs, and Unpin, which follows Ada again. It fades in and out;
  * while hidden it keeps the last pinned view's words, so the fade never shows them change.
  */
-function PinIndicator() {
+function PinIndicator({ onUnpinned }: { onUnpinned?(): void }) {
   const { t } = useTranslation();
   const pinned = useStageStore((state) => state.pinned);
   const requested = useStageStore((state) => state.requested);
@@ -125,8 +142,12 @@ function PinIndicator() {
     <div
       aria-hidden={!pinned || undefined}
       className={cn(
-        'pointer-events-auto flex h-[26px] items-center gap-2 rounded-pill bg-paper pr-[3px] pl-3 shadow-[0_0_0_1px_var(--color-hairline)] motion-safe:transition-[opacity,visibility] motion-safe:duration-[140ms]',
-        pinned ? 'visible opacity-100' : 'invisible opacity-0',
+        'pointer-events-auto flex h-[26px] items-center gap-2 rounded-pill bg-paper pr-px pl-3 shadow-[0_0_0_1px_var(--color-hairline)] motion-safe:duration-[140ms]',
+        // Shown, it's visible (and Unpin reachable) at once while it fades in; hidden, it stays
+        // visible through the fade and only then leaves.
+        pinned
+          ? 'visible opacity-100 motion-safe:transition-opacity'
+          : 'invisible opacity-0 motion-safe:transition-[opacity,visibility]',
       )}
     >
       <Pin className="size-3.5 shrink-0" />
@@ -140,8 +161,12 @@ function PinIndicator() {
       )}
       <button
         type="button"
-        onClick={unpin}
-        className="h-5 rounded-pill px-2.5 text-[13px] leading-5 font-w520 whitespace-nowrap text-ink transition-[background-color] duration-[120ms] hover:bg-bone"
+        onClick={() => {
+          unpin();
+          onUnpinned?.();
+        }}
+        // 24px tall: WCAG 2.2's minimum target, inside the 26px pill.
+        className="h-6 rounded-pill px-2.5 text-[13px] leading-6 font-w520 whitespace-nowrap text-ink transition-[background-color] duration-[120ms] hover:bg-bone"
       >
         {t('session.pin.unpin')}
       </button>

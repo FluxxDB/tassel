@@ -3,6 +3,7 @@
 import {
   ApiError,
   createSession,
+  deleteSession,
   type SessionType,
   type Source,
   UnauthorizedError,
@@ -90,8 +91,12 @@ function NewSessionForm({
     setError(null);
     try {
       const session = await createSession(api, { type, language, source });
-      // Closed meanwhile: she changed her mind, so don't open the session.
-      if (!stillOpen.current) return;
+      if (!stillOpen.current) {
+        // Closed meanwhile: she changed her mind, so the session doesn't open, and doesn't stay
+        // behind unseen in her library either.
+        deleteSession(api, session.id).catch(() => {});
+        return;
+      }
       onStarted();
       openSession(session.id);
     } catch (failure) {

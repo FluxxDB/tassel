@@ -273,7 +273,9 @@ describe('IconButton', () => {
     const button = screen.getByRole('button', { name: 'Share screen' });
     expect(button).toHaveAttribute('aria-disabled', 'true');
     expect(button).not.toBeDisabled();
-    expect(button).toHaveClass('opacity-40', 'cursor-default');
+    // Only the icon dims: the focus ring stays full ink.
+    expect(button).toHaveClass('[&>svg]:opacity-40', 'cursor-default');
+    expect(button).not.toHaveClass('opacity-40');
     expect(button).not.toHaveClass('hover:bg-ink/[0.06]');
     await user.tab();
     expect(button).toHaveFocus();

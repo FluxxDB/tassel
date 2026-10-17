@@ -20,11 +20,17 @@ export interface LibraryScreenProps {
   /** Shows the one-time notice that this launch started a fresh library (AppConfig.tokenReset). */
   tokenNotice?: boolean;
   onDismissTokenNotice?(): void;
+  /** She's back from a session: focus lands on the heading rather than the page body. */
+  returning?: boolean;
 }
 
 const SORTS: readonly SessionSort[] = ['recent', 'created', 'topic'];
 
-export function LibraryScreen({ tokenNotice = false, onDismissTokenNotice }: LibraryScreenProps) {
+export function LibraryScreen({
+  tokenNotice = false,
+  onDismissTokenNotice,
+  returning = false,
+}: LibraryScreenProps) {
   const { t } = useTranslation();
   const headingId = useId();
   const [sort, setSort] = useState<SessionSort>('recent');
@@ -37,6 +43,10 @@ export function LibraryScreen({ tokenNotice = false, onDismissTokenNotice }: Lib
   // When a panel takes its focused button away, focus moves on rather than falling to <body>.
   const heading = useRef<HTMLHeadingElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (returning && document.activeElement === document.body) heading.current?.focus();
+  }, [returning]);
 
   // A retry stays on the error panel, busy, until its answer arrives. If it succeeds, the panel
   // and its Retry button go, so focus moves to the heading above the sessions.

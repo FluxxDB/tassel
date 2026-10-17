@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { ApiClient, Session } from '@tassel/shared/api';
 import type { Lang } from '@tassel/shared/i18n';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -226,6 +226,8 @@ describe('SessionScreen', () => {
     act(() => stage().requestMode('board'));
     act(() => stage().pin('paper'));
     expect(screen.getByText('Pinned · Paper')).toBeInTheDocument();
+    // A 24px target at least (WCAG 2.2, 2.5.8), inside the 26px pill.
+    expect(screen.getByRole('button', { name: 'Unpin' })).toHaveClass('h-6');
     // A request from before the pin isn't news: only one made since is mentioned.
     expect(screen.queryByText(/Ada asks/)).not.toBeInTheDocument();
     act(() => stage().requestMode('split'));
@@ -241,6 +243,29 @@ describe('SessionScreen', () => {
     expect(screen.queryByRole('button', { name: 'Unpin' })).not.toBeInTheDocument();
     expect(screen.getByText('Pinned · Paper').closest('[aria-hidden="true"]')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Board: following Ada' })).toBeInTheDocument();
+  });
+
+  it('hands focus to the Board control when Unpin takes its own pill away', async () => {
+    const { user } = await renderSession();
+    await screen.findByRole('heading', { level: 1 });
+    await user.keyboard('b');
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Unpin' })).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(stage().pinned).toBeNull();
+    expect(screen.getByRole('button', { name: 'Board: following Ada' })).toHaveFocus();
+  });
+
+  it('gives every icon control a tooltip', async () => {
+    await renderSession();
+    const dock = screen.getByRole('group', { name: 'Session controls' });
+    // The icon-only ones, named by aria-label; End session names itself in text.
+    const icons = within(dock)
+      .getAllByRole('button')
+      .filter((button) => button.hasAttribute('aria-label'));
+    expect(icons).toHaveLength(5);
+    for (const button of icons) expect(button).toHaveAttribute('title');
+    expect(screen.getByRole('button', { name: 'Camera' })).toHaveAttribute('title', 'Camera');
   });
 
   it('End session asks to confirm then routes to library', async () => {
@@ -260,6 +285,28 @@ describe('SessionScreen', () => {
       within(screen.getByRole('dialog')).getByRole('button', { name: 'End session' }),
     );
     expect(useRoute.getState().route).toEqual({ name: 'library' });
+  });
+
+  it("starts the next session's screen clean, never from the last one's details", async () => {
+    await renderSession({ session: TITLED });
+    await screen.findByRole('heading', { level: 1, name: 'Strings that start with 010' });
+    cleanup();
+    // The next session: if its screen first rendered the last session's title, focus would land
+    // there, be lost when it went, and never reach the right title.
+    await renderSession({ session: { ...UNTITLED, id: 'another-session' } });
+    const title = await screen.findByRole('heading', { level: 1, name: 'Untitled Session' });
+    expect(title).toHaveFocus();
+  });
+
+  it('lands focus on the session title when she arrives, without a ring', async () => {
+    await renderSession({ session: TITLED });
+    const title = await screen.findByRole('heading', {
+      level: 1,
+      name: 'Strings that start with 010',
+    });
+    expect(title).toHaveFocus();
+    expect(title).toHaveAttribute('tabindex', '-1');
+    expect(title).toHaveClass('focus-visible:outline-none');
   });
 
   it('offers no other way back than End session (R18)', async () => {

@@ -17,6 +17,15 @@ const store = create<CurrentSessionState>()(() => ({ session: null, failed: fals
 /** Counts loads, so only the newest one's answer lands. */
 let loads = 0;
 
+/**
+ * Forgets the open session, so the next session screen starts clean instead of rendering this
+ * one's details until its own load runs. The session screen calls it when it goes away.
+ */
+export function forgetCurrentSession(): void {
+  loads += 1;
+  store.setState({ session: null, failed: false, pending: {} });
+}
+
 export interface CurrentSession {
   /** The open session, or null until it loads (or if it couldn't be loaded). */
   session: Session | null;

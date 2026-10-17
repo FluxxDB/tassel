@@ -48,6 +48,7 @@ async function renderSheet({
 } = {}) {
   const i18n = await initI18n(lang);
   const POST = vi.fn();
+  const DELETE = vi.fn(async () => ({ response: new Response(null, { status: 204 }) }));
   const onOpenChange = vi.fn();
   const user = userEvent.setup();
   // The sheet is controlled: like the library, this parent closes it when asked.
@@ -66,12 +67,12 @@ async function renderSheet({
   }
   render(
     <I18nextProvider i18n={i18n}>
-      <ApiProvider client={{ POST } as unknown as ApiClient}>
+      <ApiProvider client={{ POST, DELETE } as unknown as ApiClient}>
         <Parent />
       </ApiProvider>
     </I18nextProvider>,
   );
-  return { POST, onOpenChange, user, sheet: screen.getByRole('dialog') };
+  return { POST, DELETE, onOpenChange, user, sheet: screen.getByRole('dialog') };
 }
 
 beforeEach(() => useRoute.getState().goLibrary());
@@ -194,8 +195,8 @@ describe('NewSessionSheet', () => {
     await waitFor(() => expect(useRoute.getState().route).toMatchObject({ name: 'session' }));
   });
 
-  it("can still close while Start runs, and then doesn't open the late session", async () => {
-    const { POST, onOpenChange, user } = await renderSheet();
+  it("can still close while Start runs, and then doesn't keep the late session", async () => {
+    const { POST, DELETE, onOpenChange, user } = await renderSheet();
     const answer = pending<ReturnType<typeof created>>();
     POST.mockReturnValue(answer.promise);
     await user.click(screen.getByRole('button', { name: 'Start session' }));
@@ -205,6 +206,10 @@ describe('NewSessionSheet', () => {
 
     await act(async () => answer.resolve(created(CREATED)));
     expect(useRoute.getState().route).toEqual({ name: 'library' });
+    // She changed her mind: the session the server made anyway is removed, not left unseen.
+    expect(DELETE).toHaveBeenCalledWith('/v1/sessions/{session_id}', {
+      params: { path: { session_id: CREATED.id } },
+    });
   });
 
   it('Cancel closes without creating a session', async () => {
