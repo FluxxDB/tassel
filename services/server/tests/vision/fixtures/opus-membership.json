@@ -1,0 +1,24 @@
+{
+  "id": "msg_fixture",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-5-5",
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "",
+      "signature": "fixture-signature"
+    },
+    {
+      "type": "text",
+      "text": "{\"expressible\": true, \"any_of\": [{\"all_of\": [{\"op\": \"starts_with\", \"text\": \"010\", \"symbol\": null, \"n\": null, \"m\": null, \"r\": null, \"negate\": false}]}]}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 3000,
+    "output_tokens": 1000
+  }
+}
