@@ -8,6 +8,7 @@
 //   refresh (auth), and the uploader goes on with the next frame.
 // - A 404 means the session was deleted: the uploader stops for good (gone).
 // - Any success clears `lastError`.
+// - A frame from the `screen` source is never sent, whoever enqueues it.
 import { ApiError, UnauthorizedError } from '@tassel/shared/api';
 import { systemClock } from '../../tutor/clock';
 import type { Clock } from '../../tutor/types';
@@ -126,7 +127,8 @@ export function createFrameUploader(opts: {
 
   return {
     enqueue(parts) {
-      if (stopped) return;
+      // A screen frame leaves the device only when she asks (spec §4.1), never on its own.
+      if (stopped || parts.meta.source === 'screen') return;
       if (queue.length >= maxQueue) {
         failed += 1;
         if (!makeRoom(parts)) {

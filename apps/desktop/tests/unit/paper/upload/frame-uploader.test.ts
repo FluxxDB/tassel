@@ -136,6 +136,18 @@ const tooSoon = (retryAfter?: string) =>
   );
 
 describe('createFrameUploader', () => {
+  it('never uploads a screen frame, which leaves the device only when she asks', async () => {
+    const h = harness();
+    const screen: FrameParts = { ...h.frame('s'), meta: { ...META, source: 'screen' } };
+
+    h.uploader.enqueue(screen);
+    h.enqueue(h.frame('a'));
+    await h.settle();
+
+    expect(h.names()).toStrictEqual(['a']);
+    expect(h.last()).toStrictEqual({ sent: 1, pending: 0, failed: 0, lastError: null });
+  });
+
   it('uploads one at a time, in order', async () => {
     const h = harness();
     h.enqueue(h.frame('a'), h.frame('b', 'page'), h.frame('c'));
