@@ -14,6 +14,8 @@ args=(exec --skip-git-repo-check -C "$dir" -s workspace-write
   -c 'sandbox_workspace_write.network_access=true'
   --add-dir /Users/dang/.cache --add-dir /Users/dang/Library/pnpm --add-dir /Users/dang/Library/Caches
   --add-dir /private/tmp
+  # A worktree's index and objects live in the main repo's .git, and the reports in the plan workspaces.
+  --add-dir /Users/dang/Projects/tassel/.git --add-dir /Users/dang/Projects/tassel/.superpowers/sdd
   -c "model_reasoning_effort=\"$effort\"" -m gpt-6-astra -o "$reply")
 if [ -n "$resume" ]; then args+=(resume "$resume"); fi
 args+=(-)
