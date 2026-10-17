@@ -87,19 +87,26 @@ def test_envelope():
 @pytest.mark.parametrize(
     "event",
     [
-        {"kind": "nope"},
-        {"view": "split"},
-        {"kind": "title"},
-        {"kind": "title", "title": "Strings that start with 010"},
-        {"kind": "vad", "speaking": "yes"},
-        {"kind": "vad", "speaking": 1},
-        {"kind": "stage", "view": "split", "extra": 1},
-        {"kind": "language", "lang": "fr"},
-        {"kind": "route", "lang": "en", "stt": "whisper", "llm": "fake", "tts": "fake"},
-        {"kind": "turn-metrics", "metrics": {**METRICS, "turn": "1"}},
-        {"kind": "turn-metrics", "metrics": {**METRICS, "extra": 1}},
+        pytest.param({"kind": "nope"}, id="unknown kind"),
+        pytest.param({"view": "split"}, id="no kind"),
+        pytest.param({"kind": "title"}, id="title missing"),
+        pytest.param({"kind": "title", "title": "Strings"}, id="subject missing, not null"),
+        pytest.param({"kind": "vad", "speaking": "yes"}, id="string for a bool"),
+        pytest.param({"kind": "vad", "speaking": 1}, id="number for a bool"),
+        pytest.param({"kind": "stage", "view": "split", "extra": 1}, id="undeclared field"),
+        pytest.param({"kind": "language", "lang": "fr"}, id="unsupported language"),
+        pytest.param(
+            {"kind": "route", "lang": "en", "stt": "whisper", "llm": "fake", "tts": "fake"},
+            id="unknown STT",
+        ),
+        pytest.param(
+            {"kind": "turn-metrics", "metrics": {**METRICS, "turn": "1"}}, id="string for an int"
+        ),
+        pytest.param(
+            {"kind": "turn-metrics", "metrics": {**METRICS, "extra": 1}},
+            id="undeclared metric",
+        ),
     ],
-    ids=repr,
 )
 def test_server_events_refuse_what_the_contract_does_not_say(event):
     with pytest.raises(ValidationError):
@@ -109,16 +116,15 @@ def test_server_events_refuse_what_the_contract_does_not_say(event):
 @pytest.mark.parametrize(
     "event",
     [
-        {"kind": "ptt", "enabled": "yes", "held": True},
-        {"kind": "ptt", "enabled": True},
-        {"kind": "sensitivity", "level": "max"},
-        {**CLIENT_METRICS, "ttfa_ms": "900"},
-        {**CLIENT_METRICS, "ttfa_ms": True},
-        {**CLIENT_METRICS, "ttfa_ms": float("inf")},
-        {**CLIENT_METRICS, "ttfa_ms": float("nan")},
-        {**CLIENT_METRICS, "extra": 1},
+        pytest.param({"kind": "ptt", "enabled": "yes", "held": True}, id="string for a bool"),
+        pytest.param({"kind": "ptt", "enabled": True}, id="held missing"),
+        pytest.param({"kind": "sensitivity", "level": "max"}, id="unknown sensitivity"),
+        pytest.param({**CLIENT_METRICS, "ttfa_ms": "900"}, id="string for a time"),
+        pytest.param({**CLIENT_METRICS, "ttfa_ms": True}, id="bool for a time"),
+        pytest.param({**CLIENT_METRICS, "ttfa_ms": float("inf")}, id="infinite time"),
+        pytest.param({**CLIENT_METRICS, "ttfa_ms": float("nan")}, id="NaN time"),
+        pytest.param({**CLIENT_METRICS, "extra": 1}, id="undeclared field"),
     ],
-    ids=repr,
 )
 def test_client_events_refuse_what_the_contract_does_not_say(event):
     with pytest.raises(ValidationError):

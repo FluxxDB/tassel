@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 // The voice contract's additions to TutorEvent. P1's session screen doesn't use them yet, so
-// useTutorSession lets them pass: nothing throws, and the stage store stays as it was.
+// useTutorSession lets them pass: nothing throws, and the stage store stays as it was. And the
+// app reaches the shared contract through @tassel/shared's own exports.
 import type { ApiClient } from '@tassel/shared/api';
+import { ENVELOPE, parseServerEvent } from '@tassel/shared/voice';
+import fixtures from '@tassel/shared/voice/fixtures.json';
 import { act, renderHook } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -99,5 +102,16 @@ describe('useTutorSession and the voice contract', () => {
     expect(stageChanges).toHaveBeenCalledTimes(1);
     expect(stage()).toEqual({ ...before, tutorState: 'listening' });
     expect(PATCH).not.toHaveBeenCalled();
+  });
+});
+
+describe('the shared voice contract, as the app imports it', () => {
+  // Vitest's resolver is lenient about package exports; the typecheck of this file (pnpm check)
+  // is what fails when @tassel/shared stops exporting either subpath, as Node would.
+  it('resolves @tassel/shared/voice and its fixtures', () => {
+    expect(fixtures.server.length).toBeGreaterThan(0);
+    for (const event of fixtures.server) {
+      expect(parseServerEvent({ [ENVELOPE]: event })).toEqual(event);
+    }
   });
 });
