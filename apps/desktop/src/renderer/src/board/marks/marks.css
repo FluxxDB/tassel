@@ -1,0 +1,33 @@
+/*
+ * Ada's marks on her paper. Strokes draw on along their length (each path has pathLength="1"),
+ * and dots and pills fade in; their durations and easing come from MOTION, inline. Each
+ * animation runs toward the mark's resting state, fully drawn, so one that fails still shows
+ * it. Under reduced motion nothing animates.
+ */
+@keyframes mark-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+@keyframes mark-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.mark-draw {
+  stroke-dasharray: 1;
+  animation-name: mark-draw;
+}
+
+.mark-fade {
+  animation-name: mark-fade;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mark-draw,
+  .mark-fade {
+    animation: none;
+  }
+}
