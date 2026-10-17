@@ -23,7 +23,7 @@ export interface LoadedFrame {
 
 export interface SnapshotSource {
   /** Rejects on failure; `signal` aborts when a newer freeze or going live replaces this one. */
-  load(ref: FrameRef, ctx: { signal: AbortSignal }): Promise<LoadedFrame>;
+  load(ref: FrameRef, ctx: { signal: AbortSignal; elements?: PaperElements }): Promise<LoadedFrame>;
 }
 
 const sources = new Map<FrameRef['kind'], SnapshotSource>();
@@ -64,4 +64,5 @@ export const fixtureSource: SnapshotSource = {
   },
 };
 
-registerSnapshotSource('fixture', fixtureSource);
+// The synthetic source is available only in unit tests; production must use stored paper.
+if (import.meta.env.MODE === 'test') registerSnapshotSource('fixture', fixtureSource);

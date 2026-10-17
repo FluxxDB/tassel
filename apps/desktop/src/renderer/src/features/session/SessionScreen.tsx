@@ -4,8 +4,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRoute } from '../../app/route-store';
+import { createPaperSource } from '../../board/marks/paper-source';
+import { registerSnapshotSource } from '../../board/marks/snapshot-sources';
 import { Button } from '../../components/Button';
 import { Sheet } from '../../components/Sheet';
+import { useApi } from '../../lib/api';
 import type { TutorClient } from '../../tutor/types';
 import { useTutorSession } from '../../tutor/use-tutor-session';
 import { Captions } from './Captions';
@@ -33,6 +36,19 @@ const NO_TUTOR: TutorClient = {
 
 export function SessionScreen({ sessionId, createTutor }: SessionScreenProps) {
   const { t } = useTranslation();
+  const api = useApi();
+  // Registered before useTutorSession connects and may deliver its first freeze.
+  useLayoutEffect(
+    () =>
+      registerSnapshotSource(
+        'paper',
+        createPaperSource({
+          api,
+          sessionId: () => sessionId,
+        }),
+      ),
+    [api, sessionId],
+  );
   const { session, failed, load } = useCurrentSession();
   const goLibrary = useRoute((state) => state.goLibrary);
   // The timer counts from when this screen opens, not from the session's creation (R7).

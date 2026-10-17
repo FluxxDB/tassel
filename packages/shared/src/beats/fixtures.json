@@ -258,9 +258,281 @@
     { "kind": "paper.traceStep" },
     { "kind": "paper.clear" },
     { "kind": "paper.live" },
-    { "kind": "stage", "view": "split" }
+    { "kind": "stage", "view": "split" },
+    {
+      "kind": "paper.freeze",
+      "frame": {
+        "kind": "paper",
+        "id": "frame-1",
+        "capturedAt": "2026-10-17T14:32:05+00:00"
+      },
+      "elements": {
+        "states": {},
+        "edges": {},
+        "detected": {
+          "width": 1568,
+          "height": 1176,
+          "items": [
+            {
+              "id": "m3",
+              "kind": "circle",
+              "box": {
+                "x": 100,
+                "y": 200,
+                "w": 160,
+                "h": 160
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "paper.mark",
+      "mark": {
+        "id": "annotation-1",
+        "type": "circle",
+        "target": {
+          "el": "m3"
+        }
+      }
+    }
   ],
   "invalidActions": [
+    {
+      "why": "detected target rejects trailing carriage return",
+      "data": {
+        "kind": "paper.mark",
+        "mark": { "id": "a", "type": "circle", "target": { "el": "m3\r" } }
+      }
+    },
+    {
+      "why": "detected width rejects 0",
+      "data": {
+        "kind": "paper.freeze",
+        "frame": {
+          "kind": "paper",
+          "id": "frame-1",
+          "capturedAt": "2026-10-17T14:32:05+00:00"
+        },
+        "elements": {
+          "states": {},
+          "edges": {},
+          "detected": {
+            "width": 0,
+            "height": 1176,
+            "items": [
+              {
+                "id": "m3",
+                "kind": "circle",
+                "box": {
+                  "x": 100,
+                  "y": 200,
+                  "w": 160,
+                  "h": 160
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "why": "detected height rejects True",
+      "data": {
+        "kind": "paper.freeze",
+        "frame": {
+          "kind": "paper",
+          "id": "frame-1",
+          "capturedAt": "2026-10-17T14:32:05+00:00"
+        },
+        "elements": {
+          "states": {},
+          "edges": {},
+          "detected": {
+            "width": 1568,
+            "height": true,
+            "items": [
+              {
+                "id": "m3",
+                "kind": "circle",
+                "box": {
+                  "x": 100,
+                  "y": 200,
+                  "w": 160,
+                  "h": 160
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "why": "detected width rejects '1568'",
+      "data": {
+        "kind": "paper.freeze",
+        "frame": {
+          "kind": "paper",
+          "id": "frame-1",
+          "capturedAt": "2026-10-17T14:32:05+00:00"
+        },
+        "elements": {
+          "states": {},
+          "edges": {},
+          "detected": {
+            "width": "1568",
+            "height": 1176,
+            "items": [
+              {
+                "id": "m3",
+                "kind": "circle",
+                "box": {
+                  "x": 100,
+                  "y": 200,
+                  "w": 160,
+                  "h": 160
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "why": "detected item rejects id",
+      "data": {
+        "kind": "paper.freeze",
+        "frame": {
+          "kind": "paper",
+          "id": "frame-1",
+          "capturedAt": "2026-10-17T14:32:05+00:00"
+        },
+        "elements": {
+          "states": {},
+          "edges": {},
+          "detected": {
+            "width": 1568,
+            "height": 1176,
+            "items": [
+              {
+                "id": "m0",
+                "kind": "circle",
+                "box": {
+                  "x": 100,
+                  "y": 200,
+                  "w": 160,
+                  "h": 160
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "why": "detected item rejects kind",
+      "data": {
+        "kind": "paper.freeze",
+        "frame": {
+          "kind": "paper",
+          "id": "frame-1",
+          "capturedAt": "2026-10-17T14:32:05+00:00"
+        },
+        "elements": {
+          "states": {},
+          "edges": {},
+          "detected": {
+            "width": 1568,
+            "height": 1176,
+            "items": [
+              {
+                "id": "m3",
+                "kind": "unknown",
+                "box": {
+                  "x": 100,
+                  "y": 200,
+                  "w": 160,
+                  "h": 160
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "why": "detected item rejects box",
+      "data": {
+        "kind": "paper.freeze",
+        "frame": {
+          "kind": "paper",
+          "id": "frame-1",
+          "capturedAt": "2026-10-17T14:32:05+00:00"
+        },
+        "elements": {
+          "states": {},
+          "edges": {},
+          "detected": {
+            "width": 1568,
+            "height": 1176,
+            "items": [
+              {
+                "id": "m3",
+                "kind": "circle",
+                "box": {
+                  "x": 0,
+                  "y": 0,
+                  "w": -1,
+                  "h": 2
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "why": "duplicate detected id",
+      "data": {
+        "kind": "paper.freeze",
+        "frame": {
+          "kind": "paper",
+          "id": "frame-1",
+          "capturedAt": "2026-10-17T14:32:05+00:00"
+        },
+        "elements": {
+          "states": {},
+          "edges": {},
+          "detected": {
+            "width": 1568,
+            "height": 1176,
+            "items": [
+              {
+                "id": "m3",
+                "kind": "circle",
+                "box": {
+                  "x": 100,
+                  "y": 200,
+                  "w": 160,
+                  "h": 160
+                }
+              },
+              {
+                "id": "m3",
+                "kind": "circle",
+                "box": {
+                  "x": 100,
+                  "y": 200,
+                  "w": 160,
+                  "h": 160
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
     {
       "why": "an unknown start",
       "data": {

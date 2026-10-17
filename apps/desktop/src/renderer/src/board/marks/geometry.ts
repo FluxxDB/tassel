@@ -94,6 +94,24 @@ export function resolveTarget(
       labelSide: null,
     };
   }
+  const detected = elements?.detected;
+  const item = detected?.items.find((item) => item.id === target.el);
+  if (detected && item) {
+    const { x, y, w, h } = item.box;
+    return resolveTarget(
+      {
+        box: {
+          x: x / detected.width,
+          y: y / detected.height,
+          w: w / detected.width,
+          h: h / detected.height,
+        },
+      },
+      null,
+      project,
+      fit,
+    );
+  }
   const ref = parseElementRef(target.el);
   if (!ref || !elements) return null;
   if (ref.kind === 'state') {
@@ -135,6 +153,7 @@ export function resolveTarget(
 /** True when the paper has the piece of ink `target` names; a point or a box always resolves. */
 export function targetExists(target: PaperTarget, elements: PaperElements | null): boolean {
   if (!('el' in target)) return true;
+  if (elements?.detected?.items.some((item) => item.id === target.el)) return true;
   const ref = parseElementRef(target.el);
   if (!ref || !elements) return false;
   if (ref.kind === 'state') return Object.hasOwn(elements.states, ref.id);
