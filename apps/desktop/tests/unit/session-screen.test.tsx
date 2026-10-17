@@ -225,6 +225,29 @@ describe('SessionScreen', () => {
     expect(captions).toHaveClass('opacity-100', 'motion-safe:duration-150');
   });
 
+  it('fades in only the incoming caption line, also when it repeats the last one', async () => {
+    await renderSession();
+    const captions = screen.getByTestId('captions');
+    act(() => stage().pushCaption('tutor', 'Draw it on paper.', 'en'));
+    act(() => stage().pushCaption('student', 'Okay.', 'en'));
+    // The line she just read stays put; only the new one fades in.
+    const previous = within(captions).getByText('Draw it on paper.').closest('p');
+    const current = within(captions).getByText('Okay.').closest('p');
+    expect(previous?.className).not.toContain('animate-');
+    expect(current?.className).toContain('animate-[caption-in_150ms_ease-out]');
+    // The same words again are a new line, so they fade in again.
+    act(() => stage().pushCaption('student', 'Okay.', 'en'));
+    const repeated = within(captions).getAllByText('Okay.').at(-1)?.closest('p');
+    expect(repeated).not.toBe(current);
+  });
+
+  it("doesn't animate Ada's speaking ring under reduced motion", async () => {
+    await renderSession();
+    const tile = screen.getByTestId('tutor-tile');
+    expect(tile).toHaveClass('motion-safe:transition-shadow');
+    expect(tile).not.toHaveClass('transition-shadow');
+  });
+
   it('shows the pin indicator while a view is pinned, and Unpin follows Ada again (R17)', async () => {
     const { user } = await renderSession();
     expect(screen.queryByRole('button', { name: 'Unpin' })).not.toBeInTheDocument();

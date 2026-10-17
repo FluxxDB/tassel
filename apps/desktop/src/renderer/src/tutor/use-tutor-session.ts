@@ -14,8 +14,9 @@ export function useTutorSession(sessionId: string, client: TutorClient): void {
   const { patchLocal } = useCurrentSession();
 
   useEffect(() => {
-    const stage = useStageStore.getState();
     const off = client.on((event) => {
+      // Read per event, so the store is always current here.
+      const stage = useStageStore.getState();
       switch (event.type) {
         case 'state':
           stage.setTutorState(event.state);

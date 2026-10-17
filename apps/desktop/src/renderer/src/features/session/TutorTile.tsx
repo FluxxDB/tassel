@@ -16,7 +16,7 @@ export function TutorTile() {
       data-testid="tutor-tile"
       className={cn(
         // A box-shadow ring, so it never shifts the layout.
-        'absolute top-3.5 right-3.5 z-10 m-0 h-[176px] w-[212px] overflow-hidden rounded-card bg-blush transition-shadow duration-150',
+        'absolute top-3.5 right-3.5 z-10 m-0 h-[176px] w-[212px] overflow-hidden rounded-card bg-blush motion-safe:transition-shadow motion-safe:duration-150',
         state === 'speaking' && 'shadow-[0_0_0_2px_var(--color-iris)]',
       )}
     >

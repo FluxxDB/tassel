@@ -2,6 +2,7 @@
 // current one large, each with its speaker. It grows upward from a fixed bottom edge, so a new
 // line never moves the dock. Nothing shows until the first line; C and the dock button hide and
 // show it.
+import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/cn';
 import { type CaptionLine, useStageStore } from './stage-store';
@@ -9,6 +10,15 @@ import { type CaptionLine, useStageStore } from './stage-store';
 export function Captions() {
   const on = useStageStore((state) => state.captionsOn);
   const { previous, current } = useStageStore((state) => state.caption);
+  // Each pushed line is a new object: counting them keys the current line, so every new line
+  // fades in, the same words again included, while the previous one just stays put.
+  const lines = useRef<{ line: CaptionLine | undefined; count: number }>({
+    line: undefined,
+    count: 0,
+  });
+  if (current !== lines.current.line) {
+    lines.current = { line: current, count: lines.current.count + 1 };
+  }
   if (!on) return null;
   return (
     <div
@@ -21,20 +31,16 @@ export function Captions() {
       )}
     >
       {previous && (
-        <Line
-          // Keyed by content, so each new line fades in (within 150 ms) rather than swapping.
-          key={`${previous.speaker}:${previous.text}`}
-          line={previous}
-          className="mb-1.5 text-[15px] leading-[19px] text-caption-muted"
-        />
+        <Line line={previous} className="mb-1.5 text-[15px] leading-[19px] text-caption-muted" />
       )}
       {/* Only the current line is announced, politely. */}
       <div aria-live="polite">
         {current && (
           <Line
-            key={`${current.speaker}:${current.text}`}
+            key={lines.current.count}
             line={current}
-            className="text-[21px] leading-[1.35] font-[450]"
+            // The incoming line fades in, within 150 ms.
+            className="text-[21px] leading-[1.35] font-[450] motion-safe:animate-[caption-in_150ms_ease-out]"
           />
         )}
       </div>
@@ -46,7 +52,7 @@ function Line({ line, className }: { line: CaptionLine; className: string }) {
   const { t } = useTranslation();
   const tutor = line.speaker === 'tutor';
   return (
-    <p className={cn(className, 'motion-safe:animate-[caption-in_150ms_ease-out]')}>
+    <p className={className}>
       {/* Ada's label carries her iris; the student's never does. */}
       <span
         className={cn(
