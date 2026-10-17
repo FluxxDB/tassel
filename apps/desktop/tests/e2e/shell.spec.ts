@@ -42,3 +42,24 @@ test('keeps the renderer on its own origin', async () => {
   expect(app.windows()).toHaveLength(1);
   await app.close();
 });
+
+test('boots the renderer in the UI language with the design system', async () => {
+  const { app, page } = await launchApp({ TASSEL_UI_LANG: 'ko' });
+  await expect(page.getByRole('heading', { name: '내 세션' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe('ko');
+  // The shared fonts ship inside the app (font-src 'self'): Geist for Latin, Pretendard for Hangul.
+  const fontStatus = () =>
+    page.evaluate(async () => {
+      await document.fonts.ready;
+      return Object.fromEntries([...document.fonts].map((font) => [font.family, font.status]));
+    });
+  await expect.poll(fontStatus).toMatchObject({ Geist: 'loaded', 'Pretendard Variable': 'loaded' });
+  // The title strip drags the window.
+  const strip = page.getByRole('banner');
+  await expect(strip).toHaveCSS('height', '52px');
+  expect(await strip.evaluate((el) => getComputedStyle(el).getPropertyValue('app-region'))).toBe(
+    'drag',
+  );
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(255, 249, 243)');
+  await app.close();
+});

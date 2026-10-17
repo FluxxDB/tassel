@@ -1,0 +1,90 @@
+@import "tailwindcss";
+@import "@tassel/shared/tokens.css";
+@import "@tassel/shared/fonts.css";
+@import "@tassel/shared/base.css";
+
+/* DESIGN.md's near-medium weight: headings, buttons and names, never bold. */
+@theme {
+  --font-weight-w520: 520;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    overflow: hidden;
+    caret-color: var(--color-ink);
+  }
+
+  ::selection {
+    background-color: var(--color-blush);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+
+  * {
+    scrollbar-color: color-mix(in srgb, var(--color-ink) 22%, transparent) transparent;
+    scrollbar-width: thin;
+  }
+
+  /* Timers and counts don't jitter as their digits change. */
+  time,
+  .mono {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /*
+   * The window's title strip: it drags the window, and controls inside it stay clickable.
+   * Static text stays draggable, so the window moves by its title like any macOS app.
+   */
+  .app-drag {
+    -webkit-app-region: drag;
+    user-select: none;
+  }
+
+  .app-drag
+    :where(button, a, input, select, textarea, [role="button"], [role="radiogroup"], [tabindex]) {
+    -webkit-app-region: no-drag;
+  }
+
+  /* Windows and Linux draw the window controls over the strip's right end (titleBarOverlay). */
+  .app-drag-overlay-inset {
+    padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 20px);
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+
+@keyframes sheet-out {
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.99);
+  }
+}
+
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes scrim-out {
+  to {
+    opacity: 0;
+  }
+}

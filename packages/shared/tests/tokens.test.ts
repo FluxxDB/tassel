@@ -17,6 +17,7 @@ describe('design tokens', () => {
     ['--color-smoke-text', '#6b6966'],
     ['--color-live', '#e5484d'],
     ['--color-sky', '#ccdff1'],
+    ['--color-hairline', '#ece5dc'],
     ['--radius-pill', '9999px'],
     ['--radius-card', '16px'],
   ])('defines %s as %s', (name, value) => {
@@ -32,6 +33,10 @@ describe('design tokens', () => {
   });
   it('resets tracking for Korean', () => {
     expect(base).toMatch(/:lang\(ko\)\s*\{[^}]*letter-spacing:\s*0;[^}]*line-height:\s*1\.6;/);
+  });
+  it('keeps Hangul lab labels untracked too', () => {
+    // .mono sets +0.025em and, as a class, outranks :lang(ko) alone.
+    expect(base).toMatch(/\.mono:lang\(ko\)\s*\{\s*letter-spacing:\s*0;\s*\}/);
   });
   it.each(['Geist-Variable.woff2', 'GeistMono-Variable.woff2', 'PretendardVariable.woff2'])(
     'ships %s',

@@ -30,4 +30,9 @@
       "calt" 0,
       "liga" 0;
   }
+
+  /* Hangul has no case, and tracking damages it: Korean lab labels stay untracked. */
+  .mono:lang(ko) {
+    letter-spacing: 0;
+  }
 }

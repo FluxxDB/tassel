@@ -10,6 +10,9 @@
   --color-bone: #fff9f3;
   --color-slate-plum: #574853;
 
+  /* Hairline borders and separators, warm against bone (the chosen stage mock's dock edge). */
+  --color-hairline: #ece5dc;
+
   /* Smoke is for large text and non-text only; small text uses smoke-text (WCAG AA). */
   --color-smoke: #7a7876;
   --color-smoke-text: #6b6966;
