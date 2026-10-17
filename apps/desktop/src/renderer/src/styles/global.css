@@ -124,6 +124,13 @@
   }
 }
 
+/* A new caption line fades in from nothing; its resting state is fully visible. */
+@keyframes caption-in {
+  from {
+    opacity: 0;
+  }
+}
+
 /* Loading placeholders breathe slowly, from fully visible; static under reduced motion. */
 @keyframes skeleton-pulse {
   50% {

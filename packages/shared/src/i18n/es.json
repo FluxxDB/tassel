@@ -117,9 +117,6 @@
       "adaAsks": "Ada pide: {view}",
       "unpin": "Soltar"
     },
-    "captions": {
-      "hint": "Los subtítulos aparecen aquí mientras tú y Ada hablan."
-    },
     "dock": {
       "mic": "Micrófono",
       "label": "Controles de la sesión",

@@ -1,5 +1,15 @@
 import { expect, type Page, test } from '@playwright/test';
-import { launchApp, settle, snap } from './fixtures';
+import { launchApp, settle, setWindowSize, snap } from './fixtures';
+
+interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const intersects = (a: Box, b: Box) =>
+  a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 
 // launchApp runs the fake tutor at TASSEL_FAKE_SPEED=20: the 33 s opening takes about 1.7 s.
 
@@ -42,6 +52,49 @@ test('runs the scripted opening until Ada brings in the board', async () => {
   await expect(card).toHaveCount(1);
   await expect(card).toContainText('Strings that start with 010');
   await expect(card).toContainText('Automata · DFA');
+  await app.close();
+});
+
+for (const lang of ['en', 'ko'] as const) {
+  test(`keeps real captions clear of the dock and Ada's tile at 1024×680 (${lang})`, async () => {
+    const { app, page } = await launchApp({ TASSEL_UI_LANG: lang });
+    await setWindowSize(app, page, 1024, 680);
+    const ui =
+      lang === 'en'
+        ? { empty: 'No sessions yet', create: 'New session', start: 'Start session' }
+        : { empty: '아직 세션이 없어요', create: '새 세션', start: '세션 시작' };
+    await expect(page.getByRole('region', { name: ui.empty })).toBeVisible();
+    await page.getByRole('banner').getByRole('button', { name: ui.create }).click();
+    await page.getByRole('dialog').getByRole('button', { name: ui.start }).click();
+
+    // Two lines, the student's above Ada's 1010 question, in the split view she asked for.
+    const captions = page.getByTestId('captions');
+    await expect(captions).toContainText('1010', { timeout: 10_000 });
+    await expect(captions).toContainText("I think that's it.");
+    await settle(page);
+    const boxes = await Promise.all(
+      ['captions', 'dock', 'tutor-tile'].map(async (id) => {
+        const box = await page.getByTestId(id).boundingBox();
+        if (!box) throw new Error(`${id} isn't on screen`);
+        return box;
+      }),
+    );
+    const [captionBox, dockBox, tileBox] = boxes;
+    expect(intersects(captionBox, dockBox)).toBe(false);
+    expect(intersects(captionBox, tileBox)).toBe(false);
+    expect(intersects(dockBox, tileBox)).toBe(false);
+    await snap(page, `p1-fake-tutor-1024-${lang}`);
+    await app.close();
+  });
+}
+
+test('shows no caption panel before the first line', async () => {
+  // At its own pace the tutor's first line comes 1.5 s after she arrives.
+  const { app, page } = await launchApp({ TASSEL_FAKE_SPEED: '1' });
+  await startSession(page);
+  await expect(page.getByTestId('captions')).toHaveCSS('opacity', '0');
+  await expect(page.getByTestId('captions')).toHaveCSS('opacity', '1', { timeout: 5_000 });
+  await expect(page.getByTestId('captions')).toContainText('Hi Ada');
   await app.close();
 });
 

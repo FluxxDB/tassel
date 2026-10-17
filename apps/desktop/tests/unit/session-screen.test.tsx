@@ -207,7 +207,10 @@ describe('SessionScreen', () => {
   it('shows the previous and current caption lines with their speakers and languages', async () => {
     await renderSession();
     const captions = screen.getByTestId('captions');
-    expect(captions).toHaveTextContent('Captions appear here as you and Ada talk.');
+    // Nothing shows before the first line, but the live region is already there to announce it.
+    expect(captions).toHaveClass('opacity-0');
+    expect(captions.textContent).toBe('');
+    expect(captions.querySelector('[aria-live="polite"]')).not.toBeNull();
     act(() => {
       stage().pushCaption('student', 'Hola Ada, estoy haciendo un DFA.', 'es');
       stage().pushCaption('tutor', 'What should happen once you have read 010?', 'en');
@@ -218,6 +221,8 @@ describe('SessionScreen', () => {
     const current = within(captions).getByText('What should happen once you have read 010?');
     expect(current.closest('[aria-live="polite"]')).toBeInTheDocument();
     expect(current.parentElement).toHaveTextContent('Ada');
+    // With a line to show, the panel fades in (150 ms at most, none under reduced motion).
+    expect(captions).toHaveClass('opacity-100', 'motion-safe:duration-150');
   });
 
   it('shows the pin indicator while a view is pinned, and Unpin follows Ada again (R17)', async () => {

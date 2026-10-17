@@ -117,9 +117,6 @@
       "adaAsks": "Ada asks: {view}",
       "unpin": "Unpin"
     },
-    "captions": {
-      "hint": "Captions appear here as you and Ada talk."
-    },
     "dock": {
       "mic": "Microphone",
       "label": "Session controls",

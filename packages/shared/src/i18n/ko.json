@@ -117,9 +117,6 @@
       "adaAsks": "Ada의 요청: {view}",
       "unpin": "고정 해제"
     },
-    "captions": {
-      "hint": "대화하는 동안 여기에 자막이 표시돼요."
-    },
     "dock": {
       "mic": "마이크",
       "label": "세션 제어",
