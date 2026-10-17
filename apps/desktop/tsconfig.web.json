@@ -7,5 +7,7 @@
     "types": ["vite/client"],
     "verbatimModuleSyntax": true
   },
-  "include": ["src/renderer/src", "src/shared"]
+  "include": ["src/renderer/src", "src/shared"],
+  // The detector worker's globals conflict with the DOM lib; tsconfig.worker.json checks it.
+  "exclude": ["src/renderer/src/paper/detector/worker.ts"]
 }

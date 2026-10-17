@@ -10,5 +10,11 @@ export default defineConfig({
   preload: {},
   renderer: {
     plugins: [react(), tailwindcss()],
+    // The paper detector is a module worker (client.ts): in the build too, as an ES module, so
+    // OpenCV becomes a chunk it imports when it needs it.
+    worker: { format: 'es' },
+    // Pre-bundled when the dev server starts, so the worker's first import of OpenCV doesn't
+    // make Vite re-optimize and reload the window.
+    optimizeDeps: { include: ['@techstark/opencv-js'] },
   },
 });

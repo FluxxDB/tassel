@@ -1,0 +1,26 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2023", "WebWorker"],
+    "types": [],
+    "verbatimModuleSyntax": true
+  },
+  // The worker's program: the worker, its frame loop, OpenCV and messages, and the pure detector
+  // modules. Not client.ts or breakout-box.d.ts, which are window code (MediaStream,
+  // MediaStreamTrack, and a processor declaration the WebWorker lib already has).
+  "include": [
+    "src/renderer/src/paper/detector/worker.ts",
+    "src/renderer/src/paper/detector/frame-loop.ts",
+    "src/renderer/src/paper/detector/opencv-page.ts",
+    "src/renderer/src/paper/detector/opencv-module.ts",
+    "src/renderer/src/paper/detector/messages.ts",
+    "src/renderer/src/paper/detector/detector.ts",
+    "src/renderer/src/paper/detector/params.ts",
+    "src/renderer/src/paper/detector/gray.ts",
+    "src/renderer/src/paper/detector/normalize.ts",
+    "src/renderer/src/paper/detector/cells.ts",
+    "src/renderer/src/paper/detector/homography.ts",
+    "src/renderer/src/paper/contracts.ts"
+  ]
+}
