@@ -92,18 +92,31 @@ describe('LibraryScreen', () => {
   it('LibraryScreen shows empty state with New session', async () => {
     const { api, GET } = fakeApi();
     GET.mockResolvedValue(listed([]));
-    const onNewSession = vi.fn();
-    const { user } = await renderLibrary(api, { onNewSession });
+    const { user } = await renderLibrary(api);
 
     const empty = await screen.findByRole('region', { name: 'No sessions yet' });
     expect(empty).toHaveTextContent('Start a session and work through a problem with Ada.');
-    await user.click(within(empty).getByRole('button', { name: 'New session' }));
-    expect(onNewSession).toHaveBeenCalledTimes(1);
-    // The strip keeps its own New session pill; there's nothing to sort yet.
-    expect(
-      within(screen.getByRole('banner')).getByRole('button', { name: 'New session' }),
-    ).toBeInTheDocument();
+    const cta = within(empty).getByRole('button', { name: 'New session' });
+    await user.click(cta);
+    expect(screen.getByRole('dialog', { name: 'New session' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(cta).toHaveFocus();
+    // There's nothing to sort yet.
     expect(screen.queryByRole('radiogroup', { name: 'Sort sessions' })).not.toBeInTheDocument();
+  });
+
+  it("opens the new session sheet from the strip's pill too", async () => {
+    const { api, GET } = fakeApi();
+    GET.mockResolvedValue(listed([DFA]));
+    const { user } = await renderLibrary(api);
+    await screen.findByRole('button', { name: DFA.title ?? '' });
+    const pill = within(screen.getByRole('banner')).getByRole('button', { name: 'New session' });
+    await user.click(pill);
+    const sheet = screen.getByRole('dialog', { name: 'New session' });
+    await user.click(within(sheet).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(pill).toHaveFocus();
   });
 
   it('shows error state and retries', async () => {

@@ -42,6 +42,11 @@
   },
   "newSession": {
     "title": "New session",
+    "groups": {
+      "type": "Type",
+      "language": "Language",
+      "source": "How you'll work"
+    },
     "type": {
       "homework": "Homework",
       "studying": "Studying",
@@ -58,7 +63,8 @@
       "screen": "Screen share",
       "talk": "Just talk"
     },
-    "start": "Start session"
+    "start": "Start session",
+    "starting": "Starting…"
   },
   "session": {
     "untitled": "Untitled Session",

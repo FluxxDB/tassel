@@ -10,13 +10,12 @@ import { Close, Plus, Retry, Search } from '../../components/icons';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { Wordmark } from '../../components/Wordmark';
 import { cn } from '../../lib/cn';
+import { NewSessionSheet } from '../new-session/NewSessionSheet';
 import { groupByTopic } from './group-by-topic';
 import { SessionCard, SessionCardSkeleton } from './SessionCard';
 import { useSessions } from './useSessions';
 
 export interface LibraryScreenProps {
-  /** Opens the new-session sheet, from the strip's pill and the empty state's CTA. */
-  onNewSession?(): void;
   /** Shows the one-time notice that this launch started a fresh library (AppConfig.tokenReset). */
   tokenNotice?: boolean;
   onDismissTokenNotice?(): void;
@@ -29,17 +28,16 @@ const GRID = 'grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4';
 const SKELETON_DELAY_MS = 160;
 const SKELETON_KEYS = ['s1', 's2', 's3', 's4', 's5', 's6'] as const;
 
-export function LibraryScreen({
-  onNewSession,
-  tokenNotice = false,
-  onDismissTokenNotice,
-}: LibraryScreenProps) {
+export function LibraryScreen({ tokenNotice = false, onDismissTokenNotice }: LibraryScreenProps) {
   const { t } = useTranslation();
   const headingId = useId();
   const [sort, setSort] = useState<SessionSort>('recent');
   const [search, setSearch] = useState('');
   const sessions = useSessions(sort, search);
   const [retrying, setRetrying] = useState(false);
+  // The strip's pill and the empty state's CTA both open the new session sheet.
+  const [creating, setCreating] = useState(false);
+  const newSession = () => setCreating(true);
 
   // A retry stays on the error panel, busy, until its answer arrives.
   useEffect(() => {
@@ -61,7 +59,7 @@ export function LibraryScreen({
   } else if (sessions.status === 'loading') {
     content = <LoadingGrid />;
   } else if (emptyLibrary) {
-    content = <EmptyState onNewSession={onNewSession} />;
+    content = <EmptyState onNewSession={newSession} />;
   } else if (sessions.items.length === 0) {
     content = <NoResults query={sessions.query} onClear={() => setSearch('')} />;
   } else {
@@ -73,7 +71,7 @@ export function LibraryScreen({
       <AppFrame className="relative">
         <Wordmark />
         <SearchField value={search} onChange={setSearch} />
-        <Button size="sm" className="ml-auto" onClick={onNewSession}>
+        <Button size="sm" className="ml-auto" onClick={newSession}>
           <Plus className="-ml-1 size-[18px]" />
           {t('library.newSession')}
         </Button>
@@ -104,6 +102,7 @@ export function LibraryScreen({
           {content}
         </div>
       </main>
+      <NewSessionSheet open={creating} onOpenChange={setCreating} />
     </>
   );
 }
@@ -259,7 +258,7 @@ function StatePanel({ className, children }: { className?: string; children: Rea
   );
 }
 
-function EmptyState({ onNewSession }: { onNewSession?(): void }) {
+function EmptyState({ onNewSession }: { onNewSession(): void }) {
   const { t } = useTranslation();
   const titleId = useId();
   return (
@@ -319,35 +318,19 @@ function ErrorState({ busy, onRetry }: { busy: boolean; onRetry(): void }) {
           </h2>
           <p className="text-[15px] text-smoke-text text-pretty">{t('library.error.body')}</p>
         </div>
-        {/*
-          Busy keeps the button's width and focus: it ignores clicks rather than disabling. Both
-          labels share one grid cell, so the button is as wide as the longer one throughout.
-        */}
         <Button
           size="lg"
-          onClick={onRetry}
-          aria-disabled={busy || undefined}
-          className={cn(busy && 'cursor-progress')}
-        >
-          <span className="grid justify-items-center">
-            <span
-              aria-hidden={busy || undefined}
-              className={cn('col-start-1 row-start-1 flex items-center gap-2', busy && 'invisible')}
-            >
-              <Retry className="-ml-1 size-5" />
-              {t('common.retry')}
-            </span>
-            <span
-              aria-hidden={!busy || undefined}
-              className={cn(
-                'col-start-1 row-start-1 flex items-center gap-2',
-                !busy && 'invisible',
-              )}
-            >
+          busy={busy}
+          busyLabel={
+            <>
               <Retry className="-ml-1 size-5 motion-safe:animate-spin" />
               {t('library.error.retrying')}
-            </span>
-          </span>
+            </>
+          }
+          onClick={onRetry}
+        >
+          <Retry className="-ml-1 size-5" />
+          {t('common.retry')}
         </Button>
       </StatePanel>
     </div>

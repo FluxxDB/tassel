@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
-import { E2E_SERVER_URL, launchApp, setWindowSize, snap } from './fixtures';
+import { E2E_SERVER_URL, launchApp, settle, setWindowSize, snap } from './fixtures';
 
 interface Seed {
   create: { type: string; language: string; source: string };
@@ -47,21 +47,6 @@ async function seed(page: Page, seeds: Seed[]): Promise<void> {
     });
     expect(patched.status).toBe(200);
   }
-}
-
-/**
- * Waits for the web fonts and for running transitions (a segment's 150 ms color change, say),
- * so screenshots never catch fallback faces or a half-finished state. Endless animations, such
- * as a busy spinner, are left running.
- */
-async function settle(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-    const finite = document
-      .getAnimations()
-      .filter((animation) => animation.effect?.getTiming().iterations !== Infinity);
-    await Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
-  });
 }
 
 const cardsOf = (page: Page) =>

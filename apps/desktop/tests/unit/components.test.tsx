@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StrictMode, useState } from 'react';
 import { I18nextProvider } from 'react-i18next';
@@ -55,6 +55,34 @@ describe('Button', () => {
     const button = screen.getByRole('button', { name: 'Start' });
     expect(button).toHaveClass('transition-[color,background-color]');
     expect(button).not.toHaveClass('transition-colors');
+  });
+
+  it('busy shows its busy label in the same cell, stays focusable and ignores clicks', async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    const { rerender } = render(
+      <Button busyLabel="Starting…" onClick={onClick}>
+        Start session
+      </Button>,
+    );
+    const button = screen.getByRole('button', { name: 'Start session' });
+    expect(button).not.toHaveAttribute('aria-disabled');
+    await user.click(button);
+    expect(onClick).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <Button busy busyLabel="Starting…" onClick={onClick}>
+        Start session
+      </Button>,
+    );
+    expect(button).toHaveAccessibleName('Starting…');
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).not.toBeDisabled();
+    // Both labels stay laid out in one grid cell, so the width never changes.
+    expect(within(button).getByText('Start session')).toHaveClass('invisible');
+    expect(within(button).getByText('Starting…').parentElement).toHaveClass('grid');
+    await user.click(button);
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 
   it('ghost is a text button with no fill, and never submits a form by default', () => {
@@ -173,6 +201,15 @@ describe('SegmentedControl', () => {
     // Nothing on the item may cancel the 2px offset that :focus-visible sets in global.css.
     expect(focused.className).not.toMatch(/outline-offset/);
     expect(focused).toHaveClass('transition-[color,background-color]');
+  });
+
+  it('marks an option written in another language with that language', () => {
+    const options = [
+      { value: 'en', label: 'English', lang: 'en' },
+      { value: 'ko', label: '한국어', lang: 'ko' },
+    ];
+    render(<SegmentedControl label="Language" options={options} value="en" onChange={() => {}} />);
+    expect(screen.getByRole('radio', { name: '한국어' })).toHaveAttribute('lang', 'ko');
   });
 
   it('jumps to the last and first options with End and Home', async () => {

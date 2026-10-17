@@ -8,6 +8,8 @@ export interface SegmentedOption<T extends string> {
   value: T;
   label: string;
   disabled?: boolean;
+  /** The label's language when it isn't the UI's, such as "한국어" in an English UI. */
+  lang?: string;
 }
 
 export interface SegmentedControlProps<T extends string> {
@@ -51,6 +53,7 @@ export function SegmentedControl<T extends string>({
           key={option.value}
           value={option.value}
           disabled={option.disabled}
+          lang={option.lang}
           onFocus={() => select(option.value)}
           className={cn(
             // The global 2px ring offset leaves a gap, so the ring reads around the ink pill.

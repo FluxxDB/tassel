@@ -55,6 +55,21 @@ export async function launchApp(
   return { app, page };
 }
 
+/**
+ * Waits for the web fonts and for running transitions (a segment's 150 ms color change, a
+ * sheet's entrance), so screenshots never catch fallback faces or a half-finished state.
+ * Endless animations, such as a busy spinner, are left running.
+ */
+export async function settle(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    const finite = document
+      .getAnimations()
+      .filter((animation) => animation.effect?.getTiming().iterations !== Infinity);
+    await Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
+  });
+}
+
 /** Saves a screenshot of the window to test-results/screens/<name>.png. */
 export async function snap(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: join(screensDir, `${name}.png`) });
