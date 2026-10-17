@@ -47,6 +47,10 @@ _VISION_SETTINGS = (
     "OPENAI_*",
     "ANTHROPIC_*",
     "VULTR_*",
+    # populate_by_name also accepts env_prefix + the Python key field name.
+    "TASSEL_OPENAI_*",
+    "TASSEL_ANTHROPIC_*",
+    "TASSEL_VULTR_*",
     "TASSEL_*PROVIDER*",
     "TASSEL_GATE_*",
     "TASSEL_DEEPCHECK_*",
@@ -82,15 +86,23 @@ def scrub_vision_env(monkeypatch: pytest.MonkeyPatch) -> None:
 _LOOPBACK = frozenset({"localhost", "127.0.0.1", "::1"})
 
 
-def _refuse_unless_loopback(request: httpx.Request | httpx2.Request) -> None:
-    host = request.url.host
+def _refuse_host(host: str) -> None:
     if host not in _LOOPBACK:
         raise RuntimeError(f"tests never reach the network: {host}")
 
 
+def _refuse_unless_loopback(transport, request: httpx.Request | httpx2.Request) -> None:
+    _refuse_host(request.url.host)
+    # Both pinned transport implementations keep the proxy destination on their httpcore
+    # pool. Checking only the request URL lets a loopback URL escape via a remote proxy.
+    proxy_url = getattr(transport._pool, "_proxy_url", None)
+    if proxy_url is not None:
+        _refuse_host(proxy_url.host.decode("ascii"))
+
+
 def _guarded(original):
     def handle_request(self, request):
-        _refuse_unless_loopback(request)
+        _refuse_unless_loopback(self, request)
         return original(self, request)
 
     return handle_request
@@ -98,7 +110,7 @@ def _guarded(original):
 
 def _guarded_async(original):
     async def handle_async_request(self, request):
-        _refuse_unless_loopback(request)
+        _refuse_unless_loopback(self, request)
         return await original(self, request)
 
     return handle_async_request
