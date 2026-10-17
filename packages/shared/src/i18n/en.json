@@ -177,6 +177,28 @@
     },
     "mic": {
       "holdSpace": "Hold Space to talk"
+    },
+    "hud": {
+      "title": "Latency",
+      "firstAudio": "First audio",
+      "bargeIn": "Barge-in",
+      "yield": "Yield",
+      "budget": "Budget {ms} ms",
+      "backchannels": "Backchannels ignored",
+      "connections": "Connections",
+      "micOpenedAt": "Mic opened at",
+      "server": "server",
+      "stt": "STT",
+      "llm": "LLM",
+      "tts": "TTS",
+      "duration": "{ms} ms",
+      "percentiles": "p50 {p50} · p90 {p90}",
+      "unavailable": "—"
+    },
+    "dev": {
+      "label": "Student message",
+      "placeholder": "Type what the student says",
+      "send": "Send"
     }
   }
 }
