@@ -62,6 +62,40 @@ describe('applyPaperSwitches', () => {
     expect(error).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['fake-clip', 'auto', 'deskview-helper', 'window-capture', 'screen'])(
+    'requireFake gives every source fake camera and microphone devices (%s; review C1)',
+    (source) => {
+      // The clip itself is missing, so even fake-clip has no file: fail closed, still fake.
+      const settings = readPaperSettings(
+        { TASSEL_PAPER_SOURCE: source, TASSEL_REQUIRE_FAKE_CAPTURE: '1' },
+        false,
+        () => false,
+      );
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      const line = commandLine();
+      applyPaperSwitches(line, settings);
+      expect(line.appendSwitch.mock.calls).toEqual([['use-fake-device-for-media-stream']]);
+    },
+  );
+
+  it('requireFake with an existing clip plays it as the fake camera', () => {
+    const settings = readPaperSettings(
+      {
+        TASSEL_PAPER_SOURCE: 'fake-clip',
+        TASSEL_FAKE_CLIP: CLIP,
+        TASSEL_REQUIRE_FAKE_CAPTURE: '1',
+      },
+      false,
+      () => true,
+    );
+    const line = commandLine();
+    applyPaperSwitches(line, settings);
+    expect(line.appendSwitch.mock.calls).toEqual([
+      ['use-fake-device-for-media-stream'],
+      ['use-file-for-fake-video-capture', CLIP],
+    ]);
+  });
+
   it.each(['auto', 'deskview-helper', 'window-capture', 'screen'])(
     'nothing for other sources (%s)',
     (source) => {
