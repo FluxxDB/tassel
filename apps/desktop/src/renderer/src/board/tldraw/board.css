@@ -1,0 +1,10 @@
+/* tldraw's styles, which load with the board, and Tassel's changes to them. */
+@import "tldraw/tldraw.css";
+
+/*
+ * Ada's board draws on P1's dotted canvas: tldraw paints no background or grid of its own
+ * (TldrawCanvas leaves them out), and outlines its labels in paper, the color they sit on.
+ */
+.tl-container.board-tldraw {
+  --tl-color-background: var(--color-paper);
+}
