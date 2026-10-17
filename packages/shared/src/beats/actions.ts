@@ -45,6 +45,7 @@ export type BoardAction =
       kind: 'board.trace';
       item: string;
       spec: AutomatonSpec;
+      /** At most 64 symbols, one character each. */
       input: string;
       subject?: 'student' | 'tutor';
       on?: string;
@@ -92,6 +93,7 @@ export type PaperAction =
   | { kind: 'paper.freeze'; frame: FrameRef; elements?: PaperElements; spec?: AutomatonSpec }
   | { kind: 'paper.mark'; mark: PaperMark }
   | { kind: 'paper.unmark'; id: string }
+  /** `input` is at most 64 symbols, one character each. */
   | { kind: 'paper.trace'; input: string }
   | { kind: 'paper.traceStep'; step?: number }
   | { kind: 'paper.clear' }
@@ -110,6 +112,8 @@ export type BeatAction = BoardAction | PaperAction | StageAction;
  *   automaton.ts's; every spec passes checkAutomaton.
  * - Titles, notes and callouts are 1–280 characters (code points); a step's `n` is 0–99, and a
  *   trace step is a whole number from 0. Coordinates are finite, and a box's size isn't negative.
+ * - A trace's `input`, on the board or the paper, is at most 64 symbols of one character (code
+ *   point) each; it may be empty.
  * - A paper target has exactly one of `el`, `at` and `box`; an edge path has at least 2 points.
  */
 export function parseAction(data: unknown): BeatAction | null {
@@ -123,6 +127,8 @@ export function parseAction(data: unknown): BeatAction | null {
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 const TEXT_MAX = 280;
+/** A trace's longest input, so the tape and its steps stay bounded. */
+const INPUT_MAX = 64;
 
 class Invalid extends Error {}
 
@@ -178,6 +184,11 @@ function text(value: unknown): string {
 
 function string(value: unknown): string {
   return typeof value === 'string' ? value : invalid();
+}
+
+function traceInput(value: unknown): string {
+  if (typeof value !== 'string') invalid();
+  return [...value].length <= INPUT_MAX ? value : invalid();
 }
 
 function bool(value: unknown): boolean {
@@ -388,7 +399,7 @@ function readAction(data: unknown): BeatAction {
         kind,
         item: id(f.item),
         spec: spec(f.spec),
-        input: string(f.input),
+        input: traceInput(f.input),
         subject: optional(f.subject, oneOf(['student', 'tutor'] as const)),
         on: optional(f.on, id),
         title: optional(f.title, text),
@@ -427,7 +438,7 @@ function readAction(data: unknown): BeatAction {
     case 'paper.unmark':
       return { kind, id: id(fields(data, ['kind', 'id']).id) };
     case 'paper.trace':
-      return { kind, input: string(fields(data, ['kind', 'input']).input) };
+      return { kind, input: traceInput(fields(data, ['kind', 'input']).input) };
     case 'paper.traceStep': {
       const f = fields(data, ['kind'], ['step']);
       return compact({ kind, step: optional(f.step, whole(0)) });

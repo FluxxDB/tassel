@@ -135,7 +135,7 @@ export function normalizeWord(text: string): string {
     .normalize('NFC')
     .toLowerCase()
     .normalize('NFC')
-    .replace(/[‘’ʼ]/gu, "'")
+    .replace(/[\u2018\u2019\u02BC]/gu, "'")
     .replace(/[^\p{L}\p{M}\p{N}']/gu, '')
     .replace(/^'+|'+$/gu, '');
 }
