@@ -6,11 +6,11 @@ import type { VoiceConfig } from '../../../../shared/voice-bridge';
 import { createTutorClient } from '../../tutor/create-client';
 import { LatencyMeter, startLatencySampler } from '../../tutor/live/latency';
 import { Mic } from '../../tutor/live/mic';
+import { bindPushToTalk } from '../../tutor/live/push-to-talk';
 import { TutorAudio } from '../../tutor/live/tutor-audio';
 import type { TutorClient } from '../../tutor/types';
 import { useStageStore } from '../session/stage-store';
 import { useAudioPrefs } from './audio-prefs';
-import { bindPushToTalk } from './push-to-talk';
 import { useVoiceDebug } from './voice-debug';
 
 export interface VoiceSessionResources {
