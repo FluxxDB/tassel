@@ -1,0 +1,24 @@
+# Local Postgres 17 with pgvector for services/server. Start it with `docker compose up -d db`.
+# The fixed project name makes every checkout and worktree share one `db` container.
+name: tassel
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: tassel
+      POSTGRES_PASSWORD: tassel
+      POSTGRES_DB: tassel
+    ports:
+      # Loopback only: the dev password is not a secret.
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tassel -d tassel"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  db-data:
