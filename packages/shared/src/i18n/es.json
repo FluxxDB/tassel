@@ -144,5 +144,16 @@
     "network": "No se puede conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.",
     "server": "Algo salió mal de nuestro lado. Inténtalo de nuevo en un momento.",
     "unknown": "Algo salió mal. Inténtalo de nuevo."
+  },
+  "vision": {
+    "readback": {
+      "title": "Así leí tu AFD",
+      "deadState": "Las flechas que faltan van a un estado muerto.",
+      "uncertain": "? No estoy segura de esta parte.",
+      "collapse": "Ocultar mi lectura",
+      "expand": "Mostrar mi lectura",
+      "srState": "{state}{start, select, true {, inicial} other {}}{accept, select, true {, de aceptación} other {}}",
+      "srTransition": "De {from} a {to} con {symbols}"
+    }
   }
 }

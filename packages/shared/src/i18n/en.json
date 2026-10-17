@@ -144,5 +144,16 @@
     "network": "Can't reach the server. Check your connection and try again.",
     "server": "Something went wrong on our end. Try again in a moment.",
     "unknown": "Something went wrong. Try again."
+  },
+  "vision": {
+    "readback": {
+      "title": "How I read your DFA",
+      "deadState": "Missing arrows go to a dead state.",
+      "uncertain": "? I'm not sure about this part.",
+      "collapse": "Hide my reading",
+      "expand": "Show my reading",
+      "srState": "{state}{start, select, true {, start} other {}}{accept, select, true {, accepting} other {}}",
+      "srTransition": "{from} to {to} on {symbols}"
+    }
   }
 }

@@ -144,5 +144,16 @@
     "network": "서버에 연결할 수 없어요. 인터넷 연결을 확인하고 다시 시도해 주세요.",
     "server": "서버에 문제가 생겼어요. 잠시 후 다시 시도해 주세요.",
     "unknown": "문제가 생겼어요. 다시 시도해 주세요."
+  },
+  "vision": {
+    "readback": {
+      "title": "내가 읽은 DFA",
+      "deadState": "없는 화살표는 죽은 상태로 가요.",
+      "uncertain": "? 이 부분은 확실하지 않아요.",
+      "collapse": "내 읽기 숨기기",
+      "expand": "내 읽기 보기",
+      "srState": "{state}{start, select, true {, 시작} other {}}{accept, select, true {, 수락} other {}}",
+      "srTransition": "{from} → {to}, 입력 {symbols}"
+    }
   }
 }
