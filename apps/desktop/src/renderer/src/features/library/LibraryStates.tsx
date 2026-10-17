@@ -93,7 +93,7 @@ export function NoResults({ query, onClear }: { query: string; onClear(): void }
   const titleId = useId();
   return (
     <section aria-labelledby={titleId} className="flex flex-1 flex-col">
-      <StatePanel className="gap-5">
+      <StatePanel>
         <div className="flex max-w-[44ch] flex-col gap-2">
           <h2
             id={titleId}
