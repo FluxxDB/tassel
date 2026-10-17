@@ -2,11 +2,19 @@ packages:
   - apps/*
   - packages/*
 
-# pnpm runs dependency build scripts only for packages allowed here.
-# electron downloads its binary in postinstall; esbuild installs its native binary.
+# pnpm runs dependency build scripts only for packages allowed here. esbuild installs its
+# native binary in one. electron 44 ships no install script: @tassel/desktop's postinstall
+# runs its `install-electron` bin instead. The entry stays in case a later release adds one.
 allowBuilds:
   electron: true
   esbuild: true
+
+# electron is pinned to exactly 44.9.0 because macOS camera and mic grants are tied to that
+# exact binary, and 44.9.0 is younger than pnpm's minimum release age. Remove this exclusion
+# once 44.9.0 is older than the release-age window. (install-electron verifies the download
+# against electron's checksums.json.)
+minimumReleaseAgeExclude:
+  - electron@44.9.0
 
 # geist peers on next for its next/font wrapper. Tassel only copies geist's woff2 files,
 # so the peer is optional; otherwise pnpm auto-installs Next, React and sharp.
