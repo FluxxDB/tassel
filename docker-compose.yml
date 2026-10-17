@@ -1,5 +1,6 @@
-# Local Postgres 17 with pgvector for services/server. Start it with `docker compose up -d db`.
-# The fixed project name makes every checkout and worktree share one `db` container.
+# Local services for services/server: Postgres 17 with pgvector (`docker compose up -d db`) and
+# an S3-compatible store for frame images (`docker compose up -d s3`).
+# The fixed project name makes every checkout and worktree share one container per service.
 name: tassel
 
 services:
@@ -20,5 +21,36 @@ services:
       timeout: 5s
       retries: 30
 
+  # Versity Gateway on a posix backend. Its root credentials are the server's dev defaults
+  # (TASSEL_S3_*), and like the dev database password they are not secrets.
+  s3:
+    image: versity/versitygw:v1.8.0
+    environment:
+      ROOT_ACCESS_KEY: tassel
+      ROOT_SECRET_KEY: tassel-dev-only
+      VGW_BACKEND: posix
+      VGW_BACKEND_ARG: /data
+      # Object metadata in sidecar files, not extended attributes, which some volume
+      # backends lack (a macOS bind mount does).
+      VGW_META_SIDECAR: /meta
+      VGW_PORT: ":7070"
+      VGW_HEALTH: /health
+      # Versity checks the region inside each signature: it must equal TASSEL_S3_REGION.
+      VGW_REGION: us-east-1
+    ports:
+      # Loopback only, like the database.
+      - "127.0.0.1:7070:7070"
+    volumes:
+      - s3-data:/data
+      - s3-meta:/meta
+    healthcheck:
+      # The image is Alpine: busybox wget, no curl.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:7070/health"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
 volumes:
   db-data:
+  s3-data:
+  s3-meta:
