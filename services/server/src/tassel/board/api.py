@@ -7,7 +7,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from PIL import Image, UnidentifiedImageError
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tassel.auth import current_learner
@@ -20,8 +20,17 @@ MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024
 
 
 class BoardSnapshotUpload(BaseModel):
+    """The board as a base64 PNG, or `empty`: nothing to show, so Ada's turn needn't wait."""
+
     model_config = ConfigDict(extra="forbid", strict=True)
-    image_png: str
+    image_png: str | None = None
+    empty: bool = False
+
+    @model_validator(mode="after")
+    def _one_or_the_other(self):
+        if (self.image_png is None) == (not self.empty):
+            raise ValueError("Send image_png or empty, not both or neither")
+        return self
 
 
 @router.post("/{session_id}/board/snapshot", status_code=204)
@@ -34,6 +43,10 @@ async def upload_snapshot(
 ) -> None:
     if await sessions_repo.get_for(db, learner.id, session_id) is None:
         raise HTTPException(404, "Session not found")
+    if body.image_png is None:
+        # An empty board answers at once: the turn goes on with no picture.
+        request.app.state.board_snapshots.put(session_id, b"")
+        return
     if len(body.image_png) > 4 * ((MAX_SNAPSHOT_BYTES + 2) // 3):
         raise HTTPException(413, "Board snapshot exceeds 2 MiB")
     try:

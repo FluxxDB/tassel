@@ -87,15 +87,25 @@
       },
       "BoardSnapshotUpload": {
         "additionalProperties": false,
+        "description": "The board as a base64 PNG, or `empty`: nothing to show, so Ada's turn needn't wait.",
         "properties": {
+          "empty": {
+            "default": false,
+            "title": "Empty",
+            "type": "boolean"
+          },
           "image_png": {
-            "title": "Image Png",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Png"
           }
         },
-        "required": [
-          "image_png"
-        ],
         "title": "BoardSnapshotUpload",
         "type": "object"
       },

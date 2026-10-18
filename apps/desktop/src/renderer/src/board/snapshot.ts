@@ -1,8 +1,8 @@
 // The board as it is now, for Ada's board turn (the voice server's board-snapshot request): every
 // shape on the board, hers and the student's, as a PNG about 1280 px on its long side, posted as
 // base64 to the session's board snapshot. The server waits 1.5 s for it and goes on without one,
-// so nothing here blocks or shows: an empty or unmounted board sends nothing, a PNG still too big
-// after a few smaller exports is dropped, and a failure is logged at debug.
+// so nothing here blocks or shows: an empty or unmounted board, or a PNG still too big after a
+// few smaller exports, answers { empty: true } at once, and a failure is logged at debug.
 import type { ApiClient } from '@tassel/shared/api';
 import { exportBoardPng } from './board-store';
 
@@ -41,10 +41,11 @@ export async function sendBoardSnapshot(
 ): Promise<void> {
   try {
     const png = await boardSnapshotPng(deps.exportPng);
-    if (!png) return;
+    // No picture (an empty or unmounted board, or one too big) is said at once, so Ada's turn
+    // doesn't wait out the server's 1.5 s for nothing.
     const { response } = await api.POST('/v1/sessions/{session_id}/board/snapshot', {
       params: { path: { session_id: sessionId } },
-      body: { image_png: await base64Of(png) },
+      body: png ? { image_png: await base64Of(png), empty: false } : { empty: true },
     });
     if (!response.ok)
       console.debug(`[board] The server refused the board snapshot: ${response.status}`);

@@ -67,6 +67,20 @@ async def test_upload_supplies_waiter(client, app):
 
 
 @pytest.mark.asyncio
+async def test_an_empty_board_answers_at_once(client, app):
+    # Live test: each turn on an empty board waited out the full 1.5 s for nothing.
+    owner = await auth(client)
+    session_id = (await create(client, owner))["id"]
+    since = time.monotonic()
+    url = f"/v1/sessions/{session_id}/board/snapshot"
+    assert (await client.post(url, headers=owner, json={"empty": True})).status_code == 204
+    assert await app.state.board_snapshots.wait(uuid.UUID(session_id), since, timeout=0) == b""
+    assert (await client.post(url, headers=owner, json={})).status_code == 422
+    both = {"empty": True, "image_png": base64.b64encode(png()).decode()}
+    assert (await client.post(url, headers=owner, json=both)).status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_upload_requires_owner(client):
     owner, intruder = await auth(client), await auth(client)
     session_id = (await create(client, owner))["id"]

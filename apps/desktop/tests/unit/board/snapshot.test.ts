@@ -42,16 +42,21 @@ describe('sendBoardSnapshot', () => {
     expect(POST).toHaveBeenCalledTimes(1);
     expect(POST).toHaveBeenCalledWith('/v1/sessions/{session_id}/board/snapshot', {
       params: { path: { session_id: SESSION } },
-      body: { image_png: Buffer.from(PNG).toString('base64') },
+      body: { image_png: Buffer.from(PNG).toString('base64'), empty: false },
     });
   });
 
-  it('posts nothing for an empty board, or one not mounted', async () => {
+  it('says at once that an empty or unmounted board has nothing, so Ada never waits', async () => {
+    // Live test: every turn on an empty board waited out the server's 1.5 s for nothing.
     const { api, POST } = fakeApi();
     await sendBoardSnapshot(api, SESSION, { exportPng: async () => null });
     // The board store's own export: no engine attached, so no board.
     await sendBoardSnapshot(api, SESSION);
-    expect(POST).not.toHaveBeenCalled();
+    expect(POST).toHaveBeenCalledTimes(2);
+    expect(POST).toHaveBeenCalledWith('/v1/sessions/{session_id}/board/snapshot', {
+      params: { path: { session_id: SESSION } },
+      body: { empty: true },
+    });
   });
 
   it("exports through the attached engine's snapshot", async () => {
@@ -89,13 +94,17 @@ describe('sendBoardSnapshot', () => {
     expect(SNAPSHOT_MAX_BYTES).toBeLessThan(2 * 1024 * 1024);
   });
 
-  it('gives up, posting nothing, when even a small export is too big', async () => {
+  it('gives up, saying it has no picture, when even a small export is too big', async () => {
     const big = pngBlob(new Uint8Array(SNAPSHOT_MAX_BYTES + 1));
     const exportPng = vi.fn(async () => big);
     const { api, POST } = fakeApi();
     await sendBoardSnapshot(api, SESSION, { exportPng });
     expect(exportPng.mock.calls.length).toBeLessThan(10);
-    expect(POST).not.toHaveBeenCalled();
+    expect(POST).toHaveBeenCalledOnce();
+    expect(POST).toHaveBeenCalledWith('/v1/sessions/{session_id}/board/snapshot', {
+      params: { path: { session_id: SESSION } },
+      body: { empty: true },
+    });
   });
 
   it('never throws: a failed export, a refused POST or a network error is logged at debug', async () => {

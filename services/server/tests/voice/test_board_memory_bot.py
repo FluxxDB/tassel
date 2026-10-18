@@ -80,6 +80,23 @@ async def test_snapshot_request_waits_for_fresh_image_and_logs():
     assert logs[0][1]["wait_ms"] >= 0
 
 
+async def test_an_empty_board_answer_returns_at_once_with_no_picture():
+    from tassel.board.snapshots import BoardSnapshots
+
+    sid = uuid4()
+    registry = BoardSnapshots()
+    turn = _TurnContext(sid)
+    turn.board_snapshots = registry
+
+    async def request():
+        registry.put(sid, b"")
+
+    turn.request_board_snapshot = request
+    started = time.monotonic()
+    assert await turn._thinker_board_page() is None
+    assert time.monotonic() - started < 0.5
+
+
 async def test_snapshot_timeout_is_silent():
     from tassel.board.snapshots import BoardSnapshots
 

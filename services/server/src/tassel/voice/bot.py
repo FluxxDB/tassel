@@ -487,7 +487,8 @@ class _TurnContext(FrameProcessor):
                     "wait_ms": round((time.monotonic() - started) * 1000),
                 },
             )
-        return image
+        # An empty board answers b"": no picture, and no wait.
+        return image or None
 
     async def _thinker_page(self):
         """The page for a thinker turn. A turn that gets no view asks the app for a fresh frame

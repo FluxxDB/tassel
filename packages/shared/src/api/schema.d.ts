@@ -311,10 +311,18 @@ export interface components {
             image_png: string | null;
             reading: components["schemas"]["DfaReading"];
         };
-        /** BoardSnapshotUpload */
+        /**
+         * BoardSnapshotUpload
+         * @description The board as a base64 PNG, or `empty`: nothing to show, so Ada's turn needn't wait.
+         */
         BoardSnapshotUpload: {
+            /**
+             * Empty
+             * @default false
+             */
+            empty: boolean;
             /** Image Png */
-            image_png: string;
+            image_png?: string | null;
         };
         /** Body_upload_frame_v1_sessions__session_id__frames_post */
         Body_upload_frame_v1_sessions__session_id__frames_post: {
