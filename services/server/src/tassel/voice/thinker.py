@@ -113,6 +113,7 @@ INTENT = re.compile(
     r"\b(draw|mark|highlight|check|circle|find (?:a |the |my )?mistake|explain why)\b", re.I
 )
 PAPER = re.compile(r"\b(on my paper|my camera|on (?:the )?camera|circle mine)\b", re.I)
+AUTOMATA = re.compile(r"\b(?:dfa|nfa|automat\w*|state machine|accept\w*|regex|language)\b", re.I)
 NOTE_PREFIX = "[tutor notes]"
 THINKER_WINDOW = 12
 MARK_ID = re.compile(r"\bm\d+\b")
@@ -279,8 +280,13 @@ class TutorCoordinator:
                 if generation != self.generation:
                     return None
             effort = None
-            if self.decision and self.decision.action == "draw_board":
-                # Constructions are checked by the exact verifier; give them more thought.
+            if (
+                self.decision
+                and self.decision.action == "draw_board"
+                and AUTOMATA.search(self.text)
+            ):
+                # Automata are checked by the exact verifier; give them more thought. Other
+                # diagrams are the Illustrator's, so the brief stays fast.
                 settings = getattr(self.thinker, "settings", None)
                 effort = getattr(settings, "thinker_draw_effort", "low")
             brief = await self._brief(generation, self.messages, effort)

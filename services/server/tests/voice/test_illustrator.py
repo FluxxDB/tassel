@@ -3,6 +3,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from pipecat.processors.aggregators.llm_context import LLMContext
 
 from tassel.beats.markup import BoardContext, parse_command
 from tassel.beats.models import DiagramSpec
@@ -48,7 +49,7 @@ def response(spec=SPEC):
 async def test_valid_and_edit_in_place():
     board = BoardContext()
     client = Client(response(), response({**SPEC, "title": "Updated"}))
-    illustrator = Illustrator(VoiceSettings(), client=client)
+    illustrator = Illustrator(VoiceSettings(illustrator_provider="openai"), client=client)
     for title in (None, "Updated"):
         item, spec = await illustrator.draw("draw network", board, "es")
         board.pending_diagrams[item] = spec
@@ -391,4 +392,47 @@ async def test_diagram_reaches_beat_before_matching_speech():
     speech = next(f for f in frames if isinstance(f, AggregatedTextFrame))
     assert speech.text == beat.text == "These are the zones."
     assert beat.segment == str(speech.id)
+    await c.close()
+
+
+def test_illustrator_defaults_to_qwen_on_cerebras():
+    # Live on the owner's network turns: Qwen 0.8-1.3 s vs luna 4.0-4.5 s, same valid diagram.
+    from tassel.voice.settings import VoiceSettings
+
+    assert VoiceSettings().illustrator_provider == "openrouter"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "text,effort",
+    [
+        ("Draw a DFA for strings ending in 01 on the board", "low"),
+        ("Can you draw a zone of each network on the board?", None),
+        ("Connect them with lines", None),
+    ],
+)
+async def test_only_automata_constructions_think_at_low(text, effort):
+    from test_two_tier import brief
+
+    from tassel.beats.markup import BoardContext
+    from tassel.voice.director import Decision
+    from tassel.voice.thinker import TutorCoordinator
+
+    efforts = []
+
+    class Thinker:
+        async def think(self, messages, effort=None):
+            efforts.append(effort)
+            return brief()
+
+        async def close(self):
+            pass
+
+    c = TutorCoordinator(Thinker(), BoardContext())
+    d = Decision(
+        focus="board", needs_vision=False, route="thinker", action="draw_board", refers_to="board"
+    )
+    await c.prepare(LLMContext([{"role": "user", "content": text}]), text, decision=d)
+    await c.result()
+    assert efforts[0] == effort
     await c.close()

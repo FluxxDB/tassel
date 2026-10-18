@@ -278,7 +278,9 @@ async def test_board_constructions_think_at_low_effort():
 
     c = TutorCoordinator(Recording(), BoardContext())
     for action in ("draw_board", "mark_paper"):
-        await c.prepare(LLMContext([]), "x", decision=decision(route="thinker", action=action))
+        await c.prepare(
+            LLMContext([]), "draw the DFA", decision=decision(route="thinker", action=action)
+        )
         await c.result()
     # The second brief repeats the first, so it is rewritten once: still at the default.
     assert efforts[0] == "low" and set(efforts[1:]) == {None}
