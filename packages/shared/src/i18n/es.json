@@ -212,7 +212,9 @@
       "notConfigured": "Voice tutoring is not configured on the server.",
       "unreachable": "Cannot reach the voice server. Check your connection and try again.",
       "reconnecting": "Reconnecting…",
-      "retry": "Retry"
+      "retry": "Retry",
+      "connecting": "Conectando con Ada",
+      "failed": "No se pudo conectar con Ada."
     },
     "settings": {
       "title": "Audio",
@@ -244,7 +246,11 @@
       "unavailable": "No se pudieron mostrar los dispositivos de audio. Inténtalo de nuevo."
     },
     "mic": {
-      "holdSpace": "Mantén pulsado Espacio para hablar"
+      "holdSpace": "Mantén pulsado Espacio para hablar",
+      "denied": "Tassel no puede usar tu micrófono. Puedes seguir escribiéndole a Ada.",
+      "unavailable": "Tu micrófono no está disponible. Puede que otra app lo esté usando.",
+      "openSettings": "Abrir ajustes",
+      "dismiss": "Cerrar"
     },
     "hud": {
       "title": "Latency",
@@ -267,6 +273,11 @@
       "label": "Student message",
       "placeholder": "Type what the student says",
       "send": "Send"
+    },
+    "language": {
+      "menu": "Idioma de la sesión",
+      "switching": "Cambiando a {language}…",
+      "current": "Idioma de la sesión: {language}"
     }
   }
 }

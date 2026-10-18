@@ -212,7 +212,9 @@
       "notConfigured": "Voice tutoring is not configured on the server.",
       "unreachable": "Cannot reach the voice server. Check your connection and try again.",
       "reconnecting": "Reconnecting…",
-      "retry": "Retry"
+      "retry": "Retry",
+      "connecting": "에이다와 연결하는 중",
+      "failed": "에이다와 연결할 수 없어요."
     },
     "settings": {
       "title": "오디오",
@@ -244,7 +246,11 @@
       "unavailable": "오디오 장치 목록을 불러오지 못했어요. 다시 시도해 주세요."
     },
     "mic": {
-      "holdSpace": "스페이스 바를 누르고 말하세요"
+      "holdSpace": "스페이스 바를 누르고 말하세요",
+      "denied": "Tassel이 마이크를 사용할 수 없어요. 에이다에게 입력해서 말할 수는 있어요.",
+      "unavailable": "마이크를 사용할 수 없어요. 다른 앱에서 사용 중일 수 있어요.",
+      "openSettings": "설정 열기",
+      "dismiss": "닫기"
     },
     "hud": {
       "title": "Latency",
@@ -267,6 +273,11 @@
       "label": "Student message",
       "placeholder": "Type what the student says",
       "send": "Send"
+    },
+    "language": {
+      "menu": "세션 언어",
+      "switching": "{language}(으)로 바꾸는 중…",
+      "current": "세션 언어: {language}"
     }
   }
 }

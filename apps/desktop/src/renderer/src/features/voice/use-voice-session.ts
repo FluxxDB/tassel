@@ -9,8 +9,10 @@ import { Mic } from '../../tutor/live/mic';
 import { bindPushToTalk } from '../../tutor/live/push-to-talk';
 import { TutorAudio } from '../../tutor/live/tutor-audio';
 import type { TutorClient } from '../../tutor/types';
+import { currentSession } from '../session/current-session';
 import { useStageStore } from '../session/stage-store';
 import { useAudioPrefs } from './audio-prefs';
+import { useLiveVoice } from './live-voice';
 import { useVoiceDebug } from './voice-debug';
 
 export interface VoiceSessionResources {
@@ -57,7 +59,8 @@ export function useVoiceSession(opts: {
       api,
       bridge: window.tassel,
       voice: resources,
-      lang: () => latest.current.lang,
+      // The store, not the last render: a language switch reconnects right after patchLocal.
+      lang: () => currentSession()?.language ?? latest.current.lang,
       micOptions: () => ({
         deviceId: useAudioPrefs.getState().inputId,
         processing: !latest.current.config.fakeMic,
@@ -71,6 +74,7 @@ export function useVoiceSession(opts: {
     let unbind = () => {};
     const talking = () => {
       const allowed = held && useStageStore.getState().micOn;
+      useLiveVoice.getState().setHeld(allowed && useAudioPrefs.getState().pushToTalk);
       if (useAudioPrefs.getState().pushToTalk) client.voice?.setTalking(allowed);
       mic.setGate(!useAudioPrefs.getState().pushToTalk || allowed);
     };

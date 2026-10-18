@@ -1,6 +1,7 @@
 // The dock: a white pill at the bottom center holding the session's controls. Mic (with its
-// level meter), Camera, Share, the Board control, Captions, and End session, its primary action.
-import type { Ref } from 'react';
+// level meter), Audio settings in a live voice session, Camera, Share, the Board control,
+// Captions, and End session, its primary action.
+import { type Ref, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { Button } from '../../components/Button';
@@ -12,7 +13,12 @@ import {
   Mic,
   MicOff,
   Screen,
+  Sliders,
 } from '../../components/icons';
+import { cn } from '../../lib/cn';
+import { AudioSettings } from '../voice/AudioSettings';
+import { useAudioPrefs } from '../voice/audio-prefs';
+import { type LiveMic, useLiveVoice } from '../voice/live-voice';
 import { SHORTCUT_KEYS } from './shortcuts';
 import { cycleBoardView, useStageStore } from './stage-store';
 
@@ -36,6 +42,14 @@ export function Dock({ onEnd, boardRef }: DockProps) {
         toggleCaptions: state.toggleCaptions,
       })),
     );
+  const live = useLiveVoice((state) => state.live);
+  const held = useLiveVoice((state) => state.held);
+  const pushToTalk = useAudioPrefs((state) => state.pushToTalk);
+  const [audioOpen, setAudioOpen] = useState(false);
+  // Under push-to-talk, the unmuted mic says how to talk and shows the hold; muted, it is P1's
+  // microphone toggle, off.
+  const holding = live && pushToTalk && micOn;
+  const micLabel = holding ? t('voice.mic.holdSpace') : t('session.dock.mic');
   const withKey = (label: string, key: string) => t('session.dock.withShortcut', { label, key });
   // The Board control's name states where it is in its cycle (R17), so it has no aria-pressed;
   // it looks pressed while a view is pinned.
@@ -51,8 +65,8 @@ export function Dock({ onEnd, boardRef }: DockProps) {
       className="absolute bottom-[22px] left-1/2 z-20 m-0 flex min-w-0 -translate-x-1/2 items-center gap-1.5 rounded-pill border-0 bg-paper p-2 shadow-[0_0_0_1px_var(--color-hairline)]"
     >
       <IconButton
-        label={t('session.dock.mic')}
-        pressed={micOn}
+        label={micLabel}
+        pressed={holding ? held : micOn}
         onClick={toggleMic}
         title={withKey(t('session.dock.mic'), SHORTCUT_KEYS.mic)}
         aria-keyshortcuts={SHORTCUT_KEYS.mic}
@@ -60,6 +74,17 @@ export function Dock({ onEnd, boardRef }: DockProps) {
         {micOn ? <Mic /> : <MicOff />}
       </IconButton>
       <LevelMeter on={micOn} />
+      {live && (
+        <AudioSettings
+          open={audioOpen}
+          onOpenChange={setAudioOpen}
+          trigger={
+            <IconButton label={t('voice.settings.open')} title={t('voice.settings.open')}>
+              <Sliders />
+            </IconButton>
+          }
+        />
+      )}
       <IconButton
         label={t('session.dock.camera')}
         pressed={cameraOn}
@@ -103,19 +128,61 @@ export function Dock({ onEnd, boardRef }: DockProps) {
   );
 }
 
+/** Each bar's share of the level: the middle one reaches full height first. */
+const BARS = [0.55, 0.8, 1, 0.8, 0.55] as const;
+/** Speech is quiet as RMS goes: about 0.25 RMS fills the meter. */
+const GAIN = 4;
+const FRAME_MS = 1000 / 30;
+
 /**
- * The mic's level: five bars. P1 hears nothing, so they lie flat at their floor rather than fake
- * a signal, and hide while the mic is off.
+ * The mic's level: five bars, from the live mic, at most 30 times a second. With no live mic
+ * (the scripted tutor) they lie flat at their floor rather than fake a signal, and they hide
+ * while the mic is off. Under reduced motion they still move, without easing.
  */
 function LevelMeter({ on }: { on: boolean }) {
+  const mic = useLiveVoice((state) => state.mic);
+  const level = useMicLevel(on ? mic : null);
   return (
     <span
       aria-hidden="true"
+      data-testid="mic-level"
+      data-level={Math.round(level * 100)}
       className={`mr-1.5 ml-0.5 flex h-[18px] items-end gap-0.5 ${on ? 'visible' : 'invisible'}`}
     >
-      {[1, 2, 3, 4, 5].map((bar) => (
-        <span key={bar} className="h-1.5 w-[3px] rounded-[2px] bg-ink" />
+      {BARS.map((share, bar) => (
+        <span
+          // biome-ignore lint/suspicious/noArrayIndexKey: five fixed bars
+          key={bar}
+          style={{ height: `${6 + 12 * Math.min(1, level * share * 1.25)}px` }}
+          className={cn(
+            'w-[3px] rounded-[2px] bg-ink',
+            'motion-safe:transition-[height] motion-safe:duration-75 motion-safe:ease-out',
+          )}
+        />
       ))}
     </span>
   );
+}
+
+function useMicLevel(mic: LiveMic | null): number {
+  const [level, setLevel] = useState(0);
+  useEffect(() => {
+    if (!mic) {
+      setLevel(0);
+      return;
+    }
+    let frame = 0;
+    let last = Number.NEGATIVE_INFINITY;
+    const tick = (now: number) => {
+      if (now - last >= FRAME_MS - 1) {
+        last = now;
+        // Twentieths, so a steady level doesn't re-render.
+        setLevel(Math.round(Math.min(1, mic.level() * GAIN) * 20) / 20);
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [mic]);
+  return level;
 }

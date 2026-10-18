@@ -1,12 +1,19 @@
+// The live voice session behind the session screen: it runs useVoiceSession, connects its client
+// through useTutorSession, and publishes it to the screen's controls (live-voice.ts). In
+// unpackaged builds it also mounts the latency HUD (Ctrl/Cmd+Shift+L) and, for a fake route or
+// TASSEL_DEV_CONSOLE=1, the developer console that types student lines.
 import type { Lang } from '@tassel/shared/i18n';
-import { useTranslation } from 'react-i18next';
+import { useEffect } from 'react';
 import type { AppConfig } from '../../../../shared/bridge';
 import type { VoiceConfig } from '../../../../shared/voice-bridge';
-import { Button } from '../../components/Button';
 import { useApi } from '../../lib/api';
 import { useTutorSession } from '../../tutor/use-tutor-session';
-import { useStageStore } from '../session/stage-store';
+import { isHudShortcut } from '../session/shortcuts';
+import { DevConsole } from './DevConsole';
+import { LatencyHud } from './LatencyHud';
+import { useLiveVoice } from './live-voice';
 import { useVoiceSession } from './use-voice-session';
+import { useVoiceDebug } from './voice-debug';
 
 /** Mounted only once the session's saved language is known. */
 export function VoiceSession({
@@ -20,39 +27,42 @@ export function VoiceSession({
   app: AppConfig;
   config: VoiceConfig;
 }) {
-  const { client } = useVoiceSession({ sessionId, lang, app, config, api: useApi() });
+  const { client, resources } = useVoiceSession({ sessionId, lang, app, config, api: useApi() });
   // Mounted once the session has loaded, so it is ready.
   useTutorSession(sessionId, client, true);
-  const connection = useStageStore((s) => s.connection);
-  const reason = useStageStore((s) => s.voiceError);
-  const { t } = useTranslation();
-  if (
-    app.tutorMode === 'fake' ||
-    (!reason && connection !== 'failed' && connection !== 'reconnecting')
-  )
-    return null;
+  const live = app.tutorMode !== 'fake';
+  const mic = resources?.mic ?? null;
+  useEffect(() => {
+    useLiveVoice.getState().publish({ live, client, mic, config });
+  }, [live, client, mic, config]);
+  useEffect(() => () => useLiveVoice.getState().clear(), []);
+
+  useEffect(() => {
+    if (!config.devTools) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!isHudShortcut(event)) return;
+      event.preventDefault();
+      useLiveVoice.getState().toggleHud();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [config.devTools]);
+
+  const hudOpen = useLiveVoice((state) => state.hudOpen);
+  const fakeRoute = useVoiceDebug((state) => state.route?.stt === 'fake');
+  if (!live || !config.devTools) return null;
   return (
-    <div
-      role="status"
-      className="absolute left-6 top-6 z-20 max-w-md rounded-card border border-hairline bg-paper p-4 text-sm"
-    >
-      <p>
-        {t(
-          reason === 'not-configured'
-            ? 'voice.connection.notConfigured'
-            : 'voice.connection.unreachable',
-        )}
-      </p>
-      {connection === 'reconnecting' && <p>{t('voice.connection.reconnecting')}</p>}
-      {connection === 'failed' && (
-        <Button
-          onClick={() => {
-            void client?.voice?.reconnect();
-          }}
+    <>
+      {hudOpen && <LatencyHud />}
+      {(fakeRoute || config.devConsole) && client && (
+        // Bottom left, beside the dock and below the captions: the dock is about 520px wide.
+        <div
+          data-testid="dev-console"
+          className="absolute bottom-[22px] left-4 z-20 w-[min(340px,calc(50%-290px))] min-w-[200px]"
         >
-          {t('voice.connection.retry')}
-        </Button>
+          <DevConsole onSend={(text) => client.sendText(text)} />
+        </div>
       )}
-    </div>
+    </>
   );
 }

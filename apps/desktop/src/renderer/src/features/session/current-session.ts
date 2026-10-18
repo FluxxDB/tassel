@@ -26,6 +26,11 @@ export function forgetCurrentSession(): void {
   store.setState({ session: null, failed: false, pending: {} });
 }
 
+/** The open session as it is now, outside React: read when it's needed, never stale. */
+export function currentSession(): Session | null {
+  return store.getState().session;
+}
+
 export interface CurrentSession {
   /** The open session, or null until it loads (or if it couldn't be loaded). */
   session: Session | null;

@@ -1,5 +1,6 @@
-// The session screen's keyboard shortcuts. P1 binds only M (mic), B (the Board control) and C
-// (captions), R18; Space and S arrive with P2 and P7.
+// The session screen's keyboard shortcuts. P1 binds M (mic), B (the Board control) and C
+// (captions), R18. P2 adds Space for push-to-talk (tutor/live/push-to-talk.ts) and, in unpackaged
+// builds, Ctrl+Shift+L (Cmd+Shift+L on macOS) for the latency HUD. S arrives with P7.
 import { useEffect } from 'react';
 import { cycleBoardView, useStageStore } from './stage-store';
 
@@ -49,4 +50,14 @@ export function useSessionShortcuts(): void {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
+}
+
+/**
+ * Ctrl+Shift+L, or Cmd+Shift+L on macOS: the latency HUD. Either modifier works everywhere, and
+ * the key's position counts under a layout without Latin letters.
+ */
+export function isHudShortcut(event: KeyboardEvent): boolean {
+  if (event.defaultPrevented || event.repeat || event.isComposing || event.altKey) return false;
+  if (!event.shiftKey || !(event.ctrlKey || event.metaKey)) return false;
+  return event.key.toLowerCase() === 'l' || event.code === 'KeyL';
 }

@@ -13,6 +13,7 @@ import { Sheet } from '../../components/Sheet';
 import { useApi } from '../../lib/api';
 import type { TutorClient } from '../../tutor/types';
 import { useTutorSession } from '../../tutor/use-tutor-session';
+import { VoiceNotices } from '../voice/MicNotice';
 import { VoiceSession } from '../voice/VoiceSession';
 import { Captions } from './Captions';
 import { forgetCurrentSession, useCurrentSession } from './current-session';
@@ -104,7 +105,7 @@ export function SessionScreen({ sessionId, createTutor, app, voiceConfig }: Sess
             config={voiceConfig}
           />
         )}
-        <Captions />
+        <Captions notice={app && voiceConfig ? <VoiceNotices /> : undefined} />
         <Dock onEnd={() => setConfirmingEnd(true)} boardRef={boardControl} />
       </main>
       <Sheet open={confirmingEnd} onOpenChange={setConfirmingEnd} title={t('session.end.title')}>

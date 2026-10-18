@@ -81,7 +81,11 @@ export class LiveTutorClient implements TutorClient {
       reportClientMetrics(metrics) {
         self.send({ kind: 'client-metrics', ...metrics });
       },
-      reconnect: () => this.restart(),
+      // Retry, or the student's own language switch: the session's language as it is now.
+      reconnect: () => {
+        this.state = initialMapState(deps.lang());
+        return this.restart();
+      },
       get connectionCount() {
         return self.successes;
       },

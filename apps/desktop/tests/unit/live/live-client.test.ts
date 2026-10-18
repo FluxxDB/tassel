@@ -55,7 +55,7 @@ const cleanup: (() => void)[] = [];
 afterEach(() => {
   for (const fn of cleanup.splice(0)) fn();
 });
-function setup() {
+function setup(opts: { lang?: () => 'en' | 'es' | 'ko' } = {}) {
   const h = micHarness();
   const mic = new Mic(h.deps);
   cleanup.push(() => mic.close());
@@ -82,7 +82,7 @@ function setup() {
     audio: audio as unknown as TutorAudio,
     micOptions: () => ({ deviceId: null, processing: true }),
     offerData: () => ({ sensitivity: 'normal', ptt: false }),
-    lang: () => 'en',
+    lang: opts.lang ?? (() => 'en'),
     createPipecat,
     clock,
   });
@@ -279,6 +279,19 @@ describe('LiveTutorClient', () => {
     expect(clients).toHaveLength(2);
     client.sendText('Hola');
     expect(events.at(-1)).toMatchObject({ type: 'caption', lang: 'es' });
+    await client.disconnect();
+  });
+  it("the student's language switch reconnects in the session's new language", async () => {
+    let lang: 'en' | 'es' | 'ko' = 'en';
+    const { client, clients, events } = setup({ lang: () => lang });
+    await client.connect('s');
+    client.sendText('Hi');
+    expect(events.at(-1)).toMatchObject({ type: 'caption', lang: 'en' });
+    lang = 'ko';
+    await client.voice.reconnect();
+    expect(clients).toHaveLength(2);
+    client.sendText('안녕하세요');
+    expect(events.at(-1)).toMatchObject({ type: 'caption', lang: 'ko' });
     await client.disconnect();
   });
   it('a quiet language switch reconnects immediately and VAD/backchannel control ducking', async () => {

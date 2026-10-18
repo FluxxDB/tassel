@@ -1,12 +1,16 @@
 // The session's 52px strip: the wordmark, the title and its chips centered in the free space,
-// and on the right the source, the timer and the session's language.
+// and on the right the source, the timer and the session's language. In a live voice session the
+// language opens the language menu, and a title Ada gives the session types on (spec §5.1).
 import type { Session, Source } from '@tassel/shared/api';
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppFrame } from '../../app/AppFrame';
+import { prefersReducedMotion } from '../../board/motion';
 import { Chip } from '../../components/Chip';
 import { Wordmark } from '../../components/Wordmark';
 import { cn } from '../../lib/cn';
+import { LanguageMenu } from '../voice/LanguageMenu';
+import { useLiveVoice } from '../voice/live-voice';
 import { useElapsed } from './use-elapsed';
 
 export interface TitleStripProps {
@@ -24,6 +28,10 @@ export function TitleStrip({ session, failed, startedAt }: TitleStripProps) {
   const { t } = useTranslation();
   const heading = useRef<HTMLHeadingElement>(null);
   const landed = useRef(false);
+  const live = useLiveVoice((state) => state.live);
+  // The title the session opened with shows at once; one that comes later types on.
+  const opening = useRef<string | null | undefined>(undefined);
+  if (session && opening.current === undefined) opening.current = session.title;
   const shown = session !== null || failed;
   // She arrives from a card or the new session sheet, whose button is gone: focus lands on the
   // title once it shows, so it isn't left on the page body.
@@ -42,9 +50,14 @@ export function TitleStrip({ session, failed, startedAt }: TitleStripProps) {
               ref={heading}
               tabIndex={-1}
               lang={session.title === null ? undefined : session.language}
+              aria-label={session.title ?? undefined}
               className={cn(HEADING, session.title === null ? 'text-smoke-text' : 'text-ink')}
             >
-              {session.title ?? t('session.untitled')}
+              {session.title === null ? (
+                t('session.untitled')
+              ) : (
+                <TypedTitle title={session.title} opening={opening.current ?? null} />
+              )}
             </h1>
             {session.subject !== null && (
               // The cap replaces the Chip's own max-w-full (cn settles the two).
@@ -68,7 +81,8 @@ export function TitleStrip({ session, failed, startedAt }: TitleStripProps) {
       <div className="flex shrink-0 items-center gap-3.5">
         {session && <SourceLabel source={session.source} />}
         <Timer start={startedAt} />
-        {session && (
+        {session && live && <LanguageMenu session={session} />}
+        {session && !live && (
           <Chip tone="ink">
             <span aria-hidden="true">{session.language}</span>
             <span className="sr-only">{t(`newSession.language.${session.language}`)}</span>
@@ -76,6 +90,49 @@ export function TitleStrip({ session, failed, startedAt }: TitleStripProps) {
         )}
       </div>
     </AppFrame>
+  );
+}
+
+/** About 30 ms a character (spec §5.1). */
+const TYPE_MS = 30;
+
+/**
+ * A title that arrives while the screen is open types on, a character every 30 ms, and shows at
+ * once under reduced motion. The title it opened with shows at once. The rest of the title is
+ * laid out but invisible, so the strip doesn't shift, and the heading's name is always the whole
+ * title (its aria-label).
+ */
+function TypedTitle({ title, opening }: { title: string; opening: string | null }) {
+  const chars = Array.from(title);
+  const [shown, setShown] = useState(() =>
+    title === opening || prefersReducedMotion() ? chars.length : 0,
+  );
+  const first = useRef<string | null>(opening);
+  // Before paint, so a new title never flashes whole first.
+  useLayoutEffect(() => {
+    if (title === first.current) return;
+    first.current = title;
+    const total = Array.from(title).length;
+    if (prefersReducedMotion()) {
+      setShown(total);
+      return;
+    }
+    setShown(0);
+    let count = 0;
+    const timer = setInterval(() => {
+      count += 1;
+      setShown(count);
+      if (count >= total) clearInterval(timer);
+    }, TYPE_MS);
+    return () => clearInterval(timer);
+  }, [title]);
+  return (
+    <>
+      <span data-testid="title-typed">{chars.slice(0, shown).join('')}</span>
+      <span aria-hidden="true" className="invisible">
+        {chars.slice(shown).join('')}
+      </span>
+    </>
   );
 }
 
