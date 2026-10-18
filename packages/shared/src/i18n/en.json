@@ -93,7 +93,15 @@
     "stage": {
       "paper": "Paper",
       "board": "Board",
-      "split": "Paper and board"
+      "split": "Paper and board",
+      "image": {
+        "tag": "Your image",
+        "backToPaper": "Back to paper",
+        "loading": "Getting your image…",
+        "failed": "Couldn't load your image",
+        "alt": "The image you sent",
+        "marksLabel": "Ada's marks on your image"
+      }
     },
     "placeholder": {
       "paper": {
