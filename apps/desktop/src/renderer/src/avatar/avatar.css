@@ -200,3 +200,34 @@ svg[data-speaking="true"] .avatar-mouth-small {
     display: none;
   }
 }
+
+/* Keep the palette mounted so closing animates without losing the chosen color. */
+.avatar-hat-colors {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 200ms ease,
+    opacity 160ms ease;
+}
+.avatar-hat-colors[data-expanded="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.avatar-hat-swatch {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--color-hairline);
+}
+.avatar-hat-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .avatar-hat-colors {
+    transition: none;
+  }
+}

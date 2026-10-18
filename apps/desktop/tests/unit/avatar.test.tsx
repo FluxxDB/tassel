@@ -132,3 +132,23 @@ it('cycles hats independently from the hairstyle', async () => {
     'ponytail',
   );
 });
+
+it('orders hats above hair and preserves the palette choice when the hat is removed', async () => {
+  await open();
+  const hat = screen.getByRole('button', { name: 'Next Hat' });
+  const hair = screen.getByRole('button', { name: 'Next Hair style' });
+  expect(hat.compareDocumentPosition(hair) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.queryByRole('group', { name: 'Hat color' })).not.toBeInTheDocument();
+  fireEvent.click(hat);
+  expect(screen.getByRole('group', { name: 'Hat color' })).toBeInTheDocument();
+  const colors = screen.getAllByRole('button', { name: /^Hat color:/ });
+  fireEvent.click(colors[0]);
+  expect(colors[0]).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(screen.getByRole('button', { name: 'Previous Hat' }));
+  expect(screen.queryByRole('group', { name: 'Hat color' })).not.toBeInTheDocument();
+  fireEvent.click(hat);
+  expect(screen.getAllByRole('button', { name: /^Hat color:/ })[0]).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+});
