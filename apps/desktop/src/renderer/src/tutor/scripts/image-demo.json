@@ -38,7 +38,7 @@
           }
         },
         {
-          "say": "{#s1}First you moved the 3 across, {#circle}and this is the line to check: {#callout}11 take away 3 is 8, {#arrow}so the next line follows, {#underline}and x is 4. {#check}That's right.",
+          "say": "{#s1}First you moved the 3 across, {#circle}and this is the line to check: {#arrow}11 take away 3 is 8, so the next line follows, {#underline}and x is 4. {#callout}Put it back in: {#check}that's right.",
           "actions": {
             "s1": {
               "kind": "image.mark",
@@ -71,9 +71,9 @@
                 "type": "callout",
                 "id": "callout",
                 "target": {
-                  "el": "m2"
+                  "el": "m3"
                 },
-                "text": "11 − 3 = 8: this is the step that matters"
+                "text": "x = 4 checks out: 2 × 4 + 3 = 11"
               }
             },
             "arrow": {
