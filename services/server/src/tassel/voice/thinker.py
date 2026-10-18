@@ -389,13 +389,7 @@ class TutorCoordinator:
                 and not RESTORE.search(self.text)
             ):
                 brief = self._honest_erase(brief, decision)
-            if (
-                decision.action == "draw_board"
-                and not brief.board
-                and not brief.draw
-                and not AUTOMATA.search(self.text)
-                and not ERASE.search(self.text)
-            ):
+            if self._illustrator_takes_over(brief, decision):
                 # The brief said it would draw but carried nothing to draw (live test: "I'll add
                 # two PCs in each zone", then nothing): the Illustrator draws her request itself.
                 self.log("draw_fallback", text=self.text)
@@ -645,17 +639,70 @@ class TutorCoordinator:
                 return None
         for tag in checked.rejected:
             self.log("reject", source="action_checker", text=tag)
+        wanted = brief.board + brief.paper
         brief = brief.model_copy(
             update={
                 "board": [t for t in brief.board if t in checked.tags],
                 "paper": [t for t in brief.paper if t in checked.tags],
             }
         )
-        return self.validate_tags(brief)
+        return self._honest_tags(wanted, self.validate_tags(brief))
+
+    def _honest_tags(self, wanted, brief):
+        """The say never narrates what the checks took out (owner's live session: every board
+        tag of a paper trace rejected, and Ada still walked through "one takes you to the
+        middle state" over an empty board). A trace with no surviving trace tag becomes the
+        plain line that it couldn't be shown, and its orphan steps go with it; a drawing or
+        mark that left nothing visible is said plainly after her words."""
+        asked, kept = _verbs(wanted), _verbs(brief.board + brief.paper)
+        lang = self.lang()
+        if asked & TRACE_VERBS and not kept & TRACE_VERBS:
+            self.log("reject", source="honest_tags", reason="trace lost", text=brief.say)
+            paper = [t for t in brief.paper if not STEP.match(t)]
+            return brief.model_copy(
+                update={
+                    "board": [t for t in brief.board if not STEP.match(t)],
+                    "paper": paper if any(not FREEZE.match(t) for t in paper) else [],
+                    "say": NOT_TRACED[lang],
+                }
+            )
+        if brief.board or brief.paper or brief.draw:
+            return brief
+        decision = self.decision or rules(self.text)
+        if asked & DRAWING_VERBS:
+            if self._illustrator_takes_over(brief, decision) or ERASE.search(self.text):
+                # The Illustrator draws her request itself (result says so if it can't), and an
+                # erase turn's honesty is _honest_erase's.
+                return brief
+            self.log("reject", source="honest_tags", reason="drawing lost", text=brief.say)
+            return brief.model_copy(update={"say": f"{brief.say.rstrip()} {NOT_DRAWN[lang]}"})
+        if asked & MARK_VERBS:
+            self.log("reject", source="honest_tags", reason="mark lost", text=brief.say)
+            return brief.model_copy(update={"say": f"{brief.say.rstrip()} {NOT_MARKED[lang]}"})
+        return brief
+
+    def _illustrator_takes_over(self, brief, decision) -> bool:
+        """A draw turn whose brief carries nothing to draw goes to the Illustrator, unless it
+        is an automaton (the exact verifier's) or an erase."""
+        return bool(
+            decision.action == "draw_board"
+            and not brief.board
+            and not brief.draw
+            and not AUTOMATA.search(self.text)
+            and not ERASE.search(self.text)
+        )
 
     def validate_tags(self, brief):
         context = deepcopy(self.board)
-        paper_only = bool(PAPER.search(self.text)) and not re.search(r"\bboard\b", self.text, re.I)
+        decision = self.decision or rules(self.text)
+        # Her paper never gets a board diagram in its place, except the playbook's trace: her
+        # machine is copied to the board as yours and traced there, beside her page (the stage
+        # manager opens the split view), even when her words name her paper.
+        paper_only = (
+            bool(PAPER.search(self.text))
+            and not re.search(r"\bboard\b", self.text, re.I)
+            and decision.action != "trace"
+        )
         valid = {"board": [], "paper": []}
         for location in valid:
             for tag in getattr(brief, location):
@@ -732,6 +779,19 @@ class TutorCoordinator:
 
 
 STEP = re.compile(r"\[\[\s*p?step\b")
+FREEZE = re.compile(r"\[\[\s*freeze\b")
+# A tag's verb, to tell what kind of thing the brief meant to show.
+TAG_VERB = re.compile(r"\[\[\s*([A-Za-z]+)")
+TRACE_VERBS = {"trace", "ptrace"}
+DRAWING_VERBS = {"dfa", "nfa", "diagram", "add", "edge"}
+MARK_VERBS = {"circle", "wash", "number", "strike", "underline", "check", "callout"}
+
+
+def _verbs(tags) -> set[str]:
+    found = (TAG_VERB.match(t) for t in tags)
+    return {m.group(1).lower() for m in found if m}
+
+
 PAPER_VERB = re.compile(
     r"\[\[\s*(?:freeze|circle|wash|number|strike|underline|check|callout|ptrace|pstep|live)\b"
 )
@@ -787,6 +847,20 @@ NOT_DRAWN = {
     "en": "I couldn't get that drawing onto the board. Could you say it another way?",
     "es": "No pude poner ese dibujo en la pizarra. ¿Puedes decirlo de otra forma?",
     "ko": "그 그림을 칠판에 그리지 못했어요. 다른 말로 다시 말해 주시겠어요?",
+}
+
+# Said in place of a trace narration when no trace reached the board or her paper.
+NOT_TRACED = {
+    "en": "I couldn't get that trace up for you to see. Could you ask me to trace it again?",
+    "es": "No pude mostrarte ese recorrido. ¿Me pides de nuevo que lo recorra?",
+    "ko": "그 추적 과정을 보여 드리지 못했어요. 다시 추적해 달라고 말해 주시겠어요?",
+}
+
+# Said after her words when a promised mark didn't reach her paper.
+NOT_MARKED = {
+    "en": "I couldn't put that mark on your paper.",
+    "es": "No pude poner esa marca en tu hoja.",
+    "ko": "그 표시를 종이에 하지 못했어요.",
 }
 
 # Said when the thinker's reply failed or didn't come in time.

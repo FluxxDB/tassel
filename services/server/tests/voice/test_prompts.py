@@ -119,4 +119,6 @@ def test_thinker_real_case_examples_match_schema_and_diagnose_missing_final_one(
         assert "final 1" in brief.diagnosis
         assert len(brief.plan) <= 4
         if "my paper" in example["student"]:
-            assert brief.paper and not brief.board
+            # Her paper gets marks, never a board diagram, except the playbook's board trace.
+            traced = any(t.startswith("[[trace") for t in brief.board)
+            assert traced or (brief.paper and not brief.board)

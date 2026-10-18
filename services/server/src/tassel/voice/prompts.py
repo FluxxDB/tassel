@@ -222,7 +222,9 @@ _CASE = {
 THINKER_EXAMPLES = [
     {"student": "Can you check this?", "brief": _CASE},
     {
-        "student": "I still don't understand.",
+        # A trace of her paper's machine runs on the board as yours (thinker.py validate_tags
+        # keeps the board copy on a trace turn even when she names her paper).
+        "student": "I still don't understand what's wrong on my paper.",
         "brief": {
             **_CASE,
             "intent": "See why 010 is accepted, by tracing it on a copy of her machine.",
@@ -313,7 +315,11 @@ def thinker_system_prompt(schema: dict, *, ideal_tutor: str = "") -> str:
         '"On my paper", "my camera", "camera", or "circle mine" means paper marks: '
         "prefer marks with targets in words; raw paper tags freeze then mark visible m# IDs. "
         "Never substitute "
-        "a board diagram for a paper request. If no current image or visible candidate ID exists, "
+        "a board diagram for a paper request, with one exception: the playbook's trace of her "
+        "machine is drawn on the board as yours and traced there, beside her page, even when she "
+        "names her paper; the app shows both. Every [[step]] you narrate must follow that "
+        "[[trace]]: never describe a trace without its tags. "
+        "If no current image or visible candidate ID exists, "
         "leave paper empty and say what you cannot see. Never ask the student to send, share or "
         "resend an image: the app captures the page itself; say you'll look again instead. "
         "A mark may also point at a diagnosed mistake. "
