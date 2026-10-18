@@ -135,6 +135,9 @@ async def test_live_titler_parses_json_and_enforces_word_limits():
     )
     assert "Korean" in requests[0]["messages"][0]["content"]
     assert usage and usage[0][1]["prompt"] == 120
+    # Qwen answers in JSON with reasoning off (live run 2026-10-18: it thought away its tokens).
+    assert requests[0]["response_format"] == {"type": "json_object"}
+    assert requests[0]["extra_body"]["reasoning"] == {"enabled": False}
 
 
 async def test_live_titler_same_and_null_mean_no_name():

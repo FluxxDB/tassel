@@ -20,7 +20,7 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel
 
 from tassel.models import Lang
-from tassel.voice.director import report_usage
+from tassel.voice.director import QWEN_PRIMARY_PROVIDER, report_usage
 from tassel.voice.settings import VoiceSettings, resolve_mode
 
 TITLE_WORDS = 6
@@ -146,14 +146,18 @@ class LiveTitler:
         )
 
     async def name(self, exchanges, *, lang, current):
+        # Qwen thinks by default and the answer never arrives in 80 tokens: reasoning off, as
+        # the director and the illustrator run it, and JSON only.
         response = await self.client.chat.completions.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": _prompt(lang, current)},
                 {"role": "user", "content": _transcript(exchanges)},
             ],
-            max_tokens=60,
+            max_tokens=80,
             temperature=0.2,
+            response_format={"type": "json_object"},
+            extra_body={"provider": dict(QWEN_PRIMARY_PROVIDER), "reasoning": {"enabled": False}},
         )
         report_usage(self.on_usage, "titler:" + self.model, response)
         content = response.choices[0].message.content or ""
