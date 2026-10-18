@@ -494,6 +494,23 @@
     "loadError": "No se pudo cargar la memoria. Inténtalo de nuevo.",
     "saveError": "No se pudo guardar. Tus cambios siguen aquí.",
     "conflict": "La memoria cambió. Copia los cambios que quieras conservar y recarga las notas.",
-    "saved": "Guardado"
+    "saved": "Guardado",
+    "personalizationTitle": "Personalización y memoria",
+    "savedTitle": "Recuerdos guardados"
+  },
+  "personalization": {
+    "title": "Tu tutor ideal",
+    "enabled": "Usar personalización del tutor",
+    "description": "Describe la personalidad, el tono, la energía, el humor y la forma de enseñar que prefieres. Solo tú editas esta descripción; los recuerdos de las sesiones nunca la modifican. La voz seleccionada determina cómo suena el tutor.",
+    "notes": "Describe a tu tutor ideal",
+    "empty": "Sé tranquilo y cercano, como una hermana mayor paciente. Explica un paso pequeño a la vez, usa humor suave y anima con discreción.",
+    "save": "Guardar estilo",
+    "clear": "Restablecer estilo",
+    "reload": "Recargar estilo",
+    "loading": "Cargando estilo del tutor…",
+    "loadError": "No se pudo cargar el estilo. Inténtalo de nuevo.",
+    "saveError": "No se pudo guardar el estilo. Tus cambios siguen aquí.",
+    "conflict": "El estilo cambió. Copia los cambios que quieras conservar y recarga.",
+    "saved": "Estilo guardado"
   }
 }

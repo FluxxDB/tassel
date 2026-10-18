@@ -494,6 +494,23 @@
     "loadError": "Could not load memory. Please try again.",
     "saveError": "Could not save memory. Your changes are still here.",
     "conflict": "Memory changed since you opened it. Copy any edits you want to keep, then reload notes.",
-    "saved": "Saved"
+    "saved": "Saved",
+    "personalizationTitle": "Personalization & memory",
+    "savedTitle": "Saved memories"
+  },
+  "personalization": {
+    "title": "Your ideal tutor",
+    "enabled": "Use tutor personalization",
+    "description": "Describe the personality, tone, energy, humor, and teaching approach you want. Only you edit this description; session memories never rewrite it. Your selected voice controls how the tutor sounds.",
+    "notes": "Describe your ideal tutor",
+    "empty": "Be calm and casual, like a patient older sister. Give one small step at a time, use gentle humor, and keep encouragement understated.",
+    "save": "Save tutor style",
+    "clear": "Reset tutor style",
+    "reload": "Reload style",
+    "loading": "Loading tutor style…",
+    "loadError": "Could not load tutor style. Please try again.",
+    "saveError": "Could not save tutor style. Your edits are still here.",
+    "conflict": "Tutor style changed since you opened it. Copy any edits you want to keep, then reload.",
+    "saved": "Tutor style saved"
   }
 }

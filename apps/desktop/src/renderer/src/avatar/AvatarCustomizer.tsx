@@ -23,6 +23,7 @@ import {
   VOICES,
 } from './catalog';
 import { MemoryPanel } from './MemoryPanel';
+import { PersonalityPanel } from './PersonalityPanel';
 import { useAvatar } from './store';
 import { type PreviewState, publicPreviewUrl, VoicePreviewPlayer } from './voice-preview';
 import './avatar.css';
@@ -53,13 +54,18 @@ export function AvatarCustomizer({
         }}
         options={[
           { value: 'appearance', label: t('memory.appearance') },
-          { value: 'memory', label: t('memory.title') },
+          { value: 'memory', label: t('memory.personalizationTitle') },
         ]}
       />
       {section === 'appearance' ? (
         <Editor open={open} onClose={() => onOpenChange(false)} />
       ) : (
-        <MemoryPanel open={open} />
+        <div className="flex flex-col gap-6">
+          <PersonalityPanel open={open} />
+          <div className="border-t border-hairline pt-6">
+            <MemoryPanel open={open} />
+          </div>
+        </div>
       )}
     </Sheet>
   );

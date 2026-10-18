@@ -57,6 +57,8 @@ class Thinker:
     def __init__(self, settings: VoiceSettings, *, client=None):
         self.settings = settings
         self.on_usage = None
+        self.ideal_tutor = ""
+        self.learner_notes = ""
         self.client = client or AsyncOpenAI(
             api_key=settings.openai_api_key.get_secret_value(), max_retries=0, timeout=20
         )
@@ -66,7 +68,13 @@ class Thinker:
         if self.settings.thinker_model.startswith("gpt-6-astra") and effort == "none":
             effort = "low"  # astra refuses "none"
         request = [
-            {"role": "system", "content": thinker_system_prompt(GuidanceBrief.model_json_schema())},
+            {
+                "role": "system",
+                "content": thinker_system_prompt(
+                    GuidanceBrief.model_json_schema(), ideal_tutor=self.ideal_tutor
+                )
+                + self.learner_notes,
+            },
             *deepcopy(messages),
         ]
         for attempt in range(2):

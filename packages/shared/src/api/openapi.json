@@ -1352,6 +1352,53 @@
         "title": "PageGeometry",
         "type": "object"
       },
+      "PersonalizationOut": {
+        "properties": {
+          "content": {
+            "default": "",
+            "title": "Content",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "revision": {
+            "default": 0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "title": "PersonalizationOut",
+        "type": "object"
+      },
+      "PersonalizationPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "maxLength": 2000,
+            "title": "Content",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "content",
+          "revision"
+        ],
+        "title": "PersonalizationPatch",
+        "type": "object"
+      },
       "Point": {
         "additionalProperties": false,
         "description": "A point in pixels of the full JPEG.",
@@ -2095,6 +2142,79 @@
           }
         ],
         "summary": "Patch Memory",
+        "tags": [
+          "memory"
+        ]
+      }
+    },
+    "/v1/learner/personalization": {
+      "get": {
+        "operationId": "get_personalization_v1_learner_personalization_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalizationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Get Personalization",
+        "tags": [
+          "memory"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_personalization_v1_learner_personalization_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonalizationPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalizationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "Tutor style changed; reload before saving"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Patch Personalization",
         "tags": [
           "memory"
         ]
