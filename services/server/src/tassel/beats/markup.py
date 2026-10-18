@@ -21,7 +21,8 @@ Commands (ITEM is a board item's id; EL is "start", a state such as "q0", or an 
     highlight ITEM EL · unhighlight ITEM EL · pulse ITEM EL · note ITEM "…" [near=ITEM:EL]
     trace ITEM ON INPUT [student] · step ITEM · verdict ITEM accept|reject [expected=…] [note="…"]
     focus [ITEM] · clear [ITEM] · stage paper|board|split
-    circle EL · wash EL · number N EL · strike EL · check EL · callout EL "…"
+    circle EL · wash EL · number N EL · strike EL · underline EL · check EL · callout EL "…"
+      (on paper EL may also be a numbered marker, m3, or a page region, box=x,y,w,h)
     ptrace INPUT · pstep · live · freeze [latest|frame=ID]   (review I8)
 """
 
@@ -722,18 +723,18 @@ def _mark(verb: str, args: list[_Arg], ctx: BoardContext) -> BeatAction:
         n, el = _between(args, 2, 2, "number N EL")
         if not re.fullmatch(r"[0-9]+", n):
             raise MarkupError(f"{n!r} isn't a number")
-        mark |= {"type": "step", "n": int(n), "target": {"el": _paper_element(el)}}
+        mark |= {"type": "step", "n": int(n), "target": _paper_target(el)}
     elif verb == "callout":
         if len(args) != 2 or not args[1].quoted:
             raise MarkupError('callout needs EL "TEXT"')
         mark |= {
             "type": "callout",
-            "target": {"el": _paper_element(args[0].text)},
+            "target": _paper_target(args[0].text),
             "text": args[1].text,
         }
     else:
         [el] = _between(args, 1, 1, f"{verb} EL")
-        mark |= {"type": "circle" if verb == "wash" else verb, "target": {"el": _paper_element(el)}}
+        mark |= {"type": "circle" if verb == "wash" else verb, "target": _paper_target(el)}
         if verb == "wash":
             mark["wash"] = True
     action = _make(PaperMarkAction, mark=mark)
@@ -766,8 +767,39 @@ def _between(args: list[_Arg], low: int, high: int | None, usage: str) -> list[s
     return [arg.text for arg in args]
 
 
-def _paper_element(text: str) -> str:
-    return text if re.fullmatch(r"m[1-9][0-9]{0,2}", text) else _element(text)
+def _paper_target(text: str) -> dict[str, Any]:
+    if text.startswith("box="):
+        return {"box": paper_box(text)}
+    return {"el": text if re.fullmatch(r"m[1-9][0-9]{0,2}", text) else _element(text)}
+
+
+# A box target's sides, as fractions of the page: big enough to be ink, smaller than the page.
+BOX_MIN_SIDE = 0.005
+BOX_MAX_SIDE = 0.95
+_BOX_EDGE = 1e-6  # Float slack at the page's right and bottom edges.
+_NUMBER = re.compile(r"[0-9]*\.?[0-9]+")
+
+
+def paper_box(text: str) -> dict[str, float]:
+    """`box=x,y,w,h` as a NormRect on the page, or a MarkupError: four plain numbers, inside the
+    page, each side from BOX_MIN_SIDE to BOX_MAX_SIDE of it."""
+    _, equals, value = text.partition("=")
+    parts = value.split(",")
+    if not equals or len(parts) != 4 or not all(_NUMBER.fullmatch(p) for p in parts):
+        raise MarkupError(f"box needs x,y,w,h, not {value!r}")
+    x, y, w, h = map(float, parts)
+    if not (BOX_MIN_SIDE <= w <= BOX_MAX_SIDE and BOX_MIN_SIDE <= h <= BOX_MAX_SIDE):
+        raise MarkupError(f"box sides must be from {BOX_MIN_SIDE} to {BOX_MAX_SIDE} of the page")
+    if x + w > 1 + _BOX_EDGE or y + h > 1 + _BOX_EDGE:
+        raise MarkupError("box runs off the page")
+    return {"x": x, "y": y, "w": w, "h": h}
+
+
+def box_arg(x: float, y: float, w: float, h: float) -> str:
+    """The `box=` argument for a page region, to three decimals, kept on the page."""
+    x, y = min(max(round(x, 3), 0.0), 1.0), min(max(round(y, 3), 0.0), 1.0)
+    w, h = min(round(w, 3), round(1 - x, 3)), min(round(h, 3), round(1 - y, 3))
+    return f"box={x:.3f},{y:.3f},{w:.3f},{h:.3f}"
 
 
 def _element(text: str) -> str:
