@@ -5,6 +5,7 @@ import base64
 from collections import deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from uuid import UUID
 
 from loguru import logger
@@ -25,6 +26,7 @@ from pipecat.frames.frames import (
     UserStartedSpeakingFrame,
     VADUserStartedSpeakingFrame,
 )
+from pipecat.observers.base_observer import BaseObserver, FramePushed
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.worker import PipelineParams, PipelineWorker
 from pipecat.processors.aggregators.llm_context import LLMContext
@@ -43,6 +45,7 @@ from tassel.beats.markup import BoardContext
 from tassel.beats.processor import BeatTagProcessor
 from tassel.models import Lang, SessionPatch
 from tassel.storage import sessions_repo
+from tassel.vision.turn_image import TurnPage
 from tassel.voice.events import ServerEvents, VadForwarder
 from tassel.voice.fakes.llm import FakeLLMService
 from tassel.voice.fakes.scenario import load_scenario
@@ -54,6 +57,7 @@ from tassel.voice.messages import (
     ClientMetricsEvent,
     LanguageEvent,
     OfferRequestData,
+    PaperFrameEvent,
     PushToTalkEvent,
     RouteEvent,
     SensitivityEvent,
@@ -68,12 +72,13 @@ from tassel.voice.settings import VoiceSettings, resolve_mode
 from tassel.voice.tools import TOOLS
 from tassel.voice.turns import PushToTalkFrame, TurnTuning, make_turn_strategies, make_vad
 
-TurnImage = Callable[[UUID], Awaitable[tuple[bytes, str] | None]]
-"""The per-turn seam: a session's latest page image and its caption for the model, or None."""
+TurnImage = Callable[[UUID, datetime], Awaitable[TurnPage | None]]
+"""The per-turn seam: the session's page for a turn that began at the given time (an image and
+its caption, or no image and a note), or None for a session without paper."""
 
-# How long a student turn waits for its page image before Ada answers without one. Fetching
-# starts when she starts speaking, so a spoken turn usually finds it ready.
-TURN_IMAGE_WAIT_S = 0.8
+# The most a student turn waits for its page before Ada answers without one. The seam itself
+# waits up to 1 s for the app's fresh frame; this also bounds a slow store or decode.
+TURN_IMAGE_WAIT_S = 2.5
 
 
 def _image_url(image: bytes) -> str:
@@ -173,29 +178,42 @@ class _TurnContext(FrameProcessor):
         self.on_language = None
         self._session_id = session_id
         self._turn_image = turn_image
-        self._fetching: asyncio.Task | None = None
+        # When this turn began (her speech start), once the app has been asked for its frame.
+        self._since: datetime | None = None
+        # Sends the app the paper-frame request; the bot binds it to its server events.
+        self.request_frame: Callable[[], Awaitable[None]] | None = None
 
-    def _fetch(self) -> asyncio.Task | None:
-        """Starts fetching this turn's page image, once per turn."""
+    async def speech_started(self) -> None:
+        """Her turn began: ask the app for her paper as it is now, once a turn."""
+        if self._turn_image is None or self._since is not None:
+            return
+        self._since = datetime.now(UTC)
+        await self._ask_for_frame()
+
+    async def _ask_for_frame(self) -> None:
+        if self.request_frame is None:
+            return
+        try:
+            await self.request_frame()
+        except Exception as error:  # noqa: BLE001 - a lost request leaves the turn a stand-in
+            logger.info("Couldn't ask the app for a page frame: {}", type(error).__name__)
+
+    async def _turn_page(self):
+        """The page for the turn now reaching the model. No paper, a slow store or an error
+        means no image, never a failed turn."""
         if self._turn_image is None or self._session_id is None:
             return None
-        if self._fetching is None:
-            self._fetching = asyncio.create_task(self._turn_image(self._session_id))
-        return self._fetching
-
-    async def _latest_image(self) -> tuple[bytes, str] | None:
-        """The page image for the turn now reaching the model. A missing frame, a slow store
-        or an error means no image, never a failed turn."""
-        task = self._fetch()
-        self._fetching = None
-        if task is None:
-            return None
+        since = self._since
+        self._since = None
+        if since is None:  # A typed line: its turn begins now.
+            since = datetime.now(UTC)
+            await self._ask_for_frame()
         try:
-            return await asyncio.wait_for(asyncio.shield(task), TURN_IMAGE_WAIT_S)
+            return await asyncio.wait_for(
+                self._turn_image(self._session_id, since), TURN_IMAGE_WAIT_S
+            )
         except Exception as error:  # noqa: BLE001 - any failure leaves the turn imageless
-            if isinstance(error, TimeoutError):
-                task.cancel()
-            logger.info("No page image for this turn: {}", type(error).__name__)
+            logger.info("No page for this turn: {}", type(error).__name__)
             return None
 
     def add_turn_image(self, png_bytes: bytes, caption: str):
@@ -207,8 +225,6 @@ class _TurnContext(FrameProcessor):
         await super().process_frame(frame, direction)
         if isinstance(frame, _LanguageChange):
             await self.on_language(frame.lang)
-        elif isinstance(frame, (UserStartedSpeakingFrame, VADUserStartedSpeakingFrame)):
-            self._fetch()
         elif isinstance(frame, LLMContextFrame):
             messages = frame.context.get_messages()
             user = next((m for m in reversed(messages) if m.get("role") == "user"), None)
@@ -219,14 +235,18 @@ class _TurnContext(FrameProcessor):
                 and not is_note(user["content"])
             ):
                 self._last_user = user
-                latest = await self._latest_image()
-                if latest is not None:
-                    self.pending_image = latest
+                note = None
+                page = await self._turn_page()
+                if page is not None and page.image is not None:
+                    self.pending_image = (page.image, page.caption)
                     logger.info(
                         "Page image for this turn: session={} bytes={}",
                         self._session_id,
-                        len(latest[0]),
+                        len(page.image),
                     )
+                elif page is not None:
+                    note = page.caption
+                    logger.info("No current view of the paper: session={}", self._session_id)
                 # Keep a single latest paper image in the live context as well.
                 for message in messages:
                     if isinstance(message.get("content"), list):
@@ -244,7 +264,26 @@ class _TurnContext(FrameProcessor):
                         },
                     ]
                     self.pending_image = None
+                elif note is not None:
+                    user["content"] = [
+                        {"type": "text", "text": user["content"]},
+                        {"type": "text", "text": note},
+                    ]
         await self.push_frame(frame, direction)
+
+
+class _SpeechStarts(BaseObserver):
+    """Tells the turn context when the student starts speaking, wherever the frame is pushed."""
+
+    def __init__(self, turn_context: _TurnContext):
+        super().__init__(observe_every_push=False)
+        self.turn_context = turn_context
+
+    async def on_push_frame(self, data: FramePushed):
+        if data.first_push and isinstance(
+            data.frame, (UserStartedSpeakingFrame, VADUserStartedSpeakingFrame)
+        ):
+            await self.turn_context.speech_started()
 
 
 class _RouteMonitor(FrameProcessor):
@@ -406,7 +445,13 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         turn_context,
     )
     monitor.bot = bot
+
+    async def request_frame():
+        await events.send(PaperFrameEvent())
+
+    turn_context.request_frame = request_frame
     worker.add_observer(VadForwarder(worker))
+    worker.add_observer(_SpeechStarts(turn_context))
     language_lock = asyncio.Lock()
 
     async def apply_language(lang):

@@ -23,6 +23,7 @@ import {
   needsCameraAccess,
   shouldUpload,
 } from './select-source';
+import { createTurnFrameSender, grabJpeg, registerTurnFrameSender } from './turn-frame';
 import {
   type PaperFeed,
   PaperSourceError,
@@ -88,6 +89,7 @@ type Uploader = ReturnType<typeof createFrameUploader>;
 
 interface RunSettings {
   deps: CaptureDeps & { bridge: PaperBridge };
+  sessionId: string;
   config: PaperConfig;
   cameraOn: boolean;
   override: PaperSourceKind | null;
@@ -108,6 +110,7 @@ function startRun(run: RunSettings): { cancel(): void } {
   let feed: PaperFeed | null = null;
   let detector: { stop(): void } | null = null;
   let offEnd: (() => void) | null = null;
+  let offTurn: (() => void) | null = null;
   let watchdog: ReturnType<typeof setInterval> | null = null;
   let lastStatsAt = 0;
 
@@ -117,6 +120,8 @@ function startRun(run: RunSettings): { cancel(): void } {
     watchdog = null;
     detector?.stop();
     detector = null;
+    offTurn?.();
+    offTurn = null;
     offEnd?.();
     offEnd = null;
     feed?.stop();
@@ -214,6 +219,19 @@ function startRun(run: RunSettings): { cancel(): void } {
     offEnd = started.onEnd((reason) => end(reason));
 
     const upload = shouldUpload(kind);
+    // Each student turn asks for her paper as it is now (the server's paper-frame request).
+    // Screens never upload on their own (R7), so they don't answer it either.
+    // A feed's stream may be a stand-in with no tracks (tests); then there's nothing to grab.
+    const track = started.stream.getVideoTracks?.()[0];
+    if (upload && track) {
+      offTurn = registerTurnFrameSender(
+        createTurnFrameSender({
+          kind,
+          grab: () => grabJpeg(track),
+          upload: (parts) => uploadFrame(deps.api, run.sessionId, parts),
+        }),
+      );
+    }
     detector = deps.createChangeDetector(started.stream, {
       params: parseParams(config.params),
       contentRect: started.contentRect,
@@ -300,6 +318,7 @@ export function usePaperCapture(args: {
     if (!active) return;
     const run = startRun({
       deps: deps.current as RunSettings['deps'],
+      sessionId,
       config,
       cameraOn,
       override,
@@ -307,7 +326,7 @@ export function usePaperCapture(args: {
       uploader,
     });
     return () => run.cancel();
-  }, [active, config, cameraOn, override, deviceId, restartNonce]);
+  }, [active, sessionId, config, cameraOn, override, deviceId, restartNonce]);
 }
 
 /** The paper panel's tag and region name, by the running source's kind. */

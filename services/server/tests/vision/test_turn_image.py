@@ -76,7 +76,8 @@ async def test_newest_page_and_targets_match_synthetic_state_circles(client, db,
     ctx = BoardContext()
     result = await turn_image_for(uuid.UUID(sid), db=db, store=store, context=ctx)
     bound = make_turn_image_for(app.state.session_factory, store, context=ctx)
-    assert await bound(uuid.UUID(sid)) == result
+    page = await bound(uuid.UUID(sid), datetime.now(UTC))
+    assert page is not None and page.image == result[0] and page.caption == result[1]
     assert result is not None and result[0] == view.marked_jpeg
     assert "[[circle m3]]" in result[1] and "[[freeze]]" in result[1]
     freeze = parse_command("freeze", ctx).model_dump(mode="json")
@@ -97,22 +98,133 @@ async def test_newest_page_and_targets_match_synthetic_state_circles(client, db,
 
 
 @pytest.mark.asyncio
-async def test_empty_or_pageless_newest_returns_none_and_clears_context(client, db, store):
+async def test_empty_returns_none_and_a_pageless_frame_falls_back_to_the_whole_frame(
+    client, db, store
+):
+    """Real Desk View frames often defeat the page finder; Desk View is already top-down, so
+    Ada sees the whole frame, with marks in its coordinates, rather than nothing."""
     from tassel.vision.turn_image import latest_page_view, turn_image_for
 
     headers, sid = await session(client)
     assert await latest_page_view(uuid.UUID(sid), db=db, store=store) is None
     ctx = BoardContext()
     jpeg = encode_jpeg(np.full((300, 400, 3), 180, np.uint8))
-    quad = [{"x": 40, "y": 30}, {"x": 360, "y": 30}, {"x": 360, "y": 270}, {"x": 40, "y": 270}]
-    await upload(client, headers, sid, jpeg, quad=quad)
-    assert await turn_image_for(uuid.UUID(sid), db=db, store=store, context=ctx) is not None
-    assert ctx.paper_frame is not None
-    row = await upload(client, headers, sid, jpeg)
-    assert await turn_image_for(uuid.UUID(sid), db=db, store=store, context=ctx) is None
-    assert ctx.paper_frame is None and ctx.paper_elements is None
-    result = await client.get(f"/v1/sessions/{sid}/frames/{row['id']}/page", headers=headers)
-    assert result.status_code == 404
+    row = await upload(client, headers, sid, jpeg)  # no quad, and no page to find
+    result = await turn_image_for(uuid.UUID(sid), db=db, store=store, context=ctx)
+    assert result is not None
+    view = await latest_page_view(uuid.UUID(sid), db=db, store=store)
+    assert (view.width, view.height) == (400, 300)
+    assert decode_jpeg(view.page_jpeg).shape == (300, 400, 3)
+    assert ctx.paper_frame is not None and ctx.paper_frame.id == row["id"]
+    page = await client.get(f"/v1/sessions/{sid}/frames/{row['id']}/page", headers=headers)
+    assert page.status_code == 200
+
+
+async def _age(db_url, frame_id, seconds):
+    """Backdates a stored frame, as if it was uploaded `seconds` ago."""
+    from sqlalchemy import text
+
+    from tassel.storage.db import make_engine
+
+    engine = make_engine(db_url)
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "UPDATE frames SET created_at = now() - make_interval(secs => :s)"
+                    " WHERE id = :id"
+                ),
+                {"s": seconds, "id": frame_id},
+            )
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_each_turn_uses_the_frame_taken_for_it(client, app, store, db_url):
+    """The rubric stays on the old frame; the blank sheet she swapped in is what Ada gets."""
+    import asyncio
+
+    from tassel.vision.turn_image import fresh_turn_image_for
+
+    headers, sid = await session(client)
+    old = await upload(client, headers, sid, encode_jpeg(np.full((300, 400, 3), 90, np.uint8)))
+    await _age(db_url, old["id"], 30)
+    since = datetime.now(UTC)
+    ctx = BoardContext()
+
+    async def the_app_answers():
+        await asyncio.sleep(0.2)
+        return await upload(
+            client, headers, sid, encode_jpeg(np.full((300, 400, 3), 240, np.uint8))
+        )
+
+    answer = asyncio.create_task(the_app_answers())
+    page = await fresh_turn_image_for(
+        uuid.UUID(sid), since, sessions=app.state.session_factory, store=store, context=ctx
+    )
+    fresh = await answer
+    assert page is not None and page.image is not None
+    assert ctx.paper_frame is not None and ctx.paper_frame.id == fresh["id"]
+
+
+@pytest.mark.asyncio
+async def test_a_stale_frame_is_refused_and_ada_is_told_she_cant_see(client, app, store, db_url):
+    from tassel.vision.turn_image import NO_VIEW, fresh_turn_image_for
+
+    headers, sid = await session(client)
+    old = await upload(client, headers, sid, encode_jpeg(np.full((300, 400, 3), 90, np.uint8)))
+    await _age(db_url, old["id"], 30)
+    ctx = BoardContext()
+    page = await fresh_turn_image_for(
+        uuid.UUID(sid),
+        datetime.now(UTC),
+        sessions=app.state.session_factory,
+        store=store,
+        context=ctx,
+        wait_s=0.3,
+    )
+    assert page is not None and page.image is None and page.caption == NO_VIEW
+    assert ctx.paper_frame is None
+
+
+@pytest.mark.asyncio
+async def test_a_recent_frame_stands_in_when_none_arrives(client, app, store, db_url):
+    from tassel.vision.turn_image import fresh_turn_image_for
+
+    headers, sid = await session(client)
+    recent = await upload(client, headers, sid, encode_jpeg(np.full((300, 400, 3), 90, np.uint8)))
+    await _age(db_url, recent["id"], 3)
+    ctx = BoardContext()
+    page = await fresh_turn_image_for(
+        uuid.UUID(sid),
+        datetime.now(UTC),
+        sessions=app.state.session_factory,
+        store=store,
+        context=ctx,
+        wait_s=0.3,
+    )
+    assert page is not None and page.image is not None
+    assert ctx.paper_frame is not None and ctx.paper_frame.id == recent["id"]
+
+
+@pytest.mark.asyncio
+async def test_a_session_without_paper_frames_has_no_page_and_doesnt_wait(client, app, store):
+    import time
+
+    from tassel.vision.turn_image import fresh_turn_image_for
+
+    _, sid = await session(client)
+    started = time.monotonic()
+    page = await fresh_turn_image_for(
+        uuid.UUID(sid),
+        datetime.now(UTC),
+        sessions=app.state.session_factory,
+        store=store,
+        context=BoardContext(),
+    )
+    assert page is None
+    assert time.monotonic() - started < 0.5
 
 
 @pytest.mark.asyncio

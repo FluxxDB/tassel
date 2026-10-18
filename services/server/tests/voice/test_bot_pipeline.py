@@ -342,21 +342,33 @@ async def test_scripted_crash_saves_memory():
 JPEG = b"\xff\xd8\xff\xe0page"
 
 
-async def test_each_student_turn_carries_the_latest_page_image():
+async def test_each_student_turn_asks_the_app_for_a_fresh_page_and_carries_it():
+    """Speech start asks the app for the current frame; the turn waits for a frame newer than
+    that start, and the model gets that page, one image in the context at a time."""
+    from datetime import UTC, datetime
+
+    from tassel.vision.turn_image import TurnPage
+
     asked = []
 
-    async def turn_image(session_id):
-        asked.append(session_id)
-        return JPEG + str(len(asked)).encode(), "Student's flattened paper."
+    async def turn_image(session_id, since):
+        asked.append((session_id, since))
+        return TurnPage(JPEG + str(len(asked)).encode(), "Student's flattened paper.")
 
     ctx = context(turn_image=turn_image)
     async with running(ctx) as (bot, out):
         await until(lambda: SCRIPT.langs["en"].greeting in out.text())
+        before = datetime.now(UTC)
+        await bot.worker.queue_frame(VADUserStartedSpeakingFrame())
+        await until(lambda: {"kind": "paper-frame"} in out.events())
         await say(bot, SCRIPT.langs["en"].student[0])
         await until(lambda: SCRIPT.langs["en"].turns[0].say in out.text())
+        # A typed turn, with no speech start, asks when it arrives.
         await say(bot, "Something else")
         await until(lambda: SCRIPT.langs["en"].fallback in out.text())
-    assert asked and set(asked) == {ctx.session_id}
+    assert [e for e in out.events() if e["kind"] == "paper-frame"] == [{"kind": "paper-frame"}] * 2
+    assert len(asked) == 2 and {sid for sid, _ in asked} == {ctx.session_id}
+    assert all(since >= before for _, since in asked)
     users = [m for m in bot.context.get_messages() if m["role"] == "user"]
     images = [
         b["image_url"]["url"]
@@ -365,14 +377,25 @@ async def test_each_student_turn_carries_the_latest_page_image():
         for b in m["content"]
         if b["type"] == "image_url"
     ]
-    # One image in the context: the latest turn's, a JPEG labelled as one.
     assert len(images) == 1
     assert images[0].startswith("data:image/jpeg;base64,")
-    assert any(
-        b.get("text") == "Student's flattened paper."
-        for b in users[-1]["content"]
-        if isinstance(users[-1]["content"], list)
-    )
+
+
+async def test_with_no_current_view_ada_is_told_she_cant_see_the_page():
+    from tassel.vision.turn_image import NO_VIEW, TurnPage
+
+    async def turn_image(session_id, since):
+        return TurnPage(None, NO_VIEW)
+
+    async with running(context(turn_image=turn_image)) as (bot, out):
+        await until(lambda: SCRIPT.langs["en"].greeting in out.text())
+        await say(bot, SCRIPT.langs["en"].student[0])
+        await until(lambda: SCRIPT.langs["en"].turns[0].say in out.text())
+        users = [m for m in bot.context.get_messages() if m["role"] == "user"]
+        blocks = users[-1]["content"]
+        assert blocks[0] == {"type": "text", "text": SCRIPT.langs["en"].student[0]}
+        assert {"type": "text", "text": NO_VIEW} in blocks
+        assert not any(b["type"] == "image_url" for b in blocks)
 
 
 @pytest.mark.parametrize("outcome", ["none", "error", "slow"])
@@ -381,7 +404,7 @@ async def test_a_turn_without_a_page_image_still_gets_its_reply(outcome, monkeyp
 
     monkeypatch.setattr(bot_module, "TURN_IMAGE_WAIT_S", 0.05)
 
-    async def turn_image(session_id):
+    async def turn_image(session_id, since):
         if outcome == "error":
             raise RuntimeError("no frames table yet")
         if outcome == "slow":

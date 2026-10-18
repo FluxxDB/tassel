@@ -39,7 +39,9 @@ export type TutorEvent =
   | { type: 'connection'; status: ConnectionStatus; attempt?: number; reason?: VoiceFailure }
   | { type: 'mic'; status: MicStatus }
   | { type: 'language'; lang: Lang }
-  | { type: 'voice-debug'; event: VoiceDebugEvent };
+  | { type: 'voice-debug'; event: VoiceDebugEvent }
+  /** The server asks for her paper as it is now: her turn began. */
+  | { type: 'paper-request' };
 
 /** The live voice tutor's controls, beyond P1's TutorClient. */
 export interface VoiceControls {

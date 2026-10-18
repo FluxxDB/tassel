@@ -220,6 +220,15 @@
             ],
             "title": "Source",
             "type": "string"
+          },
+          "trigger": {
+            "default": "detector",
+            "enum": [
+              "detector",
+              "turn"
+            ],
+            "title": "Trigger",
+            "type": "string"
           }
         },
         "required": [
@@ -329,6 +338,14 @@
             "title": "Source",
             "type": "string"
           },
+          "trigger": {
+            "enum": [
+              "detector",
+              "turn"
+            ],
+            "title": "Trigger",
+            "type": "string"
+          },
           "width": {
             "title": "Width",
             "type": "integer"
@@ -349,7 +366,8 @@
           "page_found",
           "page_quad",
           "crop_rect",
-          "mask"
+          "mask",
+          "trigger"
         ],
         "title": "FrameOut",
         "type": "object"

@@ -47,7 +47,7 @@ router = APIRouter(prefix="/sessions/{session_id}/frames", tags=["frames"])
 
 JPEG = "image/jpeg"
 # The parts of FrameMeta kept in the row's meta column; the rest have columns of their own.
-_ROW_META = {"page_found", "page_quad", "crop_rect", "mask", "detector"}
+_ROW_META = {"page_found", "page_quad", "crop_rect", "mask", "detector", "trigger"}
 
 
 # The store's own failures, and boto's when an S3 store is down or refuses the request.
@@ -131,6 +131,8 @@ def frame_out(frame: Frame) -> FrameOut:
         page_quad=frame.meta["page_quad"],
         crop_rect=frame.meta["crop_rect"],
         mask=frame.meta["mask"],
+        # Rows from before triggers were recorded came from the detector.
+        trigger=frame.meta.get("trigger", "detector"),
     )
 
 
@@ -169,7 +171,12 @@ async def upload_frame(
     if await repo.lock_session(db, learner.id, session_id) is None:
         raise _not_found("Session")
     newest = await repo.newest(db, session_id)
-    if newest is not None and newest.age < timedelta(seconds=settings.frame_min_interval_s):
+    # A turn's frame is the server's own request, once a turn: it never waits out the guard.
+    if (
+        meta.trigger != "turn"
+        and newest is not None
+        and newest.age < timedelta(seconds=settings.frame_min_interval_s)
+    ):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="This session's last frame was too recent",

@@ -9,6 +9,7 @@ import { dispatchActions } from '../board/dispatch';
 import { useCurrentSession } from '../features/session/current-session';
 import { useStageStore } from '../features/session/stage-store';
 import { useVoiceDebug } from '../features/voice/voice-debug';
+import { requestTurnFrame } from '../paper/turn-frame';
 import type { TutorClient } from './types';
 
 /**
@@ -72,6 +73,9 @@ export function useTutorSession(
           break;
         case 'voice-debug':
           useVoiceDebug.getState().push(event.event);
+          break;
+        case 'paper-request':
+          void requestTurnFrame();
           break;
       }
     });

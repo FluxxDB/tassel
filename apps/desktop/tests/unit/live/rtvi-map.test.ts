@@ -158,6 +158,10 @@ describe('mapRtvi', () => {
     ]);
     expect(effects).toEqual([{ type: 'duck', on: false }]);
   });
+  it("the server's paper-frame request asks the app for her paper as it is now", () => {
+    const { events } = run([{ kind: 'server', data: { tassel: { kind: 'paper-frame' } } }]);
+    expect(events).toEqual([{ type: 'paper-request' }]);
+  });
   it('vad ducks only while Ada speaks and always unducks when speech ends', () => {
     const vad = (speaking: boolean): RtviInput => ({
       kind: 'server',

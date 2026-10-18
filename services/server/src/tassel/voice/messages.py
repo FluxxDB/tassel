@@ -79,6 +79,13 @@ class LanguageEvent(_Message):
     lang: Lang
 
 
+class PaperFrameEvent(_Message):
+    """Asks the app for her paper as it is now: the student just started a turn. The app
+    uploads the current camera frame with ``trigger="turn"``, and the turn waits for it."""
+
+    kind: Literal["paper-frame"] = "paper-frame"
+
+
 class VadEvent(_Message):
     kind: Literal["vad"] = "vad"
     speaking: bool
@@ -154,7 +161,8 @@ ServerEvent = Annotated[
     | StageEvent
     | LanguageEvent
     | VadEvent
-    | BeatEvent,
+    | BeatEvent
+    | PaperFrameEvent,
     Field(discriminator="kind"),
 ]
 ClientEvent = Annotated[

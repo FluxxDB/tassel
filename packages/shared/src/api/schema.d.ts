@@ -287,6 +287,12 @@ export interface components {
              * @enum {string}
              */
             source: "deskview-helper" | "window-capture" | "fake-clip" | "screen";
+            /**
+             * Trigger
+             * @default detector
+             * @enum {string}
+             */
+            trigger: "detector" | "turn";
         };
         /** FrameOut */
         FrameOut: {
@@ -334,6 +340,11 @@ export interface components {
              * @enum {string}
              */
             source: "deskview-helper" | "window-capture" | "fake-clip" | "screen";
+            /**
+             * Trigger
+             * @enum {string}
+             */
+            trigger: "detector" | "turn";
             /** Width */
             width: number;
         };

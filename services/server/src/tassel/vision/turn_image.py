@@ -6,10 +6,11 @@ The context and marked image are produced together, so [[freeze]] pins that exac
 Internal helpers take an already-authorized session id; HTTP ownership lives in frames/api.py.
 """
 
+import asyncio
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import anyio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -27,7 +28,7 @@ from tassel.frames import repo
 from tassel.frames.objects import ObjectStore
 from tassel.frames.tables import Frame
 from tassel.vision.marks import draw_marks, find_candidates
-from tassel.vision.page import encode_jpeg, enhance_for_llm, flatten_page
+from tassel.vision.page import FlatPage, decode_jpeg, encode_jpeg, enhance_for_llm, flatten_page
 
 
 @dataclass(frozen=True)
@@ -60,7 +61,13 @@ def _page_view(jpeg: bytes, row: Frame) -> PageView | None:
     quad = None if stored_quad is None else [Pt(**point) for point in stored_quad]
     page = flatten_page(jpeg, quad)
     if not page.found:
-        return None  # Never show flatten_page's central-crop fallback as detected paper.
+        # The page finder often fails on real Desk View frames. Desk View is already top-down,
+        # so the whole frame stands in for the page (never flatten_page's central crop), and
+        # marks are in the whole frame's coordinates.
+        rgb = decode_jpeg(jpeg)
+        h, w = rgb.shape[:2]
+        corners = (Pt(x=0, y=0), Pt(x=w, y=0), Pt(x=w, y=h), Pt(x=0, y=h))
+        page = FlatPage(rgb, w, h, corners, False)
     candidates = find_candidates(page)
     elements = []
     for circle in candidates.circles:
@@ -98,7 +105,8 @@ def _page_view(jpeg: bytes, row: Frame) -> PageView | None:
 
 
 async def page_view_for_frame(row: Frame, *, store: ObjectStore) -> PageView | None:
-    """Analyze an authorized frame. Missing objects and pageless images produce no view."""
+    """Analyze an authorized frame. A missing object produces no view; a frame without a found
+    page is viewed whole."""
     jpeg = await store.get(row.full_key)
     if jpeg is None:
         return None
@@ -143,16 +151,83 @@ async def turn_image_for(
     return None if view is None else (view.marked_jpeg, CAPTION)
 
 
+@dataclass(frozen=True)
+class TurnPage:
+    """What a student turn shows the model of her paper: the marked page and its caption, or,
+    when there's no current view, no image and a note saying so."""
+
+    image: bytes | None
+    caption: str
+
+
+NO_VIEW = (
+    "[paper] There is no current view of the student's paper. If the student asks about her "
+    "page or you need to see it, say you can't see her page right now; never describe an "
+    "earlier one."
+)
+
+# How long a turn waits for the frame the app takes for it, how old a frame may be to stand in
+# when that one doesn't come, and how often the frames table is checked meanwhile.
+FRESH_WAIT_S = 1.0
+STAND_IN_MAX_AGE_S = 10.0
+POLL_S = 0.1
+# Clocks: the speech start is the server's, created_at the database's, on the same machine.
+SINCE_SLACK = timedelta(milliseconds=500)
+
+
+async def fresh_turn_image_for(
+    session_id: uuid.UUID,
+    since: datetime,
+    *,
+    sessions: async_sessionmaker[AsyncSession],
+    store: ObjectStore,
+    context: BoardContext,
+    wait_s: float = FRESH_WAIT_S,
+    max_age_s: float = STAND_IN_MAX_AGE_S,
+) -> TurnPage | None:
+    """The page for a turn that began at ``since``: the frame the app took for it, waiting up to
+    ``wait_s``; else the newest frame if it's under ``max_age_s`` old; else no image and the
+    NO_VIEW note. None for a session that has never had a paper frame (Just talk), at once."""
+    context.paper_frame = None
+    context.paper_elements = None
+    context.paper_spec = None
+    async with sessions() as db:
+        if not await repo.has_frames(db, session_id):
+            return None
+    floor = since - SINCE_SLACK
+    deadline = asyncio.get_running_loop().time() + wait_s
+    row = None
+    while True:
+        async with sessions() as db:
+            newest = (await repo.list_for(db, session_id, limit=1) or [None])[0]
+            now = await repo.db_now(db)
+        if newest is not None and newest.created_at >= floor:
+            row = newest
+            break
+        if asyncio.get_running_loop().time() >= deadline:
+            if newest is not None and now - newest.created_at < timedelta(seconds=max_age_s):
+                row = newest
+            break
+        await asyncio.sleep(POLL_S)
+    view = None if row is None else await page_view_for_frame(row, store=store)
+    if view is None:
+        return TurnPage(None, NO_VIEW)
+    view.set_context(context)
+    return TurnPage(view.marked_jpeg, CAPTION)
+
+
 def make_turn_image_for(
     sessions: async_sessionmaker[AsyncSession],
     store: ObjectStore,
     *,
     context: BoardContext,
-) -> Callable[[uuid.UUID], Awaitable[tuple[bytes, str] | None]]:
-    """The one-argument per-turn seam, using the app's existing store and DB pool."""
+) -> Callable[[uuid.UUID, datetime], Awaitable[TurnPage | None]]:
+    """The per-turn seam, using the app's existing store and DB pool: a turn's page, given when
+    the turn began (the student's speech start, or the typed line's arrival)."""
 
-    async def image_for(session_id: uuid.UUID) -> tuple[bytes, str] | None:
-        async with sessions() as db:
-            return await turn_image_for(session_id, db=db, store=store, context=context)
+    async def image_for(session_id: uuid.UUID, since: datetime) -> TurnPage | None:
+        return await fresh_turn_image_for(
+            session_id, since, sessions=sessions, store=store, context=context
+        )
 
     return image_for

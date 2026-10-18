@@ -30,6 +30,7 @@
     { "kind": "stage", "view": "split" },
     { "kind": "language", "lang": "ko" },
     { "kind": "vad", "speaking": true },
+    { "kind": "paper-frame" },
     { "kind": "route", "lang": "en", "stt": "flux", "llm": "openai", "tts": "elevenlabs" },
     {
       "kind": "beat",

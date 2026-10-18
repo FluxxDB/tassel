@@ -14,6 +14,9 @@ import { ApiProvider } from '../../src/renderer/src/lib/api';
 import type { TutorClient, TutorEvent } from '../../src/renderer/src/tutor/types';
 import { useTutorSession } from '../../src/renderer/src/tutor/use-tutor-session';
 
+const { requestTurnFrame } = vi.hoisted(() => ({ requestTurnFrame: vi.fn(async () => {}) }));
+vi.mock('../../src/renderer/src/paper/turn-frame', () => ({ requestTurnFrame }));
+
 const SESSION: Session = {
   id: '7c2a5f1e-0b3d-4e8a-9f6c-1d2e3f4a5b6c',
   title: null,
@@ -128,6 +131,13 @@ describe('useTutorSession', () => {
     expect(stage()).toMatchObject({ connection: 'reconnecting', mic: 'denied' });
     expect(useVoiceDebug.getState().route?.lang).toBe('ko');
     expect(result.current.session?.language).toBe('ko');
+  });
+
+  it("the server's paper-frame request sends her paper as it is now", () => {
+    const { client, emit } = scriptedTutor();
+    renderTutor(client);
+    emit({ type: 'paper-request' });
+    expect(requestTurnFrame).toHaveBeenCalledTimes(1);
   });
 
   it('stage event calls requestMode', () => {

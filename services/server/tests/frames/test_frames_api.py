@@ -641,3 +641,20 @@ def test_openapi_declares_503_where_the_store_is_used():
 
 def test_memory_store_is_the_test_default(store):
     assert isinstance(store, MemoryObjectStore)
+
+
+@pytest.mark.asyncio
+async def test_a_frame_taken_for_a_turn_passes_the_rate_guard_and_says_so(
+    db_url, make_jpeg, ink_meta
+):
+    """The server asks for it at most once a turn, and the turn shouldn't wait out the guard."""
+    async with serve(db_url, frame_min_interval_s=60) as (client, store):
+        headers, _, session_id = await learner_with_session(client)
+        page, full = page_of(ink_meta), make_jpeg(64, 48)
+        assert (await upload(client, headers, session_id, page, frame=full)).status_code == 201
+        turn = {**page, "trigger": "turn"}
+        response = await upload(client, headers, session_id, turn, frame=full)
+        assert response.status_code == 201
+        listed = await client.get(f"/v1/sessions/{session_id}/frames", headers=headers)
+        assert listed.json()["items"][0]["trigger"] == "turn"
+        assert listed.json()["items"][1]["trigger"] == "detector"

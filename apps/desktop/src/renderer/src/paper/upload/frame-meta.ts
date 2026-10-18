@@ -14,6 +14,8 @@ export interface FrameMetaJson {
   /** `[col, row]` cells on the flattened page's grid. */
   mask: { cols: number; rows: number; cells: Array<[number, number]> } | null;
   detector: { changed_cells: number; ink_pixels: number; erase_pixels: number; version: string };
+  /** What sent it: the change detector (the default), or the server asking for a turn's page. */
+  trigger?: 'detector' | 'turn';
 }
 
 /**

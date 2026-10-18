@@ -14,6 +14,8 @@ from typing import Annotated, Literal
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 FrameReason = Literal["ink", "page"]
+# What made the app send it: its change detector, or the server asking for a turn's page.
+FrameTrigger = Literal["detector", "turn"]
 PaperSourceKind = Literal["deskview-helper", "window-capture", "fake-clip", "screen"]
 
 GRID_MAX = 200  # cells per side of the page grid
@@ -83,6 +85,7 @@ class FrameMeta(_Exact):
     crop_rect: NormRect | None
     mask: CellMask | None
     detector: DetectorInfo
+    trigger: FrameTrigger = "detector"
 
     @model_validator(mode="after")
     def _ink_says_where(self) -> "FrameMeta":
@@ -108,6 +111,7 @@ class FrameOut(BaseModel):
     page_quad: list[Point] | None
     crop_rect: NormRect | None
     mask: CellMask | None
+    trigger: FrameTrigger
 
 
 class FrameList(BaseModel):

@@ -38,6 +38,7 @@ const FRAME: FrameOut = {
   width: 64,
   height: 48,
   has_crop: true,
+  trigger: 'detector',
   bytes: 631,
   page_found: true,
   page_quad: META.page_quad,

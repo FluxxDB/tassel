@@ -336,5 +336,7 @@ async def test_each_bot_gets_the_page_image_seam_on_the_apps_store_and_db(app, c
 
     turn_image = app.state.voice.turn_image_for_bot(BoardContext())
     assert turn_image is not None
-    # No frames for this session: no image, never an error.
-    assert await turn_image(uuid.uuid4()) is None
+    # No frames for this session: no page, at once, never an error.
+    from datetime import UTC, datetime
+
+    assert await turn_image(uuid.uuid4(), datetime.now(UTC)) is None

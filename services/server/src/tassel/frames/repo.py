@@ -77,3 +77,8 @@ async def get_for(
 
 async def has_frames(db: AsyncSession, session_id: uuid.UUID) -> bool:
     return bool(await db.scalar(select(exists().where(Frame.session_id == session_id))))
+
+
+async def db_now(db: AsyncSession):
+    """The database's clock, which stamps created_at."""
+    return await db.scalar(select(func.now()))

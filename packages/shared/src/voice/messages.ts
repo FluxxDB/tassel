@@ -48,7 +48,9 @@ export type ServerEvent =
   | { kind: 'title'; title: string; subject: string | null }
   | { kind: 'stage'; view: 'paper' | 'board' | 'split' }
   | { kind: 'language'; lang: Lang }
-  | { kind: 'vad'; speaking: boolean };
+  | { kind: 'vad'; speaking: boolean }
+  /** Her turn began: the app uploads her paper as it is now (trigger "turn"). */
+  | { kind: 'paper-frame' };
 
 /**
  * What the app measured, in milliseconds: Ada's first audio after a turn, or how soon she yielded
@@ -199,4 +201,5 @@ const SERVER_EVENT_READERS: {
   stage: (e) => (isView(e.view) ? { kind: 'stage', view: e.view } : null),
   language: (e) => (isLang(e.lang) ? { kind: 'language', lang: e.lang } : null),
   vad: (e) => (isBoolean(e.speaking) ? { kind: 'vad', speaking: e.speaking } : null),
+  'paper-frame': () => ({ kind: 'paper-frame' }),
 };
