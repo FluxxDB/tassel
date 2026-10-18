@@ -81,3 +81,17 @@ encoding measured about 1–2 seconds; fake upload measured zero milliseconds.
 These measurements do not measure a real network or provider, and latency tuning
 is intentionally outside this change. Live visual-target accuracy and physical
 multi-monitor/DPI behavior still need an owner-run check on the real desktop.
+
+## Rejected drawing troubleshooting
+
+The whiteboard tool schemas explicitly advertise string types and item ID, label
+and text limits. Pydantic plain validators previously erased these types from
+JSON Schema even though runtime validation still required them. The structured
+screen drawing tool also includes a valid DFA invocation example.
+
+Desktop acknowledgements distinguish changed sessions/frames from invalid edits,
+board actions, board structures and mark batches. These bounded reason codes reach
+the tool callback. Unconfirmed delivery is described separately from invalid input.
+Opt-in development transcripts record `screen_tool_result` with tool name, argument
+field names, frame ID, action kind and the result, without image bytes or paths.
+Stale geometry remains rejected; these diagnostics do not relax positioning checks.

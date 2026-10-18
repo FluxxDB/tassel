@@ -105,3 +105,24 @@ def test_semantic_target_does_not_require_the_talker_to_guess_coordinates():
     assert drawing.points == []
     with pytest.raises(ValidationError):
         ScreenDrawing(frame_id="current", kind="circle")
+
+
+def test_whiteboard_tool_schema_advertises_strict_string_fields():
+    from tassel.beats.models import BoardAutomaton, BoardDiagram, BoardNote
+    from tassel.voice.tools import inline_schema
+
+    automaton = inline_schema(BoardAutomaton)["properties"]
+    assert automaton["item"]["type"] == "string"
+    assert automaton["item"]["pattern"] == "^[A-Za-z0-9_-]{1,64}$"
+    spec = automaton["spec"]["properties"]
+    state = spec["states"]["items"]["properties"]["id"]
+    assert state["type"] == "string"
+    assert spec["start"]["type"] == "string"
+    transition = spec["transitions"]["items"]["properties"]
+    assert transition["from"]["type"] == transition["to"]["type"] == "string"
+    assert transition["symbols"]["items"]["type"] == "string"
+    note = inline_schema(BoardNote)["properties"]["text"]
+    assert note["type"] == "string"
+    assert note["maxLength"] == 280
+    node = inline_schema(BoardDiagram)["properties"]["spec"]["properties"]["nodes"]["items"]
+    assert node["properties"]["label"]["maxLength"] == 40

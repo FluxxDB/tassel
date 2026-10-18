@@ -1103,6 +1103,25 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         )
 
     async def screen_result(params, result):
+        arguments = params.arguments
+        action = arguments.get("action")
+        if not result.get("ok") and "reason" not in result:
+            result["reason"] = (
+                "The desktop did not confirm applying the drawing. The screen may have "
+                "changed or delivery timed out; this does not mean your input was invalid. "
+                "Do not retry coordinates from an old frame or claim the tool is unavailable."
+            )
+        transcript.record(
+            "screen_tool_result",
+            {
+                "tool": params.function_name,
+                "fields": sorted(arguments),
+                "frame_id": arguments.get("frame_id"),
+                "kind": arguments.get("kind"),
+                "action_kind": action.get("kind") if isinstance(action, dict) else None,
+                "result": result,
+            },
+        )
         await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=True))
 
     def current_screen(frame_id):

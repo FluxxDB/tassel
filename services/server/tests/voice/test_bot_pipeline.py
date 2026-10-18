@@ -649,3 +649,74 @@ async def test_configured_name_is_used_for_greeting_and_changes_without_reconnec
             bot, "client-message", {"t": "tassel", "d": {"kind": "tutor-name", "name": "Nova"}}
         )
         await until(lambda: isinstance(bot.llm, FakeLLMService) and bot.llm.tutor_name == "Nova")
+
+
+@pytest.mark.parametrize(
+    "accepted,reason", [(True, None), (False, None), (False, "screen-frame-changed")]
+)
+async def test_screen_board_tool_delivers_checked_action_and_explains_unconfirmed_delivery(
+    monkeypatch, tmp_path, accepted, reason
+):
+    import json
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from tassel.screen.session import ScreenFrame, ScreenSession
+
+    screen = ScreenSession()
+    screen.control(source="synthetic-display", epoch=1, active=True)
+    screen.put(ScreenFrame("frame", screen.source, 1, 0, datetime.now(UTC), b"synthetic-jpeg"))
+    ctx = context(
+        screen=screen,
+        settings=VoiceSettings(providers="fake", fake_tts="tone", transcript_dir=tmp_path),
+    )
+    async with running(ctx) as (bot, _out):
+        bot._turn_context.screen_frame_id = "frame"
+        sent = []
+
+        async def acknowledge(payload):
+            message = payload["tassel"]
+            sent.append(message)
+            pending = screen.pending[message["request_id"]]
+            if reason:
+                pending.set_exception(ValueError(f"Desktop rejected drawing: {reason}"))
+            else:
+                pending.set_result(accepted)
+
+        monkeypatch.setattr(bot.worker.rtvi, "send_server_message", acknowledge)
+        callback = AsyncMock()
+        arguments = {
+            "frame_id": "frame",
+            "action": {
+                "kind": "board.automaton",
+                "item": "dfa1",
+                "spec": {
+                    "kind": "dfa",
+                    "states": [{"id": "q0", "accept": True}],
+                    "start": "q0",
+                    "transitions": [{"from": "q0", "to": "q0", "symbols": ["0", "1"]}],
+                },
+            },
+            "region": {"x": 0.2, "y": 0.2, "w": 0.5, "h": 0.5},
+        }
+        await bot.llm._functions["draw_screen_board"].handler(
+            SimpleNamespace(
+                function_name="draw_screen_board", arguments=arguments, result_callback=callback
+            )
+        )
+        result = callback.call_args.args[0]
+        assert result["ok"] is accepted
+        assert sent[0]["board"]["action"] == arguments["action"]
+        assert ("dfa1" in screen.board_items) is accepted
+        if reason:
+            assert reason in result["reason"]
+        elif not accepted:
+            assert "does not mean your input was invalid" in result["reason"]
+        events = [
+            json.loads(line)
+            for line in (tmp_path / f"{ctx.session_id}.jsonl").read_text().splitlines()
+        ]
+        diagnostic = next(event for event in events if event["event"] == "screen_tool_result")
+        assert diagnostic["tool"] == "draw_screen_board"
+        assert diagnostic["result"] == result

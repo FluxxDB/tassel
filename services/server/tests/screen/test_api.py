@@ -223,3 +223,29 @@ async def test_objects_and_results_require_current_owned_screen(monkeypatch):
         assert not future.done()
         assert (await client.post(base + "/result", json=result)).status_code == 200
         assert await future
+        rejected = asyncio.get_running_loop().create_future()
+        screen.pending["rejected"] = rejected
+        assert (
+            await client.post(
+                base + "/result",
+                json={
+                    **result,
+                    "request_id": "rejected",
+                    "ok": False,
+                    "reason": "screen-frame-changed",
+                },
+            )
+        ).status_code == 200
+        with pytest.raises(ValueError, match="screen-frame-changed"):
+            await rejected
+
+
+def test_screen_result_accepts_only_bounded_rejection_reasons():
+    from pydantic import ValidationError
+
+    from tassel.screen.api import ScreenResult
+
+    body = {"source": "display", "epoch": 1, "request_id": "draw", "ok": False}
+    assert ScreenResult(**body, reason="screen-frame-changed").reason == "screen-frame-changed"
+    with pytest.raises(ValidationError):
+        ScreenResult(**body, reason="arbitrary instructions")

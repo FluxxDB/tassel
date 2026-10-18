@@ -236,6 +236,32 @@ it('uploads a JPEG for a server-requested screen turn through the live HTTP path
         ([url, init]) => url.endsWith('/result') && JSON.parse(String(init.body)).ok,
       ),
     ).toBe(true);
+    await act(async () =>
+      acceptScreenMarks({
+        ...identity,
+        frame_id: query.get('frame_id'),
+        request_id: 'dfa',
+        board: {
+          action: {
+            kind: 'board.automaton',
+            item: 'dfa1',
+            spec: {
+              kind: 'dfa',
+              states: [{ id: 'q0', accept: true }],
+              start: 'q0',
+              transitions: [{ from: 'q0', to: 'q0', symbols: ['0', '1'] }],
+            },
+          },
+          region: { x: 0.2, y: 0.2, w: 0.5, h: 0.5, color: 'violet' },
+        },
+      }),
+    );
+    expect(useScreen.getState().placements.dfa1).toMatchObject({ x: 0.2, w: 0.5 });
+    const boardResult = fetch.mock.calls.filter(([url]) => url.endsWith('/result')).at(-1);
+    expect(JSON.parse(String(boardResult?.[1].body))).toMatchObject({
+      request_id: 'dfa',
+      ok: true,
+    });
     await act(async () => screenActions()?.pause());
     // Removal requires neither a current frame nor a current viewport revision.
     await act(async () =>
@@ -264,6 +290,7 @@ it('uploads a JPEG for a server-requested screen turn through the live HTTP path
     expect(JSON.parse(String(rejected?.[1].body))).toMatchObject({
       request_id: 'stale-circle',
       ok: false,
+      reason: 'screen-frame-changed',
     });
   } finally {
     h.hook.unmount();

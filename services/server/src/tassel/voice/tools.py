@@ -150,6 +150,12 @@ DRAW_SCREEN_BOARD = FunctionSchema(
         "Draw or update a DFA/NFA, structured diagram or note using the "
         "SAME checked whiteboard engine as the regular board. action is a "
         "board.automaton, board.diagram or board.note with a stable item ID. "
+        'DFA example action: {"kind":"board.automaton","item":"dfa1",'
+        '"spec":{"kind":"dfa","states":[{"id":"q0","accept":true}],'
+        '"start":"q0","transitions":[{"from":"q0","to":"q0","symbols":["0","1"]}]}}. '
+        "IDs are strings: item uses letters/digits/underscore/hyphen (1-64 characters); "
+        "state IDs use letters/digits/underscore (1-16), starting with a letter or digit. "
+        "Each transition symbol is a separate string (1-4 characters, no spaces or commas). "
         "region is its full-screenshot"
         " normalized placement. Free illustrations should use "
         "draw_screen_illustration instead."
