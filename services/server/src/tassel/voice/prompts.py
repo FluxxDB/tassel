@@ -37,9 +37,12 @@ If a mark is unclear, ask the student rather than inventing what it says."""
     else:
         lines = TOOL_LINES if tools else TAG_LINES
     prompt = prompt.replace("@@TOOL_LINES@@", lines)
-    prompt += "\n" + BOARD_RULES
     if two_tier:
+        # The talker never draws under two-tier: the thinker and its agents own the board, so
+        # the drawing manual (~1k tokens a turn) stays out of the talker's prompt.
         prompt += "\n" + TALKER_RULES
+    else:
+        prompt += "\n" + BOARD_RULES
     if lang == "ko":
         prompt += "\nUse polite 해요체, with natural short Korean sentences."
     return prompt
@@ -124,6 +127,12 @@ BOARD_EXAMPLES = "\n".join(
         "Ada: [[freeze]][[circle m3]]Look at the loop you drew here. What does it read?",
     ]
 )
+BOARD_RULES += """
+Board tools
+Automata use the existing dfa/nfa tags. Any other diagram (network, flowchart, tree,
+table-like layout) goes in the brief draw field as a short intent with key facts, never in notes.
+A note is short plain text, a few lines at most.
+"""
 BOARD_RULES += "\n" + BOARD_EXAMPLES
 
 
@@ -131,7 +140,7 @@ TALKER_RULES = """You are the fast talker. Be brief, warm and confident from the
 Use the latest tutor notes and their followups to answer; do not re-ask what the student means
 when the notes already establish it. Keep uncertainty only where the notes identify it.
 The director chooses the route and action. Never override it with a consultation or view change.
-For a thinker turn, give one short natural bridge specific to the moment,
+For a thinker turn, give one short natural bridge specific to the moment, at most 8 words,
 that tells the student to hang on while you look, like
 'Hang on, let me look at your arrows…'. Never use a canned filler. Stop after that bridge:
 the thinker supplies the next spoken sentence and tags in this response.
@@ -259,4 +268,21 @@ def thinker_system_prompt(schema: dict) -> str:
         + BOARD_RULES
         + "\nWorked guidance briefs:\n"
         + json.dumps(THINKER_EXAMPLES)
+        + '\nStudent: "draw a network with zones…"\n'
+        + json.dumps(
+            {
+                "page": "",
+                "intent": "draw network zones",
+                "diagnosis": "",
+                "plan": ["Draw the zones and connections"],
+                "say": "Each subnet has its own router and hosts.",
+                "draw": "3 zones: 10.0.0.0/26 (40 hosts), 10.0.0.64/27 (20), "
+                "10.0.0.96/28 (8); each has a router at the first usable IP "
+                "and 2 PCs with IPs wired to it; routers connect to one core switch",
+                "board": [],
+                "paper": [],
+                "confidence": 1.0,
+                "followups": [],
+            }
+        )
     )

@@ -158,6 +158,8 @@ export function targetExists(target: PaperTarget, elements: PaperElements | null
   if (!ref || !elements) return false;
   if (ref.kind === 'state') return Object.hasOwn(elements.states, ref.id);
   if (ref.kind === 'start') return elements.start !== undefined;
+  // Diagram refs (node:, group:) name board items, never ink on her paper.
+  if (ref.kind !== 'edge') return false;
   return Object.hasOwn(elements.edges, `${ref.from}>${ref.to}`);
 }
 

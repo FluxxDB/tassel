@@ -21,7 +21,7 @@ async def test_director_request_never_requires_parameters():
     # Cerebras doesn't list structured output among its supported parameters, so
     # provider.require_parameters made OpenRouter answer 404 for every director call.
     client = _Capture()
-    await Director(client=client).decide("Circle my mistake on my paper.", [])
+    await Director(client=client).decide("Is this part okay?", [])
     provider = client.kwargs["extra_body"]["provider"]
     assert provider["only"] == ["cerebras"]
     assert "require_parameters" not in provider

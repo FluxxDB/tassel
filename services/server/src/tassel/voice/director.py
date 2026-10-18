@@ -183,6 +183,38 @@ def guard(text, decision):
     return decision.model_copy(update=update) if update else decision
 
 
+GREETING = re.compile(
+    r"^\W*(?:hi|hello|hey|thanks|thank you|good (?:morning|afternoon|evening)|"
+    r"can you hear me)\b",
+    re.I,
+)
+
+
+def certain(text):
+    """The decision when the words alone settle it, so the director's model call is skipped:
+    a short greeting or thanks, or an explicit drawing request that names exactly one of her
+    paper and the board. Yes/no answers are never certain: they depend on Ada's last question."""
+    named_paper, board = bool(PAPER.search(text)), bool(BOARD.search(text))
+    words = len(text.split())
+    if (
+        words <= 6
+        and GREETING.search(text)
+        and not (
+            named_paper
+            or board
+            or _draw_request(text)
+            or COMPLEX.search(text)
+            or SELF_WORK.search(text)
+            or HELP.search(text)
+            or CONFUSED.search(text)
+        )
+    ):
+        return guard(text, rules(text))
+    if (_draw_request(text) or SHOW.search(text)) and named_paper != board:
+        return guard(text, rules(text))
+    return None
+
+
 def escalate(text, decision, *, confusions, drew_last=False):
     """The playbook's ladder, enforced: still confused after one explanation means drawing.
     First point at her paper; if that was already done, trace the counterexample."""
@@ -211,9 +243,24 @@ def escalate(text, decision, *, confusions, drew_last=False):
     return decision.model_copy(update=update)
 
 
+def report_usage(on_usage, model, response):
+    """Hand a chat completion's usage to the session meter, if there is one."""
+    usage = getattr(response, "usage", None)
+    if on_usage is None or usage is None:
+        return
+    details = getattr(usage, "prompt_tokens_details", None)
+    on_usage(
+        model,
+        prompt=getattr(usage, "prompt_tokens", 0) or 0,
+        cached=getattr(details, "cached_tokens", 0) or 0,
+        completion=getattr(usage, "completion_tokens", 0) or 0,
+    )
+
+
 class Director:
-    def __init__(self, *, client=None, budget_s=0.8, log=None):
+    def __init__(self, *, client=None, budget_s=0.8, log=None, on_usage=None):
         self.client, self.budget_s, self.log = client, budget_s, log
+        self.on_usage = on_usage
 
     async def decide(
         self, text, history, *, focus="none", board_items=None, frozen=False, page_changed=False
@@ -221,7 +268,10 @@ class Director:
         started = time.monotonic()
         source = "rules"
         decision = rules(text, focus=focus, page_changed=page_changed)
-        if self.client is not None:
+        sure = certain(text)
+        if sure is not None:
+            decision, source = sure, "rules-certain"
+        elif self.client is not None:
             try:
                 async with asyncio.timeout(self.budget_s):
                     request = dict(
@@ -289,6 +339,7 @@ class Director:
                             "provider": dict(QWEN_BACKUP_PROVIDER),
                         }
                         response = await self.client.chat.completions.create(**request)
+                    report_usage(self.on_usage, "director:qwen/qwen3.8-27b", response)
                     decision = Decision.model_validate_json(response.choices[0].message.content)
                     source = "model"
             except Exception as error:
@@ -311,7 +362,7 @@ class Director:
             await self.client.close()
 
 
-def make_director(settings, *, log=None):
+def make_director(settings, *, log=None, on_usage=None):
     client = None
     if (
         settings.providers != "fake"
@@ -324,4 +375,4 @@ def make_director(settings, *, log=None):
             max_retries=0,
             timeout=0.8,
         )
-    return Director(client=client, log=log)
+    return Director(client=client, log=log, on_usage=on_usage)

@@ -32,11 +32,14 @@ from tassel.voice.fakes.scenario import FakeScenario, load_scenario
 from tassel.voice.fakes.stt import FakeSTTService
 from tassel.voice.fakes.tts import FakeTTSService, pick_engine
 from tassel.voice.flux import attach_flux_interims
+from tassel.voice.history import windowed
 from tassel.voice.messages import SttKind
 from tassel.voice.prompts import system_prompt
 from tassel.voice.routes import VoiceRoute
 from tassel.voice.settings import ProviderKind, VoiceConfigError, VoiceSettings, resolve_mode
 
+# The talker sees the last 8 exchanges plus the tutor notes; older turns live in the notes.
+TALKER_WINDOW = 16
 OPENROUTER_PROVIDER = {"only": ["cerebras"], "allow_fallbacks": False, "require_parameters": True}
 REASONING_OFF = {"effort": "none"}
 
@@ -287,7 +290,9 @@ class LiveLLMService(OpenRouterLLMService):
                     convert_developer_to_user=not self.supports_developer_role,
                 )
                 request = self.build_chat_completion_params(params)
-                request["messages"] = leading_system_only(list(request["messages"]))
+                request["messages"] = leading_system_only(
+                    windowed(list(request["messages"]), TALKER_WINDOW)
+                )
                 if backup:
                     request["extra_body"] = {
                         **(request.get("extra_body") or {}),

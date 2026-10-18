@@ -81,8 +81,18 @@ class VoiceSettings(BaseSettings):
             raise ValueError("gpt-6-astra reasoning effort must be low, medium, high, xhigh or max")
         return self
 
+    # USD per million tokens by model, for the dev transcript's cost estimate, as JSON in
+    # TASSEL_PRICES, e.g. {"gpt-6-luna": {"prompt": 1.0, "cached": 0.1, "completion": 4.0}}.
+    # Unset: the meter logs usage only (owner: speed first, meter and log).
+    prices: dict[str, dict[str, float]] = Field(default_factory=dict)
+
     two_tier: bool | None = None
     # Measured live on the owner's page: luna 4.6 s, astra 7.4 s, same diagnosis and mark.
+    illustrator_model: str = "gpt-6-luna"
+    # Live on the owner's network turns (2026-10-18): Qwen on Cerebras drew the same valid
+    # diagram in 0.8-1.3 s where luna took 4.0-4.5 s.
+    illustrator_provider: Literal["openai", "openrouter"] = "openrouter"
+    illustrator_timeout_s: float = 6.0
     thinker_model: str = "gpt-6-luna"
     # Retest #7: luna at "low" took 6–8.6 s per brief; "none" read the owner's page correctly in
     # 2.6–2.9 s. Board constructions still think at "low" (thinker_draw_effort).

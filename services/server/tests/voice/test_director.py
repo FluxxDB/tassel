@@ -45,7 +45,8 @@ async def test_timeout_uses_rules_and_records_decision():
     client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=slow)))
     logs = []
     director = Director(client=client, budget_s=0.001, log=lambda *a, **k: logs.append((a, k)))
-    decision = await director.decide("hello", [], focus="paper")
+    # An ambiguous line goes to the model; certain ones never call it (test_cost_and_tokens).
+    decision = await director.decide("what about that one", [], focus="paper")
     assert decision.route == "talker" and not decision.needs_vision
     assert logs[-1][1]["source"] == "rules"
 
@@ -61,7 +62,7 @@ async def test_structured_model_request_and_failure():
     d = Director(
         client=SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
     )
-    assert await d.decide("draw it on the board", []) == result
+    assert await d.decide("and then the rest of it", []) == result
     request = create.call_args.kwargs
     assert request["response_format"]["json_schema"]["strict"] is True
     assert request["extra_body"]["provider"]["only"] == ["cerebras"]

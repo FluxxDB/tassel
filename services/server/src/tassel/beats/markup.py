@@ -42,6 +42,7 @@ from .models import (
     BoardAddTransition,
     BoardAutomaton,
     BoardClear,
+    BoardDiagram,
     BoardFocus,
     BoardHighlight,
     BoardNote,
@@ -50,6 +51,7 @@ from .models import (
     BoardTrace,
     BoardTraceStep,
     BoardVerdict,
+    DiagramSpec,
     PaperElements,
     PaperFrame,
     PaperFreeze,
@@ -70,6 +72,8 @@ class BoardContext:
     P4 sets the frozen paper's ink and the automaton read from it, which freeze sends (I8)."""
 
     specs: dict[str, AutomatonSpec] = field(default_factory=dict)
+    diagrams: dict[str, DiagramSpec] = field(default_factory=dict)
+    pending_diagrams: dict[str, DiagramSpec] = field(default_factory=dict)
     next_mark: int = 1
     paper_frame: PaperFrame | None = None
     paper_elements: PaperElements | None = None
@@ -394,6 +398,15 @@ def _command(command: str, ctx: BoardContext, notes: list[str] | None = None) ->
         if found is not None and found.group(3):
             start, _, symbols, end = found.groups()
             return _add_edge([rest[0].text, start, end, symbols], ctx)
+    if verb == "diagram":
+        [item] = _between(rest, 1, 1, "diagram ITEM")
+        spec = ctx.pending_diagrams.get(item)
+        if spec is None:
+            raise MarkupError(f"no pending diagram {item}")
+        action = _make(BoardDiagram, item=item, spec=spec, reveal="all")
+        ctx.pending_diagrams.pop(item)
+        ctx.diagrams[item] = spec
+        return action
     if verb == "reveal":
         item, *els = _between(rest, 1, None, "reveal ITEM [EL…]")
         return _make(BoardReveal, item=item, els=[_element(el) for el in els] or None)
@@ -423,8 +436,12 @@ def _command(command: str, ctx: BoardContext, notes: list[str] | None = None) ->
         action = _make(BoardClear, item=item)
         if item is None:
             ctx.specs.clear()
+            ctx.diagrams.clear()
+            ctx.pending_diagrams.clear()
         else:
             ctx.specs.pop(item, None)
+            ctx.diagrams.pop(item, None)
+            ctx.pending_diagrams.pop(item, None)
         return action
     if verb == "stage":
         [view] = _between(rest, 1, 1, "stage paper|board|split")
@@ -580,7 +597,7 @@ def _note(args: list[_Arg]) -> BeatAction:
         if not (equals and key == "near" and colon) or near is not None:
             raise MarkupError(f"note can't read {arg.text!r}")
         near = {"item": item, "el": _element(el)}
-    return _make(BoardNote, item=args[0].text, text=args[1].text, near=near)
+    return _make(BoardNote, item=args[0].text, text=args[1].text.replace("\\n", "\n"), near=near)
 
 
 def _trace(args: list[str], ctx: BoardContext) -> BeatAction:
@@ -669,12 +686,15 @@ def _paper_element(text: str) -> str:
 
 def _element(text: str) -> str:
     """'start', a state such as 'q0', or an edge such as 'q0>q1', as an element ref."""
+    if text.startswith(("node:", "group:", "edge:", "state:")):
+        return text
     if text == "start":
         return "start"
     return f"edge:{text}" if ">" in text else f"state:{text}"
 
 
 _KINDS: dict[type[BaseModel], str] = {
+    BoardDiagram: "board.diagram",
     BoardAutomaton: "board.automaton",
     BoardAddState: "board.addState",
     BoardAddTransition: "board.addTransition",
