@@ -197,6 +197,13 @@ class _RoutedService(Pipeline):
         await super().process_frame(frame, direction)
 
 
+def talker_instruction(lang, *, tools: bool, two_tier: bool, notes: str = "") -> str:
+    """The talker's system instruction: its own prompt for the route (two tiers: the talker
+    rules, never the board manual), then her learner memory. The memory refresh before each
+    reply once dropped two_tier and tools, so every live talker got the single-tier prompt."""
+    return system_prompt(lang, tools=tools, two_tier=two_tier) + notes
+
+
 # What Ada says when the app switches the view she asked for.
 VIEW_ACKS = {
     "paper": {
@@ -716,7 +723,11 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         # The current setting is checked before every reply, including the initial greeting.
         await turn_context.push_frame(
             LLMUpdateSettingsFrame(
-                delta=llm.Settings(system_instruction=system_prompt(ctx.lang) + notes)
+                delta=llm.Settings(
+                    system_instruction=talker_instruction(
+                        ctx.lang, tools=tools_ok, two_tier=two_tier, notes=notes
+                    )
+                )
             )
         )
 
@@ -880,7 +891,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
             await llm.queue_frame(
                 LLMUpdateSettingsFrame(
                     delta=llm.Settings(
-                        system_instruction=system_prompt(
+                        system_instruction=talker_instruction(
                             lang, tools=tools_ok, two_tier=ctx.settings.two_tier_enabled
                         )
                     )

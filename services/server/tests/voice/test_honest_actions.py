@@ -158,3 +158,16 @@ def test_the_thinker_never_promises_and_edits_diagrams_through_draw():
     assert "Never promise" in prompt
     assert "only through the brief's draw field" in BOARD_RULES
     assert "[[redo]]" in BOARD_RULES
+
+
+def test_the_learner_memory_refresh_keeps_the_talker_on_its_own_prompt():
+    """Every live reply refreshed the talker's instruction with the single-tier prompt (the full
+    board manual and show_stage), so under two tiers it drew, promised drawings and chose views."""
+    from tassel.voice.bot import talker_instruction
+    from tassel.voice.prompts import BOARD_RULES, system_prompt
+
+    two_tier = talker_instruction("en", tools=True, two_tier=True, notes="\n[memory] likes DFAs")
+    assert two_tier.startswith(system_prompt("en", tools=True, two_tier=True))
+    assert BOARD_RULES not in two_tier and "show_stage" not in two_tier
+    assert two_tier.endswith("[memory] likes DFAs")
+    assert talker_instruction("en", tools=True, two_tier=False) == system_prompt("en")
