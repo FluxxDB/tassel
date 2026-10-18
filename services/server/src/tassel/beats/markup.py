@@ -21,12 +21,18 @@ Commands (ITEM is a board item's id; EL is "start", a state such as "q0", or an 
     highlight ITEM EL · unhighlight ITEM EL · pulse ITEM EL · note ITEM "…" [near=ITEM:EL]
     trace ITEM ON INPUT [student] · step ITEM · verdict ITEM accept|reject [expected=…] [note="…"]
     focus [ITEM] · clear [ITEM] · stage paper|board|split
+    remove ITEM.PART… · rename ITEM[.PART] "…"   (PART is a diagram's zone or node, or an
+      automaton's state: the item is redrawn whole without it, or with the new name)
     circle EL · wash EL · number N EL · strike EL · underline EL · check EL · callout EL "…"
       (on paper EL may also be a numbered marker, m3, or a page region, box=x,y,w,h)
     ptrace INPUT · pstep · live · freeze [latest|frame=ID]   (review I8)
+    image show · image clear · image circle|wash|strike|underline|check EL · image number N EL ·
+      image callout EL "…"   (the student's image on stage, BoardContext.image: EL is one of its
+      numbered markers, m3, or a region of it, box=x,y,w,h)
 """
 
 import re
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
@@ -53,7 +59,11 @@ from .models import (
     BoardTrace,
     BoardTraceStep,
     BoardVerdict,
+    DetectedElements,
     DiagramSpec,
+    ImageClear,
+    ImageMarkAction,
+    ImageShow,
     PaperElements,
     PaperFrame,
     PaperFreeze,
@@ -72,6 +82,15 @@ MAX_TAG = 1000
 UNDO_DEPTH = 10
 
 
+@dataclass(frozen=True)
+class StageImage:
+    """The student's image Ada may show and mark: an attachment she sent in the chat, with its
+    Set-of-Mark boxes (``vision.image_marks``) when they're known."""
+
+    id: str
+    detected: DetectedElements | None = None
+
+
 @dataclass
 class BoardContext:
     """One per bot: the automata Ada has defined, which trace copies, and the paper-mark counter.
@@ -84,6 +103,11 @@ class BoardContext:
     paper_frame: PaperFrame | None = None
     paper_elements: PaperElements | None = None
     paper_spec: AutomatonSpec | None = None
+    # The student's image on stage, or the latest she sent: what [[image …]] tags act on.
+    image: StageImage | None = None
+    # Moves a mark's box onto her ink on the paper_frame it names: (frame id, refine), where
+    # refine(verb, box) gives the box on her ink or None (tassel.vision.ink_boxes).
+    paper_ink: tuple[str, Callable[[str, dict[str, float]], dict[str, float] | None]] | None = None
     # Her edit history: the board (automata and diagrams) as it was before each of her last
     # drawing turns, newest last, so [[undo]] can put it back (owner, 2026-10-18).
     history: list[tuple[dict[str, AutomatonSpec], dict[str, DiagramSpec]]] = field(
@@ -95,6 +119,11 @@ class BoardContext:
         default_factory=list
     )
     _stepped: bool = False
+    # What the outline names besides the drawings: automaton titles, notes (id: text, near item,
+    # near element) and trace cards (id: machine, input).
+    titles: dict[str, str] = field(default_factory=dict)
+    notes: dict[str, tuple[str, str | None, str | None]] = field(default_factory=dict)
+    traces: dict[str, tuple[str, str]] = field(default_factory=dict)
 
     def _state(self) -> tuple[dict[str, AutomatonSpec], dict[str, DiagramSpec]]:
         return deepcopy(self.specs), deepcopy(self.diagrams)
@@ -128,11 +157,16 @@ class BoardContext:
         self.history = [*self.history[-(UNDO_DEPTH - 1) :], self._state()]
         return self._restore(self.redo_stack.pop())
 
+    def undo_items(self) -> list[str]:
+        """The items [[undo]] would change, for the thinker's board outline."""
+        return self._changed(self.history[-1]) if self.history else []
+
     def redo_items(self) -> list[str]:
-        """The items [[redo]] would change, for the thinker's Board items."""
-        if not self.redo_stack:
-            return []
-        specs, diagrams = self.redo_stack[-1]
+        """The items [[redo]] would change, for the thinker's board outline."""
+        return self._changed(self.redo_stack[-1]) if self.redo_stack else []
+
+    def _changed(self, state) -> list[str]:
+        specs, diagrams = state
         return sorted(
             item
             for item in {*specs, *diagrams, *self.specs, *self.diagrams}
@@ -170,6 +204,12 @@ class Sentence:
     anchors: list[tuple[int, BeatAction]]
     """Each tag's action at the index of its word; len(words) for after the last one."""
     problems: list[str]
+    origins: list[str] = field(default_factory=list)
+    """The tag each anchor's action came from, as written, in the anchors' order: one [[undo]]
+    can give several actions."""
+    named: list[str] = field(default_factory=list)
+    """What each anchor's tag removed or renamed, by its name on the board ("Internal
+    10.0.0.0/26"), in the anchors' order; "" for any other tag. The chat's rows show it."""
 
 
 class MarkupError(ValueError):
@@ -248,10 +288,12 @@ class MarkupStream:
 
     def _tag(self, raw: str) -> "_Tag":
         notes: list[str] = []
+        named: list[str] = []
         try:
-            action = _command(raw[2:-2], self._ctx, notes)
+            action = _command(raw[2:-2], self._ctx, notes, named)
             # Read, but with parts dropped: they're logged with the sentence's problems.
-            return _Tag(raw, action, f"{_short(raw)}: {'; '.join(notes)}" if notes else None)
+            problem = f"{_short(raw)}: {'; '.join(notes)}" if notes else None
+            return _Tag(raw, action, problem, ", ".join(named))
         except _UnknownVerb:
             return _Tag(raw, None, f"unknown command {_short(raw)}")
         except MarkupError as error:
@@ -302,6 +344,7 @@ class _Tag:
     raw: str
     action: BeatAction | None
     problem: str | None
+    named: str = ""
 
 
 _Token = _Text | _Tag
@@ -366,7 +409,10 @@ def _sentences(tokens: list[_Token]) -> list[Sentence]:
             raw += token.raw
 
     units = _units(clean)
-    anchors = [(_anchor(units, at), tag.action) for at, _, tag in tags if tag.action is not None]
+    acted = [(at, tag) for at, _, tag in tags if tag.action is not None]
+    anchors = [(_anchor(units, at), tag.action) for at, tag in acted]
+    origins = [tag.raw for _, tag in acted]
+    named = [tag.named for _, tag in acted]
     if not units and not anchors and not any(tag.problem for _, _, tag in tags):
         return []
 
@@ -376,18 +422,31 @@ def _sentences(tokens: list[_Token]) -> list[Sentence]:
         last = b == len(units)
         start = 0 if a == 0 else raw_at[units[a - 1][1] - 1] + 1
         end = len(raw) if last else raw_at[units[b - 1][1] - 1] + 1
-        mine = [
-            (index - a, action)
-            for index, action in anchors
+        picked = [
+            n
+            for n, (index, _) in enumerate(anchors)
             if a <= index < b or (last and index == len(units))
         ]
+        mine = [(anchors[n][0] - a, anchors[n][1]) for n in picked]
+        whence = [origins[n] for n in picked]
+        names = [named[n] for n in picked]
         problems = [tag.problem for _, at, tag in tags if tag.problem and start <= at < end]
         words = " ".join(clean[s:e] for s, e in units[a:b])
         # More than MARKERS_MAX tags on one word: the rest go in wordless beats after it.
-        out.append(Sentence(words, raw[start:end].strip(), mine[:MARKERS_MAX], problems))
+        out.append(
+            Sentence(
+                words,
+                raw[start:end].strip(),
+                mine[:MARKERS_MAX],
+                problems,
+                whence[:MARKERS_MAX],
+                names[:MARKERS_MAX],
+            )
+        )
         for overflow in range(MARKERS_MAX, len(mine), MARKERS_MAX):
             extra = [(0, action) for _, action in mine[overflow : overflow + MARKERS_MAX]]
-            out.append(Sentence("", "", extra, []))
+            more = slice(overflow, overflow + MARKERS_MAX)
+            out.append(Sentence("", "", extra, [], whence[more], names[more]))
     return out
 
 
@@ -467,8 +526,14 @@ def _args(command: str) -> list[_Arg]:
     ]
 
 
-def _command(command: str, ctx: BoardContext, notes: list[str] | None = None) -> BeatAction:
+def _command(
+    command: str,
+    ctx: BoardContext,
+    notes: list[str] | None = None,
+    named: list[str] | None = None,
+) -> BeatAction:
     notes = [] if notes is None else notes
+    named = [] if named is None else named
     verb = command.strip().split(" ", 1)[0].lower()
     if verb in ("dfa", "nfa"):
         command = _tidy_moves(command)
@@ -508,9 +573,18 @@ def _command(command: str, ctx: BoardContext, notes: list[str] | None = None) ->
         item, el = _between(rest, 2, 2, "pulse ITEM EL")
         return _make(BoardPulse, item=item, el=_element(el))
     if verb == "note":
-        return _note(rest)
+        action = _note(rest)
+        near = action.near
+        ctx.notes[action.item] = (action.text, near and near.item, near and near.el)
+        return action
     if verb == "trace":
-        return _trace(_between(rest, 3, 4, "trace ITEM ON INPUT [student]"), ctx)
+        action = _trace(_between(rest, 3, 4, "trace ITEM ON INPUT [student]"), ctx)
+        ctx.traces[action.item] = (action.on, action.input)
+        return action
+    if verb == "remove":
+        return _remove(rest, ctx, named)
+    if verb == "rename":
+        return _rename(rest, ctx, named)
     if verb == "step":
         [item] = _between(rest, 1, 1, "step ITEM")
         return _make(BoardTraceStep, item=item)
@@ -520,21 +594,14 @@ def _command(command: str, ctx: BoardContext, notes: list[str] | None = None) ->
         item = next(iter(_between(rest, 0, 1, f"{verb} [ITEM]")), None)
         if verb == "focus":
             return _make(BoardFocus, item=item)
-        action = _make(BoardClear, item=item)
-        if item is None:
-            ctx.specs.clear()
-            ctx.diagrams.clear()
-            ctx.pending_diagrams.clear()
-        else:
-            ctx.specs.pop(item, None)
-            ctx.diagrams.pop(item, None)
-            ctx.pending_diagrams.pop(item, None)
-        return action
+        return _clear(item, ctx, named)
     if verb == "stage":
         [view] = _between(rest, 1, 1, "stage paper|board|split")
         return _make(StageAction, view=view)
     if verb in ("circle", "wash", "number", "strike", "underline", "check", "callout"):
         return _mark(verb, rest, ctx)
+    if verb == "image":
+        return _image(rest, ctx)
     if verb == "ptrace":
         [text] = _between(rest, 1, 1, "ptrace INPUT")
         return _make(PaperTrace, input=text)
@@ -637,6 +704,159 @@ def _automaton(
         BoardAutomaton, item=item, spec=spec, title=title, reveal="none" if hidden else None
     )
     ctx.specs[action.item] = action.spec
+    if title:
+        ctx.titles[action.item] = title
+    else:
+        ctx.titles.pop(action.item, None)
+    return action
+
+
+def _clear(item: str | None, ctx: BoardContext, named: list[str]) -> BeatAction:
+    """[[clear]], [[clear ITEM]]: the board, or the item and the notes beside it."""
+    action = _make(BoardClear, item=item)
+    if item is None:
+        named.append("everything")
+        for kept in (ctx.specs, ctx.diagrams, ctx.pending_diagrams, ctx.titles, ctx.notes):
+            kept.clear()
+        ctx.traces.clear()
+        return action
+    named.append(item_name(ctx, item))
+    for kept in (ctx.specs, ctx.diagrams, ctx.pending_diagrams, ctx.titles, ctx.notes, ctx.traces):
+        kept.pop(item, None)
+    ctx.notes = {k: v for k, v in ctx.notes.items() if v[1] != item}
+    return action
+
+
+def item_name(ctx: BoardContext, item: str) -> str:
+    """What the board calls an item: its title, or its id."""
+    diagram = ctx.diagrams.get(item)
+    return (diagram.title if diagram else ctx.titles.get(item)) or item
+
+
+def part_name(label: str, sublabel: str | None) -> str:
+    return f"{label} {sublabel}" if sublabel else label
+
+
+def _parts(args: list[_Arg], usage: str) -> tuple[str, list[str]]:
+    """The item and its parts: ITEM.PART…, or ITEM PART… (ITEM alone names the whole item)."""
+    if not args or any(a.quoted for a in args):
+        raise MarkupError(f"usage: {usage}")
+    first = args[0].text
+    if "." not in first and len(args) > 1 and all("." not in a.text for a in args[1:]):
+        return first, [a.text.removeprefix("state:") for a in args[1:]]
+    targets = [a.text.partition(".") for a in args]
+    items = {item for item, _, _ in targets}
+    if len(items) != 1:
+        raise MarkupError("one item per tag: write a tag for each item")
+    parts = [part.removeprefix("state:") for _, _, part in targets]
+    if any(parts) and not all(parts):
+        raise MarkupError("the whole item and its parts at once")
+    return items.pop(), [p for p in parts if p]
+
+
+def _remove(args: list[_Arg], ctx: BoardContext, named: list[str]) -> BeatAction:
+    """[[remove ITEM.PART…]]: the item redrawn without those zones, nodes or states, and
+    without the links, moves and notes that touched them. Nothing left clears the item."""
+    item, parts = _parts(args, "remove ITEM.PART…")
+    if not parts:
+        if item not in {*ctx.specs, *ctx.diagrams, *ctx.notes, *ctx.traces}:
+            raise MarkupError(f"no item {item}")
+        return _clear(item, ctx, named)
+    if item in ctx.diagrams:
+        spec = ctx.diagrams[item]
+        groups = {g.id: g for g in spec.groups}
+        nodes = {n.id: n for n in spec.nodes}
+        unknown = [p for p in parts if p not in groups and p not in nodes]
+        if unknown:
+            raise MarkupError(f"{item} has no zone or node {unknown[0]}")
+        found = [groups.get(p) or nodes[p] for p in dict.fromkeys(parts)]
+        gone = set(parts) | {n.id for n in spec.nodes if n.group in parts}
+        kept = [n for n in spec.nodes if n.id not in gone]
+        if not kept:
+            return _clear(item, ctx, named)
+        named.extend(part_name(f.label, f.sublabel) for f in found)
+        used = {n.group for n in kept}
+        gone |= {g.id for g in spec.groups if g.id not in used}
+        data = spec.model_dump(mode="json")
+        data["groups"] = [g for g in data["groups"] if g["id"] not in gone]
+        data["nodes"] = [n for n in data["nodes"] if n["id"] not in gone]
+        data["edges"] = [e for e in data["edges"] if not {e["from"], e["to"]} & gone]
+        try:
+            new = DiagramSpec.model_validate(data)
+        except ValidationError as error:
+            raise MarkupError(error.errors()[0]["msg"]) from error
+        action = _make(BoardDiagram, item=item, spec=new, reveal="all")
+        ctx.diagrams[item] = new
+    elif item in ctx.specs:
+        spec = ctx.specs[item]
+        states = {s.id for s in spec.states}
+        unknown = [p for p in parts if p not in states]
+        if unknown:
+            raise MarkupError(f"{item} has no state {unknown[0]}")
+        if spec.start in parts:
+            raise MarkupError(f"the start state stays: clear {item} to remove the machine")
+        gone = set(parts)
+        data = _dumped(spec)
+        new = _respec(
+            spec,
+            states=[s for s in data["states"] if s["id"] not in gone],
+            transitions=[t for t in data["transitions"] if not {t["from"], t["to"]} & gone],
+        )
+        named.extend(dict.fromkeys(parts))
+        action = _make(
+            BoardAutomaton, item=item, spec=_dumped(new), title=ctx.titles.get(item), reveal="all"
+        )
+        ctx.specs[item] = action.spec
+    else:
+        raise MarkupError(f"no diagram or automaton {item}")
+    ctx.notes = {
+        note: (text, near, el)
+        for note, (text, near, el) in ctx.notes.items()
+        if near != item or not _touches(el, gone)
+    }
+    return action
+
+
+def _touches(el: str | None, gone: set[str]) -> bool:
+    """A note's element is (or ends at) one of the parts taken away."""
+    if el is None:
+        return False
+    ref = el.split(":", 1)[-1]
+    return bool({ref, *ref.split(">")} & gone)
+
+
+def _rename(args: list[_Arg], ctx: BoardContext, named: list[str]) -> BeatAction:
+    """[[rename ITEM "…"]] titles the item; [[rename ITEM.PART "…"]] names a diagram's zone or
+    node. An automaton's states keep their ids."""
+    if len(args) != 2 or args[0].quoted or not args[1].quoted:
+        raise MarkupError('usage: rename ITEM[.PART] "NAME"')
+    item, _, part = args[0].text.partition(".")
+    name = args[1].text
+    if item in ctx.diagrams:
+        data = ctx.diagrams[item].model_dump(mode="json")
+        if not part:
+            data["title"] = name
+        else:
+            found = next((x for x in data["groups"] + data["nodes"] if x["id"] == part), None)
+            if found is None:
+                raise MarkupError(f"{item} has no zone or node {part}")
+            found["label"] = name
+        try:
+            new = DiagramSpec.model_validate(data)
+        except ValidationError as error:
+            raise MarkupError(error.errors()[0]["msg"]) from error
+        action = _make(BoardDiagram, item=item, spec=new, reveal="all")
+        ctx.diagrams[item] = new
+    elif item in ctx.specs:
+        if part:
+            raise MarkupError("an automaton's states keep their ids")
+        action = _make(
+            BoardAutomaton, item=item, spec=_dumped(ctx.specs[item]), title=name, reveal="all"
+        )
+        ctx.titles[item] = name
+    else:
+        raise MarkupError(f"no diagram or automaton {item}")
+    named.append(name)
     return action
 
 
@@ -727,28 +947,60 @@ def _verdict(args: list[_Arg]) -> BeatAction:
 
 
 def _mark(verb: str, args: list[_Arg], ctx: BoardContext) -> BeatAction:
+    mark = _mark_spec(verb, args, ctx, _paper_target)
+    mark["target"] = _on_ink(verb, mark["target"], ctx)
+    action = _make(PaperMarkAction, mark=mark)
+    ctx.next_mark += 1
+    return action
+
+
+_MARK_VERBS = ("circle", "wash", "number", "strike", "underline", "check", "callout")
+
+
+def _mark_spec(verb: str, args: list[_Arg], ctx: BoardContext, target) -> dict[str, Any]:
+    """A mark's fields, its target read by `target`; the id is the next mark number."""
     mark: dict[str, Any] = {"id": f"m{ctx.next_mark}"}
     if verb == "number":
         n, el = _between(args, 2, 2, "number N EL")
         if not re.fullmatch(r"[0-9]+", n):
             raise MarkupError(f"{n!r} isn't a number")
-        mark |= {"type": "step", "n": int(n), "target": _paper_target(el)}
+        mark |= {"type": "step", "n": int(n), "target": target(el)}
     elif verb == "callout":
         if len(args) != 2 or not args[1].quoted:
             raise MarkupError('callout needs EL "TEXT"')
-        mark |= {
-            "type": "callout",
-            "target": _paper_target(args[0].text),
-            "text": args[1].text,
-        }
+        mark |= {"type": "callout", "target": target(args[0].text), "text": args[1].text}
     else:
         [el] = _between(args, 1, 1, f"{verb} EL")
-        mark |= {"type": "circle" if verb == "wash" else verb, "target": _paper_target(el)}
+        mark |= {"type": "circle" if verb == "wash" else verb, "target": target(el)}
         if verb == "wash":
             mark["wash"] = True
-    action = _make(PaperMarkAction, mark=mark)
+    return mark
+
+
+def _image(args: list[_Arg], ctx: BoardContext) -> BeatAction:
+    """[[image show]], [[image clear]], or a paper mark's verb and target on the image on stage."""
+    if ctx.image is None:
+        raise MarkupError("no student image to show or mark")
+    attachment = ctx.image.id
+    step = args[0].text.lower() if args and not args[0].quoted else ""
+    if step in ("show", "clear"):
+        _between(args, 1, 1, f"image {step}")
+        return _make(ImageShow if step == "show" else ImageClear, attachment_id=attachment)
+    if step not in _MARK_VERBS:
+        raise MarkupError("usage: image show|clear|circle|wash|strike|underline|check EL…")
+    mark = _mark_spec(step, args[1:], ctx, _image_target)
+    action = _make(ImageMarkAction, attachment_id=attachment, mark=mark)
     ctx.next_mark += 1
     return action
+
+
+def _image_target(text: str) -> dict[str, Any]:
+    """On the image a target is one of its numbered markers or a region of it, never a state."""
+    if text.startswith("box="):
+        return {"box": paper_box(text)}
+    if re.fullmatch(r"m[1-9][0-9]{0,2}", text):
+        return {"el": text}
+    raise MarkupError(f"an image mark needs a marker (m3) or box=x,y,w,h, not {text!r}")
 
 
 def _freeze(args: list[_Arg], ctx: BoardContext) -> BeatAction:
@@ -774,6 +1026,36 @@ def _between(args: list[_Arg], low: int, high: int | None, usage: str) -> list[s
     if len(args) < low or (high is not None and len(args) > high):
         raise MarkupError(f"usage: {usage}")
     return [arg.text for arg in args]
+
+
+# Marks whose line must find her ink's own edge, not a marker's padded box: an underline
+# under a padded label ran into the line below on her tight lines (live, 2026-10-18).
+_ON_INK = {"underline", "strike"}
+
+
+def _on_ink(verb: str, target: dict[str, Any], ctx: BoardContext) -> dict[str, Any]:
+    """A box target moved onto the ink it points at, and an underline's or strike's handwriting
+    marker turned into its ink's box, when this turn's paper has the ink; else `target`."""
+    if ctx.paper_ink is None or ctx.paper_frame is None or ctx.paper_ink[0] != ctx.paper_frame.id:
+        return target
+    refine = ctx.paper_ink[1]
+    if "box" in target:
+        refined = refine(verb, target["box"])
+        return target if refined is None else {"box": refined}
+    detected = ctx.paper_elements.detected if ctx.paper_elements else None
+    if verb not in _ON_INK or detected is None or not detected.width or not detected.height:
+        return target
+    item = next((i for i in detected.items if i.id == target.get("el")), None)
+    if item is None or item.kind != "label":
+        return target
+    box = {
+        "x": item.box.x / detected.width,
+        "y": item.box.y / detected.height,
+        "w": item.box.w / detected.width,
+        "h": item.box.h / detected.height,
+    }
+    refined = refine(verb, box)
+    return target if refined is None else {"box": refined}
 
 
 def _paper_target(text: str) -> dict[str, Any]:
@@ -840,6 +1122,9 @@ _KINDS: dict[type[BaseModel], str] = {
     PaperTraceStep: "paper.traceStep",
     PaperLive: "paper.live",
     StageAction: "stage",
+    ImageShow: "image.show",
+    ImageMarkAction: "image.mark",
+    ImageClear: "image.clear",
 }
 
 

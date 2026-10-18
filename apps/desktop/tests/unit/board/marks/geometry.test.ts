@@ -252,14 +252,15 @@ describe('the other marks', () => {
 });
 
 describe('underline', () => {
-  it('runs just under handwriting, the width of its box', () => {
-    // Live test: "underline the IP and the subnet" drew callout bubbles instead.
+  it("runs on a box target's bottom, the width of its box", () => {
+    // Live test: "underline the IP and the subnet" drew callout bubbles instead. The server
+    // puts a box's bottom in the gap under her ink (2026-10-18: an underline 4 px lower ran
+    // through the next line), so the underline runs right on it.
     const box = resolve({ box: { x: 0.1, y: 0.2, w: 0.2, h: 0.1 } });
     const [a, b] = underlineFor(box);
     const bottom = box.bbox.y + box.bbox.h;
     expect(a.y).toBeCloseTo(b.y, 6);
-    expect(a.y).toBeGreaterThan(bottom);
-    expect(a.y - bottom).toBeLessThan(8);
+    expect(a.y).toBeCloseTo(bottom, 6);
     expect(a.x).toBeCloseTo(box.bbox.x, 6);
     expect(b.x).toBeCloseTo(box.bbox.x + box.bbox.w, 6);
   });

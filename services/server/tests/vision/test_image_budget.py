@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import cv2
 import numpy as np
 
-from tassel.vision.marks import Candidates, LabelMark, draw_marks
+from tassel.vision.marks import TAG_RGB, Candidates, LabelMark, draw_marks
 from tassel.vision.page import FlatPage, decode_jpeg, encode_jpeg
 from tassel.vision.turn_image import _page_view
 
@@ -27,22 +27,26 @@ def test_real_size_page_budget(monkeypatch):
     print(f"1920x1440: {len(encode_jpeg(rgb))} -> {len(view.marked_jpeg)} bytes")
 
 
-def test_badges_never_overwrite_ink_and_skip_when_no_room():
+def test_badges_avoid_ink_and_go_on_a_plate_when_no_room():
     rgb = np.full((500, 700, 3), 255, np.uint8)
     rgb[60:100, 100:400] = 0
     page = FlatPage(rgb, 700, 500, (), True)
     marked = draw_marks(page, Candidates((), (LabelMark(7, 100, 100, 30, 20),)))
     np.testing.assert_array_equal(marked[rgb[:, :, 0] == 0], rgb[rgb[:, :, 0] == 0])
+    # All ink: the badge still goes on, on a white plate (live, 2026-10-18: the owner's page lost
+    # every mark when no tag position was empty paper).
     black = np.zeros_like(rgb)
-    np.testing.assert_array_equal(
-        draw_marks(
-            FlatPage(black, 700, 500, (), True), Candidates((), (LabelMark(7, 100, 100, 30, 20),))
-        ),
-        black,
+    drawn: set[int] = set()
+    marked = draw_marks(
+        FlatPage(black, 700, 500, (), True),
+        Candidates((), (LabelMark(7, 100, 100, 30, 20),)),
+        drawn=drawn,
     )
+    assert drawn == {7}
+    assert np.all(marked == 255, axis=2).any() and np.all(marked == TAG_RGB, axis=2).any()
 
 
-def test_skipped_badge_does_not_renumber_remaining_element(monkeypatch):
+def test_a_crowded_badge_keeps_its_element_and_numbering(monkeypatch):
     rgb = np.full((500, 700, 3), 255, np.uint8)
     rgb[:, :350] = 0
     page = FlatPage(rgb, 700, 500, (), True)
@@ -52,5 +56,5 @@ def test_skipped_badge_does_not_renumber_remaining_element(monkeypatch):
     view = _page_view(
         encode_jpeg(rgb), SimpleNamespace(meta={}, id=uuid.uuid4(), captured_at=datetime.now(UTC))
     )
-    assert [el.id for el in view.elements] == ["m9"]
-    assert view.elements[0].box.x == 500
+    assert [el.id for el in view.elements] == ["m7", "m9"]
+    assert [el.box.x for el in view.elements] == [100, 500]

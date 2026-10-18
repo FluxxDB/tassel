@@ -56,7 +56,7 @@ export function LanguageMenu({ session }: { session: Session }) {
         <Popover.Trigger
           aria-label={t('voice.language.current', { language: name(session.language) })}
           title={t('voice.language.menu')}
-          className="mono rounded-pill bg-ink px-2.5 py-1 text-[11px] leading-[14px] text-paper transition-[background-color] duration-150 hover:bg-ink/85"
+          className="mono flex h-7 items-center rounded-pill bg-paper px-3 text-[11px] leading-[14px] text-ink shadow-[0_0_0_1px_var(--color-hairline)] transition-[box-shadow] duration-150 hover:shadow-[0_0_0_1px_var(--color-smoke)]"
         >
           {session.language}
         </Popover.Trigger>

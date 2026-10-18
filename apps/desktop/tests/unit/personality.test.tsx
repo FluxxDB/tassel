@@ -2,8 +2,8 @@
 import { createApiClient } from '@tassel/shared/api';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
-import { expect, it, vi } from 'vitest';
-import { AvatarCustomizer } from '../../src/renderer/src/avatar/AvatarCustomizer';
+import { expect, it } from 'vitest';
+import { PersonalityPanel } from '../../src/renderer/src/avatar/PersonalityPanel';
 import { initI18n } from '../../src/renderer/src/i18n';
 import { ApiProvider } from '../../src/renderer/src/lib/api';
 
@@ -32,17 +32,15 @@ async function setup(conflict = false) {
   render(
     <I18nextProvider i18n={i18n}>
       <ApiProvider client={api}>
-        <AvatarCustomizer open onOpenChange={vi.fn()} />
+        <PersonalityPanel open />
       </ApiProvider>
     </I18nextProvider>,
   );
-  fireEvent.click(screen.getByRole('radio', { name: 'Personalization & memory' }));
   await screen.findByDisplayValue(style.content);
-  await screen.findByDisplayValue(memory.content);
   return { writes, getStyle: () => style, getMemory: () => memory };
 }
 
-it('saves an authored tutor style without editing automatic memories', async () => {
+it('saves an authored tutor style without touching memory', async () => {
   const state = await setup();
   fireEvent.change(screen.getByRole('textbox', { name: 'Describe your ideal tutor' }), {
     target: { value: 'Be energetic and playful. Use gentle humor.' },
@@ -51,9 +49,6 @@ it('saves an authored tutor style without editing automatic memories', async () 
   await screen.findByText('Tutor style saved');
   expect(state.getStyle().content).toBe('Be energetic and playful. Use gentle humor.');
   expect(state.getMemory().content).toBe('Studying algebra.');
-  fireEvent.click(screen.getByRole('button', { name: 'Clear memory' }));
-  await waitFor(() => expect(state.getMemory().content).toBe(''));
-  expect(state.getStyle().content).toBe('Be energetic and playful. Use gentle humor.');
 });
 
 it('disables personalization independently and keeps the saved description', async () => {

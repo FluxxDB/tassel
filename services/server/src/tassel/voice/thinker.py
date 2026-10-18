@@ -25,12 +25,38 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from tassel.beats.markup import BoardContext, MarkupStream
 from tassel.beats.processor import FlushSpeechFrame
 from tassel.vision.turn_image import NO_VIEW
-from tassel.voice.action_checker import TargetLanguage, check_tags, talker_allowed
-from tassel.voice.director import ERASE, report_usage, rules
+from tassel.voice.action_checker import (
+    CHECKLIST_REPAIR,
+    TargetLanguage,
+    check_tags,
+    talker_allowed,
+)
+from tassel.voice.director import ERASE, RESTORE, report_usage, rules
+from tassel.voice.erase import (
+    CLAIMS_REMOVAL,
+    CLAIMS_RENAME,
+    CONFIRM,
+    COULD_NOT_ERASE,
+    ERASED,
+    ERASING,
+    RENAME,
+    RENAME_TAG,
+    RENAMED,
+    ask,
+    clears_kept,
+    kept_items,
+    narrower,
+    pick,
+    pick_rename,
+    removes,
+    share,
+)
 from tassel.voice.history import windowed
-from tassel.voice.illustrator import Illustrator
-from tassel.voice.pointer import MarkIntent, Pointer, mark_tags
+from tassel.voice.illustrator import Illustrator, recent_turns
+from tassel.voice.ladder import Ladder
+from tassel.voice.pointer import MarkIntent, Pointer, image_mark_tags, mark_tags
 from tassel.voice.prompts import thinker_system_prompt
+from tassel.voice.requirements import automaton_checklist
 from tassel.voice.settings import VoiceSettings
 from tassel.voice.stage import StageDrawing
 
@@ -45,10 +71,21 @@ class GuidanceBrief(BaseModel):
     board: list[str]
     paper: list[str]
     marks: list[MarkIntent] = Field(default_factory=list)
+    # Her own image (one she sent in the chat): marks in words for the Pointer, or raw
+    # [[image …]] tags as a fallback, as paper has marks and paper.
+    image_marks: list[MarkIntent] = Field(default_factory=list)
+    image: list[str] = Field(default_factory=list)
     confidence: float = Field(ge=0, le=1)
     followups: list[str]
     language: TargetLanguage | None = None
     draw: str | None = None
+
+
+# A brief's completion room: an answer at effort "none" is short; a brief that thinks (a
+# construction, or the ladder's redraw with its highlights and one step per spoken sentence)
+# needs room for its reasoning and every tag, or it is cut off mid-JSON.
+BRIEF_TOKENS = 1200
+DRAWN_BRIEF_TOKENS = 4000
 
 
 def make_thinker(settings: VoiceSettings):
@@ -61,6 +98,8 @@ class Thinker:
         self.on_usage = None
         self.ideal_tutor = ""
         self.learner_notes = ""
+        # The transcript's log, which the coordinator sets: retries are on the record.
+        self.log = None
         self.client = client or AsyncOpenAI(
             api_key=settings.openai_api_key.get_secret_value(), max_retries=0, timeout=20
         )
@@ -81,7 +120,8 @@ class Thinker:
             },
             *deepcopy(messages),
         ]
-        for attempt in range(2):
+        resent = stripped = invalid = False
+        while True:
             try:
                 response = await self.client.chat.completions.create(
                     model=model,
@@ -89,11 +129,23 @@ class Thinker:
                     reasoning_effort=effort,
                     messages=request,
                     response_format={"type": "json_object"},
-                    max_completion_tokens=8192 if drawing else 1200,
+                    max_completion_tokens=(
+                        8192 if drawing else BRIEF_TOKENS if effort == "none" else DRAWN_BRIEF_TOKENS
+                    ),
                 )
-            except (APIConnectionError, TimeoutError):
-                if attempt:
+            except (APIConnectionError, TimeoutError) as error:
+                reason = type(error).__name__
+                if isinstance(error, APIConnectionError) and _has_images(request) and not resent:
+                    # This network drops some image uploads at once (bad record mac): the live
+                    # eval 20261018-133513 lost her image on two turns of three that way. Send it
+                    # again with the image before going on without it.
+                    resent = True
+                    self._log("thinker_retry", reason=reason, images=True)
+                    continue
+                if stripped:
                     raise
+                stripped = True
+                self._log("thinker_retry", reason=reason, images=False)
                 request = deepcopy(request)
                 for message in request:
                     if isinstance(message.get("content"), list):
@@ -109,8 +161,9 @@ class Thinker:
             try:
                 return GuidanceBrief.model_validate_json(content)
             except ValidationError:
-                if attempt:
+                if invalid:
                     raise
+                invalid = True
                 request.append(
                     {
                         "role": "system",
@@ -118,20 +171,84 @@ class Thinker:
                         "the correct types, 1–4 plan steps, confidence from 0 to 1.",
                     }
                 )
-        raise AssertionError("unreachable")
+
+    def _log(self, event, **data):
+        if self.log is not None:
+            self.log(event, **data)
 
     async def close(self):
         await self.client.close()
+
+
+def _has_images(request) -> bool:
+    return any(
+        isinstance(m.get("content"), list)
+        and any(p.get("type") in ("image", "image_url") for p in m["content"])
+        for m in request
+    )
 
 
 INTENT = re.compile(
     r"\b(draw|mark|highlight|check|circle|find (?:a |the |my )?mistake|explain why)\b", re.I
 )
 PAPER = re.compile(r"\b(on my paper|my camera|on (?:the )?camera|circle mine)\b", re.I)
+# A drawing "from problem two": it needs her page, never an example in its place (c194768a: the
+# 10.0.0.x network from the prompts' worked example was drawn while her page wasn't visible).
+FROM_PAGE = re.compile(
+    r"\b(problem|question|exercise|part|task|item)\s+(?:\d+|[a-z]|one|two|three|four|five|six|"
+    r"seven|eight|nine|ten)\b|\b(?:my|the) (?:page|paper|sheet|assignment|homework|worksheet|"
+    r"notes|handout|textbook|book)\b",
+    re.I,
+)
 AUTOMATA = re.compile(r"\b(?:dfa|nfa|automat\w*|state machine|accept\w*|regex|language)\b", re.I)
 NOTE_PREFIX = "[tutor notes]"
 THINKER_WINDOW = 12
 MARK_ID = re.compile(r"\bm\d+\b")
+# A structured value: digits joined by dots, slashes, colons or hyphens (an IP, a CIDR, a date).
+# What a page read and the learner memory can disagree about; plain numbers and states are not.
+FACT = re.compile(r"(?<![\w.])\d+(?:[./:-]\d+)+(?!\w)")
+
+
+def facts(text: str) -> set[str]:
+    return set(FACT.findall(text or ""))
+
+
+def fact_shape(fact: str) -> str:
+    if re.fullmatch(r"\d+(?:\.\d+){3}/\d+", fact):
+        return "cidr"
+    if re.fullmatch(r"\d+(?:\.\d+){3}", fact):
+        return "dotted"
+    return "other"
+
+
+# Below this, the thinker's read of her page gets a second read before she hears an answer.
+PAGE_CHECK_CONFIDENCE = 0.6
+NUMBER = re.compile(r"(?<![\w./:-])\d{2,}(?![\w./:-])")
+
+
+def read_disagreement(first: str, second: str) -> list[str]:
+    """The values two reads of one page disagree on: one read's IP, CIDR or number with no
+    match in the other, where the other read gives a different value of the same shape."""
+
+    def values(text):
+        found = {(f, fact_shape(f)) for f in facts(text)}
+        return found | {(n, "number") for n in NUMBER.findall(text or "")}
+
+    a, b = values(first), values(second)
+    differ = []
+    for value, shape in sorted(a - b):
+        others = sorted(v for v, s in b - a if s == shape)
+        if others:
+            differ.append(f"{value} vs {'/'.join(others)}")
+    return differ
+
+
+def _replace_fact(text: str, fact: str, replacement: str | None) -> str:
+    if replacement is not None:
+        return text.replace(fact, replacement)
+    # The value goes, with the quotes around it; the words around it stay.
+    text = re.sub(r"[\"“”']?" + re.escape(fact) + r"[\"“”']?", "", text)
+    return re.sub(r"\s{2,}", " ", text).strip()
 
 
 def _similar(a: str, b: str) -> bool:
@@ -154,6 +271,8 @@ def _done(brief) -> str:
         parts.append("changed the board")
     if brief.paper:
         parts.append("marked her paper")
+    if getattr(brief, "image", None):
+        parts.append("marked her image")
     return " and ".join(parts) or "answered without drawing"
 
 
@@ -182,8 +301,13 @@ class TutorCoordinator:
         illustrator=None,
         pointer=None,
         on_brief=None,
+        reply_timeout_s=30.0,
     ):
         self.thinker, self.board, self.transcript = thinker, board, transcript
+        if thinker is not None and hasattr(thinker, "log") and thinker.log is None:
+            thinker.log = self.log
+        # The longest she waits for a thinker reply before Ada says she couldn't finish.
+        self.reply_timeout_s = reply_timeout_s
         self.on_brief = on_brief
         self.illustrator = illustrator
         self.pointer = pointer
@@ -191,6 +315,10 @@ class TutorCoordinator:
         self.page_caption = ""
         self.illustrator_task = None
         self.diagram_delivered = False
+        # What the drawing still misses of her request: Ada names it, never "Here it is."
+        self.diagram_missing: list[str] = []
+        # What her automaton request asked for that the repaired drawing still missed.
+        self._unfit: list[str] = []
         self.ttl_s = ttl_s
         self.lang = lang
         self.task = None
@@ -203,8 +331,19 @@ class TutorCoordinator:
         self.ink = None
         self.delivered = False
         self.decision = None
+        # The whiteboard ladder for her current problem, and this turn's rung (step, attempt).
+        self.ladder = Ladder()
+        self.rung: tuple[int | None, bool] = (None, False)
         self._page = None
         self._board_page = None
+        self.attachments = []
+        # Her latest image for this turn (``chat.student_image.StudentImage``), once fetched.
+        self.student_image = None
+        self._student_image = None
+        # A removal of more than half the board waits for her yes: (tags, her words), and the
+        # one she just confirmed, which this turn carries out without a brief.
+        self.pending_removal: tuple[list[str], str] | None = None
+        self._confirmed: tuple[list[str], str] | None = None
 
     def log(self, event, **data):
         if self.transcript:
@@ -227,6 +366,7 @@ class TutorCoordinator:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
         self.diagram_delivered = False
+        self.diagram_missing = []
 
     def forget_notes(self):
         """An explicit reset ends the old task, including its pending follow-up guidance."""
@@ -277,12 +417,23 @@ class TutorCoordinator:
         decision=None,
         page=None,
         board_page=None,
+        attachments=None,
+        student_image=None,
     ):
         """page: an async callable returning (image, caption[, ink]) or None, awaited by the
         thinker so the talker's bridge never waits for the camera. board_page returns PNG
-        bytes or None and is fetched only for board-focused thinker turns."""
+        bytes or None and is fetched only for board-focused thinker turns. attachments: the
+        images she sent with a typed message (``chat.store.LoadedAttachment``), for this turn.
+        student_image: an async callable returning her latest image with its Set-of-Mark
+        (``chat.student_image.StudentImage``) or None, for a turn about her image: the thinker
+        sees it numbered, and its marks go on it."""
         await self.cancel()
+        self.rung = self.ladder.take()
+        pending, self.pending_removal = self.pending_removal, None
+        self._confirmed = pending if pending and CONFIRM.match(text) else None
         self.context, self.text = context, text
+        self.attachments = list(attachments or [])
+        self._student_image, self.student_image = student_image, None
         self.decision = decision
         self.delivered = False
         self._page = page
@@ -297,20 +448,13 @@ class TutorCoordinator:
         )
         if changed or time.monotonic() > self.expires:
             self.notes.clear()
+        self._new_work(current)
         # Compare against the last brief's page, so small edits accumulate.
         if not self.notes:
             self.ink = current
         self._notes_context()
         # The thinker sees the last 6 exchanges; the notes carry what came before.
         self.messages = windowed(deepcopy(context.get_messages()), THINKER_WINDOW)
-        if decision is not None:
-            where = "board" if decision.refers_to == "board" else "paper"
-            rung = RUNGS.get((decision.action, where))
-            traced = any("[[dfa yours" in t for n in self.notes[-1:] for t in n.board)
-            if decision.action == "trace" and where == "paper" and traced:
-                rung = CONTRAST
-            if rung:
-                self.messages.append({"role": "system", "content": rung})
         if (
             decision.route == "thinker"
             if decision
@@ -318,6 +462,37 @@ class TutorCoordinator:
         ):
             self.trigger()
         self._notes_context()
+
+    def _new_work(self, ink):
+        """Her ink changed past the notes' threshold since the ladder began: a ladder turn
+        diagnoses her new work from step 0."""
+        if self.ladder.see(ink) and self.rung[0] is not None:
+            self.ladder.begin("paper")
+            self.ladder.see(ink)
+            self.rung = self.ladder.take()
+            self.log("ladder", step=0, reason="new work")
+
+    def _add_rung(self):
+        """This turn's rung for the thinker: the ladder's step, or the playbook's for the
+        director's action."""
+        decision = self.decision
+        step, attempt = self.rung
+        if step is not None:
+            note = LADDER[step]
+            if attempt:
+                note = ATTEMPT + note.removeprefix("[app note] ")
+            self.messages.append({"role": "system", "content": note})
+            self.log("ladder", step=step, attempt=attempt)
+            return
+        if decision is None:
+            return
+        where = "board" if decision.refers_to == "board" else "paper"
+        rung = RUNGS.get((decision.action, where))
+        traced = any("[[dfa yours" in t for n in self.notes[-1:] for t in n.board)
+        if decision.action == "trace" and where == "paper" and traced:
+            rung = CONTRAST
+        if rung:
+            self.messages.append({"role": "system", "content": rung})
 
     def trigger(self):
         if self.thinker is None or (self.decision and self.decision.route != "thinker"):
@@ -328,6 +503,12 @@ class TutorCoordinator:
     async def _run(self, generation):
         started = time.monotonic()
         try:
+            if self._confirmed is not None:
+                brief = self._confirmed_brief()
+                if brief is not None:
+                    self.notes = [*self.notes[-3:], brief]
+                    self.log("thinker_brief", brief=brief.model_dump())
+                    return brief
             if self._page is not None:
                 await self._attach_page()
                 if generation != self.generation:
@@ -340,8 +521,20 @@ class TutorCoordinator:
                 await self._attach_board_page()
                 if generation != self.generation:
                     return None
+            if self._student_image is not None:
+                await self._attach_image()
+                if generation != self.generation:
+                    return None
+            if self.attachments or self.student_image is not None:
+                self._attach_student_images()
+            self._add_rung()
             effort = None
-            if (
+            if self.rung[0] in (1, 2):
+                # The ladder's redraw, highlights and trace: an exact copy of her work and one
+                # step per sentence take a little thought (and DRAWN_BRIEF_TOKENS of room).
+                settings = getattr(self.thinker, "settings", None)
+                effort = getattr(settings, "thinker_draw_effort", "low")
+            elif (
                 self.decision
                 and self.decision.action == "draw_board"
                 and AUTOMATA.search(self.text)
@@ -350,12 +543,19 @@ class TutorCoordinator:
                 # diagrams are the Illustrator's, so the brief stays fast.
                 settings = getattr(self.thinker, "settings", None)
                 effort = getattr(settings, "thinker_draw_effort", "low")
+            elif self.decision and self.decision.action == "mark_image":
+                # Reading her image's arrows and lines at "none" got them wrong (live eval
+                # 20261018-133513: "no outgoing arrow from q2"); marks take a little thought.
+                settings = getattr(self.thinker, "settings", None)
+                effort = getattr(settings, "thinker_draw_effort", "low")
             brief = await self._brief(generation, self.messages, effort)
             if brief is None:
                 return None
             said = [n.say for n in self.notes[-3:]]
             tracing = any(STEP.match(t) for t in brief.board + brief.paper)
-            if not tracing and any(_similar(brief.say, old) for old in said):
+            # The ladder's step 0 asks the same question by design ("Can you spot it?").
+            asking = self.rung[0] == 0
+            if not tracing and not asking and any(_similar(brief.say, old) for old in said):
                 # Retest #8: the same sentence three times. Change words and tools instead.
                 self.log("reject", source="repeat", text=brief.say)
                 retry = await self._brief(
@@ -367,8 +567,9 @@ class TutorCoordinator:
                             "content": "[app note] You already said: "
                             + " | ".join(said)
                             + " The student still doesn't follow. Say something new and move "
-                            "up the playbook's ladder: mark her paper, or copy her machine to "
-                            "the board as yours and trace the counterexample step by step.",
+                            "up the playbook's ladder on the board: copy her machine there as "
+                            "yours and trace the counterexample step by step, or draw the "
+                            "correct one if you already did.",
                         },
                     ],
                     effort,
@@ -377,6 +578,13 @@ class TutorCoordinator:
                     return None
                 brief = retry
             decision = self.decision or rules(self.text)
+            needs_page = self._needs_page(brief, decision)
+            if needs_page:
+                # No page, no example drawing: she gets asked to show the problem instead.
+                self.log("needs_page", text=self.text)
+                brief = brief.model_copy(
+                    update={"draw": None, "board": [], "say": SEE_PAGE[self.lang()]}
+                )
             if brief.draw and ERASE.search(self.text):
                 # Erasing is [[clear ITEM]] or [[undo]], never a drawing: the eval's "erase the
                 # network" came back as the same diagram redrawn, with "The network is erased."
@@ -384,17 +592,19 @@ class TutorCoordinator:
                 brief = brief.model_copy(update={"draw": None})
             if (
                 decision.action == "draw_board"
-                and not brief.board
-                and not brief.draw
-                and not AUTOMATA.search(self.text)
-                and not ERASE.search(self.text)
+                and (ERASE.search(self.text) or ERASING.search(self.text))
+                and not RESTORE.search(self.text)
             ):
+                brief = self._honest_erase(brief, decision)
+            if decision.action == "draw_board" and RENAME.search(self.text):
+                brief = self._honest_rename(brief, decision)
+            if not needs_page and self._illustrator_takes_over(brief, decision):
                 # The brief said it would draw but carried nothing to draw (live test: "I'll add
                 # two PCs in each zone", then nothing): the Illustrator draws her request itself.
                 self.log("draw_fallback", text=self.text)
-                # Her words and the brief's own plan: "add the PCs back" alone told the
-                # Illustrator nothing about which PCs (2de450e6).
-                intent = f"{brief.say} (She asked: {self.text})" if brief.say else self.text
+                # The brief's own plan; her words and recent turns reach the Illustrator on
+                # every path ("add the PCs back" alone said nothing about which PCs, 2de450e6).
+                intent = brief.say or self.text
                 brief = brief.model_copy(update={"draw": intent})
             if brief.draw and (
                 decision.action == "draw_board"
@@ -403,6 +613,7 @@ class TutorCoordinator:
                 self.illustrator_task = asyncio.create_task(self._draw(brief.draw, generation))
             self.notes = [*self.notes[-3:], brief]
             self.expires = time.monotonic() + self.ttl_s
+            self.ladder.record(*self.rung, brief)
             self.log("thinker_brief", brief=brief.model_dump())
             self._notes_context()
             return brief
@@ -414,18 +625,114 @@ class TutorCoordinator:
         finally:
             self.log("thinker_duration", ms=(time.monotonic() - started) * 1000)
 
+    def _honest_erase(self, brief, decision):
+        """An erase turn takes off what she named and never what she keeps: a brief with no
+        surviving clear or undo gets one picked from her words, or, when they fit no single
+        item, the plain line that Ada couldn't tell, never a claim that it's gone (clear-one)."""
+        kept = kept_items(self.text, self.board)
+        board = []
+        for tag in brief.board:
+            if removes(tag) and clears_kept(tag, kept):
+                self.log("reject", source="erase", text=tag, reason="clears what she keeps")
+            else:
+                board.append(tag)
+        say = brief.say
+        picked = pick(self.text, self.board)
+        ours = [t for t in board if removes(t)]
+        if picked and ours and set(picked) != set(ours) and not narrower(ours, picked, self.board):
+            # Her words name exactly this: "the ten dot o dot o network" is that zone, never a
+            # [[clear]] of the board or of the whole diagram (c194768a).
+            self.log("erase_pick", tags=picked, replaced=ours)
+            board = [t for t in board if not removes(t)]
+        if not any(removes(t) for t in board):
+            checked = (
+                check_tags(board + picked, decision, self.board, student_text=self.text)
+                if picked
+                else None
+            )
+            if checked is None or checked.repair or any(t in checked.rejected for t in picked):
+                self.log("reject", source="erase", reason="no single item fits", text=self.text)
+                return brief.model_copy(
+                    update={"board": board, "say": COULD_NOT_ERASE[self.lang()]}
+                )
+            self.log("erase_pick", tags=picked)
+            board = [*board, *picked]
+            if not CLAIMS_REMOVAL.search(say):
+                say = ERASED[self.lang()]
+        removal = [t for t in board if removes(t)]
+        if share(removal, self.board) > 0.5:
+            # More than half the board: she says yes first (owner, 2026-10-18).
+            self.pending_removal = (removal, self.text)
+            self.log("erase_ask", tags=removal)
+            return brief.model_copy(
+                update={
+                    "board": [t for t in board if not removes(t)],
+                    "say": ask(removal, self.board, self.lang()),
+                }
+            )
+        return brief.model_copy(update={"board": board, "say": say})
+
+    def _honest_rename(self, brief, decision):
+        """ "Rename the sales zone to Sales floor" renames that zone in place: a brief with no
+        [[rename]] gets one picked from her words, and no Illustrator redraw."""
+        if any(RENAME_TAG.match(t) for t in brief.board):
+            return brief
+        picked = pick_rename(self.text, self.board)
+        if not picked:
+            return brief
+        checked = check_tags(brief.board + picked, decision, self.board, student_text=self.text)
+        if checked.repair or any(t in checked.rejected for t in picked):
+            return brief
+        self.log("rename_pick", tags=picked)
+        say = brief.say
+        if not CLAIMS_RENAME.search(say):
+            say = RENAMED[self.lang()].format(name=picked[0].rsplit('"', 2)[-2])
+        return brief.model_copy(update={"board": [*brief.board, *picked], "say": say, "draw": None})
+
+    def _confirmed_brief(self):
+        """Her yes to "Should I go ahead?": the removal she was asked about, checked against her
+        words when she asked for it, with no thinker call."""
+        (tags, asked), self._confirmed = self._confirmed, None
+        decision = self.decision or rules(asked)
+        checked = check_tags(tags, decision, self.board, student_text=asked)
+        if checked.repair or not checked.tags:
+            self.log("reject", source="erase", reason="confirmed removal no longer fits")
+            return None
+        self.log("erase_confirmed", tags=checked.tags)
+        return GuidanceBrief(
+            page="",
+            intent="Remove what she confirmed.",
+            diagnosis="",
+            plan=["Remove it."],
+            say=ERASED[self.lang()],
+            board=checked.tags,
+            paper=[],
+            confidence=1.0,
+            followups=[],
+        )
+
     async def _draw(self, intent, generation):
         started = time.monotonic()
+        self.diagram_missing = []
         try:
             if self.illustrator is None:
                 self.illustrator = Illustrator(self.thinker.settings, log=self.log)
                 chat = getattr(self.illustrator, "client", None)
                 if chat is not None and hasattr(chat, "on_usage"):
                     chat.on_usage = getattr(self.thinker, "on_usage", None)
-            result = await self.illustrator.draw(intent, deepcopy(self.board), self.lang())
+            # Her words and the last few turns on every path, next to the thinker's plan: the
+            # plan alone ("3 zones: …") dropped half of what she asked for.
+            result = await self.illustrator.draw(
+                intent,
+                deepcopy(self.board),
+                self.lang(),
+                request=self.text,
+                recent=recent_turns(self.messages),
+            )
             if result is None or generation != self.generation:
                 return None
-            item, spec = result
+            item, spec, *rest = result
+            self.diagram_missing = list(rest[0]) if rest else []
             if self.board.diagrams.get(item) == spec:
                 # The same diagram again changes nothing: not "Here it is." (2de450e6).
                 self.log("reject", source="illustrator", reason="unchanged")
@@ -437,6 +744,7 @@ class TutorCoordinator:
                 nodes=len(spec.nodes),
                 groups=len(spec.groups),
                 edges=len(spec.edges),
+                missing=self.diagram_missing,
             )
             return item
         except asyncio.CancelledError:
@@ -477,6 +785,7 @@ class TutorCoordinator:
             self.page_image, self.page_caption = image, caption
             ink = result[2] if len(result) > 2 and result[2] else image
             current = ink_signature(ink)
+            self._new_work(current)
             if (
                 current is not None
                 and self.ink is not None
@@ -500,6 +809,35 @@ class TutorCoordinator:
             ]
         else:
             user["content"] = [{"type": "text", "text": text}, {"type": "text", "text": NO_VIEW}]
+
+    def _attach_student_images(self):
+        """The images she sent with this turn's message, after her words and her page; her
+        latest image, on a turn about it, numbered with its legend in place of its pixels."""
+        from tassel.chat.turns import marked_image_blocks, with_images
+
+        user = next((m for m in reversed(self.messages) if m.get("role") == "user"), None)
+        if user is None:
+            return
+        image = self.student_image
+        raw = [a for a in self.attachments if image is None or a.id != image.id]
+        content = with_images(user["content"], raw)
+        if image is not None:
+            content = [*content, *marked_image_blocks(image)]
+        user["content"] = content
+
+    async def _attach_image(self):
+        """Her latest image, fetched with the thinker's turn: what its tags act on now."""
+        fetch, self._student_image = self._student_image, None
+        try:
+            image = await fetch()
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            self.log("reject", source="student_image", reason=type(error).__name__)
+            image = None
+        self.student_image = image
+        if image is not None:
+            self.board.image = image.stage()
 
     async def _attach_board_page(self):
         page, self._board_page = self._board_page, None
@@ -560,17 +898,161 @@ class TutorCoordinator:
         finally:
             self.log("pointer_duration", ms=(time.monotonic() - started) * 1000)
 
-    async def _brief(self, generation, messages, effort):
+    def _page_over_memory(self, brief):
+        """A value the learner memory holds, which this page's earlier reads contradict, never
+        stands in page or a mark target: the reads' own value replaces it, or, when they name
+        several, it goes. Her words, the legend and the reads make a value current; a page
+        with no read to disagree is left to the image. Live session 3d8b1d78: the memory's
+        10.0.0.0/24 became the page read and the Pointer's target over a paper that said
+        192.168.1.0/24."""
+        memory = facts(getattr(self.thinker, "learner_notes", "") or "")
+        if not memory:
+            return brief
+        reads = {f for note in self.notes for f in facts(note.page)}
+        current = reads | facts(self.page_caption) | facts(self.text)
+        written = facts(brief.page) | {f for m in brief.marks for f in facts(m.target)}
+        page, marks = brief.page, list(brief.marks)
+        for fact in sorted((memory - current) & written):
+            same = {f for f in reads if f != fact and fact_shape(f) == fact_shape(fact)}
+            if not same:
+                continue
+            replacement = next(iter(same)) if len(same) == 1 else None
+            self.log("memory_not_paper", fact=fact, page=replacement)
+            page = _replace_fact(page, fact, replacement)
+            marks = [
+                m.model_copy(update={"target": _replace_fact(m.target, fact, replacement)[:80]})
+                for m in marks
+            ]
+        marks = [m for m in marks if m.target]
+        return brief.model_copy(update={"page": page, "marks": marks})
+
+    async def _point_image(self, brief, decision, generation):
+        """Her image's marks in words, resolved by the Pointer on that image: on a mark_image
+        turn the brief's paper-style marks are the image's too."""
+        on_image = decision.action == "mark_image" or decision.refers_to == "image"
+        intents = brief.image_marks or (brief.marks if decision.action == "mark_image" else [])
+        if on_image and not intents and not brief.image and decision.action == "mark_image":
+            # She asked for a mark and the brief withheld it (live eval: a question instead of
+            # the circle): her own words are the mark, on the closest element.
+            intent = intent_from_words(self.text)
+            self.log("image_mark_fallback", verb=intent.verb, target=intent.target)
+            intents = [intent]
+        if not on_image or not intents:
+            return brief
+        started = time.monotonic()
+        try:
+            image = self.student_image
+            if image is None:
+                raise ValueError("No student image")
+            if self.pointer is None:
+                self.pointer = Pointer(self.thinker.settings, log=self.log)
+                self.pointer.client.on_usage = getattr(self.thinker, "on_usage", None)
+            view = image.view
+            resolved = await self.pointer.resolve(
+                intents,
+                view.marked_jpeg,
+                view.legend_text,
+                view.elements,
+                size=(view.width, view.height),
+            )
+            on_stage = self.board.image
+            if generation != self.generation or on_stage is None or on_stage.id != image.id:
+                return brief.model_copy(update={"image": []})
+            return brief.model_copy(update={"image": image_mark_tags(resolved)})
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            self.log("reject", source="pointer", reason=type(error).__name__)
+            return brief
+        finally:
+            self.log("pointer_duration", ms=(time.monotonic() - started) * 1000)
+
+    async def _think(self, messages, effort):
         brief = lift_say_tags(await self.thinker.think(messages, effort=effort))
+        return self._page_over_memory(brief)
+
+    async def _double_read(self, brief, messages, effort, generation):
+        """A low-confidence read of her handwriting is checked against a second read of the
+        marked page; when the two disagree on a value, the thinker looks again with both reads
+        before she hears an answer."""
+        if (
+            self.page_image is None
+            or brief.confidence >= PAGE_CHECK_CONFIDENCE
+            or not brief.page.strip()
+        ):
+            return brief
+        started = time.monotonic()
+        try:
+            if self.pointer is None:
+                self.pointer = Pointer(self.thinker.settings, log=self.log)
+                self.pointer.client.on_usage = getattr(self.thinker, "on_usage", None)
+            second = await self.pointer.read_page(self.page_image, self.page_caption)
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            self.log("reject", source="page_check", reason=f"{type(error).__name__}: {error}"[:300])
+            return brief
+        finally:
+            self.log("page_check_duration", ms=(time.monotonic() - started) * 1000)
         if generation != self.generation:
+            return None
+        disagree = read_disagreement(brief.page, second)
+        self.log(
+            "page_check",
+            confidence=brief.confidence,
+            first=brief.page,
+            second=second,
+            disagree=disagree,
+        )
+        if not disagree:
+            return brief
+        note = (
+            f"[app note] Your read of her page was unsure (confidence {brief.confidence:.2f}) "
+            f"and a second careful read disagrees on {', '.join(disagree)}. You read: "
+            f"{brief.page!r}. The second read: {second!r}. Look at her page image again, decide "
+            "what is actually written, and answer from that; if it is still unclear, say which "
+            "value you can't read and ask her."
+        )
+        resolved = await self._think([*messages, {"role": "system", "content": note}], effort)
+        if generation != self.generation:
+            return None
+        self.log("page_resolved", page=resolved.page, confidence=resolved.confidence)
+        return resolved
+
+    def _automaton_checklist(self, decision):
+        """What her words ask an automaton to have (states, accepting states, alphabet), on a
+        construction turn: never the ladder's copy of her own machine."""
+        if (
+            decision.action != "draw_board"
+            or self.rung[0] is not None
+            or not AUTOMATA.search(self.text)
+        ):
+            return None
+        wanted = automaton_checklist(self.text)
+        if wanted.empty:
+            return None
+        self.log("automaton_checklist", **wanted.model_dump(exclude_none=True))
+        return wanted
+
+    async def _brief(self, generation, messages, effort):
+        self._unfit = []
+        brief = await self._think(messages, effort)
+        if generation != self.generation:
+            return None
+        brief = await self._double_read(brief, messages, effort, generation)
+        if brief is None:
             return None
         decision = self.decision or rules(self.text)
         brief = await self._point(brief, decision, generation)
         if generation != self.generation:
             return None
+        brief = await self._point_image(brief, decision, generation)
+        if generation != self.generation:
+            return None
+        wanted_machine = self._automaton_checklist(decision)
         checked = await asyncio.to_thread(
-            partial(check_tags, student_text=self.text),
-            brief.board + brief.paper,
+            partial(check_tags, student_text=self.text, checklist=wanted_machine),
+            brief.board + brief.paper + brief.image,
             decision,
             self.board,
             brief.language,
@@ -579,7 +1061,7 @@ class TutorCoordinator:
             self.log("reject", source="action_checker", reason=checked.repair)
             original_language = brief.language
             try:
-                repaired = await self.thinker.think(
+                repaired = await self._think(
                     [
                         *messages,
                         {
@@ -590,36 +1072,124 @@ class TutorCoordinator:
                             "Previous brief: " + brief.model_dump_json(),
                         },
                     ],
-                    effort=effort,
+                    effort,
                 )
                 # A repair may not evade verification by removing/changing the target.
-                brief = lift_say_tags(repaired).model_copy(update={"language": original_language})
+                brief = repaired.model_copy(update={"language": original_language})
                 brief = await self._point(brief, decision, generation)
+                brief = await self._point_image(brief, decision, generation)
                 checked = await asyncio.to_thread(
-                    partial(check_tags, student_text=self.text),
-                    brief.board + brief.paper,
+                    partial(check_tags, student_text=self.text, checklist=wanted_machine),
+                    brief.board + brief.paper + brief.image,
                     decision,
                     self.board,
                     original_language,
                 )
-            except Exception:
+            except Exception as error:
+                self.log("reject", source="repair", reason=f"{type(error).__name__}: {error}"[:300])
                 checked.tags = []
             if generation != self.generation:
                 return None
+            if checked.repair and checked.repair.startswith(CHECKLIST_REPAIR):
+                # Still not what she asked for after the repair: Ada names what's missing.
+                self._unfit = [checked.repair.removeprefix(CHECKLIST_REPAIR).rstrip(".")]
+                self.log("reject", source="automaton_checklist", reason=checked.repair)
         for tag in checked.rejected:
-            self.log("reject", source="action_checker", text=tag)
+            self.log(
+                "reject",
+                source="action_checker",
+                text=tag,
+                reason=checked.reasons.get(tag) or checked.repair or "rejected",
+            )
+        wanted = brief.board + brief.paper
         brief = brief.model_copy(
             update={
                 "board": [t for t in brief.board if t in checked.tags],
                 "paper": [t for t in brief.paper if t in checked.tags],
+                "image": [t for t in brief.image if t in checked.tags],
             }
         )
-        return self.validate_tags(brief)
+        return self._honest_tags(wanted, self.validate_tags(brief))
+
+    def _honest_tags(self, wanted, brief):
+        """The say never narrates what the checks took out (owner's live session: every board
+        tag of a paper trace rejected, and Ada still walked through "one takes you to the
+        middle state" over an empty board). A trace with no surviving trace tag becomes the
+        plain line that it couldn't be shown, and its orphan steps go with it; a drawing or
+        mark that left nothing visible is said plainly after her words."""
+        asked, kept = _verbs(wanted), _verbs(brief.board + brief.paper)
+        lang = self.lang()
+        if asked & TRACE_VERBS and not kept & TRACE_VERBS:
+            self.log("reject", source="honest_tags", reason="trace lost", text=brief.say)
+            paper = [t for t in brief.paper if not STEP.match(t)]
+            return brief.model_copy(
+                update={
+                    "board": [t for t in brief.board if not STEP.match(t)],
+                    "paper": paper if any(not FREEZE.match(t) for t in paper) else [],
+                    "say": NOT_TRACED[lang],
+                }
+            )
+        if brief.board or brief.paper or brief.draw:
+            return brief
+        decision = self.decision or rules(self.text)
+        if asked & DRAWING_VERBS:
+            if (
+                self._illustrator_takes_over(brief, decision)
+                or ERASE.search(self.text)
+                or ERASING.search(self.text)
+            ):
+                # The Illustrator draws her request itself (result says so if it can't), and an
+                # erase turn's honesty is _honest_erase's.
+                return brief
+            self.log("reject", source="honest_tags", reason="drawing lost", text=brief.say)
+            unfit = getattr(self, "_unfit", None)
+            line = could_not_draw(unfit, lang) if unfit else NOT_DRAWN[lang]
+            return brief.model_copy(update={"say": f"{brief.say.rstrip()} {line}"})
+        if asked & MARK_VERBS:
+            self.log("reject", source="honest_tags", reason="mark lost", text=brief.say)
+            return brief.model_copy(update={"say": f"{brief.say.rstrip()} {NOT_MARKED[lang]}"})
+        return brief
+
+    def _needs_page(self, brief, decision) -> bool:
+        """A draw request about her page, with no page or image of hers in this turn."""
+        return bool(
+            decision.action == "draw_board"
+            and self.rung[0] is None
+            and FROM_PAGE.search(self.text)
+            and self.page_image is None
+            and self.student_image is None
+            and not self.attachments
+            and not (brief.page or "").strip()
+        )
+
+    def _illustrator_takes_over(self, brief, decision) -> bool:
+        """A draw turn whose brief carries nothing to draw goes to the Illustrator, unless it
+        is an automaton (the exact verifier's), an erase, or a ladder rung (her words there are
+        "no", nothing to draw: the rung's brief draws, or says plainly that it couldn't)."""
+        return bool(
+            decision.action == "draw_board"
+            and self.rung[0] is None
+            and not brief.board
+            and not brief.draw
+            and not AUTOMATA.search(self.text)
+            and not ERASE.search(self.text)
+            and not ERASING.search(self.text)
+        )
 
     def validate_tags(self, brief):
         context = deepcopy(self.board)
-        paper_only = bool(PAPER.search(self.text)) and not re.search(r"\bboard\b", self.text, re.I)
-        valid = {"board": [], "paper": []}
+        decision = self.decision or rules(self.text)
+        # Her paper never gets a board diagram in its place, except the playbook's trace and the
+        # ladder's steps 1 and 2: her machine is copied to the board as yours and traced there,
+        # beside her page (the stage manager opens the split view), even when her words name
+        # her paper.
+        paper_only = (
+            bool(PAPER.search(self.text))
+            and not re.search(r"\bboard\b", self.text, re.I)
+            and decision.action != "trace"
+            and self.rung[0] not in (1, 2)
+        )
+        valid = {"board": [], "paper": [], "image": []}
         for location in valid:
             for tag in getattr(brief, location):
                 candidate = deepcopy(context)
@@ -627,12 +1197,19 @@ class TutorCoordinator:
                 sentences = stream.feed(tag + " Validate.") + stream.flush()
                 actions = [a for sentence in sentences for _, a in sentence.anchors]
                 problems = [p for sentence in sentences for p in sentence.problems]
-                good = bool(re.fullmatch(r"\[\[[^\[\]]+\]\]", tag)) and bool(actions)
-                good = good and not problems
-                good = good and all(a.kind.startswith(location + ".") for a in actions)
-                if location == "board" and paper_only:
-                    good = False
-                if location == "paper":
+                # Why a tag goes, for the log: never only that it went.
+                reason = None
+                if not re.fullmatch(r"\[\[[^\[\]]+\]\]", tag):
+                    reason = "not one [[…]] tag"
+                elif not actions:
+                    reason = "no action parsed"
+                elif problems:
+                    reason = "; ".join(map(str, problems))[:200]
+                elif not all(a.kind.startswith(location + ".") for a in actions):
+                    reason = f"{'/'.join(a.kind for a in actions)} doesn't belong on {location}"
+                elif location == "board" and paper_only:
+                    reason = "her paper turn: no board drawing in its place"
+                if location == "paper" and reason is None:
                     ids = set(re.findall(r"\bm\d+\b", tag))
                     elements = context.paper_elements
                     known = (
@@ -640,15 +1217,34 @@ class TutorCoordinator:
                         if (elements and elements.detected)
                         else set()
                     )
-                    good = good and ids <= known and context.paper_frame is not None
-                if good:
+                    if context.paper_frame is None:
+                        reason = "no frozen page to mark"
+                    elif not ids <= known:
+                        reason = f"unknown marks {sorted(ids - known)}"
+                if location == "image" and reason is None:
+                    # Only markers on her image as the thinker saw it.
+                    image = context.image
+                    ids = set(re.findall(r"\bm\d+\b", tag))
+                    known = (
+                        {el.id for el in image.detected.items}
+                        if image is not None and image.detected is not None
+                        else set()
+                    )
+                    if image is None:
+                        reason = "no image of hers on stage"
+                    elif not ids <= known:
+                        reason = f"unknown image marks {sorted(ids - known)}"
+                if reason is None:
                     valid[location].append(tag)
                     context = candidate
                 else:
-                    self.log("reject", source="thinker_tag", text=tag)
+                    self.log("reject", source="thinker_tag", text=tag, reason=reason)
         # Freeze only with marks, and always pin the exact page used for the brief.
         marks = [t for t in valid["paper"] if not re.match(r"\[\[freeze\b", t)]
         valid["paper"] = ["[[freeze]]", *marks] if marks else []
+        # Her image is shown before it's marked: an image she just sent goes up with the marks.
+        image = [t for t in valid["image"] if not IMAGE_SHOW.match(t)]
+        valid["image"] = ["[[image show]]", *image] if any(map(IMAGE_MARK.match, image)) else image
 
         def drop_spoken_tag(match):
             self.log("reject", source="thinker_say_tag", text=match.group())
@@ -673,10 +1269,16 @@ class TutorCoordinator:
         if brief and self.illustrator_task and self.illustrator_task.done():
             tag = await self.diagram_result()
             if tag:
-                brief = brief.model_copy(update={"board": [tag, *brief.board]})
+                update = {"board": [tag, *brief.board]}
+                if self.diagram_missing:
+                    missing = could_not_fit(self.diagram_missing, self.lang())
+                    update["say"] = f"{brief.say.rstrip()} {missing}"
+                brief = brief.model_copy(update=update)
             else:
                 # Never leave "I'll draw it" standing when nothing was drawn.
                 brief = brief.model_copy(update={"say": f"{brief.say} {NOT_DRAWN[self.lang()]}"})
+        if brief:
+            brief = fill_silence(brief, self.lang())
         if brief and self.on_brief:
             await self.on_brief(brief, self.decision or rules(self.text))
         self._notes_context()
@@ -693,27 +1295,122 @@ class TutorCoordinator:
 
 
 STEP = re.compile(r"\[\[\s*p?step\b")
+IMAGE_TAG = re.compile(r"\[\[\s*image\b", re.I)
+IMAGE_SHOW = re.compile(r"\[\[\s*image\s+show\s*\]\]", re.I)
+IMAGE_MARK = re.compile(
+    r"\[\[\s*image\s+(?:circle|wash|number|strike|underline|check|callout)\b", re.I
+)
+FREEZE = re.compile(r"\[\[\s*freeze\b")
+# A tag's verb, to tell what kind of thing the brief meant to show.
+TAG_VERB = re.compile(r"\[\[\s*([A-Za-z]+)")
+TRACE_VERBS = {"trace", "ptrace"}
+DRAWING_VERBS = {"dfa", "nfa", "diagram", "add", "edge"}
+MARK_VERBS = {"circle", "wash", "number", "strike", "underline", "check", "callout"}
+
+
+def _verbs(tags) -> set[str]:
+    found = (TAG_VERB.match(t) for t in tags)
+    return {m.group(1).lower() for m in found if m}
+
+
 PAPER_VERB = re.compile(
     r"\[\[\s*(?:freeze|circle|wash|number|strike|underline|check|callout|ptrace|pstep|live)\b"
 )
 SAY_TAG = re.compile(r"\[\[[^\[\]]*\]\]")
-# Per-action guidance for the thinker: the playbook's rung, made explicit for this turn.
+# The whiteboard ladder's steps (voice/ladder.py), one note per turn: the same ladder for every
+# board topic, automata and diagrams alike. Board only: her paper gets marks only when she asks.
+LADDER = {
+    0: "[app note] Whiteboard ladder, step 0 (diagnose and ask): find her mistake yourself and "
+    "keep it in diagnosis and followups. In say, tell her only that there's an error in her work "
+    'and ask her to spot it, like "There\'s an error in your DFA. Can you spot it?" Name no '
+    "state, edge, value or input, and draw nothing: board, paper and draw stay empty. If her "
+    "work is right, say so in one short sentence instead.",
+    1: "[app note] Whiteboard ladder, step 1 (show hers): she couldn't spot it. Start say with "
+    '"Okay, let me help you out." Redraw HER work on the board exactly as she drew it, '
+    "mistake included: an automaton as [[dfa yours ...]] (or nfa) with her states, arrows and "
+    "accepting states; any other diagram (a network, a tree) through draw, with her own labels "
+    "and values. Then [[highlight yours EL]] the states or edges that matter, and walk ONE "
+    "input that breaks it through her copy: [[trace t yours INPUT student]], then one "
+    "[[step t]] per symbol, each with one short spoken sentence naming the state that symbol "
+    "reaches. For a diagram, put a short [[note]] on the wrong part and walk through it in "
+    "short sentences instead of a trace. End with one question asking her to fix it. Nothing "
+    "on her paper, and not the correct version yet.",
+    2: "[app note] Whiteboard ladder, step 2 (show the correct one): she is still stuck after "
+    "seeing her own work. Draw the correct machine on the board as fix (or the correct diagram "
+    "through draw), [[highlight fix EL]] what changed, and walk an input it now handles "
+    "correctly through it: [[trace t fix INPUT]], then one [[step t]] per symbol, each with one "
+    "short spoken sentence. Pick a different input from the one you walked before, and new "
+    "words: she has heard that walk, so never repeat one of its sentences. Say in one line what "
+    "changed, then end with a question asking her to fix her own work to match. Nothing on her "
+    "paper.",
+}
+# She answered the ladder's question with a try of her own ("is it q3?").
+ATTEMPT = (
+    "[app note] She answered your question with an attempt. If it is right, confirm it in a few "
+    "words and ask her to fix it; draw nothing. If it is wrong or partial, do this instead: "
+)
+# Per-action guidance for the thinker on a turn off the ladder: what she asked for, explicitly.
 RUNGS = {
-    ("trace", "paper"): "[app note] Playbook rung c (show): copy her machine exactly as drawn to "
-    "the board as yours, then [[trace t yours INPUT student]] on the counterexample, with one "
+    ("trace", "paper"): "[app note] Ladder step 1 (show hers): copy her machine exactly as drawn "
+    "to the board as yours, then [[trace t yours INPUT student]] on the counterexample, with one "
     "[[step t]] per sentence after the first.",
     ("trace", "board"): "[app note] Trace on the board: [[trace t MACHINE INPUT]] on the machine "
     "already there, with one [[step t]] per sentence after the first.",
-    ("mark_paper", "paper"): "[app note] Playbook rung b (point): freeze, then circle or callout "
-    "the exact state or edge on her paper, with a few words.",
+    ("mark_paper", "paper"): "[app note] She asked for marks on her paper: freeze, then circle or "
+    "callout the exact state or edge on her paper, with a few words.",
+    ("mark_image", "paper"): "[app note] Mark her image (the one captioned [image]), not her "
+    "paper or the board: image_marks with each target in words; the Pointer finds its numbered "
+    "candidate and the app shows the image. She asked for this mark: never withhold it. Mark "
+    "what she named, or the closest element to it, then teach in say (a hint or a question "
+    "about what the mark shows). No [image] attached: leave image_marks empty and say you "
+    "can't see it.",
 }
 
-# Rung d: she watched her machine traced and is still lost. Show the fix beside it.
+# She watched her machine traced and is still lost: the correct one, beside it.
 CONTRAST = (
-    "[app note] Playbook rung d (contrast): you already traced her machine; do not trace it "
-    "again. Draw the minimal fix on the board as fix, then [[trace t fix INPUT]] the target "
-    "string on it, one [[step t]] per sentence, and say in one line what changed."
+    "[app note] Ladder step 2 (show the correct one): you already traced her machine; do not "
+    "trace it again. Draw the minimal fix on the board as fix, then [[trace t fix INPUT]] the "
+    "target string on it, one [[step t]] per sentence, and say in one line what changed."
 )
+
+
+# Her mark verbs, in words: the first one she uses is the mark (highlight and mark circle).
+_MARK_WORDS = (
+    (re.compile(r"\b(?:cross(?:\s+(?:it|that|this|them))?\s+out|strike|cross)\b", re.I), "strike"),
+    (re.compile(r"\bunderline\b", re.I), "underline"),
+    (re.compile(r"\b(?:tick|check\s*mark|check)\b", re.I), "check"),
+    (re.compile(r"\bwash\b", re.I), "wash"),
+    (re.compile(r"\b(?:circle|highlight|mark|point (?:at|to)|show)\b", re.I), "circle"),
+)
+# What she said around her target: the request's lead-in and where it is ("in my screenshot").
+_LEAD_IN = re.compile(
+    r"^\W*(?:(?:now|ok(?:ay)?|so|and|then|please|can you|could you|would you|will you)\b[\s,]*)*",
+    re.I,
+)
+_WHERE = re.compile(
+    r"\s*\b(?:on|in|from|of)\s+(?:my|the|this|that)\s+(?:screen\s?shot|image|picture|photo|pic|"
+    r"attachment)s?\b",
+    re.I,
+)
+
+
+def intent_from_words(text: str) -> MarkIntent:
+    """Her request as a mark in words for the Pointer: her verb, and what she named."""
+    found = [
+        (m.start(), m.end(), verb)
+        for pattern, verb in _MARK_WORDS
+        for m in [pattern.search(text)]
+        if m
+    ]
+    verb = "circle"
+    target = text
+    if found:
+        start, end, verb = min(found)
+        target = text[end:]
+    target = _WHERE.sub("", target)
+    target = re.sub(r"\b(?:please|for me)\b", "", target, flags=re.I)
+    target = " ".join(_LEAD_IN.sub("", target).split()).strip(" .,!?")
+    return MarkIntent(verb=verb, target=(target or text.strip() or "it")[:80])
 
 
 def lift_say_tags(brief):
@@ -722,26 +1419,135 @@ def lift_say_tags(brief):
     tags = SAY_TAG.findall(brief.say)
     if not tags:
         return brief
+    image = [t for t in tags if IMAGE_TAG.match(t)]
     paper = [t for t in tags if PAPER_VERB.match(t)]
-    board = [t for t in tags if not PAPER_VERB.match(t)]
+    board = [t for t in tags if not PAPER_VERB.match(t) and not IMAGE_TAG.match(t)]
     say = " ".join(SAY_TAG.sub(" ", brief.say).split())
     return brief.model_copy(
-        update={"board": brief.board + board, "paper": brief.paper + paper, "say": say}
+        update={
+            "board": brief.board + board,
+            "paper": brief.paper + paper,
+            "image": brief.image + image,
+            "say": say,
+        }
     )
 
 
-def compose(brief) -> str:
-    """Tags lead, except trace steps: one lands before each sentence after the first, so a
-    trace advances as Ada speaks it."""
-    tags = brief.board + brief.paper
-    steps = [t for t in tags if STEP.match(t)]
-    text = "".join(t for t in tags if not STEP.match(t))
-    for i, sentence in enumerate(re.split(r"(?<=[.!?])\s+", brief.say.strip())):
-        if i and steps:
-            text += steps.pop(0)
-        text += sentence + " "
-    return text.rstrip() + "".join(steps)
+# Pacing: where a tag lands in what Ada says. A trace and its input, a highlight and its state.
+TRACE_TAG = re.compile(r"\[\[\s*(?:trace\s+\S+\s+\S+|ptrace)\s+([^\s\]]+)")
+POINT_TAG = re.compile(r"\[\[\s*(?:highlight|unhighlight|pulse)\s+\S+\s+([^\s\]]+)\s*\]\]")
+VERDICT_TAG = re.compile(r"\[\[\s*verdict\b")
+# The sentence that starts a walk: "Let's run zero one zero", "Watch this", "따라가 봐요".
+WALK = re.compile(
+    r"\b(?:run|runs|running|trace|tracing|walk|follow|feed|try|watch|step through|"
+    r"start(?:s|ing)? (?:at|from|in)|recorr\w*|sig\w+|prueb\w*)\b|따라|넣어|추적|실행",
+    re.I,
+)
+# Digits as Ada says them (en, es, ko), and the letters of state names.
+DIGIT_WORDS = {
+    "0": ("zero", "cero", "영", "공"),
+    "1": ("one", "uno", "일"),
+    "2": ("two", "dos", "이"),
+    "3": ("three", "tres", "삼"),
+    "4": ("four", "cuatro", "사"),
+    "5": ("five", "cinco", "오"),
+    "6": ("six", "seis", "육"),
+    "7": ("seven", "siete", "칠"),
+    "8": ("eight", "ocho", "팔"),
+    "9": ("nine", "nueve", "구"),
+}
+DIGIT_OF = {word: digit for digit, words in DIGIT_WORDS.items() for word in words}
+LETTER_SOUNDS = {"q": ("q", "큐", "cu")}
 
+
+def _says_state(sentence: str, state: str) -> bool:
+    """Whether the sentence names a state: "q3", "q 3", "q three", "큐 삼"."""
+    found = re.fullmatch(r"([A-Za-z]+)(\d+)", state)
+    if found is None:
+        return bool(re.search(rf"(?<!\w){re.escape(state)}(?![0-9A-Za-z])", sentence, re.I))
+    letters, number = found.groups()
+    numbers = (number, *DIGIT_WORDS.get(number, ()))
+    return any(
+        re.search(rf"(?<!\w){re.escape(sound)}\s*{re.escape(n)}(?![0-9A-Za-z])", sentence, re.I)
+        for sound in LETTER_SOUNDS.get(letters.lower(), (letters,))
+        for n in numbers
+    )
+
+
+def _says_input(sentence: str, word: str) -> bool:
+    """Whether the sentence names the input: "010", "0 1 0", "zero one zero"."""
+    if len(word) < 2:
+        return False
+    digits = "".join(
+        token if token.isdigit() else DIGIT_OF.get(token, "|")
+        for token in re.findall(r"\w+", sentence.lower())
+    )
+    return word in digits
+
+
+def _walk_start(sentences: list[str], trace: str, steps: int) -> int:
+    """The sentence the trace starts on: the first that names its input or starts a walk, else
+    the one that leaves a sentence for each step before a closing question."""
+    found = TRACE_TAG.match(trace)
+    word = found.group(1) if found else ""
+    for i, sentence in enumerate(sentences):
+        if _says_input(sentence, word) or WALK.search(sentence):
+            return i
+    last = len(sentences) - 1
+    if len(sentences) > steps + 1 and sentences[-1].rstrip().endswith("?"):
+        last -= 1
+    return max(0, last - steps)
+
+
+def compose(brief) -> str:
+    """Tags land where Ada narrates them. Drawings lead; a [[trace]] lands before the sentence
+    that starts the walk (it names the input, or says run, trace, walk…), then one [[step]]
+    before each sentence after it, so the trace advances as she speaks; a highlight lands before
+    the first sentence that names its state, or with the walk; a verdict comes with the last
+    step. Steps beyond the last sentence follow it."""
+    tags = brief.board + brief.paper + list(getattr(brief, "image", []))
+    sentences = [s for s in re.split(r"(?<=[.!?])\s+", brief.say.strip()) if s] or [""]
+    trace = next((t for t in tags if TRACE_TAG.match(t)), None)
+    steps = [t for t in tags if STEP.match(t)]
+    if trace:
+        # One step per symbol: extra steps would run the board's trace past its input.
+        steps = steps[: len(TRACE_TAG.match(trace).group(1))]
+    points = [t for t in tags if POINT_TAG.match(t)]
+    verdicts = [t for t in tags if trace and VERDICT_TAG.match(t)]
+    extra = {id(t) for t in tags if STEP.match(t)}
+    moved = extra | {id(t) for t in [*points, *verdicts]} | ({id(trace)} if trace else set())
+    lead = [t for t in tags if id(t) not in moved]
+    walk = _walk_start(sentences, trace, len(steps)) if trace else 0
+    marks = [[] for _ in sentences]
+    moves = [[] for _ in sentences]
+    after = []
+    if trace:
+        moves[walk].append(trace)
+    last = moves[walk]
+    for k, step in enumerate(steps):
+        i = walk + 1 + k
+        last = moves[i] if i < len(sentences) else after
+        last.append(step)
+    last.extend(verdicts)
+    for point in points:
+        states = POINT_TAG.match(point).group(1).split(">")
+        named = [i for i, s in enumerate(sentences) if all(_says_state(s, st) for st in states)]
+        named = named or [
+            i for i, s in enumerate(sentences) if any(_says_state(s, st) for st in states)
+        ]
+        marks[named[0] if named else walk].append(point)
+    text = "".join(lead)
+    for i, sentence in enumerate(sentences):
+        text += "".join(marks[i]) + "".join(moves[i]) + sentence + " "
+    return text.rstrip() + "".join(after)
+
+
+# Said in place of a drawing "from problem two" when her page isn't in sight.
+SEE_PAGE = {
+    "en": "I can't see that problem yet. Could you show me the page, and I'll draw it from there?",
+    "es": "Todavía no veo ese problema. ¿Me muestras la hoja y lo dibujo a partir de ahí?",
+    "ko": "아직 그 문제가 보이지 않아요. 페이지를 보여 주시면 거기서부터 그릴게요.",
+}
 
 # Said when a promised drawing didn't reach the board.
 NOT_DRAWN = {
@@ -749,6 +1555,88 @@ NOT_DRAWN = {
     "es": "No pude poner ese dibujo en la pizarra. ¿Puedes decirlo de otra forma?",
     "ko": "그 그림을 칠판에 그리지 못했어요. 다른 말로 다시 말해 주시겠어요?",
 }
+
+# A drawing that arrives complete; one that still misses part of her request names what.
+HERE_IT_IS = {"en": "Here it is.", "es": "Aquí está.", "ko": "여기 있어요."}
+COULD_NOT_FIT = {
+    "en": "I drew what I could, but I couldn't fit: {items}.",
+    "es": "Dibujé lo que pude, pero no logré incluir: {items}.",
+    "ko": "그릴 수 있는 만큼 그렸지만, 이건 넣지 못했어요: {items}.",
+}
+
+
+def could_not_fit(missing: list[str], lang: str) -> str:
+    items = "; ".join(m.rstrip(". ") for m in missing[:4])
+    return COULD_NOT_FIT[lang].format(items=items)
+
+
+COULD_NOT_DRAW = {
+    "en": "I couldn't draw it the way you asked: {items}.",
+    "es": "No pude dibujarlo como pediste: {items}.",
+    "ko": "말한 대로 그리지 못했어요: {items}.",
+}
+
+
+def could_not_draw(missing: list[str], lang: str) -> str:
+    return COULD_NOT_DRAW[lang].format(items="; ".join(m.rstrip(". ") for m in missing[:4]))
+
+
+def arrived(missing: list[str], lang: str) -> str:
+    return could_not_fit(missing, lang) if missing else HERE_IT_IS[lang]
+
+
+# Said in place of a trace narration when no trace reached the board or her paper.
+NOT_TRACED = {
+    "en": "I couldn't get that trace up for you to see. Could you ask me to trace it again?",
+    "es": "No pude mostrarte ese recorrido. ¿Me pides de nuevo que lo recorra?",
+    "ko": "그 추적 과정을 보여 드리지 못했어요. 다시 추적해 달라고 말해 주시겠어요?",
+}
+
+# Said after her words when a promised mark didn't reach her paper.
+NOT_MARKED = {
+    "en": "I couldn't put that mark on your paper.",
+    "es": "No pude poner esa marca en tu hoja.",
+    "ko": "그 표시를 종이에 하지 못했어요.",
+}
+
+# Said when the thinker's reply failed or didn't come in time.
+NOT_FINISHED = {
+    "en": "I couldn't finish checking that. Could you ask me again?",
+    "es": "No pude terminar de revisarlo. ¿Puedes preguntarme otra vez?",
+    "ko": "확인을 끝내지 못했어요. 다시 물어봐 주시겠어요?",
+}
+# Said for a reply that drew or marked something but had no words of its own.
+LOOK = {
+    "paper": {"en": "Take a look at your paper.", "es": "Mira tu hoja.", "ko": "종이를 보세요."},
+    "board": {"en": "Take a look at the board.", "es": "Mira la pizarra.", "ko": "칠판을 보세요."},
+    "image": {
+        "en": "Take a look at your image.",
+        "es": "Mira tu imagen.",
+        "ko": "이미지를 보세요.",
+    },
+}
+
+
+def spoken_words(text: str) -> str:
+    """What of `text` is speech: everything but its [[tags]]."""
+    return " ".join(SAY_TAG.sub(" ", text).split())
+
+
+def fill_silence(brief, lang):
+    """A reply always has words (paper-marks turn 3): tags alone mean no audio, and the TTS holds
+    the response's end until its audio ends, so the turn would never end."""
+    if spoken_words(brief.say):
+        return brief
+    if brief.paper:
+        say = LOOK["paper"][lang]
+    elif getattr(brief, "image", None):
+        say = LOOK["image"][lang]
+    elif brief.board:
+        say = LOOK["board"][lang]
+    else:
+        say = NOT_FINISHED[lang]
+    return brief.model_copy(update={"say": say})
+
 
 # Longest bracketed aside held back from speech before it's treated as ordinary text.
 META_MAX = 80
@@ -761,17 +1649,33 @@ class ThinkerOutput(FrameProcessor):
         super().__init__()
         self.coordinator = coordinator
         self.buffer = ""
+        self._reset()
+
+    def _reset(self):
+        # This response so far: did it say any words, and where did it draw?
+        self.heard = False
+        self.marked = None
+
+    async def _say(self, text):
+        if spoken_words(text):
+            self.heard = True
+        tags = SAY_TAG.findall(text)
+        if tags:
+            paper = any(PAPER_VERB.match(t) for t in tags) or self.marked == "paper"
+            image = any(IMAGE_TAG.match(t) for t in tags) or self.marked == "image"
+            self.marked = "paper" if paper else "image" if image else "board"
+        await self.push_frame(LLMTextFrame(text))
 
     async def _text(self, text, final=False):
         self.buffer += text
         while self.buffer:
             opening = self.buffer.find("[")
             if opening < 0:
-                await self.push_frame(LLMTextFrame(self.buffer))
+                await self._say(self.buffer)
                 self.buffer = ""
                 break
             if opening:
-                await self.push_frame(LLMTextFrame(self.buffer[:opening]))
+                await self._say(self.buffer[:opening])
                 self.buffer = self.buffer[opening:]
             if not self.buffer.startswith("[["):
                 if len(self.buffer) == 1 and not final:
@@ -786,7 +1690,7 @@ class ThinkerOutput(FrameProcessor):
                     self.coordinator.log("reject", source="meta_text", text=aside)
                     self.buffer = self.buffer[close + 1 :].lstrip()
                 else:
-                    await self.push_frame(LLMTextFrame(self.buffer[:1]))
+                    await self._say(self.buffer[:1])
                     self.buffer = self.buffer[1:]
                 continue
             end = self.buffer.find("]]")
@@ -827,11 +1731,9 @@ class ThinkerOutput(FrameProcessor):
                             else [],
                         )
                         await self.coordinator.on_brief(drawing, decision)
-                        await self.push_frame(
-                            LLMTextFrame(compose(drawing) + (" " if drawing.say.strip() else ""))
-                        )
+                        await self._say(compose(drawing) + (" " if drawing.say.strip() else ""))
                         continue
-                await self.push_frame(LLMTextFrame(tag))
+                await self._say(tag)
 
     async def process_frame(self, frame, direction):
         await super().process_frame(frame, direction)
@@ -841,6 +1743,7 @@ class ThinkerOutput(FrameProcessor):
                 await self.coordinator.cancel()
             elif isinstance(frame, LLMFullResponseStartFrame):
                 self.buffer = ""
+                self._reset()
             elif isinstance(frame, LLMTextFrame):
                 await self._text(frame.text)
                 return
@@ -849,16 +1752,25 @@ class ThinkerOutput(FrameProcessor):
                 await self.push_frame(FlushSpeechFrame())
                 generation = self.coordinator.generation
                 pending = self.coordinator.task is not None and not self.coordinator.delivered
-                brief = await self.coordinator.result()
+                timed_out = False
+                try:
+                    async with asyncio.timeout(self.coordinator.reply_timeout_s):
+                        brief = await self.coordinator.result()
+                except TimeoutError:
+                    # A thinker that never answers never silences her: the honest line, now.
+                    self.coordinator.log("reject", source="thinker", reason="reply timeout")
+                    await self.coordinator.cancel()
+                    brief, timed_out = None, True
                 if brief:
-                    await self.push_frame(LLMTextFrame(compose(brief)))
+                    await self._say(compose(brief))
                     if self.coordinator.illustrator_task and not self.coordinator.diagram_delivered:
                         await self.push_frame(FlushSpeechFrame())
                         tag = await self.coordinator.diagram_result()
                         if tag:
-                            words = {"en": "Here it is.", "es": "Aquí está.", "ko": "여기 있어요."}[
-                                self.coordinator.lang()
-                            ]
+                            # Never "Here it is." over a partial drawing: what's missing, named.
+                            words = arrived(
+                                self.coordinator.diagram_missing, self.coordinator.lang()
+                            )
                             late = brief.model_copy(
                                 update={"board": [tag], "paper": [], "draw": None, "say": words}
                             )
@@ -866,17 +1778,16 @@ class ThinkerOutput(FrameProcessor):
                                 await self.coordinator.on_brief(
                                     late, self.coordinator.decision or rules(self.coordinator.text)
                                 )
-                            await self.push_frame(LLMTextFrame(compose(late)))
+                            await self._say(compose(late))
                         else:
                             # Never leave "I'll draw it" standing when nothing was drawn.
-                            await self.push_frame(LLMTextFrame(NOT_DRAWN[self.coordinator.lang()]))
-                elif pending and generation == self.coordinator.generation:
-                    failure = {
-                        "en": "I couldn't finish checking that. Could you ask me again?",
-                        "es": "No pude terminar de revisarlo. ¿Puedes preguntarme otra vez?",
-                        "ko": "확인을 끝내지 못했어요. 다시 물어봐 주시겠어요?",
-                    }[self.coordinator.lang()]
-                    await self.push_frame(LLMTextFrame(failure))
+                            await self._say(NOT_DRAWN[self.coordinator.lang()])
+                elif timed_out or (pending and generation == self.coordinator.generation):
+                    await self._say(NOT_FINISHED[self.coordinator.lang()])
+                if self.marked and not self.heard:
+                    # Tags alone are no audio, and the TTS holds this end until audio ends: the
+                    # turn would never end (paper-marks turn 3, 90 s of silence).
+                    await self._say(LOOK[self.marked][self.coordinator.lang()])
         await self.push_frame(frame, direction)
 
     async def cleanup(self):

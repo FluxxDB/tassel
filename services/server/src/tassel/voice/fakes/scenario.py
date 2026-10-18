@@ -28,6 +28,9 @@ class ScriptBrief(BaseModel):
     say: str
     board: list[str] = Field(default_factory=list)
     paper: list[str] = Field(default_factory=list)
+    # Her image: marks in words for the Pointer, and raw [[image …]] tags.
+    image_marks: list[dict[str, object]] = Field(default_factory=list)
+    image: list[str] = Field(default_factory=list)
     language: dict[str, object] | None = None
 
 

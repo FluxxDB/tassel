@@ -745,6 +745,32 @@ class StageAction(Wire):
     view: Literal["paper", "board", "split"]
 
 
+# The student's image (an attachment she sent in the chat), shown in the paper panel's slot
+
+
+class ImageShow(Wire):
+    """Shows that image on the stage, in the paper panel, with Back to paper to return."""
+
+    kind: Literal["image.show"]
+    attachment_id: DocId
+
+
+class ImageMarkAction(Wire):
+    """A paper mark on the image: `el` names a detected id from the image's Set-of-Mark
+    (`mN`), `at` and `box` are normalized to the image."""
+
+    kind: Literal["image.mark"]
+    attachment_id: DocId
+    mark: PaperMark
+
+
+class ImageClear(Wire):
+    """Clears Ada's marks on that image."""
+
+    kind: Literal["image.clear"]
+    attachment_id: DocId
+
+
 BeatAction = Annotated[
     BoardAutomaton
     | BoardDiagram
@@ -766,7 +792,10 @@ BeatAction = Annotated[
     | PaperTraceStep
     | PaperClear
     | PaperLive
-    | StageAction,
+    | StageAction
+    | ImageShow
+    | ImageMarkAction
+    | ImageClear,
     Field(discriminator="kind"),
 ]
 

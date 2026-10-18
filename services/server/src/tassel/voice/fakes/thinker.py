@@ -37,6 +37,8 @@ class FakeThinker:
                     say=brief.say,
                     board=brief.board,
                     paper=brief.paper,
+                    image_marks=[{"text": None, "n": None, **m} for m in brief.image_marks],
+                    image=brief.image,
                     confidence=1.0,
                     followups=[],
                     language=brief.language,

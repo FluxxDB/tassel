@@ -6,13 +6,16 @@ import uuid
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
+import cv2
 import pytest
+from image_marks_fixtures import FIXTURES, box_of, dfa_page, touching_label
 from pipecat.processors.aggregators.llm_context import LLMContext
 from test_retest8_fixes import decision
 from test_two_tier import brief
 
 from tassel.beats.markup import BoardContext, parse_command
 from tassel.beats.models import BEAT_ACTION
+from tassel.vision.image_marks import image_view
 from tassel.vision.page import encode_jpeg
 from tassel.vision.synth import IP, scene
 from tassel.vision.turn_image import _page_view, legend
@@ -90,9 +93,19 @@ async def test_the_ip_she_wrote_resolves_to_its_marker(page):
     assert (freeze, tag) == ("[[freeze]]", f"[[underline {page.ip.id}]]")
     ctx = board(page)
     action = parse_command(tag[2:-2], ctx)
-    assert action.mark.target.el == page.ip.id
     [item] = [e for e in ctx.paper_elements.detected.items if e.id == page.ip.id]
     assert iou((item.box.x, item.box.y, item.box.w, item.box.h), page.truth) >= 0.5
+    # The underline goes under the IP's own ink, not under its marker's padded box.
+    assert_under_the_ip(action.mark.target.box.model_dump(), page)
+
+
+def assert_under_the_ip(got, page):
+    x, y, w, h = page.truth
+    W, H = page.view.width, page.view.height
+    assert got["x"] * W == pytest.approx(x, abs=0.02 * w)
+    assert got["w"] * W == pytest.approx(w, abs=0.04 * w)
+    assert got["y"] * H == pytest.approx(y, abs=0.1 * h)
+    assert y + h - 2 <= (got["y"] + got["h"]) * H <= y + 1.3 * h
 
 
 @pytest.mark.asyncio
@@ -119,8 +132,7 @@ async def test_a_box_when_no_marker_fits(page, answer):
     [_, tag] = mark_tags(resolved)
     assert tag == f"[[underline {where}]]"
     mark = BEAT_ACTION.dump_python(parse_command(tag[2:-2], board(page)), mode="json")["mark"]
-    got = mark["target"]["box"]
-    assert got == pytest.approx(box, abs=0.001)
+    assert_under_the_ip(mark["target"]["box"], page)
     assert any(e == "pointer_brief" and d.get("box") == where for e, d in logs)
 
 
@@ -255,3 +267,202 @@ async def test_a_box_a_marker_mostly_matches_snaps_to_that_marker(page):
         [UNDERLINE_IP], b"jpeg", "", page.view.elements, size=size
     )
     assert where.startswith("box=")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("name", FIXTURES)
+@pytest.mark.parametrize("scale", [1, 2])
+async def test_student_image_intents_snap_to_original_image_pixels(name, scale):
+    scene = FIXTURES[name]()
+    if scale != 1:
+        from dataclasses import replace
+
+        scene.rgb = cv2.resize(scene.rgb, None, fx=scale, fy=scale)
+        scene.truth = [replace(t, box=tuple(v * scale for v in t.box)) for t in scene.truth]
+    view = image_view(scene.png())
+    targets = [next(t for t in scene.truth if t.name == name) for name in ("line 2", "diagram")]
+    expected = [next(e for e in view.elements if iou(box_of(e), t.box) >= 0.5) for t in targets]
+    # The fake model returns independently rendered truth boxes, not detector boxes. This
+    # exercises the real Pointer's normalized-to-pixel snapping, including a resized JPEG.
+    answers = []
+    for i, t in enumerate(targets):
+        x, y, w, h = t.box
+        answers.append(
+            {
+                "i": i,
+                "id": None,
+                "box": {
+                    "x": x / view.width,
+                    "y": y / view.height,
+                    "w": w / view.width,
+                    "h": h / view.height,
+                },
+            }
+        )
+    pointer = Pointer(VoiceSettings(), client=Client(answers))
+    try:
+        resolved = await pointer.resolve(
+            [
+                thinker.MarkIntent(verb="underline", target="the second line"),
+                thinker.MarkIntent(verb="circle", target="the diagram"),
+            ],
+            view.marked_jpeg,
+            view.legend_text,
+            view.elements,
+            size=(view.width, view.height),
+        )
+        assert resolved == [
+            ("underline", expected[0].id, None, None),
+            ("circle", expected[1].id, None, None),
+        ]
+    finally:
+        await pointer.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("use_ids", [True, False])
+async def test_dfa_image_arrows_labels_and_states_resolve_to_their_own_markers(use_ids):
+    scene = dfa_page()
+    view = image_view(scene.png())
+    cases = [
+        ("the arrow out of q2", "q2->q3"),
+        ("the 1 on the arrow from q1", "label 1"),
+        # This eval deliberately draws q3 without a double ring. The fake client
+        # chooses q3: this checks circle compatibility, not semantic acceptance.
+        ("the accepting state", "q3"),
+    ]
+    answers, expected = [], []
+    for i, (_, name) in enumerate(cases):
+        truth = next(t for t in scene.truth if t.name == name)
+        candidates = [e for e in view.elements if iou(box_of(e), truth.box) >= 0.5]
+        assert len(candidates) == 1, name
+        [element] = candidates
+        expected.append(("underline", element.id, None, None))
+        x, y, w, h = truth.box
+        answers.append(
+            {
+                "i": i,
+                "id": element.id if use_ids else None,
+                "box": None
+                if use_ids
+                else {
+                    "x": x / view.width,
+                    "y": y / view.height,
+                    "w": w / view.width,
+                    "h": h / view.height,
+                },
+            }
+        )
+    q2, q3 = (next(e for e in view.elements if e.id == name) for name in ("m4", "m5"))
+    edge = next(e for e in view.elements if e.id == expected[0][1])
+    assert q2.box.x + q2.box.w <= edge.box.x < edge.box.x + edge.box.w <= q3.box.x
+    pointer = Pointer(VoiceSettings(), client=Client(answers))
+    try:
+        assert (
+            await pointer.resolve(
+                [thinker.MarkIntent(verb="underline", target=target) for target, _ in cases],
+                view.marked_jpeg,
+                view.legend_text,
+                view.elements,
+                size=(view.width, view.height),
+            )
+            == expected
+        )
+    finally:
+        await pointer.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("answer_id", ["m5", None])
+@pytest.mark.parametrize("target", ["the arrow out of q2", "the 1 on the arrow from q1"])
+async def test_missing_diagram_target_uses_box_even_if_it_overlaps_an_unrelated_circle(
+    answer_id,
+    target,
+):
+    view = image_view(dfa_page().png())
+    # Simulate the original five-marker detector and a coarse fallback box with
+    # enough overlap to snap to q3. Neither a selected ID nor a snap may take q3.
+    elements = [e for e in view.elements if e.id in {"m1", "m2", "m3", "m4", "m5"}]
+    box = {"x": 0.72, "y": 0.52, "w": 0.12, "h": 0.14}
+    pointer = Pointer(VoiceSettings(), client=Client([{"i": 0, "id": answer_id, "box": box}]))
+    try:
+        assert await pointer.resolve(
+            [thinker.MarkIntent(verb="underline", target=target)],
+            view.marked_jpeg,
+            view.legend_text,
+            elements,
+            size=(view.width, view.height),
+        ) == [("underline", "box=0.720,0.520,0.120,0.140", None, None)]
+    finally:
+        await pointer.close()
+
+
+@pytest.mark.asyncio
+async def test_a_touching_label_and_its_arrow_can_use_the_shared_marker():
+    scene = touching_label()
+    view = image_view(scene.png())
+    [edge] = [e for e in view.elements if iou(box_of(e), scene.truth[0].box) >= 0.5]
+    pointer = Pointer(
+        VoiceSettings(),
+        client=Client(
+            [
+                {"i": 0, "id": edge.id, "box": None},
+                {"i": 1, "id": edge.id, "box": None},
+            ]
+        ),
+    )
+    try:
+        assert (
+            await pointer.resolve(
+                [
+                    thinker.MarkIntent(verb="underline", target=t)
+                    for t in ("the arrow between circles", "the 0 on the arrow")
+                ],
+                view.marked_jpeg,
+                view.legend_text,
+                view.elements,
+            )
+            == [("underline", edge.id, None, None)] * 2
+        )
+    finally:
+        await pointer.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("target", ["the arrow label", "the edge label 1"])
+@pytest.mark.parametrize("wrong_id", [False, True])
+async def test_compound_arrow_label_targets_choose_text_not_the_edge(target, wrong_id):
+    scene = dfa_page()
+    view = image_view(scene.png())
+    label_truth = next(t for t in scene.truth if t.name == "label 1")
+    edge_truth = next(t for t in scene.truth if t.name == "q1->q2")
+    [label] = [e for e in view.elements if iou(box_of(e), label_truth.box) >= 0.5]
+    [edge] = [e for e in view.elements if iou(box_of(e), edge_truth.box) >= 0.5]
+    x, y, w, h = label_truth.box
+    pointer = Pointer(
+        VoiceSettings(),
+        client=Client(
+            [
+                {
+                    "i": 0,
+                    "id": edge.id if wrong_id else label.id,
+                    "box": {
+                        "x": x / view.width,
+                        "y": y / view.height,
+                        "w": w / view.width,
+                        "h": h / view.height,
+                    },
+                }
+            ]
+        ),
+    )
+    try:
+        assert await pointer.resolve(
+            [thinker.MarkIntent(verb="underline", target=target)],
+            view.marked_jpeg,
+            view.legend_text,
+            view.elements,
+            size=(view.width, view.height),
+        ) == [("underline", label.id, None, None)]
+    finally:
+        await pointer.close()

@@ -5,6 +5,7 @@
 import type { Lang } from '@tassel/shared/i18n';
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import type { ConnectionStatus, MicStatus, VoiceFailure } from '../../tutor/types';
+import { useSessionDefaults } from '../settings/session-defaults';
 
 export type StageMode = 'paper' | 'board' | 'split';
 export type TutorState = 'connecting' | 'listening' | 'thinking' | 'speaking' | 'watching';
@@ -78,10 +79,15 @@ export const useStageStore: UseBoundStore<StoreApi<StageStore>> = create<StageSt
     set((state) => ({
       caption: nextCaption(state.caption, { speaker, text, ...(lang && { lang }) }),
     })),
-  toggleCaptions: () => set((state) => ({ captionsOn: !state.captionsOn })),
+  // Saved as the next session's default too (Settings → Session defaults).
+  toggleCaptions: () =>
+    set((state) => {
+      useSessionDefaults.getState().set({ captions: !state.captionsOn });
+      return { captionsOn: !state.captionsOn };
+    }),
   toggleMic: () => set((state) => ({ micOn: !state.micOn })),
   toggleCamera: () => set((state) => ({ cameraOn: !state.cameraOn })),
-  reset: () => set({ ...INITIAL, caption: {} }),
+  reset: () => set({ ...INITIAL, captionsOn: useSessionDefaults.getState().captions, caption: {} }),
 }));
 
 /**

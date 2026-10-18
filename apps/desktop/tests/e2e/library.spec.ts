@@ -76,7 +76,8 @@ test('groups by topic, and searches titles and topics', async () => {
   await page.reload();
   await expect(cardsOf(page)).toHaveCount(3);
 
-  await page.getByRole('radio', { name: 'Topic' }).click();
+  await page.getByRole('button', { name: /^Sort sessions/ }).click();
+  await page.getByRole('menuitemradio', { name: 'Topic' }).click();
   await expect(page.getByRole('heading', { level: 2 })).toHaveText([
     'Automata · DFA',
     'Cálculo',
@@ -85,7 +86,8 @@ test('groups by topic, and searches titles and topics', async () => {
   await settle(page);
   await snap(page, 'p1-library-topic');
 
-  await page.getByRole('radio', { name: 'Recent activity' }).click();
+  await page.getByRole('button', { name: /^Sort sessions/ }).click();
+  await page.getByRole('menuitemradio', { name: 'Recent activity' }).click();
   const search = page.getByRole('searchbox', { name: 'Search sessions' });
   await search.fill('cálc');
   await expect(cardsOf(page)).toHaveCount(1);
@@ -100,7 +102,7 @@ test('groups by topic, and searches titles and topics', async () => {
   await app.close();
 });
 
-test('moves by keyboard from the search through Tutor settings, New session and the sort to a card', async () => {
+test('moves by keyboard from the search through the sort, Settings and New session to a card', async () => {
   const { app, page } = await launchApp();
   await expect(page.getByRole('region', { name: 'No sessions yet' })).toBeVisible();
   await seed(page, SEEDS.slice(0, 1));
@@ -109,15 +111,14 @@ test('moves by keyboard from the search through Tutor settings, New session and 
 
   await page.getByRole('searchbox', { name: 'Search sessions' }).focus();
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('button', { name: 'Tutor settings' })).toBeFocused();
+  const sort = page.getByRole('button', { name: 'Sort sessions: Recent activity' });
+  await expect(sort).toBeFocused();
+  await expect(sort).toHaveCSS('outline-style', 'solid');
+  await expect(sort).toHaveCSS('outline-offset', '2px');
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'New session' })).toBeFocused();
-  await page.keyboard.press('Tab');
-  const selected = page.getByRole('radio', { name: 'Recent activity' });
-  await expect(selected).toBeFocused();
-  // The ring keeps a 2px gap around the selected ink pill (Task 10, design C1).
-  await expect(selected).toHaveCSS('outline-style', 'solid');
-  await expect(selected).toHaveCSS('outline-offset', '2px');
   await page.keyboard.press('Tab');
   const card = page.getByRole('button', { name: 'Strings that start with 010' });
   await expect(card).toBeFocused();
@@ -137,12 +138,9 @@ test('fits Spanish at the smallest window without scrolling sideways', async () 
     3,
   );
 
-  // Every sort label fits its segment, and nothing scrolls sideways.
-  const segments = page.getByRole('radiogroup', { name: 'Ordenar sesiones' }).getByRole('radio');
-  await expect(segments).toHaveCount(3);
-  for (const segment of await segments.all()) {
-    expect(await segment.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
-  }
+  // The sort menu's label fits, and nothing scrolls sideways.
+  const sort = page.getByRole('button', { name: /^Ordenar sesiones/ });
+  expect(await sort.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   const sideways = await page.evaluate(() => {
     const main = document.querySelector('main');
     return {

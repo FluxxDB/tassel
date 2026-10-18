@@ -29,6 +29,13 @@ class Client:
         self.chat = self.completions = self
 
     async def create(self, **request):
+        if request["messages"][0]["content"].startswith("You list what"):
+            # Her checklist: nothing specific asked, so only the schema and network checks.
+            self.checklists = getattr(self, "checklists", 0) + 1
+            answer = {"item": None, "remove": [], "requirements": []}
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps(answer)))]
+            )
         self.requests.append(request)
         answer = next(self.answers)
         if isinstance(answer, Exception):
@@ -51,7 +58,8 @@ async def test_valid_and_edit_in_place():
     client = Client(response(), response({**SPEC, "title": "Updated"}))
     illustrator = Illustrator(VoiceSettings(illustrator_provider="openai"), client=client)
     for title in (None, "Updated"):
-        item, spec = await illustrator.draw("draw network", board, "es")
+        item, spec, missing = await illustrator.draw("draw network", board, "es")
+        assert missing == []
         board.pending_diagrams[item] = spec
         action = parse_command("diagram net", board)
         assert action.kind == "board.diagram" and action.reveal == "all"
@@ -72,7 +80,7 @@ async def test_one_repair(success):
     )
     result = await illustrator.draw("network", BoardContext(), "en")
     assert bool(result) == success
-    assert len(client.requests) == 2
+    assert len(client.requests) == (2 if success else 3)  # up to two repairs
     assert "repair" in client.requests[1]["messages"][-1]["content"].lower()
     if not success:
         assert any(e == "reject" and d["source"] == "illustrator" for e, d in events)
@@ -142,7 +150,7 @@ class SlowIllustrator:
         self.started = asyncio.Event()
         self.release = asyncio.Event()
 
-    async def draw(self, intent, board, lang):
+    async def draw(self, intent, board, lang, **kwargs):
         self.started.set()
         await self.release.wait()
         return "net", DiagramSpec.model_validate(SPEC)
@@ -470,3 +478,70 @@ async def test_astra_draws_general_overlay_shapes_against_the_captured_image():
     assert client.requests[0]["max_completion_tokens"] >= 8192
     image = client.requests[0]["messages"][1]["content"][1]
     assert image["image_url"]["url"].endswith("c3ludGhldGljLWpwZWc=")
+
+
+class PartialIllustrator(SlowIllustrator):
+    """Draws, but still misses part of her request; records what it was given."""
+
+    async def draw(self, intent, board, lang, **kwargs):
+        self.kwargs = kwargs
+        await super().draw(intent, board, lang)
+        return "net", DiagramSpec.model_validate(SPEC), ["two PCs in Guest"]
+
+
+@pytest.mark.asyncio
+async def test_a_partial_late_diagram_names_what_it_misses_never_here_it_is():
+    from pipecat.frames.frames import LLMFullResponseEndFrame, LLMTextFrame
+    from pipecat.processors.frame_processor import FrameDirection
+
+    from tassel.voice.thinker import ThinkerOutput, TutorCoordinator
+
+    illustrator = PartialIllustrator()
+    c = TutorCoordinator(DrawingThinker(), BoardContext(), illustrator=illustrator)
+    context = LLMContext(
+        [
+            {"role": "user", "content": "Zones are Sales and Guest."},
+            {"role": "assistant", "content": "Okay."},
+            {"role": "user", "content": "Draw two PCs in each zone."},
+        ]
+    )
+    await c.prepare(context, "Draw two PCs in each zone.")
+    output = ThinkerOutput(c)
+    frames = []
+
+    async def push(frame, *args):
+        frames.append(frame)
+        if isinstance(frame, LLMTextFrame) and "These are" in frame.text:
+            illustrator.release.set()
+
+    output.push_frame = push
+    await output.process_frame(LLMFullResponseEndFrame(), FrameDirection.DOWNSTREAM)
+    spoken = " ".join(f.text for f in frames if isinstance(f, LLMTextFrame))
+    assert "Here it is" not in spoken
+    assert "I drew what I could, but I couldn't fit: two PCs in Guest." in spoken
+    assert illustrator.kwargs["request"] == "Draw two PCs in each zone."
+    assert illustrator.kwargs["recent"] == [
+        {"role": "user", "text": "Zones are Sales and Guest."},
+        {"role": "assistant", "text": "Okay."},
+    ]
+    await c.close()
+
+
+@pytest.mark.asyncio
+async def test_a_partial_ready_diagram_says_what_it_misses():
+    from tassel.voice.thinker import TutorCoordinator
+
+    illustrator = PartialIllustrator()
+    illustrator.release.set()
+    c = TutorCoordinator(
+        DrawingThinker(), BoardContext(), illustrator=illustrator, lang=lambda: "es"
+    )
+    await c.prepare(LLMContext([]), "draw a network")
+    await c.task
+    await c.illustrator_task
+    brief = await c.result()
+    assert brief.board[0] == "[[diagram net]]"
+    assert brief.say.endswith("No logré incluir: two PCs in Guest.") or (
+        "pero no logré incluir: two PCs in Guest." in brief.say
+    )
+    await c.close()

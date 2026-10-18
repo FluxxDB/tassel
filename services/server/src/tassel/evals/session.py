@@ -10,6 +10,7 @@ import copy
 import json
 import time
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 from uuid import uuid4
 
 from loguru import logger
@@ -17,6 +18,7 @@ from pipecat.frames.frames import (
     BotStoppedSpeakingFrame,
     InputTransportMessageFrame,
     LLMFullResponseEndFrame,
+    TTSAudioRawFrame,
     TTSStoppedFrame,
     TTSTextFrame,
 )
@@ -73,15 +75,59 @@ class _Recorder(FrameProcessor):
 
 
 class _NoMemory:
-    """No learner memory: the eval's learner is new, and no database is needed."""
+    """No learner memory: the eval's learner is new, and no database is needed. With a memory
+    document (tassel.evals.isolation: the preferences extracted from an earlier session), the
+    learner memory reads as that document and nothing else."""
 
-    async def get(self, *args, **kwargs):
+    def __init__(self, memory: str | None = None):
+        self.memory = memory
+
+    async def get(self, model, *args, **kwargs):
+        if self.memory is not None and getattr(model, "__tablename__", "") == "learner_memory":
+            return SimpleNamespace(enabled=True, content=self.memory, revision=1)
+        return None
+
+    # The titler's name: "saved", so it shows in the eval's events.
+    async def scalar(self, *args, **kwargs):
+        return self
+
+    async def commit(self):
         return None
 
 
-@asynccontextmanager
-async def _no_db():
-    yield _NoMemory()
+def _seeded_db(memory: str | None):
+    @asynccontextmanager
+    async def sessions():
+        yield _NoMemory(memory)
+
+    return sessions
+
+
+_no_db = _seeded_db(None)
+
+
+class _FixtureChat:
+    """The bot's chat store for the eval: a turn's images are page fixtures, prepared as an
+    upload is, and saved lines stay in memory."""
+
+    def __init__(self):
+        self.saved = []
+
+    async def load_attachments(self, learner_id, session_id, ids):
+        from tassel.chat.images import prepare
+        from tassel.chat.store import LoadedAttachment
+
+        out = []
+        for name in ids:
+            image = await asyncio.to_thread(prepare, render(name).jpeg)
+            out.append(LoadedAttachment(name, image.data, image.mime, image.width, image.height))
+        return out
+
+    async def last_seq(self, session_id):
+        return 0
+
+    async def save(self, session_id, seq, line):
+        self.saved.append((seq, line))
 
 
 def with_effort(create, effort):
@@ -115,6 +161,16 @@ def install_pointer_effort(coordinator, effort: str) -> bool:
     return True
 
 
+def turn_decision(log: list[dict]) -> dict | None:
+    """The decision the turn ran on: the ladder's escalation when there was one (the director's
+    own decision is what the ladder overrode), else the director's."""
+    for name in ("escalate", "director"):
+        found = next((e.get("decision") for e in log if e["event"] == name), None)
+        if found is not None:
+            return found
+    return None
+
+
 def seed_actions(scenario: Scenario):
     actions = []
     if scenario.seed_tags:
@@ -138,9 +194,11 @@ class PipelineSession:
         quiet_s: float = 1.0,
         turn_timeout_s: float = 90.0,
         start_timeout_s: float = 20.0,
+        memory: str | None = None,
     ):
         self.scenario, self.settings = scenario, settings
         self.pointer_effort = pointer_effort
+        self.memory = memory
         self.quiet_s, self.turn_timeout_s, self.start_timeout_s = (
             quiet_s,
             turn_timeout_s,
@@ -148,6 +206,8 @@ class PipelineSession:
         )
         self.out = _Recorder()
         self.page: str | None = None
+        # The latest image she sent, a fixture name.
+        self.image: str | None = None
         self.served: dict[str, dict] | None = None
         self.last_elements: dict[str, dict] = {}
         initial = scenario.stage
@@ -173,10 +233,11 @@ class PipelineSession:
             request=OfferRequestData(scenario=scenario.fake_script),
             settings=self.settings,
             memory=memory,
-            sessions=_no_db,
+            sessions=_seeded_db(self.memory),
             turn_image=self._turn_image if scenario.has_pages else None,
             board=self.board,
             board_actions=seed_actions(scenario),
+            chat=_FixtureChat(),
         )
         self.bot = build_bot(_Passthrough(), self.out, self.ctx)
         self.coordinator = self.bot._turn_context.coordinator
@@ -309,13 +370,31 @@ class PipelineSession:
         frames = len(self.out.frames)
         self.served = None
         started = time.monotonic()
-        await self._message(
-            "send-text",
-            {
-                "content": turn.student,
-                "options": {"run_immediately": True, "audio_response": True},
-            },
-        )
+        if turn.images:
+            self.image = turn.images[-1]
+        if turn.images or not turn.voice:
+            # The chat's composer: a student-message with her images, or her voice off.
+            await self._message(
+                "client-message",
+                {
+                    "t": "tassel",
+                    "d": {
+                        "kind": "student-message",
+                        "client_id": f"eval-{index + 1}",
+                        "text": turn.student,
+                        "attachment_ids": list(turn.images),
+                        "voice": turn.voice,
+                    },
+                },
+            )
+        else:
+            await self._message(
+                "send-text",
+                {
+                    "content": turn.student,
+                    "options": {"run_immediately": True, "audio_response": True},
+                },
+            )
         finished = await self._settle(frames)
         wall_ms = (time.monotonic() - started) * 1000
         events = self.out.events(frames)
@@ -336,26 +415,46 @@ class PipelineSession:
             values = [e["ms"] for e in log if e["event"] == name and "ms" in e]
             return sum(values) if values else None
 
+        chat = [e for e in events if e["kind"] == "message"]
+        spoken = " ".join(
+            f.text for f in self.out.frames[frames:] if isinstance(f, TTSTextFrame)
+        ).strip()
+        audio = any(isinstance(f, TTSAudioRawFrame) for f in self.out.frames[frames:])
+        if not spoken:
+            # A text-only reply says nothing aloud: what she wrote is in the chat.
+            spoken = " ".join(
+                m["text"] for m in chat if m["role"] == "tutor" and m["final"]
+            ).strip()
         return Observation(
             student=turn.student,
-            spoken=" ".join(
-                f.text for f in self.out.frames[frames:] if isinstance(f, TTSTextFrame)
-            ).strip(),
+            spoken=spoken,
+            chat=chat,
+            audio=audio,
             stage=stage,
             actions=actions,
             tags=[e["text"] for e in log if e["event"] == "tags"],
+            title=next(
+                (
+                    {"title": e["title"], "subject": e.get("subject")}
+                    for e in events
+                    if e["kind"] == "title"
+                ),
+                None,
+            ),
             rejects=[
                 {k: v for k, v in e.items() if k not in ("event", "at")}
                 for e in log
                 if e["event"] in ("reject", "director_fallback", "draw_fallback")
             ]
             + [{"warning": e.get("text")} for e in log if e["event"] == "server_warning"],
-            decision=first("director", "decision"),
+            decision=turn_decision(log),
             view_request=first("view_request", "view"),
             board_before=before,
             board_after=self._board(),
             page=self.page,
             elements=self.served if self.served is not None else dict(self.last_elements),
+            image=self.image,
+            image_elements=self._image_elements(),
             timings={
                 "director": first("director"),
                 "thinker": total("thinker_duration"),
@@ -367,6 +466,18 @@ class PipelineSession:
             },
             finished=finished,
         )
+
+    def _image_elements(self) -> dict[str, dict]:
+        """Her image's Set-of-Mark boxes, in the fixture's pixels."""
+        staged = self.board.image
+        if self.image is None or staged is None or staged.detected is None:
+            return {}
+        fixture, detected = render(self.image), staged.detected
+        sx, sy = fixture.width / detected.width, fixture.height / detected.height
+        return {
+            e.id: {"x": e.box.x * sx, "y": e.box.y * sy, "w": e.box.w * sx, "h": e.box.h * sy}
+            for e in detected.items
+        }
 
     async def _follow(self, stage, actions):
         """What the app does with her stage events: a pinned request pins its view; Ada's own

@@ -1,0 +1,177 @@
+{
+  "name": "board-rename-clear",
+  "title": "Board edits, second half: rename a zone, then clear everything asks first",
+  "description": "The board-edits seed: a rename in place, then a request that would take off more than half the board asks first and her yes clears it. Runs only by name: 3 turns.",
+  "default": false,
+  "stage": {
+    "view": "board"
+  },
+  "seed_actions": [
+    {
+      "kind": "board.diagram",
+      "item": "net",
+      "spec": {
+        "title": "Subnets",
+        "direction": "LR",
+        "groups": [
+          {
+            "id": "lan10",
+            "label": "Internal",
+            "sublabel": "10.0.0.0/26"
+          },
+          {
+            "id": "p2",
+            "label": "Problem 2",
+            "sublabel": "192.168.1.0/24"
+          },
+          {
+            "id": "guest",
+            "label": "Guest"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "core",
+            "label": "Core",
+            "icon": "router"
+          },
+          {
+            "id": "r10",
+            "label": "R10",
+            "sublabel": "10.0.0.1",
+            "icon": "router",
+            "group": "lan10"
+          },
+          {
+            "id": "pc1",
+            "label": "PC 1",
+            "sublabel": "10.0.0.2",
+            "icon": "pc",
+            "group": "lan10"
+          },
+          {
+            "id": "pc2",
+            "label": "PC 2",
+            "sublabel": "10.0.0.3",
+            "icon": "pc",
+            "group": "lan10"
+          },
+          {
+            "id": "sw",
+            "label": "Switch",
+            "icon": "switch",
+            "group": "p2"
+          },
+          {
+            "id": "pc3",
+            "label": "PC 3",
+            "sublabel": "192.168.1.2",
+            "icon": "pc",
+            "group": "p2"
+          },
+          {
+            "id": "pc4",
+            "label": "PC 4",
+            "sublabel": "192.168.1.3",
+            "icon": "pc",
+            "group": "p2"
+          },
+          {
+            "id": "ap",
+            "label": "Access point",
+            "icon": "box",
+            "group": "guest"
+          },
+          {
+            "id": "ph",
+            "label": "Phone",
+            "icon": "phone",
+            "group": "guest"
+          }
+        ],
+        "edges": [
+          {
+            "from": "core",
+            "to": "r10",
+            "directed": false,
+            "style": "solid"
+          },
+          {
+            "from": "r10",
+            "to": "pc1",
+            "directed": false,
+            "style": "solid"
+          },
+          {
+            "from": "r10",
+            "to": "pc2",
+            "directed": false,
+            "style": "solid"
+          },
+          {
+            "from": "core",
+            "to": "sw",
+            "directed": false,
+            "style": "solid"
+          },
+          {
+            "from": "sw",
+            "to": "pc3",
+            "directed": false,
+            "style": "solid"
+          },
+          {
+            "from": "sw",
+            "to": "pc4",
+            "directed": false,
+            "style": "solid"
+          },
+          {
+            "from": "core",
+            "to": "ap",
+            "directed": false,
+            "style": "solid"
+          },
+          {
+            "from": "ap",
+            "to": "ph",
+            "directed": false,
+            "style": "solid"
+          }
+        ]
+      }
+    }
+  ],
+  "turns": [
+    {
+      "student": "Rename problem two to Sales floor.",
+      "expect": {
+        "no_tags": ["board.clear"],
+        "board": {
+          "nodes": 9,
+          "groups": 3,
+          "labels": ["Sales floor"]
+        }
+      }
+    },
+    {
+      "student": "Clear everything.",
+      "expect": {
+        "tags": [],
+        "asks": true,
+        "board": {
+          "unchanged": true
+        }
+      }
+    },
+    {
+      "student": "Yes.",
+      "expect": {
+        "tags": ["board.clear"],
+        "board": {
+          "diagrams": 0
+        }
+      }
+    }
+  ]
+}

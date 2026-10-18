@@ -1,6 +1,6 @@
 // The dock: a white pill at the bottom center holding the session's controls. Mic (with its
-// level meter), Audio settings in a live voice session, Camera, Share, the Board control,
-// Captions, and End session, its primary action.
+// level meter), Push-to-talk, Audio settings in a live voice session, Camera, Share, the Board
+// control, Captions, and End session, its primary action.
 import { type Ref, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -10,6 +10,7 @@ import {
   Board,
   Camera,
   Captions as CaptionsIcon,
+  Hand,
   Mic,
   MicOff,
   Screen,
@@ -64,7 +65,7 @@ export function Dock({ onEnd, boardRef }: DockProps) {
     <fieldset
       aria-label={t('session.dock.label')}
       data-testid="dock"
-      className="absolute bottom-[22px] left-1/2 z-20 m-0 flex min-w-0 -translate-x-1/2 items-center gap-1.5 rounded-pill border-0 bg-paper p-2 shadow-[0_0_0_1px_var(--color-hairline)]"
+      className="absolute bottom-[22px] left-[calc((100%-var(--chat-cover,0px))/2)] z-20 m-0 flex min-w-0 -translate-x-1/2 items-center gap-1.5 rounded-pill border-0 bg-paper p-2 shadow-[0_0_0_1px_var(--color-hairline)]"
     >
       <IconButton
         label={micLabel}
@@ -76,6 +77,15 @@ export function Dock({ onEnd, boardRef }: DockProps) {
         {micOn ? <Mic /> : <MicOff />}
       </IconButton>
       <LevelMeter on={micOn} />
+      {/* One tap, so speech in the room doesn't become turns: then she holds Space to talk. */}
+      <IconButton
+        label={t('voice.settings.pushToTalk')}
+        pressed={pushToTalk}
+        onClick={() => useAudioPrefs.getState().set({ pushToTalk: !pushToTalk })}
+        title={t('session.dock.pushToTalkHint')}
+      >
+        <Hand />
+      </IconButton>
       {live && (
         <AudioSettings
           open={audioOpen}

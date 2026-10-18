@@ -1,6 +1,10 @@
 {
   "budgets": {
-    "ttfa_ms": { "en": 1200, "es": 1200, "ko": 1400 },
+    "ttfa_ms": {
+      "en": 1200,
+      "es": 1200,
+      "ko": 1400
+    },
     "yield_ms": 300,
     "silence_ms": 600,
     "silence_instant_ms": 300
@@ -10,11 +14,32 @@
     "ice_servers": "/v1/voice/ice-servers"
   },
   "server": [
-    { "kind": "stage-hint", "side": "paper" },
-    { "kind": "stage-hint", "side": "board" },
-    { "kind": "board-snapshot" },
-    { "kind": "actions", "actions": [{ "kind": "board.clear" }] },
-    { "kind": "route", "lang": "en", "stt": "flux", "llm": "openrouter", "tts": "elevenlabs" },
+    {
+      "kind": "stage-hint",
+      "side": "paper"
+    },
+    {
+      "kind": "stage-hint",
+      "side": "board"
+    },
+    {
+      "kind": "board-snapshot"
+    },
+    {
+      "kind": "actions",
+      "actions": [
+        {
+          "kind": "board.clear"
+        }
+      ]
+    },
+    {
+      "kind": "route",
+      "lang": "en",
+      "stt": "flux",
+      "llm": "openrouter",
+      "tts": "elevenlabs"
+    },
     {
       "kind": "turn-metrics",
       "metrics": {
@@ -29,14 +54,42 @@
         "budget_ms": 1200
       }
     },
-    { "kind": "backchannel", "text": "네" },
-    { "kind": "title", "title": "Strings that start with 010", "subject": "Automata · DFA" },
-    { "kind": "stage", "view": "split" },
-    { "kind": "stage", "view": "paper", "pinned": true },
-    { "kind": "language", "lang": "ko" },
-    { "kind": "vad", "speaking": true },
-    { "kind": "paper-frame" },
-    { "kind": "route", "lang": "en", "stt": "flux", "llm": "openai", "tts": "elevenlabs" },
+    {
+      "kind": "backchannel",
+      "text": "네"
+    },
+    {
+      "kind": "title",
+      "title": "Strings that start with 010",
+      "subject": "Automata · DFA"
+    },
+    {
+      "kind": "stage",
+      "view": "split"
+    },
+    {
+      "kind": "stage",
+      "view": "paper",
+      "pinned": true
+    },
+    {
+      "kind": "language",
+      "lang": "ko"
+    },
+    {
+      "kind": "vad",
+      "speaking": true
+    },
+    {
+      "kind": "paper-frame"
+    },
+    {
+      "kind": "route",
+      "lang": "en",
+      "stt": "flux",
+      "llm": "openai",
+      "tts": "elevenlabs"
+    },
     {
       "kind": "beat",
       "beat": {
@@ -72,6 +125,94 @@
           }
         ]
       }
+    },
+    {
+      "kind": "message",
+      "id": "m-1",
+      "client_id": "c-1",
+      "role": "student",
+      "source": "typed",
+      "text": "Here's part b of the question",
+      "final": true,
+      "interrupted": false,
+      "attachments": [
+        {
+          "id": "6f1c2d3e-0000-4000-8000-000000000001",
+          "w": 1280,
+          "h": 960
+        }
+      ],
+      "action": null
+    },
+    {
+      "kind": "message",
+      "id": "m-2",
+      "client_id": null,
+      "role": "student",
+      "source": "voice",
+      "text": "Can you draw a DFA for strings that start with 01?",
+      "final": true,
+      "interrupted": false,
+      "attachments": [],
+      "action": null
+    },
+    {
+      "kind": "message",
+      "id": "m-3",
+      "client_id": null,
+      "role": "tutor",
+      "source": "voice",
+      "text": "We start at q0, and a 0 takes us",
+      "final": false,
+      "interrupted": false,
+      "attachments": [],
+      "action": null
+    },
+    {
+      "kind": "message",
+      "id": "m-4",
+      "client_id": null,
+      "role": "tutor",
+      "source": "typed",
+      "text": "Part b wants strings ending in 10.",
+      "final": true,
+      "interrupted": true,
+      "attachments": [],
+      "action": null
+    },
+    {
+      "kind": "message",
+      "id": "m-5",
+      "client_id": null,
+      "role": "action",
+      "source": null,
+      "text": "",
+      "final": true,
+      "interrupted": false,
+      "attachments": [],
+      "action": {
+        "kind": "draw",
+        "side": "board",
+        "item": "dfa",
+        "attachment_id": null
+      }
+    },
+    {
+      "kind": "message",
+      "id": "m-6",
+      "client_id": null,
+      "role": "action",
+      "source": null,
+      "text": "",
+      "final": true,
+      "interrupted": false,
+      "attachments": [],
+      "action": {
+        "kind": "mark",
+        "side": "image",
+        "item": "m4",
+        "attachment_id": "6f1c2d3e-0000-4000-8000-000000000001"
+      }
     }
   ],
   "client": [
@@ -96,15 +237,42 @@
       "frozen": true,
       "page_revision": 3
     },
-    { "kind": "stage-state", "view": "paper", "pinned": null, "frozen": false, "page_revision": 0 },
-    { "kind": "ptt", "enabled": true, "held": true },
-    { "kind": "sensitivity", "level": "high" },
+    {
+      "kind": "stage-state",
+      "view": "paper",
+      "pinned": null,
+      "frozen": false,
+      "page_revision": 0
+    },
+    {
+      "kind": "ptt",
+      "enabled": true,
+      "held": true
+    },
+    {
+      "kind": "sensitivity",
+      "level": "high"
+    },
     {
       "kind": "client-metrics",
       "ttfa_ms": 900,
       "barge_in_ms": 420,
       "yield_ms": 250,
       "sensitivity": "normal"
+    },
+    {
+      "kind": "student-message",
+      "client_id": "c-1",
+      "text": "Here's part b of the question",
+      "attachment_ids": ["6f1c2d3e-0000-4000-8000-000000000001"],
+      "voice": true
+    },
+    {
+      "kind": "student-message",
+      "client_id": "c-2",
+      "text": "Why does q2 loop?",
+      "attachment_ids": [],
+      "voice": false
     }
   ],
   "offer_request_data": {

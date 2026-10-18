@@ -115,6 +115,70 @@ export const Sliders = icon(
   </>,
 );
 
+/** The chat sidebar's toggle: a window with its right column drawn. */
+export const Sidebar = icon(
+  'Sidebar',
+  <>
+    <rect x="3" y="4" width="18" height="16" rx="3" />
+    <path d="M14.5 4v16M17 8.5h1M17 11.5h1" />
+  </>,
+);
+
+export const Paperclip = icon(
+  'Paperclip',
+  <path d="M19 11.5 12.2 18.3a4.6 4.6 0 0 1-6.5-6.5L12.9 4.6a3 3 0 0 1 4.3 4.3l-7 7a1.5 1.5 0 0 1-2.1-2.1l6.4-6.4" />,
+);
+
+/** "Snap my paper": a sheet inside a viewfinder's corners. */
+export const Snap = icon(
+  'Snap',
+  <>
+    <path d="M3 8V5.5A2.5 2.5 0 0 1 5.5 3H8M16 3h2.5A2.5 2.5 0 0 1 21 5.5V8M21 16v2.5a2.5 2.5 0 0 1-2.5 2.5H16M8 21H5.5A2.5 2.5 0 0 1 3 18.5V16" />
+    <path d="M8.5 7.5h7v9h-7zM10.5 10.5h3M10.5 13.5h2" />
+  </>,
+);
+
+export const ArrowUp = icon('ArrowUp', <path d="M12 19V5M6 11l6-6 6 6" />);
+
+export const Speaker = icon(
+  'Speaker',
+  <>
+    <path d="M4 9.5h3l4.5-4v13L7 14.5H4z" />
+    <path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" />
+  </>,
+);
+
+export const SpeakerOff = icon(
+  'SpeakerOff',
+  <>
+    <path d="M4 9.5h3l4.5-4v13L7 14.5H4z" />
+    <path d="M16 9.5l5 5M21 9.5l-5 5" />
+  </>,
+);
+
+/** Her paper, as the stage's paper side. */
+export const Paper = icon(
+  'Paper',
+  <>
+    <path d="M14.5 3H7a1.5 1.5 0 0 0-1.5 1.5v15A1.5 1.5 0 0 0 7 21h10a1.5 1.5 0 0 0 1.5-1.5V7z" />
+    <path d="M14.5 3v4h4M9 12h6M9 15.5h4" />
+  </>,
+);
+
+export const ImageIcon = icon(
+  'Image',
+  <>
+    <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
+    <circle cx="9" cy="10" r="1.6" />
+    <path d="m21 15.5-4.5-4.5L7 19.5" />
+  </>,
+);
+
+/** Undo; mirrored, it's redo. */
+export const Undo = icon('Undo', <path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />);
+
+/** An arrow down onto a tray: a file saved to the desk. */
+export const Download = icon('Download', <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />);
 export const Pause = icon('Pause', <path d="M8 5v14M16 5v14" />);
 export const Play = icon('Play', <path d="m8 5 11 7-11 7Z" />);
 export const Pencil = icon(
@@ -125,3 +189,48 @@ export const Pencil = icon(
   </>,
 );
 export const UndoRound = icon('UndoRound', <path d="M8 4 3 9l5 5M3 9h10a6 6 0 0 1 0 12h-3" />);
+/** The overlay bar's grip: two columns of dots, dragged with the mouse or nudged with arrows. */
+export const Grip = icon(
+  'Grip',
+  <>
+    <circle cx="9" cy="6" r="1.2" />
+    <circle cx="15" cy="6" r="1.2" />
+    <circle cx="9" cy="12" r="1.2" />
+    <circle cx="15" cy="12" r="1.2" />
+    <circle cx="9" cy="18" r="1.2" />
+    <circle cx="15" cy="18" r="1.2" />
+  </>,
+);
+
+/** Settings: a cog with six rounded teeth (after Lucide's settings, ISC). */
+export const Gear = icon(
+  'Gear',
+  <>
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+    <circle cx="12" cy="12" r="3" />
+  </>,
+);
+
+/** A menu of more actions: three dots. */
+export const More = icon(
+  'More',
+  <>
+    <circle cx="6" cy="12" r="1" fill="currentColor" />
+    <circle cx="12" cy="12" r="1" fill="currentColor" />
+    <circle cx="18" cy="12" r="1" fill="currentColor" />
+  </>,
+);
+
+export const ChevronDown = icon('ChevronDown', <path d="m7 10 5 5 5-5" />);
+
+export const ChevronLeft = icon('ChevronLeft', <path d="m14.5 6-6 6 6 6" />);
+
+export const ChevronRight = icon('ChevronRight', <path d="m9.5 6 6 6-6 6" />);
+
+export const Check = icon('Check', <path d="m5 12.5 4.5 4.5L19 7.5" />);
+
+/** Push-to-talk: a raised hand, held while she talks. */
+export const Hand = icon(
+  'Hand',
+  <path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12M11 11.5V5a1.5 1.5 0 0 1 3 0v6.5M14 11.5V6.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-.5a6 6 0 0 1-4.6-2.2L3.6 16.9a1.5 1.5 0 0 1 2.3-1.9L8 17" />,
+);

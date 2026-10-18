@@ -17,7 +17,7 @@ from tassel.voice.director import certain, view_request
 SCENARIOS_DIR = Path(__file__).with_name("scenarios")
 
 View = Literal["paper", "board", "split"]
-Action = Literal["none", "explain", "draw_board", "mark_paper", "trace"]
+Action = Literal["none", "explain", "draw_board", "mark_paper", "mark_image", "trace"]
 
 
 def _literal_values(union) -> set[str]:
@@ -65,14 +65,35 @@ class StageExpect(_Strict):
     pinned: bool = False
 
 
+class EdgeExpect(_Strict):
+    """An edge between a node whose label contains `from` and one whose label contains `to`,
+    either direction."""
+
+    from_: str = Field(alias="from", min_length=1)
+    to: str = Field(min_length=1)
+
+
 class BoardExpect(_Strict):
     automata: Count | None = None
     diagrams: Count | None = None
+    # Items, or their parts as ITEM.PART (a zone, node or state).
     has: list[str] = Field(default_factory=list)
     lacks: list[str] = Field(default_factory=list)
     nodes: Count | None = None
     groups: Count | None = None
     icons: dict[str, Count] = Field(default_factory=dict)
+    # Each text appears in some diagram's title, group or node label or sublabel (case, spaces
+    # and punctuation ignored), or in none of them: a zone, node or diagram name included.
+    labels: list[str] = Field(default_factory=list)
+    lacks_labels: list[str] = Field(default_factory=list)
+    # Icon counts inside the group whose label contains the key; "*" means every group.
+    group_icons: dict[str, dict[str, Count]] = Field(default_factory=dict)
+    edges: list[EdgeExpect] = Field(default_factory=list)
+    # The group whose label contains the key has a CIDR (its label or sublabel) with at least
+    # this many usable hosts.
+    group_hosts: dict[str, int] = Field(default_factory=dict)
+    # Each host count fits a different group's CIDR (VLSM zones she didn't name).
+    zone_hosts: list[int] = Field(default_factory=list)
     # 1-based: the board after this turn equals the board after that earlier turn (undo, redo).
     same_as_turn: int | None = Field(None, ge=1)
     unchanged: bool | None = None
@@ -92,17 +113,31 @@ class Expect(_Strict):
     # Each of these kinds reaches beats; [] means no action at all.
     tags: list[str] | None = None
     no_tags: list[str] = Field(default_factory=list)
+    # How many of each kind reach beats: {"board.traceStep": {"min": 3}}.
+    counts: dict[str, Count] = Field(default_factory=dict)
+    # Ada's reply ends with a question (True) or doesn't (False).
+    asks: bool | None = None
     board: BoardExpect | None = None
     marks: list[MarkExpect] = Field(default_factory=list)
+    # Marks on the image she sent (the latest), checked against that fixture's truths.
+    image_marks: list[MarkExpect] = Field(default_factory=list)
     forbid: list[str] = Field(default_factory=list)
     allow_repeat: bool = False
     spoke: bool = True
+    # The chat: her line and a final reply of Ada's reach it as message events.
+    chat: bool | None = None
+    # Whether the reply made speech audio: False for a text-only reply.
+    audio: bool | None = None
     max_ms: dict[Literal["director", "thinker", "first_audio"], float] = Field(default_factory=dict)
 
 
 class Turn(_Strict):
     student: str = Field(min_length=1)
     page: str | None = None
+    # Sent as a chat message (student-message) with these page fixtures as her images, or with
+    # her voice off; otherwise typed through RTVI send-text as before.
+    images: list[str] = Field(default_factory=list, max_length=4)
+    voice: bool = True
     stage: StageState | None = None
     expect: Expect = Field(default_factory=Expect)
 
@@ -130,8 +165,11 @@ class Scenario(_Strict):
             where = f"turn {index}"
             if turn.page not in (None, "none") and turn.page not in FIXTURES:
                 raise ValueError(f"{where}: unknown page fixture {turn.page!r}")
+            for image in turn.images:
+                if image not in FIXTURES:
+                    raise ValueError(f"{where}: unknown image fixture {image!r}")
             expect = turn.expect
-            for kind in [*(expect.tags or []), *expect.no_tags]:
+            for kind in [*(expect.tags or []), *expect.no_tags, *expect.counts]:
                 if kind not in TAG_KINDS:
                     raise ValueError(f"{where}: unknown tag kind {kind!r}")
             same = expect.board.same_as_turn if expect.board else None
@@ -145,7 +183,22 @@ class Scenario(_Strict):
                     raise ValueError(f"{where}: marks need a page fixture on the desk")
                 if mark.truth not in render(page).truths:
                     raise ValueError(f"{where}: {page} has no truth box {mark.truth!r}")
+            if expect.image_marks:
+                image = self.image_at(index - 1)
+                if image is None:
+                    raise ValueError(f"{where}: image marks need an image she sent")
+                for mark in expect.image_marks:
+                    if mark.truth not in render(image).truths:
+                        raise ValueError(f"{where}: {image} has no truth box {mark.truth!r}")
         return self
+
+    def image_at(self, index: int) -> str | None:
+        """The latest image she sent by this 0-based turn."""
+        image = None
+        for turn in self.turns[: index + 1]:
+            if turn.images:
+                image = turn.images[-1]
+        return image
 
     def page_at(self, index: int) -> str | None:
         """The fixture on her desk at this 0-based turn."""

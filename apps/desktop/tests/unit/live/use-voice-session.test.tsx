@@ -58,7 +58,7 @@ const app: AppConfig = {
   fakeSpeed: 1,
   tokenReset: false,
 };
-const config = { devTools: true, fakeMic: true, devConsole: false, canOpenMicSettings: true };
+const config = { devTools: true, fakeMic: true, canOpenMicSettings: true };
 let h: ReturnType<typeof micHarness>;
 let fetcher: ReturnType<typeof vi.fn<typeof fetch>>;
 let refresh: ReturnType<typeof vi.fn<() => Promise<string>>>;

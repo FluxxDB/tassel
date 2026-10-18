@@ -35,7 +35,7 @@ import {
 import { effectsOf } from './effects';
 import { createTextMeasure } from './measure';
 import { planSync, type SyncPlan } from './plan-sync';
-import { screenDesired } from './screen';
+import { screenCamera, screenDesired } from './screen';
 
 /** Page units around the board's shapes in its snapshot. */
 const SNAPSHOT_PADDING = 32;
@@ -119,13 +119,16 @@ export function createTldrawEngine(
   let screenFrame: Parameters<NonNullable<BoardEngine['screen']>> | null = null;
   const syncScreenCamera = () => {
     if (!screenFrame) return;
-    const viewport = screenFrame[1];
     const bounds = editor.getViewportScreenBounds();
-    const zoom =
-      bounds.w > 0 && bounds.h > 0
-        ? Math.min(bounds.w / viewport.width, bounds.h / viewport.height)
-        : 1;
-    editor.setCamera({ x: 0, y: 0, z: zoom }, { force: true });
+    editor.setCamera(
+      screenCamera(screenFrame[1], {
+        width: bounds.w,
+        height: bounds.h,
+        screenX: typeof window === 'undefined' ? 0 : window.screenX,
+        screenY: typeof window === 'undefined' ? 0 : window.screenY,
+      }),
+      { force: true },
+    );
   };
   // The parent's ResizeObserver may run before tldraw updates its own viewport record.
   // Reconcile against the editor's measurement as well, rather than retaining the old zoom.

@@ -122,6 +122,21 @@
   }
 }
 
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* The settings view: it rises a few pixels into place over the screen it covers. */
+@keyframes settings-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
 @keyframes scrim-in {
   from {
     opacity: 0;

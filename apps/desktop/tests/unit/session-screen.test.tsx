@@ -8,6 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRoute } from '../../src/renderer/src/app/route-store';
 import { SessionScreen } from '../../src/renderer/src/features/session/SessionScreen';
 import { useStageStore } from '../../src/renderer/src/features/session/stage-store';
+import { useSessionDefaults } from '../../src/renderer/src/features/settings/session-defaults';
+import { useAudioPrefs } from '../../src/renderer/src/features/voice/audio-prefs';
 import { initI18n } from '../../src/renderer/src/i18n';
 import { ApiProvider } from '../../src/renderer/src/lib/api';
 import { usePaperStore } from '../../src/renderer/src/paper/paper-store';
@@ -65,6 +67,9 @@ const stage = () => useStageStore.getState();
 
 beforeEach(() => {
   vi.stubGlobal('tassel', { platform: 'darwin' });
+  // The dock's Captions toggle saves the next session's default: start each test from on.
+  localStorage.clear();
+  useSessionDefaults.setState({ captions: true });
   stage().reset();
 });
 afterEach(() => {
@@ -76,7 +81,8 @@ describe('SessionScreen', () => {
   it('untitled session shows localized placeholder (es)', async () => {
     await renderSession({ lang: 'es' });
     const title = await screen.findByRole('heading', { level: 1, name: 'Sesión sin título' });
-    expect(title).toHaveClass('text-smoke-text', 'truncate');
+    // The title is a button she renames it with, in the quieter color while untitled.
+    expect(within(title).getByRole('button')).toHaveClass('text-smoke-text', 'truncate');
   });
 
   it('shows the title, chips, source, timer and language', async () => {
@@ -88,7 +94,8 @@ describe('SessionScreen', () => {
     });
     expect(title).toHaveAttribute('lang', 'en');
     expect(within(strip).getByText('Automata · DFA')).toHaveClass('mono');
-    expect(within(strip).getByText('Homework')).toHaveClass('mono');
+    // The type moved into the title's menu.
+    expect(within(strip).queryByText('Homework')).not.toBeInTheDocument();
     expect(within(strip).getByText('Desk View')).toBeInTheDocument();
     expect(within(strip).getByRole('timer', { name: 'Time elapsed: 00:00' })).toHaveTextContent(
       '00:00',
@@ -290,11 +297,25 @@ describe('SessionScreen', () => {
     const { user } = await renderSession();
     await screen.findByRole('heading', { level: 1 });
     await user.keyboard('b');
-    await user.tab();
+    // From the title, past the title's button and menu, the chat toggle and the gear, to Unpin.
+    for (let step = 0; step < 5; step++) await user.tab();
     expect(screen.getByRole('button', { name: 'Unpin' })).toHaveFocus();
     await user.keyboard('{Enter}');
     expect(stage().pinned).toBeNull();
     expect(screen.getByRole('button', { name: 'Board: following Ada' })).toHaveFocus();
+  });
+
+  it('turns push-to-talk on and off in one tap from the dock', async () => {
+    useAudioPrefs.getState().reset();
+    const { user } = await renderSession();
+    const dock = screen.getByRole('group', { name: 'Session controls' });
+    const ptt = within(dock).getByRole('button', { name: 'Push-to-talk' });
+    expect(ptt).toHaveAttribute('aria-pressed', 'false');
+    await user.click(ptt);
+    expect(ptt).toHaveAttribute('aria-pressed', 'true');
+    expect(useAudioPrefs.getState().pushToTalk).toBe(true);
+    await user.click(ptt);
+    expect(useAudioPrefs.getState().pushToTalk).toBe(false);
   });
 
   it('gives every icon control a tooltip', async () => {
@@ -304,7 +325,7 @@ describe('SessionScreen', () => {
     const icons = within(dock)
       .getAllByRole('button')
       .filter((button) => button.hasAttribute('aria-label'));
-    expect(icons).toHaveLength(5);
+    expect(icons).toHaveLength(6);
     for (const button of icons) expect(button).toHaveAttribute('title');
     expect(screen.getByRole('button', { name: 'Camera' })).toHaveAttribute('title', 'Camera');
   });

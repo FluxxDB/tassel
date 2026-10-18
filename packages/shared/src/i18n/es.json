@@ -18,7 +18,8 @@
       "label": "Ordenar sesiones",
       "recent": "Actividad reciente",
       "created": "Fecha de creación",
-      "topic": "Tema"
+      "topic": "Tema",
+      "current": "Ordenar sesiones: {sort}"
     },
     "noTopic": "Sin tema",
     "loading": "Cargando sesiones…",
@@ -39,6 +40,20 @@
     "tokenReset": {
       "body": "Tassel no pudo leer el identificador guardado en este dispositivo, así que te configuró de nuevo desde cero. Las sesiones anteriores no aparecerán aquí.",
       "dismiss": "Entendido"
+    },
+    "card": {
+      "menu": "Opciones de {title}",
+      "menuShort": "Opciones",
+      "rename": "Cambiar nombre",
+      "delete": "Borrar",
+      "renameLabel": "Título de la sesión"
+    },
+    "delete": {
+      "title": "¿Borrar «{title}»?",
+      "body": "Se borran también su pizarra, su chat y las imágenes del papel. No se puede deshacer.",
+      "confirm": "Borrar sesión",
+      "deleting": "Borrando…",
+      "failed": "No se pudo borrar. Inténtalo de nuevo."
     }
   },
   "newSession": {
@@ -65,7 +80,13 @@
       "talk": "Solo hablar"
     },
     "start": "Empezar sesión",
-    "starting": "Empezando…"
+    "starting": "Empezando…",
+    "sourceHint": {
+      "paper": "Ada mira tu papel con Desk View.",
+      "webcam": "Ada mira tu papel con tu cámara.",
+      "screen": "Comparte una ventana; Tassel se reduce a una barra.",
+      "talk": "Voz y pizarra, sin cámara."
+    }
   },
   "session": {
     "untitled": "Sesión sin título",
@@ -93,7 +114,15 @@
     "stage": {
       "paper": "Papel",
       "board": "Pizarra",
-      "split": "Papel y pizarra"
+      "split": "Papel y pizarra",
+      "image": {
+        "tag": "Tu imagen",
+        "backToPaper": "Volver al papel",
+        "loading": "Cargando tu imagen…",
+        "failed": "No se pudo cargar tu imagen",
+        "alt": "La imagen que enviaste",
+        "marksLabel": "Las marcas de Ada en tu imagen"
+      }
     },
     "placeholder": {
       "paper": {
@@ -129,7 +158,8 @@
       "boardPinned": "Pizarra: {view}, fijada",
       "captions": "Subtítulos",
       "end": "Terminar sesión",
-      "withShortcut": "{label} ({key})"
+      "withShortcut": "{label} ({key})",
+      "pushToTalkHint": "Pulsar para hablar: mantén Espacio mientras hablas, para que no se oiga la sala"
     },
     "end": {
       "title": "¿Terminar esta sesión?",
@@ -144,6 +174,77 @@
       "label": "Tu mesa",
       "live": "En vivo",
       "hint": "Haz doble clic o pulsa Intro para ver tu papel junto a la pizarra."
+    },
+    "chat": {
+      "title": "Conversación",
+      "toggle": "Chat",
+      "hide": "Ocultar el chat",
+      "empty": "Habla con Ada o escríbele aquí. Lo que digan las dos aparece aquí.",
+      "spoken": "Hablado",
+      "cutOff": "Interrumpida",
+      "action": {
+        "draw": {
+          "board": "Dibujó en la pizarra",
+          "paper": "Dibujó en tu papel",
+          "image": "Dibujó en tu imagen"
+        },
+        "clear": {
+          "board": "Borró la pizarra",
+          "paper": "Borró sus marcas en tu papel",
+          "image": "Borró sus marcas en tu imagen"
+        },
+        "mark": {
+          "board": "Marcó la pizarra",
+          "paper": "Marcó tu papel",
+          "image": "Marcó tu imagen"
+        },
+        "view": {
+          "board": "Cambió a la pizarra",
+          "paper": "Cambió a tu papel",
+          "image": "Cambió a tu imagen"
+        },
+        "undo": "Deshizo eso",
+        "redo": "Rehízo eso",
+        "removed": "Quitó {name}",
+        "renamed": "Cambió el nombre a {name}"
+      },
+      "show": {
+        "board": "Mostrar la pizarra",
+        "paper": "Mostrar tu papel",
+        "image": "Mostrar tu imagen"
+      },
+      "composer": {
+        "label": "Mensaje para Ada",
+        "placeholder": "Escribe a Ada",
+        "attach": "Adjuntar imágenes",
+        "snap": "Fotografiar mi papel",
+        "voiceOn": "Ada responde en voz alta",
+        "voiceOff": "Solo respuestas escritas",
+        "voiceOnHint": "Ada responde a tus mensajes en voz alta. Cambiar a solo respuestas escritas.",
+        "voiceOffHint": "Ada responde a tus mensajes solo por escrito. Cambiar a respuestas habladas.",
+        "send": "Enviar mensaje",
+        "removeImage": "Quitar la imagen {n}",
+        "count": "{count} de {max} caracteres",
+        "limit": "Hasta {max} imágenes por mensaje",
+        "unreadable": "No se pudo leer esa imagen. Prueba con un PNG o un JPEG.",
+        "snapFailed": "No se pudo fotografiar tu papel. Inténtalo de nuevo en un momento.",
+        "drop": "Suelta las imágenes para enviarlas"
+      },
+      "image": "Imagen {n}",
+      "sending": "Enviando",
+      "failed": "No enviado",
+      "retry": "Reintentar",
+      "viewer": {
+        "title": "Tu imagen",
+        "close": "Cerrar"
+      }
+    },
+    "title": {
+      "rename": "Cambiar nombre",
+      "renameHint": "Haz clic o pulsa Intro para cambiar el nombre",
+      "input": "Título de la sesión",
+      "menu": "Opciones de la sesión",
+      "renameFailed": "No se pudo guardar el nombre. Inténtalo de nuevo."
     }
   },
   "paper": {
@@ -271,7 +372,9 @@
       "label": "Board camera controls",
       "in": "Zoom in",
       "out": "Zoom out",
-      "fit": "Fit"
+      "fit": "Fit",
+      "download": "Descargar la pizarra",
+      "downloadEmpty": "Aún no hay nada en la pizarra para descargar"
     },
     "icon": {
       "router": "router",
@@ -372,11 +475,6 @@
       "duration": "{ms} ms",
       "percentiles": "p50 {p50} · p90 {p90}",
       "unavailable": "—"
-    },
-    "dev": {
-      "label": "Student message",
-      "placeholder": "Type what the student says",
-      "send": "Send"
     },
     "language": {
       "menu": "Idioma de la sesión",
@@ -480,24 +578,25 @@
     "previewUnavailable": "Muestra no disponible. No se generó audio."
   },
   "memory": {
-    "settingsTitle": "Ajustes del tutor",
-    "settingsDescription": "Personaliza tu tutor y lo que recuerda.",
-    "appearance": "Apariencia y voz",
     "title": "Memoria",
     "enabled": "Recordar entre sesiones",
-    "description": "Recuerda objetivos, preferencias y temas en curso. Las notas se actualizan una vez al salir de una sesión. Desactivar la memoria deja de usar y actualizar las notas, pero las conserva. Borrar memoria elimina las notas.",
-    "notes": "Lo que recuerda tu tutor",
-    "empty": "Aquí aparecerán notas útiles de tus sesiones. También puedes añadir las tuyas.",
-    "save": "Guardar cambios",
-    "clear": "Borrar memoria",
+    "description": "Si la desactivas, Ada empieza cada sesión de cero. Lo que guardó se queda aquí hasta que lo borres.",
+    "notes": "Lo que Ada recuerda",
+    "empty": "Nada todavía. Preferencias como «pistas más cortas» o «explica en español» aparecen aquí después de una sesión.",
+    "save": "Guardar",
+    "clear": "Borrar todo",
     "reload": "Recargar notas",
     "loading": "Cargando memoria…",
     "loadError": "No se pudo cargar la memoria. Inténtalo de nuevo.",
     "saveError": "No se pudo guardar. Tus cambios siguen aquí.",
     "conflict": "La memoria cambió. Copia los cambios que quieras conservar y recarga las notas.",
     "saved": "Guardado",
-    "personalizationTitle": "Personalización y memoria",
-    "savedTitle": "Recuerdos guardados"
+    "edit": "Editar",
+    "editHint": "Una preferencia por línea.",
+    "deleting": "Borrando…",
+    "deleted": "Se borró todo lo que Ada recordaba.",
+    "confirmTitle": "¿Borrar todo lo que Ada recuerda?",
+    "confirmBody": "Volverá a aprender tus preferencias desde tu próxima sesión."
   },
   "screen": {
     "choose": "Share a display",
@@ -514,6 +613,8 @@
     "collapse": "Minimizar a la barra",
     "draw": "Draw",
     "drawHint": "Draw on your screen · Escape to finish",
+    "move": "Mover la barra",
+    "moveHint": "Arrastra la barra a donde quieras, o púlsala y usa las flechas",
     "undo": "Undo ink",
     "look": "Look again",
     "listening": "Listening",
@@ -541,5 +642,93 @@
     "saveError": "No se pudo guardar el estilo. Tus cambios siguen aquí.",
     "conflict": "El estilo cambió. Copia los cambios que quieras conservar y recarga.",
     "saved": "Estilo guardado"
+  },
+  "settings": {
+    "open": "Configuración",
+    "title": "Configuración",
+    "close": "Cerrar configuración",
+    "closeHint": "Cerrar configuración (Esc)",
+    "sections": {
+      "label": "Secciones de configuración",
+      "tutor": "Tutora",
+      "personality": "Personalidad",
+      "memory": "Memoria",
+      "voice": "Voz y audio",
+      "defaults": "Sesiones nuevas",
+      "language": "Idioma",
+      "camera": "Cámara y papel",
+      "privacy": "Privacidad",
+      "about": "Acerca de"
+    },
+    "tutor": {
+      "description": "Cómo se ve y suena Ada. Los cambios se aplican desde su próxima frase."
+    },
+    "personality": {
+      "description": "El tono y el estilo de enseñanza que quieres de Ada, con tus palabras."
+    },
+    "memory": {
+      "description": "Ada solo guarda cómo te gusta aprender: tono, ritmo, idioma y pistas. Lo que trabajaste se queda en su propia sesión."
+    },
+    "voice": {
+      "description": "Tu micrófono y tus altavoces, y cómo escucha Ada."
+    },
+    "defaults": {
+      "description": "Cómo empieza una sesión nueva. Puedes cambiar cada opción al empezarla.",
+      "language": "Idioma de la sesión",
+      "languageApp": "Como la app",
+      "captions": "Subtítulos activados",
+      "captionsHint": "Muestra lo que dicen tú y Ada al pie del escenario. El botón Subtítulos del dock también lo cambia.",
+      "chatGroup": "Chat",
+      "chat": "Barra lateral del chat",
+      "chatOpen": "Abierta",
+      "chatClosed": "Cerrada",
+      "chatHint": "En una ventana de menos de 1120 px empieza cerrada de todos modos.",
+      "voiceReplies": "Ada dice sus respuestas en voz alta",
+      "voiceRepliesHint": "Cuando le escribes a Ada, responde en voz alta además de en el chat."
+    },
+    "language": {
+      "description": "El idioma de los menús y etiquetas de Tassel.",
+      "label": "Idioma de la app",
+      "hint": "Cambia al instante. Cada sesión mantiene su propio idioma para hablar con Ada."
+    },
+    "camera": {
+      "description": "Desde dónde ve Ada tu papel. Nada aquí enciende la cámara.",
+      "label": "Fuente del papel",
+      "sources": {
+        "auto": "Automático",
+        "deskview-helper": "Desk View",
+        "webcam": "Cámara",
+        "window-capture": "Ventana de Desk View"
+      },
+      "hints": {
+        "auto": "Desk View si está disponible; si no, tu cámara.",
+        "deskview-helper": "La cámara de tu Mac mira tu escritorio desde arriba.",
+        "webcam": "Una webcam o la cámara del teléfono apuntando a tu papel.",
+        "window-capture": "Captura la ventana de la app Desk View."
+      },
+      "restart": "Se aplica la próxima vez que abras Tassel.",
+      "access": "Acceso a la cámara",
+      "accessHint": "Si Ada no ve tu papel, comprueba que Tassel puede usar la cámara.",
+      "openSystem": "Abrir ajustes de cámara"
+    },
+    "privacy": {
+      "description": "Tus sesiones se guardan en el servidor de Tassel hasta que las borres.",
+      "deleteAll": "Borrar todas las sesiones",
+      "deleteAllHint": "Borra todas las sesiones, con su pizarra, chat e imágenes del papel, y todo lo que Ada recuerda. Tu tutora y tu configuración se quedan.",
+      "confirmTitle": "¿Borrar todas las sesiones?",
+      "confirmBody": "Se borran todas las sesiones y todo lo que Ada recuerda. No se puede deshacer.",
+      "confirm": "Borrar todo",
+      "deleting": "Borrando…",
+      "done": "{count, plural, =0 {No había nada que borrar.} one {Se borró # sesión.} other {Se borraron # sesiones.}}",
+      "failed": "No se pudo borrar todo. Revisa tu conexión e inténtalo de nuevo."
+    },
+    "about": {
+      "description": "Tassel es una tutora en vivo para tu escritorio.",
+      "tagline": "Una tutora en vivo que ve tu trabajo, lo comenta contigo y dibuja sobre él.",
+      "languages": "Idiomas",
+      "server": "Servidor",
+      "hosting": "Alojamiento",
+      "poweredBy": "Con la tecnología de Vultr"
+    }
   }
 }

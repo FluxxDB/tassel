@@ -10,6 +10,8 @@ from loguru import logger
 from openai import AsyncOpenAI, InternalServerError, RateLimitError
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from tassel.voice.ladder import checking, failed
+
 # Cerebras sometimes answers 429 for a few seconds; the same Qwen model on these hosts measured
 # 250–450 ms to first token (2026-10-18), so a busy Cerebras never silences Ada.
 QWEN_PRIMARY_PROVIDER = {"only": ["cerebras"], "allow_fallbacks": False}
@@ -26,12 +28,13 @@ class Decision(BaseModel):
     focus: Literal["paper", "board", "split", "none"]
     needs_vision: bool
     route: Literal["talker", "thinker"]
-    action: Literal["none", "explain", "draw_board", "mark_paper", "trace"]
-    refers_to: Literal["paper", "board", "conversation"]
+    action: Literal["none", "explain", "draw_board", "mark_paper", "mark_image", "trace"]
+    # "image": an image she sent in the chat (a screenshot, a photo), never her paper.
+    refers_to: Literal["paper", "board", "image", "conversation"]
 
     @model_validator(mode="after")
     def no_paper_on_board(self):
-        if self.refers_to == "board":
+        if self.refers_to in ("board", "image"):
             self.needs_vision = False
         return self
 
@@ -39,9 +42,16 @@ class Decision(BaseModel):
 PAPER = re.compile(
     r"\b(paper|page|camera|circle mine|on top of my|my drawing|my work|my sketch)\b", re.I
 )
+# An image she sent in the chat: "my screenshot", "the picture I sent", "on my image".
+IMAGE = re.compile(
+    r"\b(?:screen\s?shots?|images?|(?<!big )pictures?|photos?|pics?|attachments?|"
+    r"(?:the )?(?:file|one) I (?:sent|attached|uploaded))\b",
+    re.I,
+)
 SIMPLE = re.compile(r"^\W*(what(?: is|'s| are)|define|what does .{1,30} mean)\b", re.I)
 BOARD = re.compile(r"\b(board|whiteboard)\b", re.I)
 DRAW = re.compile(r"\b(draw|mark|highlight|circle|wash|strike|underline|callout)\b", re.I)
+MARK = re.compile(r"\b(mark|highlight|circle|wash|strike|underline|callout)\b", re.I)
 # Her own work ("the DFA I tried to draw", "my DFA") is a paper reference, not a draw request.
 SELF_WORK = re.compile(
     r"\b(?:I (?:try|tried|was trying|am trying|'m trying) to draw|I drew|I(?:'ve| have) drawn|"
@@ -151,11 +161,46 @@ RESTORE = re.compile(
 )
 
 
+# Something with a picture, and a request to explain how it works: drawn, not only told.
+VISUAL = re.compile(
+    r"\b(?:dfa|nfa|automat\w*|state machine|machine|transitions?|network|subnet\w*|"
+    r"topolog\w*|router|diagram|graph|tree|flowchart|circuit)s?\b",
+    re.I,
+)
+EXPLAIN_HOW = re.compile(
+    r"\b(?:explain|how (?:does|do|would|can|is)|why (?:does|is|do|would)|walk me through|"
+    r"show me how|what happens)\b",
+    re.I,
+)
+
+
 def _draw_request(text):
     return bool(DRAW.search(SELF_WORK.sub(" ", text)))
 
 
-def rules(text, *, focus="none", page_changed=False, **_):
+def _image_ref(text, *, image=False) -> bool:
+    """Her words point at an image she sent: they name one and neither her paper nor the board,
+    or (`image`: this message carries one) they ask to draw without naming either."""
+    if PAPER.search(text) or BOARD.search(text):
+        return False
+    # A message that carries an image and asks for a mark (circle, underline…) means that
+    # image; "show me the answer" or "draw a DFA" with a screenshot asks Ada to solve it, which
+    # she does on the board.
+    return bool(IMAGE.search(text)) or (image and bool(MARK.search(SELF_WORK.sub(" ", text))))
+
+
+def rules(text, *, focus="none", page_changed=False, image=False, **_):
+    if _image_ref(text, image=image):
+        # Her image shows in the paper panel's slot; only the thinker sees it, numbered.
+        mark = _draw_request(text) or bool(SHOW.search(text)) or bool(ERASE.search(text))
+        explain = COMPLEX.search(text) or re.search(r"\b(explain|what is|how)\b", text, re.I)
+        return Decision(
+            focus="paper",
+            needs_vision=False,
+            route="thinker",
+            action="mark_image" if mark else "explain" if explain else "none",
+            refers_to="image",
+        )
     board = bool(BOARD.search(text))
     paper = bool(PAPER.search(text)) or (bool(SELF_WORK.search(text)) and not board)
     if (
@@ -189,10 +234,18 @@ def rules(text, *, focus="none", page_changed=False, **_):
     )
 
 
-def guard(text, decision):
+def guard(text, decision, *, image=False):
     """Explicit words beat the model: naming the paper or camera (and not the board) means
-    paper marks; her own drawing means the paper; board requests and complaints mean a board
-    drawing; anything that needs the page or a construction goes to the thinker."""
+    paper marks; naming an image she sent (or asking to draw on the one this message carries)
+    means her image; her own drawing means the paper; board requests and complaints mean a
+    board drawing; anything that needs the page or a construction goes to the thinker."""
+    if _image_ref(text, image=image):
+        wanted = rules(text, image=image)
+        if decision.refers_to != "image" or decision.action in ("draw_board", "mark_paper"):
+            decision = wanted
+        elif wanted.action == "mark_image":
+            decision = decision.model_copy(update={"action": "mark_image"})
+        return decision.model_copy(update={"route": "thinker", "needs_vision": False})
     named_paper, board = bool(PAPER.search(text)), bool(BOARD.search(text))
     self_work = bool(SELF_WORK.search(text)) and not board
     draw = _draw_request(text) or bool(SHOW.search(text))
@@ -244,7 +297,13 @@ def guard(text, decision):
     ):
         # Short definitional questions are the fast talker's: instant, no brief needed.
         update.update(route="talker", action="explain")
-    return decision.model_copy(update=update) if update else decision
+    final = decision.model_copy(update=update) if update else decision
+    if final.route == "talker" and VISUAL.search(text) and EXPLAIN_HOW.search(text):
+        # Explaining something visual is drawn on the board, step by step: the thinker's turn
+        # (the talker never draws).
+        action = "explain" if final.action == "none" else final.action
+        final = final.model_copy(update={"route": "thinker", "action": action})
+    return final
 
 
 GREETING = re.compile(
@@ -276,35 +335,122 @@ def certain(text):
         return guard(text, rules(text))
     if (_draw_request(text) or SHOW.search(text)) and named_paper != board:
         return guard(text, rules(text))
+    if _image_ref(text) and (_draw_request(text) or SHOW.search(text)):
+        return guard(text, rules(text))
     return None
 
 
-def escalate(text, decision, *, confusions, drew_last=False):
-    """The playbook's ladder, enforced: still confused after one explanation means drawing.
-    First point at her paper; if that was already done, trace the counterexample."""
-    if confusions <= 0 or not CONFUSED.search(text):
-        return decision
-    on_board = decision.refers_to == "board" or decision.focus == "board"
-    if confusions + drew_last <= 1:
-        if on_board:
-            update = dict(route="thinker", action="draw_board")
-        else:
-            update = dict(
-                route="thinker",
-                action="mark_paper",
-                focus="paper",
-                refers_to="paper",
-                needs_vision=True,
-            )
-    elif on_board:
-        update = dict(
-            route="thinker", action="trace", focus="board", refers_to="board", needs_vision=False
-        )
+# A short attempt at Ada's ladder question: a state, an input, a fix ("q3 should accept").
+ATTEMPT = re.compile(
+    r"\bq\s*\d+\b|\bq (?:zero|one|two|three|four|five)\b|\b[01]{2,}\b|"
+    r"\b(?:should|needs?|missing|instead|change|add|remove|accept\w*|reject\w*|is it|maybe|"
+    r"because|wrong)\b",
+    re.I,
+)
+ACK = re.compile(
+    r"^\W*(?:ok(?:ay)?|got it|i see|thanks|thank you|cool|great|yes|yeah|sure|alright|"
+    r"makes sense)\W*$",
+    re.I,
+)
+TRACE_WORD = re.compile(r"\btrace\b", re.I)
+# On an open ladder: "just show me the answer", "what's the fix": the correct one now (step 2).
+GIVE_UP = re.compile(
+    r"\b(?:(?:show|give|tell) me (?:the )?(?:answer|solution|fix|correct (?:one|version))|"
+    r"what'?s the (?:answer|fix|solution))\b",
+    re.I,
+)
+
+
+def _asks(text) -> bool:
+    """Her words ask for something of their own: a mark or drawing, a construction, the answer,
+    an erase or undo, or a trace. Such a turn is a new request, not a ladder answer."""
+    return bool(
+        _draw_request(text)
+        or ERASE.search(text)
+        or RESTORE.search(text)
+        or CONSTRUCT.search(HELP.sub(" ", text))
+        or TRACE_WORD.search(text)
+    )
+
+
+def _attempt(text) -> bool:
+    words = len(text.split())
+    return bool(
+        words <= 25
+        and ATTEMPT.search(text)
+        and not ACK.search(text)
+        and not GREETING.search(text)
+        and not re.match(r"^\W*(?:why|how|what)\b", text, re.I)
+    )
+
+
+def _rung(problem, step, decision):
+    """The decision for a ladder rung: step 0 diagnoses where her work is, steps 1 and 2 draw on
+    the board (her page stays beside it for a paper problem: the thinker copies from it)."""
+    if problem == "board":
+        update = dict(refers_to="board", needs_vision=False)
+        update["focus"] = "split" if decision.focus == "split" else "board"
     else:
-        update = dict(
-            route="thinker", action="trace", focus="split", refers_to="paper", needs_vision=True
-        )
+        update = dict(refers_to="paper", needs_vision=True)
+        if step == 0:
+            update["focus"] = decision.focus if decision.focus in ("paper", "split") else "paper"
+        else:
+            update["focus"] = "split"
+    update.update(route="thinker", action="explain" if step == 0 else "draw_board")
     return decision.model_copy(update=update)
+
+
+def escalate(text, decision, *, ladder=None, answered=True):
+    """The whiteboard ladder (voice/ladder.py), enforced. A check of her work opens it at step 0;
+    after Ada's question, "no", "I can't see it" or a wrong attempt climbs it one step (the
+    answer outright, step 2); a new request closes it. With no ladder open, still confused after
+    an explanation means drawing: her paper's machine as step 1, anything else on the board.
+    `answered`: Ada has spoken in this conversation. Sets ``ladder.turn`` for the coordinator."""
+    if ladder is None:
+        return decision
+    ladder.turn, ladder.attempt = None, False
+    lost = answered and bool(CONFUSED.search(text))
+    if decision.refers_to == "image":
+        # Her own image: point at it; there is no copy of it to trace.
+        if lost:
+            return decision.model_copy(update=dict(route="thinker", action="mark_image"))
+        return decision
+    asks = _asks(text)
+    if checking(text) and not asks:
+        # Her own work ("my DFA") is on her paper, even checked "on your whiteboard": that asks
+        # to see it on the board, so the ladder starts at step 1. "Check my network on the
+        # board" is her work on the board.
+        mine = bool(SELF_WORK.search(text) or PAPER.search(text))
+        problem = "board" if decision.refers_to == "board" and not mine else "paper"
+        step = 1 if problem == "paper" and ON_BOARD.search(text) else 0
+        ladder.begin(problem, step=step)
+        return _rung(problem, step, decision)
+    if ladder.open and answered and GIVE_UP.search(text):
+        ladder.climb(to=2)
+        return _rung(ladder.problem, ladder.turn, decision)
+    if asks:
+        if decision.route == "thinker":
+            ladder.reset()  # Something new: a new problem.
+        return decision
+    if ladder.open and answered and (failed(text) or CONFUSED.search(text)):
+        ladder.climb()
+        return _rung(ladder.problem, ladder.turn, decision)
+    if ladder.open and answered and _attempt(text):
+        ladder.climb(attempt=True)
+        return _rung(ladder.problem, ladder.turn, decision)
+    if lost and not ladder.open:
+        if decision.refers_to == "paper" or decision.focus == "paper":
+            ladder.begin("paper", step=1)
+            return _rung("paper", 1, decision)
+        return decision.model_copy(
+            update=dict(
+                route="thinker",
+                action="draw_board",
+                focus="split" if decision.focus == "split" else "board",
+                needs_vision=False,
+            )
+        )
+    return decision
 
 
 def report_usage(on_usage, model, response):
@@ -321,6 +467,22 @@ def report_usage(on_usage, model, response):
     )
 
 
+def fallback_reason(error: BaseException, budget_s: float) -> str:
+    """Why the director fell back to rules, in words: never only an exception type, and never a
+    provider's own message (it can carry account details)."""
+    if isinstance(error, TimeoutError):
+        return f"no decision within {budget_s:g} s"
+    status = getattr(error, "status_code", None)
+    if status is not None:
+        return f"provider HTTP {status} ({type(error).__name__})"
+    errors = getattr(error, "errors", None)
+    if callable(errors):
+        first = (errors() or [{}])[0]
+        where = ".".join(str(p) for p in first.get("loc", ())) or "reply"
+        return f"invalid decision at {where}: {first.get('msg', '')}"[:200]
+    return f"{type(error).__name__} calling the director"
+
+
 class Director:
     def __init__(self, *, client=None, budget_s=0.8, log=None, on_usage=None, script=None):
         self.client, self.budget_s, self.log = client, budget_s, log
@@ -329,11 +491,20 @@ class Director:
         self.script = script
 
     async def decide(
-        self, text, history, *, focus="none", board_items=None, frozen=False, page_changed=False
+        self,
+        text,
+        history,
+        *,
+        focus="none",
+        board_items=None,
+        frozen=False,
+        page_changed=False,
+        image=False,
     ):
+        """`image`: this message carries an image she sent."""
         started = time.monotonic()
         source = "rules"
-        decision = rules(text, focus=focus, page_changed=page_changed)
+        decision = rules(text, focus=focus, page_changed=page_changed, image=image)
         sure = certain(text)
         scripted = self.script(text) if self.script is not None else None
         if scripted is not None:
@@ -364,8 +535,11 @@ class Director:
                                     "multi-step reasoning "
                                     "go to thinker. 'The DFA I drew' or 'my DFA' is her "
                                     "paper (needs vision). A complaint that the board is "
-                                    "empty means draw_board. Resolve intent from context; "
-                                    "don't reconfirm clear intent."
+                                    "empty means draw_board. An image she sent in the chat "
+                                    "(a screenshot, photo or picture; sent_image: one comes "
+                                    "with this message) is refers_to image, never her paper: "
+                                    "marking it means mark_image. Resolve intent from "
+                                    "context; don't reconfirm clear intent."
                                 ),
                             },
                             {
@@ -378,6 +552,7 @@ class Director:
                                         board_items=board_items or {},
                                         frozen=frozen,
                                         page_changed=page_changed,
+                                        sent_image=image,
                                     )
                                 ),
                             },
@@ -414,10 +589,11 @@ class Director:
                     source = "model"
             except Exception as error:
                 # No provider details in the transcript; rules preserve the turn.
-                logger.warning("Director fell back to rules ({})", type(error).__name__)
+                reason = fallback_reason(error, self.budget_s)
+                logger.warning("Director fell back to rules ({})", reason)
                 if self.log:
-                    self.log("director_fallback", reason=type(error).__name__)
-        decision = guard(text, decision)
+                    self.log("director_fallback", reason=reason)
+        decision = guard(text, decision, image=image)
         if self.log:
             self.log(
                 "director",

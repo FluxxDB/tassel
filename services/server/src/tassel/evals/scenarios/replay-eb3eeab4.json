@@ -29,7 +29,13 @@
     {
       "student": "I I just want you to create a diagram a whole a whole network zone with all these subnets and all these devices in the subnets.",
       "expect": {
-        "tags": ["board.diagram"]
+        "tags": ["board.diagram"],
+        "board": {
+          "groups": {
+            "min": 4
+          },
+          "zone_hosts": [50, 20, 18, 10]
+        }
       }
     },
     {

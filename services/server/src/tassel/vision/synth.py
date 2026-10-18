@@ -8,7 +8,7 @@ uneven lighting, grain, a slight blur and a JPEG round trip, like a Desk View fr
 Positions are fractions of the page (x of its width, y of its height); sizes are page widths.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from math import cos, pi, radians, sin
 
 import cv2
@@ -66,13 +66,21 @@ class Rule:
     x1: float = 0.96
 
 
-Item = Text | State | Arrow | Rule
+@dataclass(frozen=True)
+class Line:
+    """A hand-drawn straight stroke without a head, such as a divider between two problems."""
+
+    start: tuple[float, float]
+    end: tuple[float, float]
+
+
+Item = Text | State | Arrow | Rule | Line
 
 
 @dataclass(frozen=True)
 class Truth:
     kind: str
-    """"text", "state", "arrow" or "rule"."""
+    """"text", "state", "arrow", "rule" or "line"."""
     box: Box
     text: str | None = None
     words: tuple[Box, ...] = ()
@@ -179,6 +187,16 @@ def _arrow_layer(item: Arrow, w: int, h: int, rng: np.random.Generator) -> np.nd
     return layer
 
 
+def _line_layer(item: Line, w: int, h: int, rng: np.random.Generator) -> np.ndarray:
+    layer = np.zeros((h, w), np.uint8)
+    t = np.linspace(0, 1, 80)[:, None]
+    a = np.array([item.start[0] * w, item.start[1] * h])
+    b = np.array([item.end[0] * w, item.end[1] * h])
+    points = a + t * (b - a) + rng.normal(0, 0.5, (len(t), 2))
+    cv2.polylines(layer, [np.rint(points).astype(np.int32)], False, 255, 3, cv2.LINE_AA)
+    return layer
+
+
 def _lighting(w: int, h: int, strength: float, rng: np.random.Generator) -> np.ndarray:
     """A smooth multiplicative field: a desk lamp off to one side plus a soft vignette."""
     ys, xs = np.mgrid[0:h, 0:w].astype(np.float32)
@@ -198,8 +216,20 @@ def render(
     lighting: float = 0.3,
     grain: float = 4.0,
     quality: int = 80,
+    paper_rgb: tuple[int, int, int] = PAPER_RGB,
+    pen_rgb: tuple[int, int, int] = PEN_RGB,
+    pen_alpha: float = 0.92,
+    cast: tuple[float, float, float] = (1.0, 1.0, 1.0),
+    gradient: float = 0.0,
+    band: float = 0.0,
+    blur: float = 0.7,
 ) -> SynthPage:
-    """The page and each item's truth box (from its own ink, before lighting and JPEG)."""
+    """The page and each item's truth box (from its own ink, before lighting and JPEG).
+
+    The camera options make a raw Desk View frame rather than a flattened page: `cast` scales
+    each channel (a blue cast), `gradient` darkens the left edge by this fraction, `band` blacks
+    out this fraction of the height at the bottom (the desk the de-warp has no pixels for), and a
+    low `pen_alpha` with a wider `blur` gives thin, faint pencil."""
     rng = np.random.default_rng(seed)
     w, h = width, height
     ink = np.zeros((h, w), np.float32)
@@ -220,6 +250,11 @@ def render(
             printed = np.maximum(printed, layer / 255)
             truth.append(Truth("rule", _bounds(layer)))
             continue
+        if isinstance(item, Line):
+            layer = _line_layer(item, w, h, rng)
+            truth.append(Truth("line", _bounds(layer)))
+            ink = np.maximum(ink, layer / 255)
+            continue
         layer = (
             _state_layer(item, w, h, rng)
             if isinstance(item, State)
@@ -228,12 +263,20 @@ def render(
         truth.append(Truth("state" if isinstance(item, State) else "arrow", _bounds(layer)))
         ink = np.maximum(ink, layer / 255)
     rgb = np.empty((h, w, 3), np.float32)
-    rgb[:] = PAPER_RGB
-    for color, alpha in ((PRINT_RGB, printed), (PEN_RGB, 0.92 * ink)):
+    rgb[:] = paper_rgb
+    for color, alpha in ((PRINT_RGB, printed), (pen_rgb, pen_alpha * ink)):
         rgb = rgb * (1 - alpha[..., None]) + np.array(color, np.float32) * alpha[..., None]
     rgb *= _lighting(w, h, lighting, rng)[..., None]
+    rgb *= np.array(cast, np.float32)
+    if gradient:
+        rgb *= (1 - gradient * np.linspace(1, 0, w, dtype=np.float32))[None, :, None]
+    if band:
+        # The de-warp's empty desk: nearly black, with a soft edge a few pixels deep.
+        ramp = np.clip((np.arange(h, dtype=np.float32) - (1 - band) * h) / 6, 0, 1)
+        rgb = rgb * (1 - ramp[:, None, None]) + 6 * ramp[:, None, None]
     rgb += rng.normal(0, grain, rgb.shape)
-    rgb = cv2.GaussianBlur(np.clip(rgb, 0, 255).astype(np.uint8), (3, 3), 0.7)
+    size = 2 * max(1, round(2 * blur)) + 1
+    rgb = cv2.GaussianBlur(np.clip(rgb, 0, 255).astype(np.uint8), (size, size), blur)
     rgb = decode_jpeg(encode_jpeg(rgb, quality=quality))
     quad = (Pt(x=0, y=0), Pt(x=w, y=0), Pt(x=w, y=h), Pt(x=0, y=h))
     return SynthPage(FlatPage(rgb, w, h, quad, True), tuple(truth))
@@ -274,5 +317,54 @@ SCENES: dict[str, list[Item]] = {
 }
 
 
+LANGUAGE = "Language A = {e, 101}"
+MASK = "Subnet Mask 255.255.255.128"
+USABLE = "64 usable addresses"
+SUBNET = "192.168.1.0/24"
+
+# The owner's live page (2026-10-18), redrawn: two problems side by side in thin pencil, a
+# divider between them, and three small states, on a whole unflattened Desk View frame.
+SCENES["desk"] = [
+    Text("Problem 1", 0.07, 0.09, size=0.016),
+    Text(LANGUAGE, 0.07, 0.155, size=0.016, tracking=0.8),
+    Arrow((0.11, 0.30), (0.153, 0.30), bend=0.0),
+    State(0.178, 0.30, 0.022, accept=True),
+    Arrow((0.202, 0.295), (0.27, 0.29), bend=0.0),
+    Text("1", 0.232, 0.27, size=0.014),
+    State(0.294, 0.285, 0.022),
+    Arrow((0.318, 0.285), (0.389, 0.28), bend=0.0),
+    Text("0", 0.35, 0.265, size=0.014),
+    State(0.413, 0.28, 0.022, accept=True),
+    Line((0.465, 0.07), (0.468, 0.38)),
+    Text("Problem 2", 0.49, 0.09, size=0.016),
+    Text(SUBNET, 0.495, 0.13, size=0.016, tracking=0.75),
+    Text(MASK, 0.495, 0.172, size=0.016, tracking=0.8),
+    Text(USABLE, 0.495, 0.207, size=0.016, tracking=0.8),
+]
+
+# How the owner's Desk View frames look by the numbers: a blue cast (red about half of blue on
+# the paper), brighter to the right, faint thin pencil, and the bottom of the frame black.
+DESK_VIEW = dict(
+    width=1920,
+    height=1440,
+    lighting=0.1,
+    grain=1.5,
+    quality=85,
+    paper_rgb=(236, 236, 232),
+    pen_rgb=(120, 120, 128),
+    pen_alpha=0.55,
+    cast=(0.45, 0.62, 0.92),
+    gradient=0.18,
+    band=0.17,
+    blur=1.0,
+)
+
+
 def scene(name: str, **options) -> SynthPage:
     return render(SCENES[name], **options)
+
+
+def desk_view(name: str = "desk", **options) -> SynthPage:
+    """A scene as a raw Desk View frame: the whole frame is the page, nothing is flattened."""
+    page = render(SCENES[name], **(DESK_VIEW | options))
+    return SynthPage(replace(page.page, found=False), page.truth)

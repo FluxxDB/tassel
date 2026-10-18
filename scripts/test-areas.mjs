@@ -55,10 +55,10 @@ export const AREAS = [
       `${D}/config/**`,
       `${R}/{main.tsx,i18n.ts}`,
       `${R}/{app,lib,styles}/**`,
-      `${R}/components/{Button,Chip,IconButton,SegmentedControl,Sheet,Wordmark,icons}.tsx`,
+      `${R}/components/{Button,Chip,IconButton,Menu,OptionCards,Segmented,SettingSwitch,Sheet,Tabs,TitleField,Wordmark,icons}.tsx`,
     ],
     unit: [
-      `${UNIT}/{api,app-protocol,cn,components,config,i18n,ipc,route-store,token-store,windows}.test.{ts,tsx}`,
+      `${UNIT}/{api,app-protocol,cn,components,config,downloads,i18n,ipc,route-store,token-store,windows}.test.{ts,tsx}`,
       'packages/shared/tests/{i18n,tokens}.test.ts',
     ],
     e2e: [`${E2E}/shell.spec.ts`],
@@ -71,6 +71,13 @@ export const AREAS = [
     e2e: [`${E2E}/{library,new-session}.spec.ts`],
   },
   {
+    name: 'settings',
+    title: 'The Settings view: its sections, and the settings the main process saves',
+    app: [`${R}/features/settings/**`, `${D}/src/main/settings.ts`],
+    unit: [`${UNIT}/settings/**`],
+    e2e: [`${E2E}/settings.spec.ts`],
+  },
+  {
     name: 'session',
     title: 'Session screen: stage, floating tiles, captions, dock, scripted fake tutor',
     app: [
@@ -80,7 +87,7 @@ export const AREAS = [
       `${R}/tutor/scripts/dfa-opening.json`,
     ],
     unit: [
-      `${UNIT}/{fake-client,floating-tile,session-screen,session-tiles,stage-store,tutor-contract,use-elapsed,use-tutor-session}.test.{ts,tsx}`,
+      `${UNIT}/{fake-client,floating-tile,session-screen,session-tiles,stage-store,title-rename,tutor-contract,use-elapsed,use-tutor-session}.test.{ts,tsx}`,
     ],
     e2e: [`${E2E}/{fake-tutor,session-layout}.spec.ts`],
   },
@@ -89,7 +96,7 @@ export const AREAS = [
     title: 'Board: tldraw canvas, scenes, beats, marks, diagrams, automata',
     app: [
       `${R}/board/**`,
-      `${R}/tutor/scripts/{board,diagram,marks}-demo.json`,
+      `${R}/tutor/scripts/{board,diagram,marks,image,trace}-demo.json`,
       `${R}/tutor/scripts/board-snapshot.json`,
     ],
     server: [`${SRC}/{board,beats}/**`, 'packages/shared/src/beats/**'],
@@ -121,11 +128,15 @@ export const AREAS = [
   },
   {
     name: 'vision',
-    title: 'Vision: reading the paper, gates, transcription, the read-back card',
+    title: 'Vision: paper and student-image marks, gates, transcription, the read-back card',
     app: [`${R}/vision/**`],
     server: [`${SRC}/vision/**`, 'packages/shared/src/vision/**'],
     unit: [`${UNIT}/vision/**`, 'packages/shared/tests/vision-contract.test.ts'],
-    pytest: [`${PY}/vision/**`],
+    pytest: [
+      `${PY}/vision/**`,
+      `${PY}/image_marks_fixtures.py`,
+      `${PY}/voice/test_pointer_marks.py`,
+    ],
   },
   {
     name: 'voice',
@@ -150,6 +161,15 @@ export const AREAS = [
     pytest: [`${PY}/voice/**`, `${PY}/evals/**`],
   },
   {
+    name: 'chat',
+    title: 'The chat sidebar: conversation, typed messages, student images, saved history',
+    app: [`${R}/features/chat/**`],
+    server: [`${SRC}/chat/**`],
+    unit: [`${UNIT}/chat/**`],
+    e2e: [`${E2E}/chat*.spec.ts`],
+    pytest: [`${PY}/chat/**`],
+  },
+  {
     name: 'evals',
     title: 'The live tutor eval: scenarios, page fixtures, checks, the budget, reports',
     server: [`${SRC}/evals/**`],
@@ -167,7 +187,7 @@ export const AREAS = [
       `${SRC}/scripts/export_avatar_voices.py`,
     ],
     unit: [`${UNIT}/{avatar,avatar-motion,memory,personality,voice-preview}.test.{ts,tsx}`],
-    e2e: [`${E2E}/{avatar,memory-close}.spec.ts`],
+    e2e: [`${E2E}/avatar.spec.ts`],
     pytest: [
       `${PY}/test_learner_memory.py`,
       `${PY}/test_tutor_personality.py`,
@@ -198,9 +218,17 @@ export const AREAS = [
   },
   {
     name: 'tooling',
-    title: 'Repo scripts: dev, live, camera launch, checks, test selection',
-    app: ['scripts/**'],
+    title:
+      'Repo scripts and the Docker backend: dev, live, start, camera launch, checks, test selection',
+    app: [
+      'scripts/**',
+      'docker-compose.yml',
+      `${S}/{Dockerfile,.dockerignore,no-provider-keys.env}`,
+    ],
+    // The server container's start, and the settings its Compose environment must cover.
+    server: [`${SRC}/scripts/{container,ensure_database}.py`, `${SRC}/{voice,vision}/settings.py`],
     node: ['scripts/*.test.mjs'],
+    pytest: [`${PY}/scripts/{test_container,test_docker_setup}.py`],
   },
 ];
 
@@ -275,7 +303,6 @@ export const NO_TESTS = [
   '.gitattributes',
   '.gitignore',
   'biome.json',
-  'docker-compose.yml',
   'tsconfig.base.json',
   `${D}/playwright.camera.config.ts`,
   `${S}/src/tassel/voice/playbook.md`,

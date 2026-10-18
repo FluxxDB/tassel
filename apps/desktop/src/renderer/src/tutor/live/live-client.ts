@@ -11,7 +11,7 @@ import {
 import type { Lang } from '@tassel/shared/i18n';
 import { type ClientEvent, type OfferRequestData, voiceOfferPath } from '@tassel/shared/voice';
 import { systemClock } from '../clock';
-import type { Clock, TutorClient, TutorEvent, VoiceControls } from '../types';
+import type { Clock, OutgoingMessage, TutorClient, TutorEvent, VoiceControls } from '../types';
 import { asTransportMediaManager, TasselMediaManager } from './media-manager';
 import type { Mic, MicOptions } from './mic';
 import { initialMapState, type MapState, mapRtvi, type RtviInput } from './rtvi-map';
@@ -135,6 +135,15 @@ export class LiveTutorClient implements TutorClient {
     void connection.client
       .sendText(text, { run_immediately: true, audio_response: true })
       .catch(() => this.failed(connection));
+  }
+  sendMessage({ clientId, text, attachmentIds, voice }: OutgoingMessage) {
+    return this.send({
+      kind: 'student-message',
+      client_id: clientId,
+      text,
+      attachment_ids: attachmentIds,
+      voice,
+    });
   }
   private async restart() {
     if (this.sessionId === null) return;
@@ -359,10 +368,12 @@ export class LiveTutorClient implements TutorClient {
       .catch(() => {});
     return connection.closing;
   }
-  private send(event: ClientEvent) {
+  /** Whether it went: false without a live connection. */
+  private send(event: ClientEvent): boolean {
     const connection = this.current;
-    if (connection?.client && !connection.retired)
-      connection.client.sendClientMessage('tassel', event);
+    if (!connection?.client || connection.retired) return false;
+    connection.client.sendClientMessage('tassel', event);
+    return true;
   }
   private emit(event: TutorEvent) {
     for (const listener of this.listeners) listener(event);

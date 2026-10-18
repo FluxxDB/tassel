@@ -1,0 +1,53 @@
+{
+  "name": "image-marks",
+  "title": "Image marks: Ada shows and marks the image the student sent",
+  "description": "The chat's image marks on real providers: a typed message carrying her DFA page as an image, then asks in words to mark it. The director sends it to the thinker as mark_image, the thinker sees the image numbered (Set-of-Mark), its marks in words go through the Pointer on that image, and Ada shows it (image.show) then marks it (image.mark). Real tokens only: the fake thinker scripts no brief for these words.",
+  "default": false,
+  "fake_script": "image-marks",
+  "stage": {
+    "view": "board"
+  },
+  "turns": [
+    {
+      "student": "Here's a photo of my DFA for strings that start with 010.",
+      "images": ["dfa-page"],
+      "expect": {
+        "chat": true
+      }
+    },
+    {
+      "student": "Circle the state on my image that should be accepting.",
+      "voice": false,
+      "expect": {
+        "route": "thinker",
+        "action": "mark_image",
+        "tags": ["image.show", "image.mark"],
+        "no_tags": ["paper.mark", "board.automaton"],
+        "chat": true,
+        "image_marks": [
+          {
+            "type": "circle",
+            "truth": "q3"
+          }
+        ]
+      }
+    },
+    {
+      "student": "Now underline the arrow out of q2 in my screenshot.",
+      "voice": false,
+      "expect": {
+        "route": "thinker",
+        "action": "mark_image",
+        "tags": ["image.show", "image.mark"],
+        "no_tags": ["paper.mark"],
+        "chat": true,
+        "image_marks": [
+          {
+            "type": "underline",
+            "truth": "q2>q3"
+          }
+        ]
+      }
+    }
+  ]
+}

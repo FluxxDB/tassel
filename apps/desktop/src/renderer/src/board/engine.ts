@@ -44,10 +44,11 @@ export interface StageGeometry {
 }
 
 export interface BoardEngine {
-  /** Fixed screen-space canvas; coordinates are relative to the selected display, not desktop origin. */
+  /** Fixed screen-space canvas; coordinates are relative to the selected display, not desktop
+   * origin. With the display's origin, the camera corrects for where the OS put the window. */
   screen?(
     marks: readonly ScreenMark[],
-    viewport: { width: number; height: number },
+    viewport: { width: number; height: number; x?: number; y?: number },
     board?: ScreenBoard,
   ): void;
   /** Draws `scene`, changing only what changed since the last call. */

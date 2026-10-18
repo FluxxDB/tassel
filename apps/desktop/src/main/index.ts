@@ -13,7 +13,8 @@ import {
   systemPreferences,
 } from 'electron';
 import { handleAppProtocol, registerAppScheme } from './app-protocol';
-import { applyUserDataOverride, readConfig, tokenStoreMode } from './config';
+import { applyUserDataOverride, downloadDir, readConfig, tokenStoreMode } from './config';
+import { registerDownloads } from './downloads';
 import { registerIpc } from './ipc';
 import { registerScreenOverlay } from './overlay/controller';
 import { createCameraAccess } from './paper/camera-access';
@@ -24,6 +25,7 @@ import { createHelperSupervisor, helperToken } from './paper/helper-supervisor';
 import { registerPaperIpc } from './paper/ipc';
 import { bindHelperToApp } from './paper/lifecycle';
 import { applyPaperSwitches } from './paper/switches';
+import { readSavedSettings } from './settings';
 import { createTokenStore } from './token-store';
 import { readVoiceConfig, registerVoiceIpc } from './voice/ipc';
 import { createMicAccess } from './voice/mic-access';
@@ -33,8 +35,10 @@ import { createMainWindow, hardenWebContents, isTrustedUrl, restrictPermissions 
 // First, because the single-instance lock lives in userData: E2E runs, each with its own
 // TASSEL_USER_DATA, never block one another.
 applyUserDataOverride();
+// What Settings saved (userData/settings.json), read once per launch.
+const saved = readSavedSettings(app.getPath('userData'));
 // Paper's settings, and the fake camera's switches, which must be in before the app is ready.
-const paper = readPaperSettings();
+const paper = readPaperSettings(process.env, app.isPackaged, existsSync, saved);
 applyPaperSwitches(app.commandLine, paper);
 registerAppScheme();
 app.enableSandbox();
@@ -53,6 +57,11 @@ if (!app.requestSingleInstanceLock()) {
     .then(() => {
       handleAppProtocol(join(__dirname, '../renderer'));
       restrictPermissions(session.defaultSession);
+      // The board's PNG lands in Downloads with no dialog; macOS bounces the Downloads stack.
+      registerDownloads(session.defaultSession, {
+        dir: downloadDir(),
+        finished: (path) => app.dock?.downloadFinished(path),
+      });
       registerPaper();
       registerIpc(
         createTokenStore({
@@ -63,6 +72,7 @@ if (!app.requestSingleInstanceLock()) {
           fetch: (input, init) => net.fetch(input instanceof URL ? input.href : input, init),
           serverUrl: readConfig().serverUrl,
         }),
+        app.getPath('userData'),
       );
       registerVoiceIpc({
         access: createMicAccess({

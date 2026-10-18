@@ -1,0 +1,148 @@
+{
+  "steps": [
+    { "at": 0, "event": { "type": "state", "state": "connecting" } },
+    { "at": 400, "event": { "type": "state", "state": "listening" } },
+    {
+      "at": 500,
+      "event": { "type": "title", "title": "Strings that start with 010", "subject": "Automata" }
+    },
+    {
+      "at": 700,
+      "event": {
+        "type": "caption",
+        "speaker": "student",
+        "text": "Does 0100 start with 010?",
+        "lang": "en",
+        "final": true
+      }
+    },
+    { "at": 900, "event": { "type": "state", "state": "speaking" } },
+    {
+      "at": 1000,
+      "event": {
+        "type": "caption",
+        "speaker": "tutor",
+        "text": "Let's run it through the machine, one symbol at a time.",
+        "lang": "en",
+        "final": true
+      }
+    },
+    {
+      "at": 1100,
+      "event": {
+        "type": "actions",
+        "actions": [
+          {
+            "kind": "board.automaton",
+            "item": "fix",
+            "spec": {
+              "kind": "dfa",
+              "states": [
+                { "id": "q0" },
+                { "id": "q1" },
+                { "id": "q2" },
+                { "id": "q3", "accept": true },
+                { "id": "qd" }
+              ],
+              "start": "q0",
+              "transitions": [
+                { "from": "q0", "to": "q1", "symbols": ["0"] },
+                { "from": "q1", "to": "q2", "symbols": ["1"] },
+                { "from": "q2", "to": "q3", "symbols": ["0"] },
+                { "from": "q3", "to": "q3", "symbols": ["0", "1"] },
+                { "from": "q0", "to": "qd", "symbols": ["1"] },
+                { "from": "q1", "to": "qd", "symbols": ["0"] },
+                { "from": "q2", "to": "qd", "symbols": ["1"] },
+                { "from": "qd", "to": "qd", "symbols": ["0", "1"] }
+              ]
+            },
+            "reveal": "all"
+          }
+        ]
+      }
+    },
+    {
+      "at": 1600,
+      "event": {
+        "type": "actions",
+        "actions": [
+          {
+            "kind": "board.trace",
+            "item": "run",
+            "spec": {
+              "kind": "dfa",
+              "states": [
+                { "id": "q0" },
+                { "id": "q1" },
+                { "id": "q2" },
+                { "id": "q3", "accept": true },
+                { "id": "qd" }
+              ],
+              "start": "q0",
+              "transitions": [
+                { "from": "q0", "to": "q1", "symbols": ["0"] },
+                { "from": "q1", "to": "q2", "symbols": ["1"] },
+                { "from": "q2", "to": "q3", "symbols": ["0"] },
+                { "from": "q3", "to": "q3", "symbols": ["0", "1"] },
+                { "from": "q0", "to": "qd", "symbols": ["1"] },
+                { "from": "q1", "to": "qd", "symbols": ["0"] },
+                { "from": "q2", "to": "qd", "symbols": ["1"] },
+                { "from": "qd", "to": "qd", "symbols": ["0", "1"] }
+              ]
+            },
+            "input": "0100",
+            "on": "fix",
+            "subject": "tutor",
+            "title": "This DFA on 0100"
+          }
+        ]
+      }
+    },
+    {
+      "at": 2200,
+      "event": {
+        "type": "caption",
+        "speaker": "tutor",
+        "text": "A zero takes us to q one.",
+        "lang": "en",
+        "final": true
+      }
+    },
+    {
+      "at": 2300,
+      "event": { "type": "actions", "actions": [{ "kind": "board.traceStep", "item": "run" }] }
+    },
+    {
+      "at": 2900,
+      "event": { "type": "actions", "actions": [{ "kind": "board.traceStep", "item": "run" }] }
+    },
+    {
+      "at": 3500,
+      "event": { "type": "actions", "actions": [{ "kind": "board.traceStep", "item": "run" }] }
+    },
+    {
+      "at": 4100,
+      "event": { "type": "actions", "actions": [{ "kind": "board.traceStep", "item": "run" }] }
+    },
+    {
+      "at": 4600,
+      "event": {
+        "type": "caption",
+        "speaker": "tutor",
+        "text": "We end in q three, so the machine accepts it.",
+        "lang": "en",
+        "final": true
+      }
+    },
+    {
+      "at": 4700,
+      "event": {
+        "type": "actions",
+        "actions": [
+          { "kind": "board.verdict", "item": "run", "got": "accept", "expected": "accept" }
+        ]
+      }
+    },
+    { "at": 5200, "event": { "type": "state", "state": "listening" } }
+  ]
+}

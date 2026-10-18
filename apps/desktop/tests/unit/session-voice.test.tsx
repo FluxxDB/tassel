@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // The session screen with the live voice tutor (P2 Task 18): the dock's mic level and audio
 // settings, push-to-talk's mic button, the language menu, Ada's connection on her tile, the mic
-// notice, the developer's HUD and console, and an AI title typing on. The voice session's own
+// notice, the developer's HUD, and an AI title typing on. The voice session's own
 // resources are replaced by fakes; everything on screen is production code.
 import type { ApiClient, Session } from '@tassel/shared/api';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -48,7 +48,6 @@ const APP: AppConfig = {
 const DEV: VoiceConfig = {
   devTools: true,
   fakeMic: true,
-  devConsole: false,
   canOpenMicSettings: true,
 };
 
@@ -275,29 +274,6 @@ describe('the session screen with the live voice tutor', () => {
     await renderLive({ config: { ...DEV, devTools: false } });
     fireEvent.keyDown(window, { key: 'L', code: 'KeyL', ctrlKey: true, shiftKey: true });
     expect(screen.queryByRole('region', { name: 'Latency' })).toBeNull();
-  });
-
-  it('the dev console sends typed lines', async () => {
-    const { client } = await renderLive();
-    expect(screen.queryByRole('textbox', { name: 'Student message' })).toBeNull();
-    act(() =>
-      useVoiceDebug
-        .getState()
-        .push({ kind: 'route', lang: 'en', stt: 'fake', llm: 'fake', tts: 'fake' }),
-    );
-    const input = screen.getByRole('textbox', { name: 'Student message' });
-    await userEvent.type(input, 'Hi Ada{Enter}');
-    expect(client.sendText).toHaveBeenCalledWith('Hi Ada');
-  });
-
-  it('the dev console shows with a live route when TASSEL_DEV_CONSOLE asks for it', async () => {
-    await renderLive({ config: { ...DEV, devConsole: true } });
-    act(() =>
-      useVoiceDebug
-        .getState()
-        .push({ kind: 'route', lang: 'en', stt: 'flux', llm: 'openai', tts: 'elevenlabs' }),
-    );
-    expect(screen.getByRole('textbox', { name: 'Student message' })).toBeInTheDocument();
   });
 
   it('an AI title types on, and appears at once with reduced motion', async () => {

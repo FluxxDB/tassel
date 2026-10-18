@@ -4,6 +4,7 @@ import type { BeatAction, BeatDoc } from '@tassel/shared/beats';
 import type { Lang } from '@tassel/shared/i18n';
 import type {
   BackchannelEvent,
+  ChatMessage,
   ClientMetrics,
   RouteEvent,
   Sensitivity,
@@ -45,7 +46,18 @@ export type TutorEvent =
   | { type: 'paper-request' }
   | { type: 'screen-marks'; data: unknown }
   /** The server asks for the board as it is now, a PNG for Ada's board turn. */
-  | { type: 'board-snapshot' };
+  | { type: 'board-snapshot' }
+  /** A line of the conversation for the chat sidebar; a tutor line updates in place by id. */
+  | { type: 'message'; message: ChatMessage };
+
+/** A message she typed in the chat: what goes to the server as a `student-message` event. */
+export interface OutgoingMessage {
+  clientId: string;
+  text: string;
+  attachmentIds: string[];
+  /** False asks Ada for a text-only reply. */
+  voice: boolean;
+}
 
 /** The live voice tutor's controls, beyond P1's TutorClient. */
 export interface VoiceControls {
@@ -68,6 +80,11 @@ export interface TutorClient {
   on(listener: (e: TutorEvent) => void): () => void;
   /** The dev/fake path: a typed student line. */
   sendText(text: string): void;
+  /**
+   * The chat sidebar's message, which interrupts Ada like speaking over her does. False when it
+   * couldn't go (no connection), so the sidebar offers a retry.
+   */
+  sendMessage?(message: OutgoingMessage): boolean;
   /** Immediately suppress the current response until a fresh screen turn is acknowledged. */
   interrupt?(epoch: number): void;
   /** Only the live voice tutor has these. */

@@ -14,14 +14,15 @@ import { useTranslation } from 'react-i18next';
 import type { Platform } from '../../../../shared/bridge';
 import { useRoute } from '../../app/route-store';
 import { Button } from '../../components/Button';
-import { SegmentedControl } from '../../components/SegmentedControl';
+import { Segmented } from '../../components/Segmented';
 import { Sheet } from '../../components/Sheet';
 import { useApi } from '../../lib/api';
 import { getPaperConfig } from '../../paper/paper-config';
+import { useSessionDefaults } from '../settings/session-defaults';
 import { defaultSource, paperUnavailable } from './defaults';
+import { SourceCards } from './SourceCards';
 
 const TYPES: readonly SessionType[] = ['homework', 'studying', 'research', 'other'];
-const SOURCES: readonly Source[] = ['paper', 'screen', 'talk'];
 
 type ErrorKey = 'errors.network' | 'errors.server' | 'errors.unknown';
 
@@ -78,8 +79,15 @@ function NewSessionForm({
   const openSession = useRoute((state) => state.openSession);
   const noticeId = useId();
   const [type, setType] = useState<SessionType>('homework');
-  const [language, setLanguage] = useState<Lang>(i18n.language as Lang);
-  const [source, setSource] = useState<Source>(() => defaultSource(platform));
+  // Settings → Session defaults decide where each choice starts.
+  const [language, setLanguage] = useState<Lang>(
+    () => useSessionDefaults.getState().language ?? (i18n.language as Lang),
+  );
+  const [source, setSource] = useState<Source>(() => {
+    const saved = useSessionDefaults.getState().source;
+    const blocked = saved === 'paper' && paperUnavailable(platform, paperFakeClip, paperWebcam);
+    return saved && !blocked ? saved : defaultSource(platform);
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ErrorKey | null>(null);
   const windows = platform === 'win32';
@@ -124,7 +132,7 @@ function NewSessionForm({
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-6">
         <Choice legend={t('newSession.groups.type')}>
-          <SegmentedControl<SessionType>
+          <Segmented<SessionType>
             label={t('newSession.groups.type')}
             options={TYPES.map((value) => ({ value, label: t(`newSession.type.${value}`) }))}
             value={type}
@@ -132,7 +140,7 @@ function NewSessionForm({
           />
         </Choice>
         <Choice legend={t('newSession.groups.language')}>
-          <SegmentedControl<Lang>
+          <Segmented<Lang>
             label={t('newSession.groups.language')}
             // Each language is named in itself, so each label carries its own lang.
             options={SUPPORTED_LANGS.map((value) => ({
@@ -145,16 +153,10 @@ function NewSessionForm({
           />
         </Choice>
         <Choice legend={t('newSession.groups.source')}>
-          <SegmentedControl<Source>
-            label={t('newSession.groups.source')}
-            options={SOURCES.map((value) => ({
-              value,
-              label:
-                value === 'paper' && paperWebcam
-                  ? t('paper.webcam.choice')
-                  : t(`newSession.source.${value}`),
-              disabled: value === 'paper' && paperUnavailable(platform, paperFakeClip, paperWebcam),
-            }))}
+          <SourceCards
+            platform={platform}
+            paperFakeClip={paperFakeClip}
+            paperWebcam={paperWebcam}
             value={source}
             onChange={setSource}
             describedBy={windows ? noticeId : undefined}

@@ -222,6 +222,8 @@ test('keeps keyboard focus moving: the title on arrival, and the Board control a
   // Arriving from the card she pressed, focus lands on the session's title.
   await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
   await page.keyboard.press('b');
+  // From the title, past the title strip's chat toggle, to the stage's Unpin.
+  await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Unpin' })).toBeFocused();
   await page.keyboard.press('Enter');
@@ -399,18 +401,21 @@ test('drags and resizes the tiles, which snap to the nearest free corner', async
   const pip = page.getByRole('group', { name: 'Your desk' });
   const tile = page.getByRole('group', { name: "Ada's tile" });
 
-  // The camera, dragged most of the way to the top left, lands there 14px in from the stage.
+  // The camera, dragged most of the way to the top left, lands there 14px in from the stage's
+  // left, and 8px below the board's top line (its chip, −/+/Fit and the pinned pill, 26px tall).
   const start = await pip.boundingBox();
   if (!start) throw new Error("the desk camera isn't on screen");
   await dragBy(page, { x: start.x + 120, y: start.y + 75 }, -900, -380);
   await settle(page);
   await expect(pip).toHaveAttribute('data-corner', 'top-left');
-  expect(await pip.boundingBox()).toMatchObject({ x: 30, y: 74, width: 240, height: 150 });
+  expect(await pip.boundingBox()).toMatchObject({ x: 30, y: 108, width: 240, height: 150 });
+  expect(await tilesOverTopLine(page)).toEqual([]);
 
   // Resized from its inner corner (now its bottom right): wider and taller at 1.6:1.
-  await dragBy(page, { x: 30 + 238, y: 74 + 148 }, 80, 50);
+  await dragBy(page, { x: 30 + 238, y: 108 + 148 }, 80, 50);
   await settle(page);
-  expect(await pip.boundingBox()).toMatchObject({ x: 30, y: 74, width: 320, height: 200 });
+  expect(await pip.boundingBox()).toMatchObject({ x: 30, y: 108, width: 320, height: 200 });
+  expect(await tilesOverTopLine(page)).toEqual([]);
   await snap(page, 'tiles-dragged-resized');
 
   // Ada's tile all the way left, to the corner the camera holds: she snaps to the nearest free
@@ -433,6 +438,113 @@ test('drags and resizes the tiles, which snap to the nearest free corner', async
   expect(await tile.boundingBox()).toMatchObject({ x: 1424 - 14 - 228, y: 74, width: 228 });
   await closeApp(app);
 });
+
+/**
+ * Each floating tile at rest that covers a control on a shown panel's top line (its chip, the
+ * pinned pill and Unpin, the board's −/+/Fit, paper's pills), as "<tile> (<corner>) over
+ * <control>". Throws if it finds no top line controls at all, so it never passes vacuously.
+ */
+async function tilesOverTopLine(page: Page): Promise<string[]> {
+  await settle(page);
+  const { controls, overlaps } = await page.evaluate(() => {
+    const stage = document.querySelector('[data-testid="stage"]');
+    if (!stage) return { controls: 0, overlaps: ['no stage'] };
+    const shown = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    };
+    const covers = (a: DOMRect, b: DOMRect) =>
+      a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const items = [...stage.querySelectorAll('[data-top-line]')]
+      .filter((line) => !line.closest('[inert]'))
+      .flatMap((line) => [...line.children])
+      .filter(shown);
+    const tiles = [...stage.querySelectorAll(':scope > [data-corner]')];
+    return {
+      controls: items.length,
+      overlaps: tiles.flatMap((tile) =>
+        items
+          .filter((item) => covers(tile.getBoundingClientRect(), item.getBoundingClientRect()))
+          .map(
+            (item) =>
+              `${tile.getAttribute('aria-label')} (${tile.getAttribute('data-corner')}) over "${
+                item.getAttribute('aria-label') ?? item.textContent?.trim()
+              }"`,
+          ),
+      ),
+    };
+  });
+  if (controls === 0) throw new Error('no top line controls on the stage');
+  return overlaps;
+}
+
+for (const [width, height] of [
+  [1440, 900],
+  [1024, 680],
+] as const) {
+  test(`keeps both tiles off the stage's top line in every corner at ${width}×${height}`, async () => {
+    const { app, page } = await launchApp();
+    await openSession(page);
+    if (width !== 1440) await setWindowSize(app, page, width, height);
+    await expect(
+      page.getByRole('region', { name: 'Your paper · Desk View' }).getByTestId('paper-video'),
+    ).toBeVisible({ timeout: 10_000 });
+    const pip = page.getByRole('group', { name: 'Your desk' });
+    const tile = page.getByRole('group', { name: "Ada's tile" });
+    /** Focuses a tile and presses each key, checking the top line after every move. */
+    const walk = async (who: typeof tile, view: string, keys: string[]) => {
+      await who.focus();
+      for (const key of keys) {
+        await page.keyboard.press(key);
+        const corner = await who.getAttribute('data-corner');
+        expect(await tilesOverTopLine(page), `${view}: ${key} to ${corner}`).toEqual([]);
+      }
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    };
+    const view = async (name: string) => {
+      await page.keyboard.press('b');
+      await settle(page);
+      expect(await tilesOverTopLine(page), `${name}, as it opens`).toEqual([]);
+    };
+    const AROUND = ['ArrowLeft', 'ArrowDown', 'ArrowRight', 'ArrowUp'];
+
+    // Her paper pinned: its chip and the pinned pill. Ada's tile through all four corners.
+    await view('paper');
+    await walk(tile, 'paper', AROUND);
+    await snap(page, `tiles-top-line-paper-${width}`);
+    // Paper and board side by side: two top lines.
+    await view('split');
+    await walk(tile, 'split', ['ArrowLeft']);
+    await snap(page, `tiles-top-line-split-${width}`);
+    await walk(tile, 'split', ['ArrowDown', 'ArrowRight', 'ArrowUp']);
+
+    // The board alone, with her camera: the camera dragged to the top left, then grown.
+    await view('board');
+    const start = await pip.boundingBox();
+    if (!start) throw new Error("the desk camera isn't on screen");
+    await dragBy(page, { x: start.x + 120, y: start.y + 75 }, -width, -height);
+    await expect(pip).toHaveAttribute('data-corner', 'top-left');
+    expect(await tilesOverTopLine(page), 'board: camera dragged top left').toEqual([]);
+    const moved = await pip.boundingBox();
+    if (!moved) throw new Error("the desk camera isn't on screen");
+    await dragBy(page, { x: moved.x + moved.width - 2, y: moved.y + moved.height - 2 }, 80, 50);
+    expect(await tilesOverTopLine(page), 'board: camera grown').toEqual([]);
+    expect((await pip.boundingBox())?.width).toBeGreaterThan(moved.width);
+    await snap(page, `tiles-top-line-board-${width}`);
+    // Each into the corner the other just left: Ada's tile down to the bottom right, the camera
+    // across to the top right, Ada to the bottom left, the camera down, Ada up, the camera left.
+    await walk(tile, 'board', ['ArrowDown']);
+    await walk(pip, 'board', ['ArrowRight']);
+    await walk(tile, 'board', ['ArrowLeft']);
+    await walk(pip, 'board', ['ArrowDown']);
+    await walk(tile, 'board', ['ArrowUp']);
+    await walk(pip, 'board', ['ArrowLeft']);
+    await expect(tile).toHaveAttribute('data-corner', 'top-left');
+    await expect(pip).toHaveAttribute('data-corner', 'bottom-left');
+    await snap(page, `tiles-top-line-board-ada-${width}`);
+    await closeApp(app);
+  });
+}
 
 test("breathes Ada's ring while she speaks, and holds it still under reduced motion", async () => {
   const { app, page } = await launchApp();

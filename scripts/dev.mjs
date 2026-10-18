@@ -1,20 +1,27 @@
 // `pnpm dev`: the whole local stack in one terminal.
-//   1. Postgres and local S3 (frames): `docker compose up -d --wait db s3`.
-//   2. The dev database's migrations: `uv run alembic upgrade head` in services/server.
-//   3. On macOS, the Desk View helper: `node scripts/native.mjs build` (a warning, not a
+//   1. The backend (scripts/backend.mjs): Postgres, local S3 and the server in Docker,
+//      `docker compose up -d --wait --build db s3 server`. The server's container creates and
+//      migrates its database, and reloads when services/server/src changes.
+//      `pnpm dev --host-server` (or TASSEL_HOST_SERVER=1) runs the server with uv on the host
+//      instead, as before: Postgres and S3 in Docker, then the migrations, then `uv run
+//      tassel-server`.
+//   2. On macOS, the Desk View helper: `node scripts/native.mjs build` (a warning, not a
 //      failure, without Swift).
-//   4. The server (`uv run tassel-server`, port 8787), then, once it answers, the desktop app
+//   3. The server's log, then, once it answers on port 8787 (TASSEL_PORT), the desktop app
 //      (`electron-vite dev` in apps/desktop), side by side with [server] and [app] logs.
-//   5. Ctrl+C, or either one exiting, stops both.
+//   4. Ctrl+C, or either one exiting, stops both: the server's container stops; db and s3 stay.
 // Paper uses the real source (R39): the Desk View camera on macOS. TASSEL_PAPER_SOURCE=fake-clip
 // plays the generated demo clip instead, with real capture refused (scripts/paper-env.mjs).
-// Every TASSEL_* setting in the shell reaches the app.
+// Every TASSEL_* setting in the shell reaches the app, and the server's settings reach its
+// container (docker-compose.yml). Provider keys reach the server only in its settings file.
 // cross-spawn runs docker, uv and node without a shell, so this runs on macOS and Windows.
+import { mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import spawn from 'cross-spawn';
+import { backendPlan, launcherOptions } from './backend.mjs';
 import { devVoiceEnv } from './dev-voice-env.mjs';
 import { devPaperEnv } from './paper-env.mjs';
 
@@ -22,10 +29,16 @@ import { devPaperEnv } from './paper-env.mjs';
 process.env.TASSEL_TTS_PROVIDER = devVoiceEnv(process.env).TASSEL_TTS_PROVIDER;
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const serverDir = join(root, 'services', 'server');
 const desktopDir = join(root, 'apps', 'desktop');
-const port = process.env.TASSEL_PORT || '8787';
-const healthUrl = `http://127.0.0.1:${port}/v1/health`;
+let backend;
+try {
+  const { hostServer } = launcherOptions(process.argv.slice(2), process.env);
+  backend = backendPlan({ root, env: process.env, hostServer });
+} catch (error) {
+  console.error(`[dev] ${error.message}`);
+  process.exit(1);
+}
+const healthUrl = `${backend.serverUrl}/v1/health`;
 // Fresh Windows environments can spend over 30 s importing provider SDKs.
 const SERVER_STARTUP_MS = 180_000;
 const STOP_TIMEOUT_MS = 10_000;
@@ -43,9 +56,9 @@ const electronVite = join(
 );
 
 /** Runs a setup step to completion, or throws with what failed. */
-function step(task, command, args, cwd = root) {
+function step(task, command, args, cwd = root, env = process.env) {
   console.log(`[dev] ${task}…`);
-  const result = spawn.sync(command, args, { cwd, stdio: 'inherit' });
+  const result = spawn.sync(command, args, { cwd, env, stdio: 'inherit' });
   if (result.error) throw new Error(`Couldn't ${task}: ${result.error.message}`);
   if (result.status !== 0) {
     throw new Error(`Couldn't ${task} (${result.signal ?? `exit ${result.status}`}).`);
@@ -96,6 +109,18 @@ async function isHealthy() {
 const children = new Map();
 let stopping = false;
 let exitCode = 0;
+/** Set once this run has started the backend, so a refused run never stops someone else's. */
+let backendStarted = false;
+
+/** Stops the server's container (db and s3 keep running), then exits. */
+function finish() {
+  if (backendStarted && backend.stop) {
+    console.log('[dev] Stopping the server container…');
+    const { command, args, cwd, env } = backend.stop;
+    spawn.sync(command, args, { cwd, env, stdio: 'ignore' });
+  }
+  process.exit(exitCode);
+}
 
 /**
  * Starts a long-running process whose output lines carry a [name] prefix. Outside Windows, where
@@ -122,7 +147,7 @@ function start(name, command, args, { stopSignal, ...options }) {
       console.log(`[dev] ${name} stopped (${signal ?? `exit ${code}`}), so the rest stops too.`);
       stop(code ?? 1);
     }
-    if (children.size === 0) process.exit(exitCode);
+    if (children.size === 0) finish();
   });
   return child;
 }
@@ -148,7 +173,7 @@ function stop(code) {
   if (stopping) return;
   stopping = true;
   exitCode = code;
-  if (children.size === 0) process.exit(exitCode);
+  if (children.size === 0) finish();
   for (const { child, stopSignal } of children.values()) {
     if (isWindows) kill(child);
     else child.kill(stopSignal);
@@ -174,16 +199,14 @@ async function main() {
     );
   }
   if (await isHealthy()) {
-    throw new Error(`Something already answers ${healthUrl}. Stop it, then rerun pnpm dev.`);
+    throw new Error(
+      `Something already answers ${healthUrl}. Stop it (another pnpm dev, or \`docker compose stop server\`), then rerun pnpm dev.`,
+    );
   }
-  step('start Postgres and local S3', 'docker', ['compose', 'up', '-d', '--wait', 'db', 's3']);
-  step(
-    'ensure the local dev database exists',
-    'uv',
-    ['run', 'python', join(root, 'scripts/ensure-dev-database.py')],
-    serverDir,
-  );
-  step('migrate the dev database', 'uv', ['run', 'alembic', 'upgrade', 'head'], serverDir);
+  mkdirSync(join(root, '.cache', 'live', 'transcripts'), { recursive: true });
+  backendStarted = true;
+  for (const { task, command, args, cwd, env } of backend.steps)
+    step(task, command, args, cwd, env);
   buildHelper();
   const paper = devPaperEnv(process.env, demoClip);
   console.log(
@@ -192,11 +215,12 @@ async function main() {
       : `[dev] Paper: ${process.env.TASSEL_PAPER_SOURCE}${paper.add.TASSEL_FAKE_CLIP ? ` on ${paper.add.TASSEL_FAKE_CLIP}` : ''}, no real camera.`,
   );
 
-  // uv passes SIGTERM on to the server, which shuts down cleanly.
+  // Docker: the container's log, which ends when the container stops. Host: uv passes SIGTERM on
+  // to the server, which shuts down cleanly.
   console.log('[dev] Loading the server; first startup can take a few minutes…');
-  const server = start('server', 'uv', ['run', 'python', '-u', '-m', 'tassel'], {
-    cwd: serverDir,
-    env: { ...process.env, TASSEL_TRANSCRIPT_DIR: join(root, '.cache/live/transcripts') },
+  const server = start('server', backend.server.command, backend.server.args, {
+    cwd: backend.server.cwd,
+    env: backend.server.env,
     stopSignal: 'SIGTERM',
   });
   const started = Date.now();
@@ -217,7 +241,9 @@ async function main() {
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  console.log(`[dev] The server is up at http://127.0.0.1:${port}. Starting the app…`);
+  console.log(
+    `[dev] The server is up at ${backend.serverUrl} (${backend.mode === 'docker' ? 'in Docker' : 'on the host'}). Starting the app…`,
+  );
 
   // electron-vite passes SIGINT on to Electron, which quits.
   start('app', process.execPath, [electronVite, 'dev'], {
@@ -228,7 +254,7 @@ async function main() {
       ...paper.add,
       // The plaintext token store keeps dev runs free of keychain prompts.
       TASSEL_TOKEN_STORE: process.env.TASSEL_TOKEN_STORE || 'file',
-      TASSEL_SERVER_URL: process.env.TASSEL_SERVER_URL || `http://127.0.0.1:${port}`,
+      TASSEL_SERVER_URL: process.env.TASSEL_SERVER_URL || backend.serverUrl,
     },
   });
 }

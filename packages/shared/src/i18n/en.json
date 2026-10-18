@@ -18,7 +18,8 @@
       "label": "Sort sessions",
       "recent": "Recent activity",
       "created": "Date created",
-      "topic": "Topic"
+      "topic": "Topic",
+      "current": "Sort sessions: {sort}"
     },
     "noTopic": "No topic",
     "loading": "Loading sessions…",
@@ -39,6 +40,20 @@
     "tokenReset": {
       "body": "Tassel couldn't read this device's saved ID, so it set you up again from scratch. Earlier sessions won't show up here.",
       "dismiss": "Got it"
+    },
+    "card": {
+      "menu": "Options for {title}",
+      "menuShort": "Options",
+      "rename": "Rename",
+      "delete": "Delete",
+      "renameLabel": "Session title"
+    },
+    "delete": {
+      "title": "Delete “{title}”?",
+      "body": "Its board, chat and paper frames go with it. This can't be undone.",
+      "confirm": "Delete session",
+      "deleting": "Deleting…",
+      "failed": "Couldn't delete it. Try again."
     }
   },
   "newSession": {
@@ -65,7 +80,13 @@
       "talk": "Just talk"
     },
     "start": "Start session",
-    "starting": "Starting…"
+    "starting": "Starting…",
+    "sourceHint": {
+      "paper": "Ada watches your paper through Desk View.",
+      "webcam": "Ada watches your paper through your camera.",
+      "screen": "Share a window; Tassel shrinks to a bar.",
+      "talk": "Voice and the board, no camera."
+    }
   },
   "session": {
     "untitled": "Untitled Session",
@@ -93,7 +114,15 @@
     "stage": {
       "paper": "Paper",
       "board": "Board",
-      "split": "Paper and board"
+      "split": "Paper and board",
+      "image": {
+        "tag": "Your image",
+        "backToPaper": "Back to paper",
+        "loading": "Getting your image…",
+        "failed": "Couldn't load your image",
+        "alt": "The image you sent",
+        "marksLabel": "Ada's marks on your image"
+      }
     },
     "placeholder": {
       "paper": {
@@ -129,7 +158,8 @@
       "boardPinned": "Board: {view}, pinned",
       "captions": "Captions",
       "end": "End session",
-      "withShortcut": "{label} ({key})"
+      "withShortcut": "{label} ({key})",
+      "pushToTalkHint": "Push-to-talk: hold Space while you talk, so the room isn't heard"
     },
     "end": {
       "title": "End this session?",
@@ -144,6 +174,77 @@
       "label": "Your desk",
       "live": "Live",
       "hint": "Double-click it, or press Enter, to show your paper beside the board."
+    },
+    "chat": {
+      "title": "Conversation",
+      "toggle": "Chat",
+      "hide": "Hide chat",
+      "empty": "Talk to Ada, or type to her here. What you both say shows up here.",
+      "spoken": "Spoken",
+      "cutOff": "Cut off",
+      "action": {
+        "draw": {
+          "board": "Drew on the board",
+          "paper": "Drew on your paper",
+          "image": "Drew on your image"
+        },
+        "clear": {
+          "board": "Cleared the board",
+          "paper": "Cleared her marks on your paper",
+          "image": "Cleared her marks on your image"
+        },
+        "mark": {
+          "board": "Marked the board",
+          "paper": "Marked your paper",
+          "image": "Marked your image"
+        },
+        "view": {
+          "board": "Switched to the board",
+          "paper": "Switched to your paper",
+          "image": "Switched to your image"
+        },
+        "undo": "Undid that",
+        "redo": "Redid that",
+        "removed": "Removed {name}",
+        "renamed": "Renamed {name}"
+      },
+      "show": {
+        "board": "Show the board",
+        "paper": "Show your paper",
+        "image": "Show your image"
+      },
+      "composer": {
+        "label": "Message to Ada",
+        "placeholder": "Message Ada",
+        "attach": "Attach images",
+        "snap": "Snap my paper",
+        "voiceOn": "Ada speaks replies",
+        "voiceOff": "Text replies only",
+        "voiceOnHint": "Ada answers your messages aloud. Switch to text replies only.",
+        "voiceOffHint": "Ada answers your messages in text only. Switch to spoken replies.",
+        "send": "Send message",
+        "removeImage": "Remove image {n}",
+        "count": "{count} of {max} characters",
+        "limit": "Up to {max} images in a message",
+        "unreadable": "That image couldn't be read. Try a PNG or a JPEG.",
+        "snapFailed": "Couldn't snap your paper. Try again in a moment.",
+        "drop": "Drop images to send them"
+      },
+      "image": "Image {n}",
+      "sending": "Sending",
+      "failed": "Not sent",
+      "retry": "Retry",
+      "viewer": {
+        "title": "Your image",
+        "close": "Close"
+      }
+    },
+    "title": {
+      "rename": "Rename",
+      "renameHint": "Click or press Enter to rename",
+      "input": "Session title",
+      "menu": "Session options",
+      "renameFailed": "Couldn't save the name. Try again."
     }
   },
   "paper": {
@@ -271,7 +372,9 @@
       "label": "Board camera controls",
       "in": "Zoom in",
       "out": "Zoom out",
-      "fit": "Fit"
+      "fit": "Fit",
+      "download": "Download board",
+      "downloadEmpty": "Nothing on the board to download yet"
     },
     "icon": {
       "router": "router",
@@ -372,11 +475,6 @@
       "duration": "{ms} ms",
       "percentiles": "p50 {p50} · p90 {p90}",
       "unavailable": "—"
-    },
-    "dev": {
-      "label": "Student message",
-      "placeholder": "Type what the student says",
-      "send": "Send"
     },
     "language": {
       "menu": "Session language",
@@ -480,24 +578,25 @@
     "previewUnavailable": "Preview unavailable. No audio was generated."
   },
   "memory": {
-    "settingsTitle": "Tutor settings",
-    "settingsDescription": "Personalize your tutor and what they remember.",
-    "appearance": "Appearance & voice",
     "title": "Memory",
     "enabled": "Remember across sessions",
-    "description": "Remember learning goals, preferences, and ongoing topics. Notes update once when you leave a session. Turning memory off stops using and updating these notes, but keeps them saved. Clear memory deletes the notes.",
-    "notes": "What your tutor remembers",
-    "empty": "Useful notes from your sessions will appear here. You can also add your own.",
-    "save": "Save changes",
-    "clear": "Clear memory",
+    "description": "Off, Ada starts every session fresh. What she kept stays here until you delete it.",
+    "notes": "What Ada remembers",
+    "empty": "Nothing yet. Preferences like “shorter hints” or “explain in Spanish” show up here after a session.",
+    "save": "Save",
+    "clear": "Delete all",
     "reload": "Reload notes",
     "loading": "Loading memory…",
     "loadError": "Could not load memory. Please try again.",
     "saveError": "Could not save memory. Your changes are still here.",
     "conflict": "Memory changed since you opened it. Copy any edits you want to keep, then reload notes.",
     "saved": "Saved",
-    "personalizationTitle": "Personalization & memory",
-    "savedTitle": "Saved memories"
+    "edit": "Edit",
+    "editHint": "One preference per line.",
+    "deleting": "Deleting…",
+    "deleted": "Deleted everything Ada remembered.",
+    "confirmTitle": "Delete everything Ada remembers?",
+    "confirmBody": "She starts learning your preferences again from your next session."
   },
   "screen": {
     "choose": "Share a display",
@@ -514,6 +613,8 @@
     "collapse": "Minimize to overlay",
     "draw": "Draw",
     "drawHint": "Draw on your screen · Escape to finish",
+    "move": "Move the bar",
+    "moveHint": "Drag the bar anywhere, or press it and use the arrow keys",
     "undo": "Undo ink",
     "look": "Look again",
     "listening": "Listening",
@@ -541,5 +642,93 @@
     "saveError": "Could not save tutor style. Your edits are still here.",
     "conflict": "Tutor style changed since you opened it. Copy any edits you want to keep, then reload.",
     "saved": "Tutor style saved"
+  },
+  "settings": {
+    "open": "Settings",
+    "title": "Settings",
+    "close": "Close settings",
+    "closeHint": "Close settings (Esc)",
+    "sections": {
+      "label": "Settings sections",
+      "tutor": "Tutor",
+      "personality": "Personality",
+      "memory": "Memory",
+      "voice": "Voice & audio",
+      "defaults": "Session defaults",
+      "language": "Language",
+      "camera": "Camera & paper",
+      "privacy": "Privacy",
+      "about": "About"
+    },
+    "tutor": {
+      "description": "How Ada looks and sounds. Changes apply from her next sentence."
+    },
+    "personality": {
+      "description": "The tone and teaching style you want from Ada, in your own words."
+    },
+    "memory": {
+      "description": "Ada keeps only how you like to learn: tone, pace, language and hints. What you worked on stays in its own session."
+    },
+    "voice": {
+      "description": "Your microphone and speakers, and how Ada listens."
+    },
+    "defaults": {
+      "description": "How a new session starts. You can still change each one when you start it.",
+      "language": "Session language",
+      "languageApp": "Same as app",
+      "captions": "Captions on",
+      "captionsHint": "Show what you and Ada say at the bottom of the stage. The dock's Captions button changes this too.",
+      "chatGroup": "Chat",
+      "chat": "Chat sidebar",
+      "chatOpen": "Open",
+      "chatClosed": "Closed",
+      "chatHint": "In a window narrower than 1120 px it starts closed either way.",
+      "voiceReplies": "Ada speaks her replies",
+      "voiceRepliesHint": "When you type to Ada, she answers aloud as well as in the chat."
+    },
+    "language": {
+      "description": "The language of Tassel's menus and labels.",
+      "label": "App language",
+      "hint": "Changes at once. Each session keeps its own language for talking with Ada."
+    },
+    "camera": {
+      "description": "Where Ada sees your paper from. Nothing here turns the camera on.",
+      "label": "Paper source",
+      "sources": {
+        "auto": "Automatic",
+        "deskview-helper": "Desk View",
+        "webcam": "Camera",
+        "window-capture": "Desk View window"
+      },
+      "hints": {
+        "auto": "Desk View when it's there, otherwise your camera.",
+        "deskview-helper": "Your Mac's camera looks down at your desk.",
+        "webcam": "A webcam or phone camera pointed at your paper.",
+        "window-capture": "Captures the Desk View app's window."
+      },
+      "restart": "Applies the next time you open Tassel.",
+      "access": "Camera access",
+      "accessHint": "If Ada can't see your paper, check that Tassel may use the camera.",
+      "openSystem": "Open camera settings"
+    },
+    "privacy": {
+      "description": "Your sessions stay on Tassel's server until you delete them.",
+      "deleteAll": "Delete all sessions",
+      "deleteAllHint": "Deletes every session, with its board, chat and paper frames, and everything Ada remembers. Your tutor and settings stay.",
+      "confirmTitle": "Delete all sessions?",
+      "confirmBody": "Every session and everything Ada remembers goes. This can't be undone.",
+      "confirm": "Delete everything",
+      "deleting": "Deleting…",
+      "done": "{count, plural, =0 {There was nothing to delete.} one {Deleted # session.} other {Deleted # sessions.}}",
+      "failed": "Couldn't delete everything. Check your connection, then try again."
+    },
+    "about": {
+      "description": "Tassel is a live tutor for your desk.",
+      "tagline": "A live tutor that sees your work, talks it through with you and draws on it.",
+      "languages": "Languages",
+      "server": "Server",
+      "hosting": "Hosting",
+      "poweredBy": "Powered by Vultr"
+    }
   }
 }

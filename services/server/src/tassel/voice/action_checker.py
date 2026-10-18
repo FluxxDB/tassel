@@ -26,6 +26,12 @@ class CheckedTags:
     rejected: list[str]
     repair: str | None = None
     kinds: list[str] = field(default_factory=list)
+    # Why each rejected tag went, for the log.
+    reasons: dict[str, str] = field(default_factory=dict)
+
+
+# A repair that names what her automaton request asked for and the drawing missed.
+CHECKLIST_REPAIR = "The drawing misses what she asked for: "
 
 
 def allowed(kind, decision):
@@ -35,6 +41,11 @@ def allowed(kind, decision):
     if kind == "stage":
         return False
     paper, board = kind.startswith("paper."), kind.startswith("board.")
+    # Her image (one she sent in the chat): only on turns about it, and only it.
+    if decision.action == "mark_image":
+        return kind.startswith("image.")
+    if kind.startswith("image."):
+        return decision.refers_to == "image"
     if decision.action == "mark_paper":
         return paper
     if decision.action == "draw_board":
@@ -112,34 +123,46 @@ CLEAR_ALL = re.compile(
 BARE_CLEAR = re.compile(r"\[\[\s*clear\s*\]\]", re.I)
 
 
-def check_tags(tags, decision, board, language=None, *, allow=allowed, student_text=None):
+def check_tags(
+    tags, decision, board, language=None, *, allow=allowed, student_text=None, checklist=None
+):
+    """checklist: what her words asked an automaton to have (``requirements.
+    automaton_checklist``), checked on every machine the tags define or change."""
     context = deepcopy(board)
     result = CheckedTags([], [])
+    drawn: set[str] = set()
     for tag in tags:
         if (
             student_text is not None
             and BARE_CLEAR.fullmatch(tag.strip())
             and not CLEAR_ALL.search(student_text)
-            and len(context.specs) + len(context.diagrams) > 1
         ):
-            # Live test: "delete the old drawing" wiped everything. Clear what she means.
+            # Live test: "delete the old drawing" wiped everything; c194768a: one diagram on the
+            # board, "delete the ten dot o dot o diagram" wiped it, so however many items.
             return CheckedTags(
                 [],
                 list(tags),
-                "Clear only what she means: [[clear ITEM]] with its id, or [[undo]] to take back "
-                "your last drawing turn. A bare [[clear]] only when she asks to clear everything.",
+                "Clear only what she means: [[remove ITEM.PART]] for a zone, node or state, "
+                "[[clear ITEM]] for a whole item, or [[undo]] to take back your last drawing "
+                "turn. A bare [[clear]] only when she asks to clear everything.",
             )
         candidate = deepcopy(context)
         stream = MarkupStream(candidate)
         sentences = stream.feed(tag + " Check.") + stream.flush()
         actions = [a for s in sentences for _, a in s.anchors]
-        if (
-            not re.fullmatch(r"\[\[[^\[\]]+\]\]", tag)
-            or not actions
-            or any(s.problems for s in sentences)
-            or not all(allow(a.kind, decision) for a in actions)
-        ):
+        reason = None
+        if not re.fullmatch(r"\[\[[^\[\]]+\]\]", tag):
+            reason = "not one [[…]] tag"
+        elif not actions:
+            reason = "no action parsed"
+        elif any(s.problems for s in sentences):
+            reason = "; ".join(str(p) for s in sentences for p in s.problems)[:200]
+        elif not all(allow(a.kind, decision) for a in actions):
+            kinds = "/".join(a.kind for a in actions)
+            reason = f"{kinds} not allowed on a {decision.action} turn"
+        if reason:
             result.rejected.append(tag)
+            result.reasons[tag] = reason
             continue
         if any(len(s.states) > 8 or len(s.transitions) > 16 for s in candidate.specs.values()):
             result.repair = "Keep the drawing to at most 8 states and 16 edges."
@@ -168,13 +191,29 @@ def check_tags(tags, decision, board, language=None, *, allow=allowed, student_t
                         result.repair = "DFA uses a symbol outside the target alphabet."
             except ValueError:
                 result.repair = "The target language could not be verified."
+        drawn.update(
+            key
+            for key, s in candidate.specs.items()
+            if context.specs.get(key) != s and not STUDENT_COPY.match(key)
+        )
         for action in actions:
             if action.kind == "board.diagram":
                 result.repair = check_network(action.spec) or result.repair
         if result.repair:
             # Atomic rejection: no prefix of an incorrect construction reaches the board.
-            return CheckedTags([], list(tags), result.repair)
+            return CheckedTags(
+                [], list(tags), result.repair, reasons=dict.fromkeys(tags, result.repair)
+            )
         result.tags.append(tag)
         result.kinds.extend(a.kind for a in actions)
         context = candidate
+    if checklist is not None and drawn:
+        # Her counts and alphabet hold for the finished machine, not each step building it.
+        from tassel.voice.requirements import verify_automaton
+
+        machines = [context.specs[key] for key in sorted(drawn) if key in context.specs]
+        missed = [p for spec in machines for p in verify_automaton(spec, checklist)]
+        if missed:
+            repair = CHECKLIST_REPAIR + "; ".join(missed) + "."
+            return CheckedTags([], list(tags), repair, reasons=dict.fromkeys(tags, repair))
     return result

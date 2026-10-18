@@ -5,6 +5,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import create_engine, pool
 
+import tassel.chat.tables  # noqa: F401  (declares the chat tables on Base's metadata)
 import tassel.frames.tables  # noqa: F401  (declares the frames table on Base's metadata)
 from tassel.config import Settings
 from tassel.storage.migration_compat import reconcile_legacy_memory_revision

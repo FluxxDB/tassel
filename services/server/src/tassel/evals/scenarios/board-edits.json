@@ -1,0 +1,95 @@
+{
+  "name": "board-edits",
+  "title": "Exact removals: the c194768a incident, undo, the PCs, rename, a zone, clear everything",
+  "description": "Owner live test c194768a: one diagram with 10.0.0.0/26 and 192.168.1.0/24, and \"Can you delete the ten dot o dot o diagram\" cleared the whole board. Each removal takes off only what she named; more than half the board asks first. Runs only by name: 7 turns.",
+  "default": false,
+  "stage": { "view": "board" },
+  "seed_actions": [
+    {
+      "kind": "board.diagram",
+      "item": "net",
+      "spec": {
+        "title": "Subnets",
+        "direction": "LR",
+        "groups": [
+          { "id": "lan10", "label": "Internal", "sublabel": "10.0.0.0/26" },
+          { "id": "p2", "label": "Problem 2", "sublabel": "192.168.1.0/24" },
+          { "id": "guest", "label": "Guest" }
+        ],
+        "nodes": [
+          { "id": "core", "label": "Core", "icon": "router" },
+          {
+            "id": "r10",
+            "label": "R10",
+            "sublabel": "10.0.0.1",
+            "icon": "router",
+            "group": "lan10"
+          },
+          { "id": "pc1", "label": "PC 1", "sublabel": "10.0.0.2", "icon": "pc", "group": "lan10" },
+          { "id": "pc2", "label": "PC 2", "sublabel": "10.0.0.3", "icon": "pc", "group": "lan10" },
+          { "id": "sw", "label": "Switch", "icon": "switch", "group": "p2" },
+          { "id": "pc3", "label": "PC 3", "sublabel": "192.168.1.2", "icon": "pc", "group": "p2" },
+          { "id": "pc4", "label": "PC 4", "sublabel": "192.168.1.3", "icon": "pc", "group": "p2" },
+          { "id": "ap", "label": "Access point", "icon": "box", "group": "guest" },
+          { "id": "ph", "label": "Phone", "icon": "phone", "group": "guest" }
+        ],
+        "edges": [
+          { "from": "core", "to": "r10", "directed": false, "style": "solid" },
+          { "from": "r10", "to": "pc1", "directed": false, "style": "solid" },
+          { "from": "r10", "to": "pc2", "directed": false, "style": "solid" },
+          { "from": "core", "to": "sw", "directed": false, "style": "solid" },
+          { "from": "sw", "to": "pc3", "directed": false, "style": "solid" },
+          { "from": "sw", "to": "pc4", "directed": false, "style": "solid" },
+          { "from": "core", "to": "ap", "directed": false, "style": "solid" },
+          { "from": "ap", "to": "ph", "directed": false, "style": "solid" }
+        ]
+      }
+    }
+  ],
+  "turns": [
+    {
+      "student": "Can you delete the ten dot o dot o diagram network.",
+      "expect": {
+        "tags": ["board.diagram"],
+        "no_tags": ["board.clear"],
+        "board": {
+          "diagrams": 1,
+          "groups": 2,
+          "nodes": 6,
+          "has": ["net.p2", "net.guest"],
+          "lacks": ["net.lan10"]
+        }
+      }
+    },
+    {
+      "student": "Undo that.",
+      "expect": { "board": { "groups": 3, "nodes": 9, "has": ["net.lan10"] } }
+    },
+    {
+      "student": "Remove the PCs.",
+      "expect": {
+        "no_tags": ["board.clear"],
+        "board": { "groups": 3, "nodes": 5, "icons": { "pc": 0 }, "has": ["net.r10", "net.sw"] }
+      }
+    },
+    {
+      "student": "Rename problem two to Sales floor.",
+      "expect": { "board": { "nodes": 5, "labels": ["Sales floor"] } }
+    },
+    {
+      "student": "Remove the guest zone.",
+      "expect": {
+        "no_tags": ["board.clear"],
+        "board": { "groups": 2, "nodes": 3, "lacks": ["net.guest", "net.ap"], "has": ["net.p2"] }
+      }
+    },
+    {
+      "student": "Clear everything.",
+      "expect": { "tags": [], "asks": true, "board": { "unchanged": true } }
+    },
+    {
+      "student": "Yes.",
+      "expect": { "tags": ["board.clear"], "board": { "diagrams": 0 } }
+    }
+  ]
+}

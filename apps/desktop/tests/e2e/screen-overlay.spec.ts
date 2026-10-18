@@ -167,8 +167,15 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
     expect(
       Math.abs(displayGeometry.content.height - displayGeometry.display.height),
     ).toBeLessThanOrEqual(1);
-    await hud.getByRole('button', { name: 'Draw', exact: true }).click();
-    await expect(ink.getByTestId('screen-drawing')).toHaveClass(/is-drawing/);
+    // The bar's arrival ends the collapse transition: a click during it was lost now and then.
+    await expect(hud.locator('.overlay-arrival')).toHaveCount(1);
+    const draw = hud.getByRole('button', { name: 'Draw', exact: true });
+    await expect(draw).toBeEnabled();
+    await draw.click();
+    // The owner's state reaches the HUD and the ink window alike; the HUD proves the click
+    // landed, and the ink's class waits for tldraw's first idle frame.
+    await expect(draw).toHaveAttribute('aria-pressed', 'true');
+    await expect(ink.getByTestId('screen-drawing')).toHaveClass(/is-drawing/, { timeout: 15000 });
     await ink.mouse.move(150, 130);
     await ink.mouse.down();
     await ink.mouse.move(220, 170, { steps: 8 });
@@ -210,26 +217,58 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
     const dir = join(__dirname, '../../test-results/screens');
     mkdirSync(dir, { recursive: true });
     await hud.screenshot({ path: join(dir, 'screen-overlay.png') });
-    expect(
-      await hud
-        .locator('.overlay-bar')
-        .evaluate((el) => getComputedStyle(el).getPropertyValue('-webkit-app-region')),
-    ).toBe('drag');
-    expect(
-      await hud
-        .locator('.overlay-controls button')
-        .first()
-        .evaluate((el) => getComputedStyle(el).getPropertyValue('-webkit-app-region')),
-    ).toBe('no-drag');
-    const home = await app.evaluate(({ BrowserWindow }) => {
-      const window = BrowserWindow.getAllWindows().find((w) =>
+    // The bar moves: arrow keys from its grip, a Shift stride, and it never leaves the work area.
+    const hudBounds = () =>
+      app.evaluate(({ BrowserWindow, screen }) => {
+        const win = BrowserWindow.getAllWindows().find((w) =>
+          w.webContents.getURL().endsWith('#overlay-hud'),
+        );
+        if (!win) throw new Error('Missing HUD window');
+        return {
+          bounds: win.getBounds(),
+          area: screen.getDisplayMatching(win.getBounds()).workArea,
+        };
+      });
+    const before = await hudBounds();
+    const grip = hud.getByRole('button', { name: 'Move the bar', exact: true });
+    await grip.focus();
+    await grip.press('ArrowRight');
+    await grip.press('ArrowRight');
+    await grip.press('ArrowRight');
+    await grip.press('Shift+ArrowUp');
+    await expect
+      .poll(async () => (await hudBounds()).bounds)
+      .toMatchObject({ x: before.bounds.x + 72, y: before.bounds.y - 96 });
+    const movedTo = (await hudBounds()).bounds;
+    const moved = { x: movedTo.x, y: movedTo.y };
+    await app.evaluate(({ BrowserWindow, screen }) => {
+      const win = BrowserWindow.getAllWindows().find((w) =>
         w.webContents.getURL().endsWith('#overlay-hud'),
       );
-      if (!window) throw new Error('No HUD');
-      const bounds = window.getBounds();
-      window.setPosition(bounds.x + 60, bounds.y - 90);
-      return bounds;
+      if (!win) throw new Error('Missing HUD window');
+      const area = screen.getDisplayMatching(win.getBounds()).workArea;
+      // Dragged past the bottom-right corner, as a mouse drag could leave it.
+      win.setPosition(area.x + area.width + 300, area.y + area.height + 300);
+      win.emit('moved');
     });
+    await expect
+      .poll(async () => {
+        const { bounds, area } = await hudBounds();
+        return (
+          bounds.x + bounds.width <= area.x + area.width &&
+          bounds.y + bounds.height <= area.y + area.height
+        );
+      })
+      .toBe(true);
+    await app.evaluate(({ BrowserWindow }, at) => {
+      const win = BrowserWindow.getAllWindows().find((w) =>
+        w.webContents.getURL().endsWith('#overlay-hud'),
+      );
+      win?.setPosition(at.x, at.y);
+      win?.emit('moved');
+    }, moved);
+    await expect.poll(async () => (await hudBounds()).bounds).toMatchObject(moved);
+    await hud.screenshot({ path: join(dir, 'screen-overlay-moved.png') });
     await hud.getByRole('button', { name: 'Open Tassel', exact: true }).click();
     await expect
       .poll(() =>
@@ -245,15 +284,9 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
       .getByRole('button', { name: 'Minimize to overlay', exact: true })
       .click();
     await expect(hud.getByTestId('screen-overlay')).toBeVisible();
-    await expect
-      .poll(() =>
-        app.evaluate(({ BrowserWindow }) =>
-          BrowserWindow.getAllWindows()
-            .find((w) => w.webContents.getURL().endsWith('#overlay-hud'))
-            ?.getBounds(),
-        ),
-      )
-      .toEqual(home);
+    // Back where it was left, not at the home position.
+    await expect(hud.locator('.overlay-arrival')).toHaveCount(1);
+    await expect.poll(async () => (await hudBounds()).bounds).toMatchObject(moved);
     // Exercise tutor geometry in the real shared whiteboard canvas, including non-square and portrait displays.
     for (const [width, height] of [
       [1280, 720],

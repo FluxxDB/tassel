@@ -7,6 +7,7 @@ import { useAvatar } from '../avatar/store';
 import { beatPlayer } from '../board/beats/player';
 import { useBoardStore } from '../board/board-store';
 import { reduceBoard } from '../board/scene/reduce';
+import { useChatStore } from '../features/chat/chat-store';
 import { currentSession } from '../features/session/current-session';
 import { useStageStore } from '../features/session/stage-store';
 import { useLiveVoice } from '../features/voice/live-voice';
@@ -83,6 +84,8 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
       const client = useLiveVoice.getState().client;
       client?.interrupt?.(identity.epoch);
       beatPlayer.reset();
+      // Her line in progress stops where it was, in the chat as in the captions.
+      useChatStore.getState().interruptCurrent();
       useStageStore.setState((state) => ({
         tutorState: 'listening',
         caption:
@@ -179,7 +182,12 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         language: currentSession()?.language ?? app.uiLanguage,
         boardHint: stage.requested !== 'paper',
         board: screenBoardSnapshot(useBoardStore.getState(), state.placements),
-        viewport: { width: state.selected.bounds.width, height: state.selected.bounds.height },
+        viewport: {
+          width: state.selected.bounds.width,
+          height: state.selected.bounds.height,
+          x: state.selected.bounds.x,
+          y: state.selected.bounds.y,
+        },
       });
     };
     const fail = () => {

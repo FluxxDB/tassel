@@ -54,6 +54,7 @@ class VoiceRegistry:
         start_bot: Callable[[SmallWebRTCConnection, BotContext], Awaitable[None]] = run_bot,
         turn_images: Callable[[BoardContext], TurnImage] | None = None,
         board_snapshots: BoardSnapshots | None = None,
+        chat=None,
         screens: ScreenSessions | None = None,
     ):
         self.settings, self.sessions = settings, sessions
@@ -61,6 +62,8 @@ class VoiceRegistry:
         # Makes each bot its page-image seam (vision-lite) on that bot's board context.
         self.turn_images = turn_images
         self.board_snapshots = board_snapshots
+        # Each bot's chat storage (chat.store.ChatStore): her images and the saved lines.
+        self.chat = chat
         self.memory = memory if memory is not None else ConversationMemory()
         self._start_bot = start_bot
         self._bots: dict[UUID, LiveBot] = {}
@@ -159,6 +162,9 @@ class VoiceRegistry:
                     session_id=session.id,
                     lang=session.language,
                     titled=session.title is not None,
+                    title=session.title,
+                    subject=session.subject,
+                    title_source=session.title_source,
                     request=body.request_data or OfferRequestData(),
                     settings=self.settings,
                     memory=self.memory,
@@ -166,6 +172,7 @@ class VoiceRegistry:
                     turn_image=self.turn_image_for_bot(board),
                     board=board,
                     board_snapshots=self.board_snapshots,
+                    chat=self.chat,
                     screen=self.screens.get(learner_id, session.id),
                 )
                 task = asyncio.create_task(

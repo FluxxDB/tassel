@@ -154,6 +154,89 @@ describe('fitBoard', () => {
   });
 });
 
+describe('the whole board while a trace runs', () => {
+  /**
+   * The demo DFA with a trace card under it: the card (480 × 300 for four steps) ITEM_GAP (64)
+   * below the DFA, so the camera frames 494.72 × 697.8 board px.
+   */
+  const WITH_TRACE: Rect = { x: 0, y: 0, w: 494.72, h: 333.8 + 64 + 300 };
+  /** The DFA's own box inside it: the top of the column. */
+  const DFA_PART = (fit: BoardFit): Rect => ({
+    x: fit.x,
+    y: fit.y,
+    w: CORRECT_BOX.w * fit.zoom,
+    h: CORRECT_BOX.h * fit.zoom,
+  });
+  const panelOf = ({ panel }: StageGeometry): Rect => ({ x: 0, y: 0, w: panel.w, h: panel.h });
+
+  it('at 1440 split, fits left of her tile, clear of everything, labels readable', () => {
+    const fit = fitted(WITH_TRACE, AT_1440);
+    expect(fit.stage).toBe('clear');
+    expect(fit.zoom).toBeGreaterThanOrEqual(FIT.minZoom);
+    const box = placed(WITH_TRACE, fit);
+    const { tiles, topLine, captions } = boardObstructions(AT_1440);
+    expect(tiles.some((tile) => overlaps(box, tile))).toBe(false);
+    expect(overlaps(box, topLine)).toBe(false);
+    expect(captions && overlaps(box, captions)).toBe(false);
+    expect(inside(box, panelOf(AT_1440))).toBe(true);
+  });
+
+  it("at 1024 split, gives up the captions band, then the card's bottom, never the DFA", () => {
+    const fit = fitted(WITH_TRACE, AT_1024);
+    // Too tall to show readably beside the tile even over the captions: its top at the minimum
+    // zoom, below her tile, the card's last rows running off the panel's bottom.
+    expect(fit.stage).toBe('top');
+    expect(fit.zoom).toBe(FIT.minZoom);
+    const { tiles, topLine } = boardObstructions(AT_1024);
+    const box = placed(WITH_TRACE, fit);
+    expect(box.y).toBe(190 + FIT.pad);
+    expect(box.y + box.h).toBeGreaterThan(AT_1024.panel.h);
+    expect(tiles.some((tile) => overlaps(box, tile))).toBe(false);
+    expect(overlaps(box, topLine)).toBe(false);
+    const dfa = DFA_PART(fit);
+    expect(inside(dfa, panelOf(AT_1024))).toBe(true);
+    expect(tiles.some((tile) => overlaps(dfa, tile))).toBe(false);
+  });
+
+  it('at 1440 split with the chat beside the stage, the same: the DFA whole below her tile', () => {
+    // The stage pushed 360 px left: the board panel is 518 wide.
+    const pushed = split(1440 - 360, 900);
+    const fit = fitted(WITH_TRACE, pushed);
+    expect(fit.stage).toBe('top');
+    const dfa = DFA_PART(fit);
+    expect(inside(dfa, panelOf(pushed))).toBe(true);
+    const { tiles } = boardObstructions(pushed);
+    expect(tiles.some((tile) => overlaps(dfa, tile))).toBe(false);
+  });
+
+  it('at 1024 with the chat sidebar over the board, keeps the DFA clear of it and her tile', () => {
+    // The board alone on the stage (992 × 516), the sidebar's 360 px over the window's right.
+    const stage = boardOnly(1024, 680);
+    const sidebar = { x: 1024 - 360, y: 52, w: 360, h: 628 };
+    const ada = { x: 1024 - 360 - 14 - 212, y: 74, w: 212, h: 176 };
+    const withSidebar: StageGeometry = {
+      ...stage,
+      main: { ...stage.main, w: stage.main.w - 360 },
+      tiles: [ada, sidebar],
+    };
+    const fit = fitted(WITH_TRACE, withSidebar);
+    expect(fit.stage).toBe('top');
+    const dfa = DFA_PART(fit);
+    expect(inside(dfa, panelOf(withSidebar))).toBe(true);
+    const { tiles } = boardObstructions(withSidebar);
+    expect(tiles.some((tile) => overlaps(dfa, tile))).toBe(false);
+    expect(tiles.some((tile) => overlaps(placed(WITH_TRACE, fit), tile))).toBe(false);
+  });
+
+  it('is the plain fit when no tile-free region takes the board at the minimum zoom', () => {
+    // 310 px panels: 1024 split with the sidebar beside the stage. 371 px of board won't go.
+    const narrow = split(1024 - 360, 680);
+    expect(fitted(WITH_TRACE, narrow).stage).toBe('plain');
+    // Nor a wide board: the plain fit as before.
+    expect(fitted({ x: 0, y: 0, w: 700, h: 300 }, AT_1024).stage).toBe('plain');
+  });
+});
+
 describe('floating tiles', () => {
   // The session's tiles as they report themselves, in window px (FloatingTile).
   const BOARD = boardOnly(1440, 900);

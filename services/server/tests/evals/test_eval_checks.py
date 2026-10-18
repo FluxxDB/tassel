@@ -47,6 +47,9 @@ def failed(results):
         ("Sure [assistant turn omitted] here.", ["[assistant turn omitted]"]),
         ("Here's the board.", []),
         ("Let's trace it.", []),
+        # The ladder's step 1 opens with it, and draws in the same turn (owner, 2026-10-18).
+        ("Okay, let me help you out. Here's your machine.", []),
+        ("Let me help you out. Let me check the rest.", ["let me"]),
     ],
 )
 def test_forbidden_phrases(spoken, found):
@@ -229,3 +232,124 @@ def test_timing_limits():
 
 def test_an_unfinished_turn_fails():
     assert "finished" in failed(check_turn(turn(), obs(finished=False), earlier=[]))
+
+
+def test_counts_of_kinds_and_a_closing_question():
+    steps = [{"kind": "board.traceStep", "item": "t"}] * 2
+    results = check_turn(
+        turn(counts={"board.traceStep": {"min": 3}}, asks=True),
+        obs(actions=steps, spoken="Zero. One. Can you fix it"),
+        earlier=[],
+    )
+    assert failed(results) == {"counts", "asks"}
+    results = check_turn(
+        turn(counts={"board.traceStep": {"min": 3}, "board.automaton": 0}, asks=True),
+        obs(actions=steps * 2, spoken="Zero. One. Zero. One. Can you fix it?"),
+        earlier=[],
+    )
+    assert not failed(results)
+
+
+def test_unknown_count_kinds_are_refused():
+    from tassel.evals.scenario import Scenario
+
+    with pytest.raises(ValueError, match="unknown tag kind"):
+        Scenario.model_validate(
+            {
+                "name": "x",
+                "title": "X",
+                "turns": [{"student": "a", "expect": {"counts": {"no": 1}}}],
+            }
+        )
+
+
+OFFICE = {
+    "direction": "LR",
+    "groups": [
+        {"id": "s", "label": "Sales", "sublabel": "10.0.0.0/26"},
+        {"id": "g", "label": "Guest Wi-Fi", "sublabel": "10.0.0.64/28"},
+    ],
+    "nodes": [
+        {"id": "core", "label": "Core switch", "icon": "switch"},
+        {"id": "s1", "label": "Sales switch", "icon": "switch", "group": "s"},
+        {"id": "p1", "label": "PC 1", "icon": "pc", "group": "s"},
+        {"id": "p2", "label": "PC 2", "icon": "pc", "group": "s"},
+        {"id": "g1", "label": "Guest AP", "icon": "box", "group": "g"},
+        {"id": "p3", "label": "PC 3", "icon": "pc", "group": "g"},
+    ],
+    "edges": [{"from": "core", "to": "s1", "directed": False, "style": "solid"}],
+}
+
+
+def test_board_details_labels_group_icons_edges_and_hosts():
+    after = {"automata": {}, "diagrams": {"net": OFFICE}}
+    good = turn(
+        board={
+            "labels": ["guest wifi", "Sales"],
+            "lacks_labels": ["Engineering"],
+            "group_icons": {"Sales": {"pc": 2}, "*": {"pc": {"min": 1}}},
+            "edges": [{"from": "Sales switch", "to": "Core"}],
+            "group_hosts": {"Sales": 60, "Guest": 14},
+        }
+    )
+    assert failed(check_turn(good, obs(board_after=after), earlier=[])) == set()
+    bad = turn(
+        board={
+            "labels": ["Engineering"],
+            "lacks_labels": ["Sales"],
+            "group_icons": {"*": {"pc": 2}, "Lab": {"pc": 1}},
+            "edges": [{"from": "Guest AP", "to": "Core"}],
+            "group_hosts": {"Guest": 20},
+        }
+    )
+    results = check_turn(bad, obs(board_after=after), earlier=[])
+    detail = next(r.detail for r in results if r.name == "board")
+    for problem in (
+        "no label 'Engineering'",
+        "label 'Sales' still there",
+        "Guest Wi-Fi: 1 pc, wanted 2",
+        "no group 'Lab'",
+        "no edge Guest AP - Core",
+        "Guest: 14 usable hosts, wanted 20",
+    ):
+        assert problem in detail
+
+
+def image_mark(kind, target):
+    return {
+        "kind": "image.mark",
+        "attachment_id": "a",
+        "mark": {"type": kind, "id": "k", "target": target},
+    }
+
+
+def test_image_marks_land_on_the_image_fixture_truth():
+    image = render("dfa-page")
+    q3, arrow = image.truths["q3"].box, image.truths["q2>q3"].box
+    expect = Turn.model_validate(
+        {
+            "student": "Circle it",
+            "expect": {
+                "image_marks": [
+                    {"type": "circle", "truth": "q3"},
+                    {"type": "underline", "truth": "q2>q3"},
+                ]
+            },
+        }
+    )
+    under = {
+        "x": (arrow[0] + 20) / image.width,
+        "y": (arrow[1] + 60) / image.height,
+        "w": 100 / image.width,
+        "h": 20 / image.height,
+    }
+    marks = [image_mark("circle", {"el": "m2"}), image_mark("underline", {"box": under})]
+    on_q3 = {"m2": {"x": q3[0] + 40, "y": q3[1] + 40, "w": 80, "h": 80}}
+    hit = obs(actions=marks, image="dfa-page", image_elements=on_q3)
+    assert failed(check_turn(expect, hit, earlier=[])) == set()
+    away = {"m2": {"x": 5, "y": 5, "w": 9, "h": 9}}
+    results = check_turn(
+        expect, obs(actions=marks, image="dfa-page", image_elements=away), earlier=[]
+    )
+    assert failed(results) == {"image marks"}
+    assert "no circle on q3" in next(r.detail for r in results if r.name == "image marks")

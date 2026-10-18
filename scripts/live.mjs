@@ -1,38 +1,35 @@
 // `pnpm live`: the owner's live run on macOS. Real devices and live providers (R39):
-//   1. Postgres and local S3, and the dev database's migrations.
+//   1. The backend, as pnpm dev starts it (scripts/backend.mjs): Postgres, local S3 and the
+//      server in Docker (`--host-server`: the server with uv on the host), on 8787.
 //   2. The desktop app's main and preload (electron-vite build) and the Desk View helper.
-//   3. The server on 8787, reading provider keys from TASSEL_VOICE_ENV_FILE. The server reads
-//      the file itself; this script never opens it, and no key reaches the app.
+//   3. The server reads provider keys from TASSEL_VOICE_ENV_FILE, mounted read-only into its
+//      container. The server reads the file itself; this script never opens it, and no key
+//      reaches the app.
 //   4. The renderer's dev server (electron-vite dev --rendererOnly, http://localhost:5173), so
 //      the board runs as in development, where tldraw needs no license key.
 //   5. Tassel through LaunchServices, as scripts/camera.mjs does, so macOS asks for (and
 //      remembers) camera and microphone access for Electron itself, not for the terminal.
-// Quit Tassel or press Ctrl+C to stop everything this run started.
+// Quit Tassel or press Ctrl+C to stop everything this run started (the server's container too;
+// db and s3 keep running).
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import spawn from 'cross-spawn';
+import { backendPlan, launcherOptions } from './backend.mjs';
 import { withCameraLifetime } from './camera-lifecycle.mjs';
 import { cameraEnv, cameraSubprocessEnv, openArgs } from './paper-env.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const desktopDir = join(root, 'apps', 'desktop');
-const serverDir = join(root, 'services', 'server');
 const electronApp = join(desktopDir, 'node_modules', 'electron', 'dist', 'Electron.app');
 const mainEntry = join(desktopDir, 'out', 'main', 'index.js');
 const logDir = join(root, '.cache', 'live');
-const port = process.env.TASSEL_PORT || '8787';
-const serverUrl = `http://127.0.0.1:${port}`;
 const rendererUrl = 'http://localhost:5173';
 const STARTUP_MS = 60_000;
 /** Desktop settings only a smoke check sets; the owner's run leaves them unset. */
-const FAKE_SETTINGS = [
-  'TASSEL_FAKE_MIC',
-  'TASSEL_FAKE_MIC_LOOP',
-  'TASSEL_REQUIRE_FAKE_CAPTURE',
-  'TASSEL_DEV_CONSOLE',
-];
+const FAKE_SETTINGS = ['TASSEL_FAKE_MIC', 'TASSEL_FAKE_MIC_LOOP', 'TASSEL_REQUIRE_FAKE_CAPTURE'];
 
 const requireFromDesktop = createRequire(join(desktopDir, 'package.json'));
 const electronVite = join(
@@ -52,7 +49,8 @@ async function answers(url, signal) {
   }
 }
 
-export async function main() {
+export async function main(argv = process.argv.slice(2)) {
+  const { hostServer } = launcherOptions(argv, process.env);
   if (process.platform !== 'darwin') {
     console.log('[live] Desk View is macOS-only; use pnpm dev elsewhere.');
     return 1;
@@ -64,12 +62,27 @@ export async function main() {
     );
     return 1;
   }
+  const backend = backendPlan({ root, env: process.env, hostServer });
+  const { serverUrl } = backend;
+  let backendStarted = false;
   const tag = randomUUID();
+  try {
+    return await runLive({ backend, serverUrl, tag, started: () => (backendStarted = true) });
+  } finally {
+    if (backendStarted && backend.stop) {
+      console.log('[live] Stopping the server container…');
+      const { command, args, cwd, env } = backend.stop;
+      spawn.sync(command, args, { cwd, env, stdio: 'ignore' });
+    }
+  }
+}
+
+function runLive({ backend, serverUrl, tag, started }) {
   return withCameraLifetime(
     async (run) => {
-      async function step(task, command, args, cwd = root) {
+      async function step(task, command, args, cwd = root, env = process.env) {
         console.log(`[live] ${task}…`);
-        const { done } = run.start(command, args, { cwd, stdio: 'inherit', detached: true });
+        const { done } = run.start(command, args, { cwd, env, stdio: 'inherit', detached: true });
         const { code } = await done;
         run.check();
         if (code !== 0) throw new Error(`Could not ${task}`);
@@ -90,20 +103,10 @@ export async function main() {
       if (await answers(`${serverUrl}/v1/health`, run.signal)) {
         throw new Error(`Something already answers ${serverUrl}; stop it first`);
       }
-      await step('start Postgres and local S3', 'docker', [
-        'compose',
-        'up',
-        '-d',
-        '--wait',
-        'db',
-        's3',
-      ]);
-      await step(
-        'migrate the dev database',
-        'uv',
-        ['run', 'alembic', 'upgrade', 'head'],
-        serverDir,
-      );
+      started();
+      for (const { task, command, args, cwd, env } of backend.steps) {
+        await step(task, command, args, cwd, env);
+      }
       await step('build the desktop main and preload', 'pnpm', [
         '--filter',
         '@tassel/desktop',
@@ -115,14 +118,11 @@ export async function main() {
       ]);
 
       mkdirSync(logDir, { recursive: true });
-      // The server's own output, keys never in it, goes to the terminal with a prefix-free pipe.
-      const { child: server } = run.start('uv', ['run', 'tassel-server'], {
-        cwd: serverDir,
-        env: {
-          ...process.env,
-          TASSEL_PORT: port,
-          TASSEL_TRANSCRIPT_DIR: join(logDir, 'transcripts'),
-        },
+      // The server's own output, keys never in it, goes to the terminal with a prefix-free pipe:
+      // the container's log, or the host server's.
+      const { child: server } = run.start(backend.server.command, backend.server.args, {
+        cwd: backend.server.cwd,
+        env: backend.server.env,
         stdio: ['ignore', 'inherit', 'inherit'],
         detached: true,
       });

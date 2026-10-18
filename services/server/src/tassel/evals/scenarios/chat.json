@@ -1,0 +1,20 @@
+{
+  "name": "chat",
+  "title": "Chat: a typed message with her page as an image, then a text-only reply",
+  "description": "The chat sidebar's composer: a typed message carrying a synthetic page as her image (both models can see it), then a message sent with her voice off, answered in text alone. Passes on fake providers (--fake).",
+  "default": false,
+  "fake_script": "dfa-opening",
+  "stage": { "view": "board" },
+  "turns": [
+    {
+      "student": "Here's my DFA for strings that start with 010. Is it right?",
+      "images": ["dfa-page"],
+      "expect": { "chat": true, "audio": true }
+    },
+    {
+      "student": "Why does q3 need to accept? Just type it, please.",
+      "voice": false,
+      "expect": { "chat": true, "audio": false }
+    }
+  ]
+}

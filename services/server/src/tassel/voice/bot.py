@@ -27,6 +27,7 @@ from pipecat.frames.frames import (
     LLMTextFrame,
     LLMUpdateSettingsFrame,
     StartFrame,
+    TextFrame,
     TTSTextFrame,
     UserStartedSpeakingFrame,
     VADUserStartedSpeakingFrame,
@@ -50,7 +51,12 @@ from tassel.beats.markup import BoardContext
 from tassel.beats.models import BeatAction
 from tassel.beats.processor import BeatTagProcessor
 from tassel.board.history import BoardHistory, replay
+from tassel.board.outline import outline, outline_items, summary
 from tassel.board.snapshots import BoardSnapshots
+from tassel.chat.log import ChatLog
+from tassel.chat.store import ChatStore
+from tassel.chat.student_image import LatestImage
+from tassel.chat.turns import model_text, with_images
 from tassel.frames.jpeg import jpeg_dimensions
 from tassel.models import Lang, SessionPatch
 from tassel.screen.api import ScreenDrawing, ScreenIllustration
@@ -61,17 +67,19 @@ from tassel.screen.drawing import (
     grounded_points,
     screen_arguments,
 )
+from tassel.screen.grounding import ScreenMarks, ground
+from tassel.screen.history import retire_screen_tools
 from tassel.screen.session import ScreenSession
 from tassel.storage import sessions_repo
 from tassel.vision.turn_image import NO_VIEW, TurnPage
 from tassel.voice.director import (
-    CONFUSED,
     Decision,
     Director,
     escalate,
     make_director,
     view_request,
 )
+from tassel.voice.erase import CONFIRM, ERASING, pick_rename
 from tassel.voice.events import ServerEvents, VadForwarder
 from tassel.voice.fakes.llm import FakeLLMService
 from tassel.voice.fakes.scenario import load_scenario, scripted_turn
@@ -86,6 +94,7 @@ from tassel.voice.messages import (
     BoardSnapshotEvent,
     ClientMetricsEvent,
     LanguageEvent,
+    MessageAttachment,
     OfferRequestData,
     PaperFrameEvent,
     PushToTalkEvent,
@@ -95,6 +104,8 @@ from tassel.voice.messages import (
     StageHintEvent,
     StageStateEvent,
     SttKind,
+    StudentMessageEvent,
+    TitleEvent,
     TutorNameEvent,
     is_note,
 )
@@ -105,6 +116,7 @@ from tassel.voice.routes import VoiceRoute, route_for
 from tassel.voice.settings import VoiceSettings, resolve_mode
 from tassel.voice.stage import StageManager
 from tassel.voice.thinker import Thinker, ThinkerOutput, TutorCoordinator, make_thinker
+from tassel.voice.titler import Namer, SessionName, make_titler
 from tassel.voice.tools import SCREEN_TOOLS, TALKER_TOOLS, TOOLS
 from tassel.voice.transcripts import DevTranscript
 from tassel.voice.turns import PushToTalkFrame, TurnTuning, make_turn_strategies, make_vad
@@ -141,6 +153,41 @@ class BotContext:
     board_snapshots: BoardSnapshots | None = None
     board_actions: list[BeatAction] = field(default_factory=list)
     board_history: BoardHistory | None = None
+    # The chat's storage (``chat.store.ChatStore``): her images, and the lines it saves. None
+    # keeps the chat live but unsaved, without images.
+    chat: ChatStore | None = None
+    # The session's last saved chat seq, which this bot's lines follow.
+    chat_seq: int = 0
+    # The session's name as stored, and who gave it: the titler never touches the student's.
+    title: str | None = None
+    subject: str | None = None
+    title_source: str | None = None
+
+
+@dataclass
+class ReplyMode:
+    """How Ada answers the turn now reaching her: aloud, or in text only (a typed message sent
+    with voice off). A spoken turn always gets her voice."""
+
+    voice: bool = True
+
+
+@dataclass
+class TypedTurn:
+    """A typed message on its way to the model: its message in the context, and its images."""
+
+    message: dict
+    images: list = field(default_factory=list)
+
+
+@dataclass
+class TextOnlyFrame(TextFrame):
+    """One of Ada's sentences in a text-only reply: the TTS passes it by (skip_tts), the context
+    gets ``text`` (tags included), and the chat shows ``clean``. Not an AggregatedTextFrame, so
+    RTVI never holds it as a caption for her next spoken reply."""
+
+    clean: str = ""
+    source_id: int = 0
 
 
 @dataclass
@@ -211,11 +258,24 @@ class _RoutedService(Pipeline):
         await super().process_frame(frame, direction)
 
 
-def talker_instruction(lang, *, tools: bool, two_tier: bool, notes: str = "") -> str:
+def talker_instruction(
+    lang, *, tools: bool, two_tier: bool, notes: str = "", greeting: bool = False
+) -> str:
     """The talker's system instruction: its own prompt for the route (two tiers: the talker
-    rules, never the board manual), then her learner memory. The memory refresh before each
-    reply once dropped two_tier and tools, so every live talker got the single-tier prompt."""
-    return system_prompt(lang, tools=tools, two_tier=two_tier) + notes
+    rules, never the board manual), then her learner preferences. The memory refresh before each
+    reply once dropped two_tier and tools, so every live talker got the single-tier prompt.
+    The greeting turn gets no notes at all: three live sessions opened with "Welcome back!
+    Ready to dive back into subnetting?"."""
+    return system_prompt(lang, tools=tools, two_tier=two_tier) + ("" if greeting else notes)
+
+
+def is_greeting_turn(messages: list[dict]) -> bool:
+    """Before her first turn: no student message in the context, app notes aside."""
+    return not any(
+        m.get("role") == "user"
+        and not (isinstance(m.get("content"), str) and is_note(m["content"]))
+        for m in messages
+    )
 
 
 # What Ada says when the app switches the view she asked for.
@@ -254,7 +314,6 @@ class _TurnContext(FrameProcessor):
         self.frozen = False
         self.page_revision = 0
         self.seen_revision = 0
-        self.confusions = 0
         # Her spoken view requests: the app pins them (build_bot sets this and lang).
         self.on_view = None
         self.lang = lambda: "en"
@@ -262,8 +321,10 @@ class _TurnContext(FrameProcessor):
         self.decision = None
         self.coordinator = None
         self._last_user = None
+        # The student's words of the turn being answered, for the titler; taken once.
+        self.last_student: str | None = None
         self.on_language = None
-        self.refresh_memory: Callable[[], Awaitable[None]] | None = None
+        self.refresh_memory: Callable[[bool], Awaitable[None]] | None = None
         self._session_id = session_id
         self._turn_image = turn_image
         # When this turn began (her speech start), once the app has been asked for its frame.
@@ -274,18 +335,21 @@ class _TurnContext(FrameProcessor):
         self.board_snapshots: BoardSnapshots | None = None
         self.transcript = None
         self.board_history: BoardHistory | None = None
+        # A typed message waiting for its turn, how she's answered, and her spoken lines.
+        self.typed: TypedTurn | None = None
+        self.reply = ReplyMode()
+        self.on_spoken: Callable[[str], Awaitable[None]] | None = None
+        # The latest image she sent, which a turn about her image shows the thinker, numbered.
+        self.student_images: LatestImage | None = None
 
     def _board_items(self):
-        items = dict(self.board_history.board_items) if self.board_history else {}
-        items.update(
-            {
-                k: v.model_dump(mode="json")
-                for k, v in {**self.board.specs, **self.board.diagrams}.items()
-            }
-        )
+        """The director's view of the board: each item's outline line, and what [[undo]] and
+        [[redo]] would change ("add them back" after an undo is a redo)."""
+        items = outline_items(self.board)
+        if undo := self.board.undo_items():
+            items["[[undo]] would restore"] = ", ".join(undo)
         if redo := self.board.redo_items():
-            # "Add them back" after an undo: [[redo]] restores these.
-            items["[[redo]] would restore"] = redo
+            items["[[redo]] would restore"] = ", ".join(redo)
         return items
 
     async def speech_started(self) -> None:
@@ -391,9 +455,9 @@ class _TurnContext(FrameProcessor):
                     if self.screen and self.screen.source and self.screen.source != "paper"
                     else self.default_tools
                 )
-            if self.refresh_memory is not None:
-                await self.refresh_memory()
             messages = frame.context.get_messages()
+            if self.refresh_memory is not None:
+                await self.refresh_memory(is_greeting_turn(messages))
             user = next((m for m in reversed(messages) if m.get("role") == "user"), None)
             if (
                 user
@@ -404,6 +468,24 @@ class _TurnContext(FrameProcessor):
                 self.screen_frame_id = None
                 self.screen_frame = None
                 previous_user, self._last_user = self._last_user, user
+                if self.screen and self.screen.source and self.screen.source != "paper":
+                    # Earlier screen tool calls name stale frames, and a failed one there is
+                    # what she replayed on an unrelated later turn (the Hypershot tile).
+                    retired = retire_screen_tools(messages)
+                    if retired and self.transcript:
+                        self.transcript.record("screen_tools_retired", {"calls": retired})
+                typed = (
+                    self.typed if self.typed is not None and self.typed.message is user else None
+                )
+                self.typed = None
+                sent_image = typed is not None and bool(typed.images)
+                if sent_image and self.student_images is not None:
+                    self.student_images.sent(typed.images)
+                if typed is None:
+                    # A spoken turn: always answered aloud, and a line in the chat.
+                    self.reply.voice = True
+                    if self.on_spoken is not None:
+                        await self.on_spoken(user["content"])
                 # Flux can split one question into two turns ("What's wrong with my DFA?" then
                 # "on your whiteboard."); new fragments reach the director together. Already
                 # processed requests stay history even if interruption left no assistant reply.
@@ -416,6 +498,7 @@ class _TurnContext(FrameProcessor):
                         if not is_note(content):
                             fragments.insert(0, content)
                 student_text = " ".join(fragments) or user["content"]
+                self.last_student = student_text
                 ink_image = None
                 note = None
                 history = []
@@ -452,31 +535,45 @@ class _TurnContext(FrameProcessor):
                             self.pending_image is not None
                             or self.page_revision != self.seen_revision
                         ),
+                        image=sent_image,
                     )
-                    # The playbook's ladder: still confused after an explanation means drawing.
+                    # The whiteboard ladder: her problem's stored step routes this turn ("no"
+                    # after Ada's question climbs it; voice/ladder.py).
                     answered = any(m.get("role") == "assistant" for m in messages)
-                    self.confusions = (
-                        self.confusions + 1 if answered and CONFUSED.search(student_text) else 0
-                    )
-                    last = (
-                        self.coordinator.notes[-1]
-                        if self.coordinator and self.coordinator.notes
+                    ladder = (
+                        self.coordinator.ladder
+                        if self.coordinator is not None and self.coordinator.thinker is not None
                         else None
                     )
                     escalated = escalate(
-                        student_text,
-                        self.decision,
-                        confusions=self.confusions,
-                        drew_last=bool(last and (last.board or last.paper)),
+                        student_text, self.decision, ladder=ladder, answered=answered
                     )
-                    if escalated != self.decision:
+                    if escalated != self.decision or (ladder and ladder.turn is not None):
                         if self.director.log:
                             self.director.log(
                                 "escalate",
-                                confusions=self.confusions,
+                                ladder=ladder.turn if ladder else None,
+                                attempt=bool(ladder and ladder.attempt),
                                 decision=escalated.model_dump(),
                             )
                         self.decision = escalated
+                    if self.coordinator is not None and (
+                        (self.coordinator.pending_removal and CONFIRM.match(student_text))
+                        or pick_rename(student_text, self.board)
+                        or (
+                            ERASING.search(student_text)
+                            and (self.board.specs or self.board.diagrams)
+                        )
+                    ):
+                        # Her yes to "Should I go ahead?" carries out the removal she asked for;
+                        # "rename the guest zone to …" and "clear everything" are board edits too.
+                        self.decision = Decision(
+                            focus="board",
+                            needs_vision=False,
+                            route="thinker",
+                            action="draw_board",
+                            refers_to="board",
+                        )
                     self.focus = self.decision.focus
                     if self.screen and self.screen.epoch != screen_epoch:
                         return
@@ -505,8 +602,13 @@ class _TurnContext(FrameProcessor):
                         "role": "system",
                         "content": "[director] "
                         + self.decision.model_dump_json()
-                        + " Board items: "
-                        + json.dumps(self._board_items())
+                        + (
+                            # The thinker and board turns read the whole outline; others, one line.
+                            "\n" + outline(self.board) + "\n"
+                            if self.decision.route == "thinker"
+                            or "board" in (self.decision.focus, self.decision.refers_to)
+                            else " Board: " + summary(self.board) + "."
+                        )
                         + " Current student request: "
                         + json.dumps(student_text, ensure_ascii=False)
                         + ". Answer this request; earlier unanswered requests are history, "
@@ -551,12 +653,21 @@ class _TurnContext(FrameProcessor):
                 ):
                     # The thinker waits for the page; the talker doesn't run at all.
                     _drop_images(messages)
+                    about_image = (
+                        self.decision.action == "mark_image" or self.decision.refers_to == "image"
+                    )
                     await self.coordinator.prepare(
                         frame.context,
                         student_text,
                         decision=self.decision,
                         page=self._thinker_page if self.decision.needs_vision else None,
                         board_page=self._thinker_board_page,
+                        attachments=typed.images if typed else None,
+                        student_image=(
+                            self.student_images.current
+                            if about_image and self.student_images is not None
+                            else None
+                        ),
                     )
                     await self._thinker_reply(direction)
                     return
@@ -598,6 +709,10 @@ class _TurnContext(FrameProcessor):
                         {"type": "text", "text": user["content"]},
                         {"type": "text", "text": note},
                     ]
+                if typed is not None and typed.images:
+                    # Her images ride with her words for this turn; the next turn strips them
+                    # with the paper's.
+                    user["content"] = with_images(user["content"], typed.images)
                 if self.screen and self.screen.epoch != screen_epoch:
                     return
                 if self.screen and self.screen.source and self.on_screen_turn:
@@ -691,6 +806,80 @@ class _SpeechStarts(BaseObserver):
             data.frame, (UserStartedSpeakingFrame, VADUserStartedSpeakingFrame)
         ):
             await self.turn_context.speech_started()
+
+
+class _ReplyVoice(FrameProcessor):
+    """Before the TTS: a text-only reply passes it by. Each response is aloud or not as it
+    starts; while it's text-only, its start, its sentences and its end carry skip_tts, so the
+    TTS neither speaks them nor holds the end for audio that never comes, and the response ends
+    at the output as a spoken one does."""
+
+    def __init__(self, reply: ReplyMode):
+        super().__init__()
+        self.reply = reply
+        self._silent = False
+
+    async def process_frame(self, frame, direction):
+        await super().process_frame(frame, direction)
+        if isinstance(frame, InterruptionFrame):
+            self._silent = False
+        elif direction == FrameDirection.DOWNSTREAM:
+            if isinstance(frame, LLMFullResponseStartFrame):
+                self._silent = not self.reply.voice
+            if self._silent:
+                if isinstance(frame, AggregatedTextFrame) and not isinstance(frame, TTSTextFrame):
+                    shown = TextOnlyFrame(
+                        text=(frame.raw_text or frame.text) + " ",
+                        clean=frame.text,
+                        source_id=frame.id,
+                    )
+                    shown.includes_inter_frame_spaces = True
+                    frame = shown
+                if isinstance(
+                    frame, (TextFrame, LLMFullResponseStartFrame, LLMFullResponseEndFrame)
+                ):
+                    frame.skip_tts = True
+                if isinstance(frame, LLMFullResponseEndFrame):
+                    self._silent = False
+        await self.push_frame(frame, direction)
+
+
+class _ChatFrames(BaseObserver):
+    """Feeds the chat log what reaches the output: each of Ada's sentences as it's heard (or
+    shown, when she types), each response's end, and every interruption."""
+
+    def __init__(
+        self,
+        chat: ChatLog,
+        output: FrameProcessor,
+        on_exchange: Callable[[str], Awaitable[None]] | None = None,
+    ):
+        super().__init__()
+        self.chat, self.output = chat, output
+        # Each response's text, handed to the titler as it ends.
+        self.on_exchange = on_exchange
+        self._reply: list[str] = []
+
+    async def on_push_frame(self, data: FramePushed):
+        frame = data.frame
+        if isinstance(frame, InterruptionFrame):
+            if data.first_push:
+                self._reply.clear()
+                await self.chat.interrupted()
+            return
+        if data.source is not self.output or data.direction != FrameDirection.DOWNSTREAM:
+            return
+        if isinstance(frame, TextOnlyFrame):
+            self._reply.append(frame.clean)
+            await self.chat.heard(frame.clean, frame.source_id)
+        elif isinstance(frame, AggregatedTextFrame) and not isinstance(frame, TTSTextFrame):
+            self._reply.append(frame.text)
+            await self.chat.heard(frame.text, frame.id)
+        elif isinstance(frame, LLMFullResponseEndFrame):
+            reply, self._reply = " ".join(self._reply), []
+            await self.chat.ended()
+            if self.on_exchange is not None:
+                await self.on_exchange(reply)
 
 
 class _RouteMonitor(FrameProcessor):
@@ -843,9 +1032,10 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         (m for m in reversed(context.get_messages()) if m.get("role") == "user"), None
     )
     turn_context.screen = ctx.screen
+    turn_context.student_images = LatestImage(ctx.chat, ctx.learner_id, ctx.session_id)
     turn_context.default_tools = tools if tools_ok else None
 
-    async def preferred_prompt(lang):
+    async def preferred_prompt(lang, greeting=False):
         from tassel.learner_memory import MemoryOut
         from tassel.learner_personalization import (
             PersonalizationOut,
@@ -865,7 +1055,11 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
             thinker.ideal_tutor = preferences.ideal_tutor
             thinker.learner_notes = preferences.notes
         prompt = preferences.talker_prompt(
-            lang, tools=tools_ok, two_tier=two_tier, tutor_name=ctx.request.tutor_name
+            lang,
+            tools=tools_ok,
+            two_tier=two_tier,
+            greeting=greeting,
+            tutor_name=ctx.request.tutor_name,
         )
         if ctx.screen is not None and ctx.screen.source and ctx.screen.source != "paper":
             prompt += (
@@ -892,13 +1086,16 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
             )
         return prompt
 
-    async def refresh_memory():
+    async def refresh_memory(greeting: bool = False):
         if isinstance(llm, FakeLLMService):
             return
-        # Refresh before every reply, including greetings and resumed conversations.
+        # Refresh before every reply, including resumed conversations; the greeting, before
+        # her first turn, renders no memory.
         await turn_context.push_frame(
             LLMUpdateSettingsFrame(
-                delta=llm.Settings(system_instruction=await preferred_prompt(ctx.lang))
+                delta=llm.Settings(
+                    system_instruction=await preferred_prompt(ctx.lang, greeting=greeting)
+                )
             )
         )
 
@@ -978,12 +1175,24 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
 
     turn_context.on_view = pin_view
     turn_context.lang = lambda: ctx.lang
+    chat_log = ChatLog(
+        events.send,
+        save=(lambda seq, line: ctx.chat.save(ctx.session_id, seq, line)) if ctx.chat else None,
+        first_seq=ctx.chat_seq,
+    )
+    events.listeners.append(chat_log.server_event)
+
+    async def spoken_line(text):
+        await chat_log.student(text, source="voice")
+
+    turn_context.on_spoken = spoken_line
     beats = BeatTagProcessor(
         events=events,
         lang=lambda: ctx.lang,
         board=ctx.board,
         transcript=transcript,
         on_actions=ctx.board_history.record if ctx.board_history else None,
+        on_sentence=chat_log.sentence,
     )
     thinker = make_thinker(ctx.settings)
     if thinker is None and fake_llm:
@@ -991,7 +1200,12 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     if thinker is not None:
         thinker.on_usage = transcript.meter.llm
     turn_context.coordinator = TutorCoordinator(
-        thinker, ctx.board, transcript=transcript, lang=lambda: ctx.lang, on_brief=stage_brief
+        thinker,
+        ctx.board,
+        transcript=transcript,
+        lang=lambda: ctx.lang,
+        on_brief=stage_brief,
+        reply_timeout_s=ctx.settings.thinker_reply_timeout_s,
     )
     reasoning = [ThinkerOutput(turn_context.coordinator)]
     worker = PipelineWorker(
@@ -1004,6 +1218,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
                 llm,
                 *reasoning,
                 beats,
+                _ReplyVoice(turn_context.reply),
                 tts,
                 monitor,
                 output,
@@ -1048,6 +1263,49 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     worker.add_observer(transcript)
     worker.add_observer(VadForwarder(worker))
     worker.add_observer(_SpeechStarts(turn_context))
+
+    # The titler (T): names the session after the first substantive exchange, off the
+    # pipeline's path, and never over the student's own name.
+    async def save_name(name):
+        if ctx.sessions is None:
+            return True
+        try:
+            async with ctx.sessions() as db:
+                row = await sessions_repo.name_by_ai(
+                    db, ctx.learner_id, ctx.session_id, name.title, name.subject
+                )
+        except Exception as error:  # noqa: BLE001 - the name still shows for this session
+            logger.warning("Couldn't save the session's name: {}", type(error).__name__)
+            return True
+        return row is not None
+
+    async def emit_name(name):
+        await events.send(TitleEvent(title=name.title, subject=name.subject))
+
+    def record(event, **data):
+        transcript.record(event, data)
+
+    namer = Namer(
+        make_titler(
+            ctx.settings,
+            scenario.title if fake_llm else None,
+            on_usage=transcript.meter.llm,
+            log=record,
+        ),
+        lang=lambda: ctx.lang,
+        save=save_name,
+        emit=emit_name,
+        current=SessionName(title=ctx.title, subject=ctx.subject) if ctx.title else None,
+        source=ctx.title_source,
+        log=record,
+    )
+
+    async def exchange(reply):
+        student, turn_context.last_student = turn_context.last_student, None
+        if student:
+            namer.schedule(student, reply)
+
+    worker.add_observer(_ChatFrames(chat_log, output, on_exchange=exchange))
     language_lock = asyncio.Lock()
 
     async def apply_language(lang):
@@ -1156,6 +1414,8 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
             and frame.epoch == screen.epoch
         )
 
+    screen_marks = ScreenMarks()
+
     async def draw_screen(params):
         screen = ctx.screen
         try:
@@ -1174,14 +1434,19 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
                     )
                     turn_context.coordinator.pointer.client.on_usage = transcript.meter.llm
                 started = time.monotonic()
-                box = await turn_context.coordinator.pointer.resolve_screen(
-                    drawing.target, frame.image
+                # Set-of-Mark on the delivered frame, as on paper and her images: the pointer
+                # picks a numbered marker (or a box), never a guess on a bare screenshot.
+                view = await screen_marks.view_for(frame.id, frame.image)
+                box = await ground(
+                    turn_context.coordinator.pointer, drawing.kind, drawing.target, view
                 )
                 transcript.record(
                     "screen_pointer",
                     {
                         "duration_ms": round((time.monotonic() - started) * 1000),
                         "resolved": box is not None,
+                        "markers": len(view.elements),
+                        "image": [view.width, view.height],
                     },
                 )
                 if box is None or not current_screen(drawing.frame_id) or screen.frame is not frame:
@@ -1397,6 +1662,45 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
                 )
             )
 
+    async def typed_message(event: StudentMessageEvent):
+        """What RTVI's send-text does, for the chat: interrupt her, then the message as a turn,
+        with the student's own images for this session, and her voice off if she asked."""
+        images = []
+        if event.attachment_ids:
+            if ctx.chat is None:
+                logger.warning("Dropped a typed message's images: no chat store")
+            else:
+                try:
+                    images = await ctx.chat.load_attachments(
+                        ctx.learner_id, ctx.session_id, event.attachment_ids
+                    )
+                except Exception as error:  # noqa: BLE001 - her words still get an answer
+                    logger.warning(
+                        "Couldn't load a typed message's images: {}", type(error).__name__
+                    )
+            if len(images) < len(event.attachment_ids):
+                logger.warning(
+                    "Dropped {} of a typed message's images",
+                    len(event.attachment_ids) - len(images),
+                )
+        if not event.text.strip() and not images:
+            logger.warning("Dropped a typed message with nothing left in it")
+            return
+        await worker.rtvi.interrupt_bot()
+        # The interruption commits what she'd said before the new message lands (RTVI).
+        await worker.flush_pipeline()
+        await chat_log.student(
+            event.text,
+            source="typed",
+            client_id=event.client_id,
+            attachments=[MessageAttachment(id=i.id, w=i.width, h=i.height) for i in images],
+        )
+        turn_context.reply.voice = event.voice
+        user = {"role": "user", "content": model_text(event.text, len(images))}
+        turn_context.typed = TypedTurn(user, images)
+        transcript.record("student_typed", {"voice": event.voice, "images": len(images)})
+        await worker.queue_frame(LLMMessagesAppendFrame([user], run_llm=True))
+
     @worker.rtvi.event_handler("on_client_message")
     async def client_message(rtvi, msg):
         if msg.type != ENVELOPE:
@@ -1406,10 +1710,13 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         except ValidationError:
             logger.warning("Dropped invalid Tassel client event")
             return
-        if isinstance(event, TutorNameEvent):
+        if isinstance(event, StudentMessageEvent):
+            await typed_message(event)
+        elif isinstance(event, TutorNameEvent):
             ctx.request.tutor_name = event.name
             llm.tutor_name = event.name
         elif isinstance(event, StageStateEvent):
+            chat_log.app_view(event.view)
             stage.on_state(event, time.monotonic())
             turn_context.focus = event.view
             turn_context.frozen = event.frozen
@@ -1431,6 +1738,8 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
 
     bot.log_sink = log_sink
     bot.transcript = transcript
+    bot.chat_log = chat_log
+    bot.namer = namer
     return bot
 
 
@@ -1440,6 +1749,11 @@ async def run_bot(connection, ctx: BotContext) -> None:
     ctx.board_history = history
     try:
         ctx.board_actions = await history.load()
+        if ctx.chat is not None:
+            try:
+                ctx.chat_seq = await ctx.chat.last_seq(ctx.session_id)
+            except Exception as error:  # noqa: BLE001 - lines then save after the last seen
+                logger.warning("Couldn't read the chat's last seq: {}", type(error).__name__)
         transport = SmallWebRTCTransport(
             webrtc_connection=connection,
             params=TransportParams(audio_in_enabled=True, audio_out_enabled=True),
@@ -1461,6 +1775,10 @@ async def run_bot(connection, ctx: BotContext) -> None:
                     logger.remove(bot.log_sink)
                 if getattr(bot, "transcript", None) is not None:
                     bot.transcript.record_cost()
+                if getattr(bot, "chat_log", None) is not None:
+                    await bot.chat_log.close()
+                if getattr(bot, "namer", None) is not None:
+                    await bot.namer.close()
         finally:
             try:
                 await history.close()

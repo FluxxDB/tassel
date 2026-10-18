@@ -9,7 +9,7 @@ Internal helpers take an already-authorized session id; HTTP ownership lives in 
 import asyncio
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 
 import anyio
@@ -29,8 +29,16 @@ from tassel.domains.dfa.contract import Pt
 from tassel.frames import repo
 from tassel.frames.objects import ObjectStore
 from tassel.frames.tables import Frame
+from tassel.vision.ink_boxes import refine_box
 from tassel.vision.marks import Candidates, draw_marks, find_candidates
-from tassel.vision.page import FlatPage, decode_jpeg, encode_jpeg, enhance_for_llm, flatten_page
+from tassel.vision.page import (
+    FlatPage,
+    decode_jpeg,
+    encode_jpeg,
+    enhance_for_llm,
+    flatten_page,
+    ink_mask,
+)
 
 
 @dataclass(frozen=True)
@@ -42,10 +50,18 @@ class PageView:
     captured_at: datetime
     width: int
     height: int
+    # The page's ink mask, so a mark's box lands on her ink (tassel.vision.ink_boxes).
+    ink: np.ndarray | None = field(default=None, repr=False, compare=False)
 
     def set_context(self, context: BoardContext) -> None:
         context.paper_frame = PaperFrame(
             kind="paper", id=str(self.frame_id), captured_at=self.captured_at.isoformat()
+        )
+        ink = self.ink
+        context.paper_ink = (
+            None
+            if ink is None
+            else (str(self.frame_id), lambda verb, box: refine_box(ink, verb, box))
         )
         context.paper_elements = PaperElements(
             states={},
@@ -96,6 +112,10 @@ def _turn_candidates(c: Candidates) -> Candidates:
 
 def _page_view(jpeg: bytes, row: Frame) -> PageView | None:
     stored_quad = row.meta.get("page_quad")
+    # Without a page, the detector sends the fallback region it compared (the frame's middle
+    # 80 %): not a page. Flattening it cut off the owner's first lines and kept the desk band.
+    if row.meta.get("page_found") is False:
+        stored_quad = None
     quad = None if stored_quad is None else [Pt(**point) for point in stored_quad]
     page = flatten_page(jpeg, quad)
     if not page.found:
@@ -106,7 +126,8 @@ def _page_view(jpeg: bytes, row: Frame) -> PageView | None:
         h, w = rgb.shape[:2]
         corners = (Pt(x=0, y=0), Pt(x=w, y=0), Pt(x=w, y=h), Pt(x=0, y=h))
         page = FlatPage(rgb, w, h, corners, False)
-    candidates = _turn_candidates(find_candidates(page))
+    ink = ink_mask(page)
+    candidates = _turn_candidates(find_candidates(page, ink, ink_mask(page, faint=True)))
     elements = []
     for circle in candidates.circles:
         x, y = max(0, circle.cx - circle.r), max(0, circle.cy - circle.r)
@@ -132,7 +153,7 @@ def _page_view(jpeg: bytes, row: Frame) -> PageView | None:
     # Detect against faithful pixels; enhance only the model copy and draw crisp tags last.
     model_page = replace(page, rgb=enhance_for_llm(page.rgb))
     drawn: set[int] = set()
-    marked = draw_marks(model_page, candidates, drawn=drawn, ink_page=page)
+    marked = draw_marks(model_page, candidates, drawn=drawn, ink_page=page, mask=ink)
     return PageView(
         marked_jpeg=_model_jpeg(marked),
         page_jpeg=encode_jpeg(page.rgb),
@@ -141,6 +162,7 @@ def _page_view(jpeg: bytes, row: Frame) -> PageView | None:
         captured_at=row.captured_at,
         width=page.width,
         height=page.height,
+        ink=ink != 0,
     )
 
 

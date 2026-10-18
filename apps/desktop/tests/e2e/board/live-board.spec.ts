@@ -23,7 +23,7 @@ const described = (page: import('@playwright/test').Page) =>
 test('Ada draws as she speaks: `fix` shows q0 and q1 on a split stage, no tag captioned', async () => {
   test.setTimeout(60_000);
   const { app, page } = await launchVoice({
-    env: { TASSEL_FAKE_SCRIPT: 'dfa-board', TASSEL_DEV_CONSOLE: '1' },
+    env: { TASSEL_FAKE_SCRIPT: 'dfa-board', TASSEL_CHAT_SIDEBAR: 'open' },
   });
   await app.context().route(
     (url) => url.href.startsWith(LICENSE_PING),
@@ -45,9 +45,16 @@ test('Ada draws as she speaks: `fix` shows q0 and q1 on a split stage, no tag ca
     await expect(page.getByTestId('tutor-tile')).toContainText('Speaking', { timeout: 20_000 });
     await expect(page.getByTestId('tutor-tile')).toContainText('Listening', { timeout: 20_000 });
 
-    const input = page.getByRole('textbox', { name: 'Student message' });
-    await input.fill('Can you show me the answer?');
-    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    // Her line goes in through the chat composer and shows in the chat log, not the captions.
+    const sidebar = page.getByTestId('chat-sidebar');
+    const composer = sidebar.getByRole('textbox', { name: 'Message to Ada' });
+    await composer.fill('Can you show me the answer?');
+    await composer.press('Enter');
+    await expect(
+      sidebar
+        .locator('[data-testid="chat-log"] li')
+        .filter({ hasText: 'Can you show me the answer?' }),
+    ).toHaveAttribute('data-role', 'student');
 
     await expect
       .poll(() => described(page), { timeout: 15_000 })

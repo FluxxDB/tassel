@@ -13,6 +13,7 @@ import {
   Camera,
   Captions,
   Close,
+  Download,
   Globe,
   Mic,
   MicOff,
@@ -22,8 +23,10 @@ import {
   Screen,
   Search,
 } from '../../src/renderer/src/components/icons';
-import { SegmentedControl } from '../../src/renderer/src/components/SegmentedControl';
+import { OptionCards } from '../../src/renderer/src/components/OptionCards';
+import { Segmented } from '../../src/renderer/src/components/Segmented';
 import { Sheet } from '../../src/renderer/src/components/Sheet';
+import { TabList, TabPanel, Tabs } from '../../src/renderer/src/components/Tabs';
 import { Wordmark } from '../../src/renderer/src/components/Wordmark';
 import { initI18n } from '../../src/renderer/src/i18n';
 
@@ -129,11 +132,11 @@ describe('Chip', () => {
   });
 });
 
-describe('SegmentedControl', () => {
-  it('SegmentedControl moves selection with ArrowRight', async () => {
+describe('Segmented', () => {
+  it('Segmented moves selection with ArrowRight', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(<SegmentedControl label="Sort" options={SORTS} value="recent" onChange={onChange} />);
+    render(<Segmented label="Sort" options={SORTS} value="recent" onChange={onChange} />);
     await user.tab();
     expect(screen.getByRole('radio', { name: 'Recent activity' })).toHaveFocus();
     await user.keyboard('{ArrowRight}');
@@ -141,13 +144,13 @@ describe('SegmentedControl', () => {
     expect(screen.getByRole('radio', { name: 'Date created' })).toHaveFocus();
   });
 
-  it('shows the selected option as a checked ink pill and keeps it on a second click', async () => {
+  it('shows the selected option as a checked paper thumb and keeps it on a second click', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     function Sorts() {
       const [value, setValue] = useState<Sort>('recent');
       return (
-        <SegmentedControl
+        <Segmented
           label="Sort"
           options={SORTS}
           value={value}
@@ -163,7 +166,7 @@ describe('SegmentedControl', () => {
     await user.click(screen.getByRole('radio', { name: 'Topic' }));
     const topic = screen.getByRole('radio', { name: 'Topic' });
     expect(topic).toHaveAttribute('aria-checked', 'true');
-    expect(topic).toHaveClass('bg-ink', 'text-paper');
+    expect(topic).toHaveClass('bg-paper', 'text-ink');
     expect(screen.getByRole('radio', { name: 'Recent activity' })).toHaveAttribute(
       'aria-checked',
       'false',
@@ -185,7 +188,7 @@ describe('SegmentedControl', () => {
     function Sources() {
       const [value, setValue] = useState('screen');
       return (
-        <SegmentedControl
+        <Segmented
           label="Source"
           options={options}
           value={value}
@@ -206,16 +209,16 @@ describe('SegmentedControl', () => {
     expect(onChange).not.toHaveBeenCalledWith('paper');
   });
 
-  it('keeps the global 2px ring offset on a focused segment, so the ring clears the ink pill', async () => {
+  it('keeps the global 2px ring offset on a focused segment, so the ring clears the thumb', async () => {
     const user = userEvent.setup();
-    render(<SegmentedControl label="Sort" options={SORTS} value="recent" onChange={() => {}} />);
+    render(<Segmented label="Sort" options={SORTS} value="recent" onChange={() => {}} />);
     await user.tab();
     const focused = screen.getByRole('radio', { name: 'Recent activity' });
     expect(focused).toHaveFocus();
-    expect(focused).toHaveClass('bg-ink');
+    expect(focused).toHaveClass('bg-paper');
     // Nothing on the item may cancel the 2px offset that :focus-visible sets in global.css.
     expect(focused.className).not.toMatch(/outline-offset/);
-    expect(focused).toHaveClass('transition-[color,background-color]');
+    expect(focused).toHaveClass('transition-[color,background-color,box-shadow]');
   });
 
   it('marks an option written in another language with that language', () => {
@@ -223,14 +226,14 @@ describe('SegmentedControl', () => {
       { value: 'en', label: 'English', lang: 'en' },
       { value: 'ko', label: '한국어', lang: 'ko' },
     ];
-    render(<SegmentedControl label="Language" options={options} value="en" onChange={() => {}} />);
+    render(<Segmented label="Language" options={options} value="en" onChange={() => {}} />);
     expect(screen.getByRole('radio', { name: '한국어' })).toHaveAttribute('lang', 'ko');
   });
 
   it('jumps to the last and first options with End and Home', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(<SegmentedControl label="Sort" options={SORTS} value="recent" onChange={onChange} />);
+    render(<Segmented label="Sort" options={SORTS} value="recent" onChange={onChange} />);
     await user.tab();
     await user.keyboard('{End}');
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith('topic'));
@@ -345,6 +348,7 @@ describe('icons', () => {
     Retry,
     Close,
     Pin,
+    Download,
   };
 
   it.each(Object.entries(ICONS))(
@@ -510,5 +514,75 @@ describe('Wordmark', () => {
     // Explicit tracking and leading, so :lang(ko) doesn't loosen the Latin name.
     expect(name).toHaveClass('lowercase', 'tracking-[-0.025em]', 'leading-none');
     expect(name.parentElement).toHaveClass('gap-[7px]');
+  });
+});
+
+describe('OptionCards', () => {
+  it('is a radio group of named, described cards whose arrow keys move the choice', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    function Ways() {
+      const [value, setValue] = useState('paper');
+      return (
+        <OptionCards
+          label="How you'll work"
+          value={value}
+          onChange={(next) => {
+            onChange(next);
+            setValue(next);
+          }}
+          options={[
+            { value: 'paper', label: 'Paper', description: 'Ada watches your paper.' },
+            { value: 'screen', label: 'Screen share', description: 'Share a window.' },
+            { value: 'talk', label: 'Just talk', description: 'No camera.', disabled: true },
+          ]}
+        />
+      );
+    }
+    render(<Ways />);
+    expect(screen.getByRole('radiogroup', { name: "How you'll work" })).toBeInTheDocument();
+    const paper = screen.getByRole('radio', { name: 'Paper' });
+    expect(paper).toHaveAttribute('aria-checked', 'true');
+    expect(paper).toHaveAccessibleDescription('Ada watches your paper.');
+    expect(screen.getByRole('radio', { name: 'Just talk' })).toBeDisabled();
+    await user.tab();
+    await user.keyboard('{ArrowRight}');
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith('screen'));
+    expect(screen.getByRole('radio', { name: 'Screen share' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  });
+});
+
+describe('Tabs', () => {
+  it('underlines the selected tab, which controls its panel', async () => {
+    const user = userEvent.setup();
+    function Parts() {
+      const [value, setValue] = useState<'style' | 'body'>('style');
+      return (
+        <Tabs<'style' | 'body'> value={value} onChange={setValue}>
+          <TabList<'style' | 'body'>
+            label="Customization"
+            value={value}
+            onChange={setValue}
+            items={[
+              { value: 'style', label: 'Style' },
+              { value: 'body', label: 'Body' },
+            ]}
+          />
+          <TabPanel value="style">Hats</TabPanel>
+          <TabPanel value="body">Skin</TabPanel>
+        </Tabs>
+      );
+    }
+    render(<Parts />);
+    const style = screen.getByRole('tab', { name: 'Style' });
+    expect(style).toHaveAttribute('aria-selected', 'true');
+    expect(style).toHaveClass('shadow-[inset_0_-2px_0_var(--color-ink)]');
+    expect(screen.getByRole('tabpanel', { name: 'Style' })).toHaveTextContent('Hats');
+    await user.click(screen.getByRole('tab', { name: 'Body' }));
+    expect(screen.getByRole('tabpanel', { name: 'Body' })).toHaveTextContent('Skin');
+    expect(screen.getByRole('tab', { name: 'Body' })).toHaveAttribute('aria-selected', 'true');
   });
 });

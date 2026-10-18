@@ -2,8 +2,9 @@
 // its inner corner with its aspect ratio locked, and on release it snaps to the nearest corner
 // another tile doesn't hold. Focused, the arrows move it to another corner and Shift with the
 // arrows resizes it. It keeps `inset` from the stage's edges and, at the bottom, clear of the
-// captions band (`bottomClearance`). Its corner and width are remembered per tile id, when
-// storage works. It lays itself out in its parent, which must be positioned.
+// captions band (`bottomClearance`), and at the top, below the panels' top line controls it
+// would cover (`clearOf`). Its corner and width are remembered per tile id, when storage works.
+// It lays itself out in its parent, which must be positioned.
 import {
   type KeyboardEvent,
   type PointerEvent,
@@ -43,6 +44,17 @@ export interface FloatingTileProps {
   inset?: number;
   /** From the stage's bottom edge, for the bottom corners: the captions band and a gap. */
   bottomClearance?: number;
+  /**
+   * How much of the stage's right side something lies over (the chat sidebar, in a narrow
+   * window), in px: the right corners sit `inset` clear of it instead of the stage's edge.
+   */
+  coverRight?: number;
+  /**
+   * The rows in the stage whose controls it never rests over (the panels' top lines): a top
+   * corner under one of them sits `CLEAR_GAP` below it instead. Rows in an inert (hidden) panel
+   * don't count.
+   */
+  clearOf?: string;
   /** A double click, or Enter while it has focus. */
   onActivate?(): void;
   className?: string;
@@ -82,6 +94,26 @@ export const useFloatingTiles: UseBoundStore<StoreApi<FloatingTiles>> = create<F
 const DRAG_SLOP = 3;
 /** Shift and an arrow grows or shrinks the tile by this much width. */
 const KEY_STEP = 16;
+/** Below a top line's controls, a top corner rests this much lower: the line's own gap. */
+const CLEAR_GAP = 8;
+
+const sameRects = (a: TileRect[], b: TileRect[]) =>
+  a.length === b.length &&
+  a.every((r, i) => {
+    const s = b[i] as TileRect;
+    return r.x === s.x && r.y === s.y && r.w === s.w && r.h === s.h;
+  });
+
+/** The boxes of the controls in `parent`'s rows matching `selector`, in `parent`'s px. */
+function controlsIn(parent: HTMLElement, selector: string): TileRect[] {
+  const origin = parent.getBoundingClientRect();
+  return [...parent.querySelectorAll(selector)]
+    .filter((row) => !row.closest('[inert]'))
+    .flatMap((row) => [...row.children])
+    .map((control) => control.getBoundingClientRect())
+    .filter((r) => r.width > 0 && r.height > 0)
+    .map((r) => ({ x: r.left - origin.left, y: r.top - origin.top, w: r.width, h: r.height }));
+}
 
 interface Saved {
   corner: Corner;
@@ -136,6 +168,8 @@ export function FloatingTile({
   maxWidth,
   inset = 16,
   bottomClearance = inset,
+  coverRight = 0,
+  clearOf,
   onActivate,
   className,
   children,
@@ -151,17 +185,27 @@ export function FloatingTile({
   const [bounds, setBounds] = useState<TileSize>({ w: 0, h: 0 });
   const gesture = useRef<Gesture | null>(null);
   const lastDragAt = useRef(0);
+  // The top line's controls, in the stage's px.
+  const [controls, setControls] = useState<TileRect[]>([]);
+  const measureControls = useRef(() => {});
+  measureControls.current = () => {
+    const parent = element.current?.parentElement;
+    const next = parent && clearOf ? controlsIn(parent, clearOf) : [];
+    setControls((old) => (sameRects(old, next) ? old : next));
+  };
 
   // The stage's size, kept current as the window resizes it.
   useLayoutEffect(() => {
     const parent = element.current?.parentElement;
     if (!parent) return;
-    const measure = () =>
+    const measure = () => {
       setBounds((old) =>
         old.w === parent.clientWidth && old.h === parent.clientHeight
           ? old
           : { w: parent.clientWidth, h: parent.clientHeight },
       );
+      measureControls.current();
+    };
     measure();
     window.addEventListener('resize', measure);
     // jsdom has no ResizeObserver; the window's resize event still re-measures.
@@ -173,28 +217,73 @@ export function FloatingTile({
     };
   }, []);
 
+  // The top line's controls, kept current as they come and go, change and wrap, and as their
+  // panel reflows (its row resizes with it). A change of view re-renders the tile, which
+  // re-measures them too (below).
+  useEffect(() => {
+    const parent = element.current?.parentElement;
+    if (!parent || !clearOf) return;
+    const rows = [...parent.querySelectorAll(clearOf)];
+    const resized =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => watch());
+    const watch = () => {
+      if (resized) {
+        resized.disconnect();
+        for (const row of rows) {
+          resized.observe(row);
+          for (const control of row.children) resized.observe(control);
+        }
+      }
+      measureControls.current();
+    };
+    const changed = new MutationObserver(watch);
+    for (const row of rows)
+      changed.observe(row, { childList: true, subtree: true, attributes: true });
+    watch();
+    return () => {
+      changed.disconnect();
+      resized?.disconnect();
+    };
+  }, [clearOf]);
+  useLayoutEffect(() => measureControls.current());
+
   // Where it may go: the stage, less the inset and, at the bottom, the captions band.
   const area = {
     left: inset,
     top: inset,
-    right: bounds.w - inset,
+    right: bounds.w - inset - coverRight,
     bottom: bounds.h - bottomClearance,
   };
+  /** The top of a top corner's tile at `left`, `w` wide: below the controls it would cover. */
+  const topClear = (left: number, w: number) =>
+    controls.reduce(
+      (top, r) =>
+        r.x < left + w && left < r.x + r.w ? Math.max(top, Math.ceil(r.y + r.h + CLEAR_GAP)) : top,
+      area.top,
+    );
+  // However wide, a tile below the lowest control still ends above the captions band.
+  const lowestTop = controls.reduce(
+    (top, r) => Math.max(top, Math.ceil(r.y + r.h + CLEAR_GAP)),
+    area.top,
+  );
   const aspect = defaultSize.w / defaultSize.h;
   const fitWidth = (w: number) =>
     Math.round(
       clamp(
         w,
         minWidth,
-        Math.min(maxWidth, area.right - area.left, (area.bottom - area.top) * aspect),
+        Math.min(maxWidth, area.right - area.left, (area.bottom - lowestTop) * aspect),
       ),
     );
   const w = fitWidth(width);
   const size = { w, h: Math.round((w * defaultSize.h) / defaultSize.w) };
-  const at = (c: Corner) => ({
-    left: c.endsWith('left') ? area.left : Math.max(area.left, area.right - size.w),
-    top: c.startsWith('top') ? area.top : Math.max(area.top, area.bottom - size.h),
-  });
+  const at = (c: Corner) => {
+    const left = c.endsWith('left') ? area.left : Math.max(area.left, area.right - size.w);
+    return {
+      left,
+      top: c.startsWith('top') ? topClear(left, size.w) : Math.max(area.top, area.bottom - size.h),
+    };
+  };
   const position = drag ?? at(corner);
 
   /**

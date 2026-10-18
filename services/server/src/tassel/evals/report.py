@@ -28,12 +28,15 @@ def report_data(run: RunRecord) -> dict:
                     "tags": action_kinds(o.actions),
                     "raw_tags": o.tags,
                     "rejects": o.rejects,
+                    "title": o.title,
                     "page": o.page,
                     "board_after": o.board_after,
                     "timings": o.timings,
                     "prompt_tokens": o.prompt_tokens,
                     "tokens": o.tokens,
                     "finished": o.finished,
+                    "chat": o.chat,
+                    "audio": o.audio,
                 }
             )
         scenarios.append(
@@ -112,6 +115,9 @@ def markdown(data: dict) -> str:
             lines.append(f"- **Route:** {route}; **tags:** {', '.join(t['tags']) or 'none'}")
             if t["stage"]:
                 lines.append(f"- **Stage:** {t['stage']}")
+            if t.get("title"):
+                subject = f" · {t['title']['subject']}" if t["title"].get("subject") else ""
+                lines.append(f"- **Title:** {t['title']['title']}{subject}")
             timings = t["timings"]
             lines.append(
                 "- **ms:** director {} · thinker {} · illustrator {} · pointer {} · "

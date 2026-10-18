@@ -77,6 +77,31 @@ export interface paths {
         patch: operations["patch_personalization_v1_learner_personalization_patch"];
         trace?: never;
     };
+    "/v1/learner/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Preferences
+         * @description Settings → Memory: the preference lines Ada keeps (the memory document, one per line).
+         */
+        get: operations["get_preferences_v1_learner_preferences_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Preferences
+         * @description Delete all: every line goes at once, whatever revision the screen holds.
+         */
+        delete: operations["delete_preferences_v1_learner_preferences_delete"];
+        options?: never;
+        head?: never;
+        /** Patch Preferences */
+        patch: operations["patch_preferences_v1_learner_preferences_patch"];
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -125,13 +150,73 @@ export interface paths {
         post?: never;
         /**
          * Delete Session
-         * @description Deletes the session's frame images first, then the session, whose frame rows cascade.
+         * @description Deletes the session's frame and chat images first, then the session, whose frame, chat
+         *     and attachment rows cascade.
          */
         delete: operations["delete_session_v1_sessions__session_id__delete"];
         options?: never;
         head?: never;
         /** Patch Session */
         patch: operations["patch_session_v1_sessions__session_id__patch"];
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Attachment
+         * @description A JPEG or PNG the student sends (8 MiB at most), or ``frame_id``: her latest paper frame
+         *     ("Snap my paper"). Stored downscaled to 2048 px on the long side.
+         */
+        post: operations["upload_attachment_v1_sessions__session_id__attachments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/attachments/{attachment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Attachment */
+        get: operations["get_attachment_v1_sessions__session_id__attachments__attachment_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/attachments/{attachment_id}/elements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Attachment Elements
+         * @description The image's numbered Set-of-Mark boxes in its own pixels: the markers Ada's marks on it
+         *     name (``image.mark`` with ``el: mN``), the same ones she was shown.
+         */
+        get: operations["get_attachment_elements_v1_sessions__session_id__attachments__attachment_id__elements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/sessions/{session_id}/board/snapshot": {
@@ -223,6 +308,26 @@ export interface paths {
         put?: never;
         /** Finish Memory */
         post: operations["finish_memory_v1_sessions__session_id__memory_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Messages
+         * @description The session's saved conversation, oldest first.
+         */
+        get: operations["list_messages_v1_sessions__session_id__messages_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -388,6 +493,18 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AttachmentOut
+         * @description An uploaded image: its id for ``student-message`` and its stored size in pixels.
+         */
+        AttachmentOut: {
+            /** H */
+            h: number;
+            /** Id */
+            id: string;
+            /** W */
+            w: number;
+        };
+        /**
          * Blame
          * @description The first step of the counterexample where her machine leaves the right track (P4-R10).
          */
@@ -427,6 +544,11 @@ export interface components {
             /** Image Png */
             image_png?: string | null;
         };
+        /** Body_upload_attachment_v1_sessions__session_id__attachments_post */
+        Body_upload_attachment_v1_sessions__session_id__attachments_post: {
+            /** Image */
+            image?: string | null;
+        };
         /** Body_upload_frame_v1_sessions__session_id__frames_post */
         Body_upload_frame_v1_sessions__session_id__frames_post: {
             /**
@@ -459,6 +581,37 @@ export interface components {
             cols: number;
             /** Rows */
             rows: number;
+        };
+        /** ChatHistoryOut */
+        ChatHistoryOut: {
+            /** Messages */
+            messages: components["schemas"]["ChatMessageOut"][];
+        };
+        /**
+         * ChatMessageOut
+         * @description A saved line of the conversation, as the ``message`` event carried it when final.
+         */
+        ChatMessageOut: {
+            action: components["schemas"]["MessageAction"] | null;
+            /** Attachments */
+            attachments: components["schemas"]["MessageAttachment"][];
+            /** Client Id */
+            client_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Interrupted */
+            interrupted: boolean;
+            /** Role */
+            role: string;
+            /** Source */
+            source: string | null;
+            /** Text */
+            text: string;
         };
         /** Counterexample */
         Counterexample: {
@@ -549,6 +702,17 @@ export interface components {
              * @enum {string}
              */
             status: "correct" | "wrong" | "unsure" | "unknown" | "unreadable";
+        };
+        /** ElementBoxOut */
+        ElementBoxOut: {
+            /** H */
+            h: number;
+            /** W */
+            w: number;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
         };
         /** Fix */
         Fix: {
@@ -724,6 +888,29 @@ export interface components {
             /** Ice Servers */
             ice_servers: components["schemas"]["IceServerOut"][];
         };
+        /** ImageElementOut */
+        ImageElementOut: {
+            box: components["schemas"]["ElementBoxOut"];
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "circle" | "label";
+        };
+        /**
+         * ImageElementsOut
+         * @description An image's Set-of-Mark: the beats ``DetectedElements`` shape, in the image's pixels.
+         */
+        ImageElementsOut: {
+            /** Height */
+            height: number;
+            /** Items */
+            items: components["schemas"]["ImageElementOut"][];
+            /** Width */
+            width: number;
+        };
         /** Issue */
         Issue: {
             /**
@@ -796,6 +983,41 @@ export interface components {
             enabled: boolean;
             /** Revision */
             revision: number;
+        };
+        /**
+         * MessageAction
+         * @description What Ada did on the stage, shown as a row in the chat that moves the stage there.
+         *
+         *     ``item`` names what she drew, cleared or marked (a board item or a marker id) when there is
+         *     one; ``attachment_id`` is the image she marked when ``side`` is ``image``.
+         */
+        MessageAction: {
+            /** Attachment Id */
+            attachment_id: string | null;
+            /** Item */
+            item: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "draw" | "clear" | "undo" | "redo" | "mark" | "view";
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "board" | "paper" | "image";
+        };
+        /**
+         * MessageAttachment
+         * @description An image the student sent (``POST /v1/sessions/{id}/attachments``), in pixels.
+         */
+        MessageAttachment: {
+            /** H */
+            h: number;
+            /** Id */
+            id: string;
+            /** W */
+            w: number;
         };
         /**
          * NormBox
@@ -939,6 +1161,30 @@ export interface components {
             stage: "policy";
             /** Why */
             why: string;
+        };
+        /**
+         * PreferencesOut
+         * @description The same document as Settings → Memory shows it: one preference per line.
+         */
+        PreferencesOut: {
+            /** Enabled */
+            enabled: boolean;
+            /** Lines */
+            lines: string[];
+            /** Revision */
+            revision: number;
+        };
+        /** PreferencesPatch */
+        PreferencesPatch: {
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Lines */
+            lines: string[];
+            /** Revision */
+            revision: number;
         };
         /**
          * Pt
@@ -1380,6 +1626,84 @@ export interface operations {
             };
         };
     };
+    get_preferences_v1_learner_preferences_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesOut"];
+                };
+            };
+        };
+    };
+    delete_preferences_v1_learner_preferences_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patch_preferences_v1_learner_preferences_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferencesPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesOut"];
+                };
+            };
+            /** @description Preferences changed; reload before saving */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     me_v1_me_get: {
         parameters: {
             query?: never;
@@ -1564,6 +1888,164 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    upload_attachment_v1_sessions__session_id__attachments_post: {
+        parameters: {
+            query?: {
+                frame_id?: string | null;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_attachment_v1_sessions__session_id__attachments_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentOut"];
+                };
+            };
+            /** @description No such session, or frame, for this learner */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The image is over 8 MiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The image isn't a JPEG, PNG or WebP that decodes */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description The frame store is unavailable; try again later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_attachment_v1_sessions__session_id__attachments__attachment_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": unknown;
+                    "image/png": unknown;
+                };
+            };
+            /** @description No such image for this learner */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description The frame store is unavailable; try again later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_attachment_elements_v1_sessions__session_id__attachments__attachment_id__elements_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageElementsOut"];
+                };
+            };
+            /** @description No such image for this learner */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description The frame store is unavailable; try again later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -1817,6 +2299,44 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_messages_v1_sessions__session_id__messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatHistoryOut"];
+                };
+            };
+            /** @description No such session for this learner */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

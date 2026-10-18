@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tassel.auth import current_learner
+from tassel.chat import repo as chat_repo
 from tassel.frames import repo as frames_repo
 from tassel.frames.api import STORE_UNAVAILABLE
 from tassel.frames.keys import session_prefix
@@ -75,11 +76,14 @@ async def delete_session(
     db: AsyncSession = Depends(get_db),
     store: ObjectStore = Depends(get_object_store),
 ) -> None:
-    """Deletes the session's frame images first, then the session, whose frame rows cascade."""
+    """Deletes the session's frame and chat images first, then the session, whose frame, chat
+    and attachment rows cascade."""
     # Locked until the delete commits, so no upload can add a frame in between.
     if await frames_repo.lock_session(db, learner.id, session_id) is None:
         raise _not_found()
-    if await frames_repo.has_frames(db, session_id):
+    if await frames_repo.has_frames(db, session_id) or await chat_repo.has_attachments(
+        db, session_id
+    ):
         # If any image survives, this raises and the rows stay, so deleting again can retry.
         await store.delete_prefix(session_prefix(learner.id, session_id))
     if not await sessions_repo.delete_for(db, learner.id, session_id):

@@ -1,0 +1,53 @@
+{
+  "name": "isolation-second",
+  "title": "Isolation, new session: a hello and 'what should we work on?' recall nothing",
+  "description": "A fresh session for the same learner after isolation-first's memory was extracted (tassel.evals.isolation seeds it). Ada's greeting and her answer to 'what should we work on?' mention nothing from the first session: no DFA, no network, no 'last time'.",
+  "default": false,
+  "fake_script": "dfa-opening",
+  "stage": { "view": "board" },
+  "turns": [
+    {
+      "student": "Hi there!",
+      "expect": {
+        "route": "talker",
+        "forbid": [
+          "dfa",
+          "automat",
+          "10.0.0",
+          "subnet",
+          "network",
+          "binary",
+          "ending in",
+          "last time",
+          "left off",
+          "welcome back",
+          "earlier session",
+          "previous session",
+          "dive back",
+          "pick up"
+        ]
+      }
+    },
+    {
+      "student": "What should we work on?",
+      "expect": {
+        "forbid": [
+          "dfa",
+          "automat",
+          "10.0.0",
+          "subnet",
+          "network",
+          "binary",
+          "ending in",
+          "last time",
+          "left off",
+          "welcome back",
+          "earlier session",
+          "previous session",
+          "dive back",
+          "pick up"
+        ]
+      }
+    }
+  ]
+}

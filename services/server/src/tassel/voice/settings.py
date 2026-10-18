@@ -93,7 +93,7 @@ class VoiceSettings(BaseSettings):
     # Retained for legacy adapter/profile compatibility; shared drawing uses the settings above.
     illustrator_model: str = "gpt-6-luna"
     illustrator_provider: Literal["openai", "openrouter"] = "openrouter"
-    illustrator_timeout_s: float = 6.0
+    illustrator_timeout_s: float = 15.0
     pointer_model: str = "gpt-6-luna"
     pointer_provider: Literal["openai", "openrouter"] = "openai"
     pointer_timeout_s: float = Field(2.5, gt=0)
@@ -102,6 +102,9 @@ class VoiceSettings(BaseSettings):
     # 2.6–2.9 s. Board constructions still think at "low" (thinker_draw_effort).
     thinker_effort: Literal["none", "low", "medium", "high", "xhigh", "max"] = "none"
     thinker_draw_effort: Literal["none", "low", "medium", "high", "xhigh", "max"] = "low"
+    # The longest a thinker turn waits for its brief before Ada says she couldn't finish
+    # (paper-marks turn 3 waited 90 s in silence).
+    thinker_reply_timeout_s: float = Field(30.0, gt=0)
 
     @property
     def two_tier_enabled(self) -> bool:

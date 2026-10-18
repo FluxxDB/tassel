@@ -47,7 +47,7 @@ async def test_create_session_starts_untitled(client):
 async def test_list_recent_orders_by_last_activity(client):
     h = await auth(client)
     a, b, c = [(await create(client, h))["id"] for _ in range(3)]
-    await patch(client, h, a, subject="Automata")
+    await patch(client, h, a, type="studying")  # activity; a rename alone would not be
     assert await listed(client, h, sort="recent") == [a, c, b]
     assert await listed(client, h) == [a, c, b]  # recent is the default
 
@@ -67,7 +67,7 @@ async def test_list_topic_groups_subjects_nulls_last(client):
     for session_id, subject in [(first, "Automata"), (second, "Automata"), (cell, "Cell biology")]:
         await patch(client, h, session_id, subject=subject)
     # Bump the older "Automata" session, so activity order differs from creation order.
-    await patch(client, h, first, title="DFA practice")
+    await patch(client, h, first, type="studying")
     assert await listed(client, h, sort="topic") == [first, second, cell, untitled]
 
 
@@ -85,14 +85,24 @@ async def test_search_matches_title_and_subject(client):
 
 
 @pytest.mark.asyncio
-async def test_patch_title_marks_student_source_and_bumps_activity(client):
+async def test_patch_title_marks_student_source_and_keeps_activity(client):
+    # A rename is not activity: it must not reorder the Recent sort.
     h = await auth(client)
     s = await create(client, h)
-    patched = await patch(client, h, s["id"], title="Strings that start with 010")
+    patched = await patch(client, h, s["id"], title="Strings that start with 010", subject="DFA")
     assert patched["title"] == "Strings that start with 010"
     assert patched["title_source"] == "student"
-    assert at(patched["last_activity_at"]) > at(s["last_activity_at"])
+    assert patched["subject"] == "DFA"
+    assert at(patched["last_activity_at"]) == at(s["last_activity_at"])
     assert patched["created_at"] == s["created_at"]
+
+
+@pytest.mark.asyncio
+async def test_patch_language_still_bumps_activity(client):
+    h = await auth(client)
+    s = await create(client, h)
+    patched = await patch(client, h, s["id"], language="ko", title="Named")
+    assert at(patched["last_activity_at"]) > at(s["last_activity_at"])
 
 
 @pytest.mark.asyncio

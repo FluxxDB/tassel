@@ -55,7 +55,9 @@ export interface OverlayState {
   boardHint?: boolean;
   language?: 'en' | 'es' | 'ko';
   board?: ScreenBoard;
-  viewport?: { width: number; height: number };
+  /** The shared display in points; its origin lets the ink window map marks to the display
+   * wherever the OS put the window. */
+  viewport?: { width: number; height: number; x?: number; y?: number };
 }
 export type OverlayIntent =
   | 'reset'
@@ -81,6 +83,8 @@ export interface ScreenBridge {
   onIntent(listener: (intent: OverlayIntent) => void): () => void;
   stroke(points: ScreenPoint[]): void;
   onStroke(listener: (points: ScreenPoint[]) => void): () => void;
+  /** Moves the overlay bar by a keyboard nudge, in display points; it stays on screen. */
+  move(dx: number, dy: number): void;
   ready(): void;
   onArrived?(listener: () => void): () => void;
   /** Read the HUD mask without changing native annotation visibility. */
@@ -97,6 +101,7 @@ export const SCREEN_IPC = {
   state: 'screen:state',
   intent: 'screen:intent',
   stroke: 'screen:stroke',
+  move: 'screen:move',
   ready: 'screen:ready',
   capture: 'screen:capture',
   arrived: 'screen:arrived',
@@ -113,6 +118,23 @@ export const OVERLAY_INTENTS: readonly string[] = [
   'escape',
   'board',
 ];
+/** The keyboard way to drag the bar: arrows move it a step, Shift a stride; it stays on screen. */
+export function nudgeDelta(key: string, shift: boolean): { dx: number; dy: number } | null {
+  const step = shift ? 96 : 24;
+  if (key === 'ArrowLeft') return { dx: -step, dy: 0 };
+  if (key === 'ArrowRight') return { dx: step, dy: 0 };
+  if (key === 'ArrowUp') return { dx: 0, dy: -step };
+  if (key === 'ArrowDown') return { dx: 0, dy: step };
+  return null;
+}
+
+/** A keyboard nudge from the HUD: two finite steps, each at most a few hundred points. */
+export function validNudge(value: unknown): value is { dx: number; dy: number } {
+  if (!value || typeof value !== 'object') return false;
+  const { dx, dy } = value as { dx: unknown; dy: unknown };
+  return [dx, dy].every((v) => typeof v === 'number' && Number.isInteger(v) && Math.abs(v) <= 400);
+}
+
 export function validPoints(value: unknown): value is ScreenPoint[] {
   return (
     Array.isArray(value) &&
@@ -166,7 +188,9 @@ export function validOverlayState(value: unknown): value is OverlayState {
       s.viewport.width <= 0 ||
       s.viewport.height <= 0 ||
       s.viewport.width > 32768 ||
-      s.viewport.height > 32768)
+      s.viewport.height > 32768 ||
+      (s.viewport.x !== undefined && !Number.isFinite(s.viewport.x)) ||
+      (s.viewport.y !== undefined && !Number.isFinite(s.viewport.y)))
   )
     return false;
   if (s.board !== undefined && !validScreenBoard(s.board)) return false;

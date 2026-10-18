@@ -120,12 +120,17 @@ defined automaton MACHINE, like [[trace t yours 010 student]] (no word "ON").
 [[step TRACE]] advances that trace one symbol, like [[step t]].
 [[verdict ITEM accept|reject [expected=accept|reject] [note="TEXT"]]] gives its verdict.
 [[focus [ITEM]]] focuses an item, or all items.
+[[remove ITEM.PART ...]] takes exactly those parts off: a diagram's zone (with its nodes) or
+node, or an automaton's state, by the ids in the board outline, like [[remove net.guest]] or
+[[remove net.pc1 net.pc2]]. Remove only what she named, never the whole item for a part of it.
+[[rename ITEM.PART "NAME"]] renames a zone or node; [[rename ITEM "NAME"]] retitles the item.
 [[clear [ITEM]]] clears an item, or the board: a bare [[clear]] only when she asks for everything.
 [[undo]] takes back your last drawing turn: what it added goes, what it changed comes back.
 [[redo]] puts back what your last [[undo]] took ("put it back" after an undo);
 after a clear, use [[undo]].
-Network diagrams, flowcharts and trees change only through the brief's draw field: the
-Illustrator edits the same item. [[add]], [[edge]] and [[node]]-style tags are for automata only.
+Network diagrams, flowcharts and trees change only through the brief's draw field (the
+Illustrator edits the same item, keeping its ids), except [[remove]] and [[rename]] of parts.
+[[add]], [[edge]] and [[node]]-style tags are for automata only.
 [[stage paper|board|split]] changes the shared view with the next words.
 [[circle EL]] circles a paper mark.
 [[wash EL]] softly shades a paper mark.
@@ -180,18 +185,19 @@ TALKER_RULES = """You are the fast talker. Be brief, warm and confident from the
 Use the latest tutor notes and their followups to answer; do not re-ask what the student means
 when the notes already establish it. Keep uncertainty only where the notes identify it.
 The director chooses the route and action. Never override it with a consultation or view change.
-Never announce what you're about to do ("let me…", "one moment"): say it or do it.
+Never announce or promise what you're about to do ("let me check", "I'll look again", "one
+moment"): say it or do it.
 Never say text in square brackets: bracketed lines are the app's notes, not speech.
-Never say something is on the board unless the director's Board items list it.
+Never say something is on the board unless the director's board outline lists it.
 Never say you switched views or drew anything yourself: only the app does those, and shows them.
 For a simple follow-up such as 'why that state?' or 'what next?', use the notes without consulting.
 Never invent complex drawing tags yourself. Use the brief's validated tags.
 'On my paper', 'on my camera', and 'circle mine' mean paper marks, not a new whiteboard diagram.
-Only an explicit board request or a necessary new diagram goes on the board; keep drawings small.
-Never promise a drawing ("let me put it on the board") yourself: only the thinker's brief draws,
-and only on a thinker turn.
+Anything visual is drawn on the board, step by step, but never by you: the app hands those
+turns to the drawing tutor. Never promise a drawing ("let me put it on the board") yourself:
+only the thinker's brief draws, and only on a thinker turn.
 Guide, don't narrate: never describe the page back or say you can see it. Hints before answers.
-Never repeat what you already said; if she is still confused, say you'll draw it out.
+Never repeat what you already said.
 """
 
 # The tutor's playbook: an editable skills file, playbook.md beside this module. Owner, retest
@@ -199,6 +205,9 @@ Never repeat what you already said; if she is still confused, say you'll draw it
 # should move on to other tools like drawing".
 TUTOR_PLAYBOOK = (Path(__file__).with_name("playbook.md")).read_text(encoding="utf-8").strip()
 
+# The whiteboard ladder's worked case: her chain accepts 010, one symbol short of 0101.
+YOURS_0101 = "[[dfa yours start=q0 accept=q3 q0-0-q1 q1-1-q2 q2-0-q3]]"
+FIX_0101 = "[[dfa fix start=q0 accept=q4 q0-0-q1 q1-1-q2 q2-0-q3 q3-1-q4]]"
 _CASE = {
     "page": "Heading: Language for 0101 ?; chain q0 -0-> q1 -1-> q2 -0-> a double circle. "
     "The final state label is unclear. In this example its visible candidate ID is m4.",
@@ -220,18 +229,26 @@ _CASE = {
     ],
 }
 THINKER_EXAMPLES = [
-    {"student": "Can you check this?", "brief": _CASE},
     {
-        "student": "I still don't understand.",
+        # Ladder step 0: the error is found, and she is asked to spot it. Nothing drawn.
+        "student": "Can you take a look at my DFA?",
+        "brief": {**_CASE, "say": "There's an error in your DFA. Can you spot it?"},
+    },
+    {
+        # Ladder step 1: her machine as drawn, its wrong state highlighted as it's named, and one
+        # breaking input stepped through it, one sentence per step (thinker.py compose).
+        "student": "No, I can't see it.",
         "brief": {
             **_CASE,
-            "intent": "See why 010 is accepted, by tracing it on a copy of her machine.",
+            "intent": "Show why 010 breaks her machine, on a copy of it.",
             "plan": ["Copy her chain to the board as yours and trace 010 step by step."],
-            "say": "Let's run 010 on your machine. Zero takes you to q one. One takes you to "
-            "q two. Zero lands on q three, a double circle, so it accepts. But is 010 your "
-            "target?",
+            "say": "Okay, let me help you out. Here's your machine as you drew it. Let's run "
+            "zero one zero. Zero takes you to q one. One takes you to q two. Zero lands on "
+            "q three, a double circle, so it accepts. But zero one zero isn't your target, so "
+            "how would you fix it?",
             "board": [
-                "[[dfa yours start=q0 accept=q3 q0-0-q1 q1-1-q2 q2-0-q3]]",
+                YOURS_0101,
+                "[[highlight yours q3]]",
                 "[[trace t yours 010 student]]",
                 "[[step t]]",
                 "[[step t]]",
@@ -257,13 +274,24 @@ THINKER_EXAMPLES = [
         },
     },
     {
-        "student": "Show the minimal fix on the board.",
+        # Ladder step 2: the correct machine, with a correct input stepped through it.
+        "student": "I still don't get it.",
         "brief": {
             **_CASE,
-            "intent": "Draw only the corrected chain, as explicitly requested.",
-            "plan": ["Show the chain with one more edge reading 1 and acceptance at its end."],
-            "say": "The final one needs one more arrow before the accepting state.",
-            "board": ["[[dfa fix start=q0 accept=q4 q0-0-q1 q1-1-q2 q2-0-q3 q3-1-q4]]"],
+            "intent": "Show the corrected chain and run 0101 on it.",
+            "plan": ["Draw the chain with one more 1 edge, and trace 0101 on it."],
+            "say": "Here's the correct one: the final one now leads to q four. Let's run zero "
+            "one zero one. Zero takes you to q one. One takes you to q two. Zero takes you to "
+            "q three. One reaches q four, which accepts. Can you fix your paper to match?",
+            "board": [
+                FIX_0101,
+                "[[highlight fix q4]]",
+                "[[trace t fix 0101]]",
+                "[[step t]]",
+                "[[step t]]",
+                "[[step t]]",
+                "[[step t]]",
+            ],
         },
     },
 ]
@@ -275,7 +303,8 @@ def thinker_system_prompt(schema: dict, *, ideal_tutor: str = "") -> str:
     prompt = (
         "You are the tutor's background thinker, never a speaking assistant. "
         'Never promise a later action ("I\'ll look again", "let me check"): do it now with '
-        "tags, or say plainly what you can't do. Return only a JSON "
+        'tags, or say plainly what you can\'t do. "Okay, let me help you out" is fine when '
+        "this brief draws it. Return only a JSON "
         "guidance brief matching this schema:\n" + json.dumps(schema) + "\n"
         "Be brief: the student is waiting. page at most 30 words, diagnosis one sentence, "
         "plan at most 2 steps, followups at most 2 short lines, say one or two short "
@@ -291,10 +320,12 @@ def thinker_system_prompt(schema: dict, *, ideal_tutor: str = "") -> str:
         "still a single circle. "
         "intent: what the student wants. diagnosis: the misconception with visible evidence. "
         "plan: 1–4 steps, question → counterexample → explanation → solution only if asked. "
-        "say: what the tutor says next, in the conversation language, no tags. The talker has "
+        "say: what the tutor says next, in the conversation language, no tags, and always at "
+        "least a few spoken words, even when board or paper carry the action. The talker has "
         "already said a hang-on line, so continue straight into the substance: never "
         "re-acknowledge ('Yes, I can see it'), never repeat the question, and never ask the "
-        "student to confirm a goal you can read clearly; state the diagnosis as a question "
+        "student to confirm a goal you can read clearly; on the ladder's step 0, say only that "
+        "there's an error and ask her to spot it; otherwise state the diagnosis as a question "
         "or hint. "
         "marks: preferred for paper marks. Supply a list of {verb, target, text, n}. "
         "verb is circle, wash, check, strike, underline, callout or number. "
@@ -302,6 +333,14 @@ def thinker_system_prompt(schema: dict, *, ideal_tutor: str = "") -> str:
         "in words (at most 80 characters), e.g. the double-circled final state at the right. "
         "text is callout text or null; n is the number or null. The Pointer resolves IDs. "
         "Raw [[circle mN]] tags in paper remain accepted as a fallback. "
+        "image_marks: the same {verb, target, text, n} for her own image (a screenshot, photo "
+        "or picture she sent in the chat, attached as [image] with its numbered candidates and "
+        "legend); the Pointer resolves them on that image and the app shows it on the stage. "
+        "When she asks about her image, mark it with image_marks, never marks or paper. "
+        "When she asks you to mark her image, never withhold the mark: mark what she named, or "
+        "the closest element if it isn't drawn as she says, then teach in say. "
+        "image: raw [[image circle mN]] tags as a fallback; [[image clear]] takes your marks "
+        "off it. Leave both empty when no [image] is attached. "
         "board/paper: lists of individual validated command tags, empty when not needed. "
         "language: null if no target is given; otherwise "
         "{regex, alphabet} encoding the brief target "
@@ -312,15 +351,34 @@ def thinker_system_prompt(schema: dict, *, ideal_tutor: str = "") -> str:
         '"On my paper", "my camera", "camera", or "circle mine" means paper marks: '
         "prefer marks with targets in words; raw paper tags freeze then mark visible m# IDs. "
         "Never substitute "
-        "a board diagram for a paper request. If no current image or visible candidate ID exists, "
+        "a board diagram for a paper request, with two exceptions, the trace of her machine and "
+        "the ladder's steps 1 and 2: her work is redrawn on the board as yours and traced there, "
+        "beside her page, even when she names her paper; the app shows both. Every [[step]] you "
+        "narrate must follow that [[trace]]: never describe a trace without its tags. "
+        "List board tags in the order you narrate them: the app plays each [[highlight]] as "
+        "you name its state, the [[trace]] as you start the walk, and one [[step]] with each "
+        "sentence after it. "
+        "If no current image or visible candidate ID exists, "
         "leave paper empty and say what you cannot see. Never ask the student to send, share or "
-        "resend an image: the app captures the page itself; say you'll look again instead. "
+        "resend an image: the app captures the page itself; say plainly that you can't see "
+        "it right now. "
         "A mark may also point at a diagnosed mistake. "
-        "Use the board for an explicit board request, a needed new diagram, or the playbook's "
-        "trace. Keep drawings small: her automaton (as yours) or the minimal fix, not a new "
+        "Prefer the board: any explanation with a visual is drawn there and walked through "
+        "step by step, as are an explicit board request, a needed new diagram and the ladder's "
+        "steps. Keep drawings small: her automaton (as yours) or the minimal fix, not a new "
         "machine unless requested. Her copy as yours is exempt from the target check; your "
         "own machines must be correct. "
         "Examples use m4 only because it is visible there; use only IDs in the actual turn image.\n"
+        "page describes this turn's image only: never carry a value from the learner "
+        "preferences, the conversation or an earlier turn into page or a mark target. Where a "
+        "note and the image disagree, the image wins.\n"
+        "Never copy example values from this prompt: the worked examples' zone names, host "
+        "counts, addresses, labels and IDs are placeholders in angle brackets; every value in "
+        "page, say and draw comes from her words, her page, her image or the board. When she "
+        "asks to draw or design something 'from problem N', 'from my page', 'from the "
+        "assignment' or the like and no page or image of hers is in this turn (or it does not "
+        "show that problem), do not draw and do not invent one: leave draw empty and ask to "
+        "see the page.\n"
         + BOARD_RULES
         + "\nWorked guidance briefs:\n"
         + json.dumps(THINKER_EXAMPLES)
@@ -332,9 +390,9 @@ def thinker_system_prompt(schema: dict, *, ideal_tutor: str = "") -> str:
                 "diagnosis": "",
                 "plan": ["Draw the zones and connections"],
                 "say": "Each subnet has its own router and hosts.",
-                "draw": "3 zones: 10.0.0.0/26 (40 hosts), 10.0.0.64/27 (20), "
-                "10.0.0.96/28 (8); each has a router at the first usable IP "
-                "and 2 PCs with IPs wired to it; routers connect to one core switch",
+                "draw": "<N> zones from her words: <zone A> <cidr A> (<hosts A> hosts), "
+                "<zone B> <cidr B> (<hosts B>), ...; each has a router at the first usable IP "
+                "and <M> PCs with IPs wired to it; routers connect to one core switch",
                 "board": [],
                 "paper": [],
                 "confidence": 1.0,

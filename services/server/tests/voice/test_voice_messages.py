@@ -39,6 +39,25 @@ METRICS = {
     "interrupted": False,
     "budget_ms": 1200,
 }
+MESSAGE = {
+    "kind": "message",
+    "id": "m-1",
+    "client_id": None,
+    "role": "tutor",
+    "source": "voice",
+    "text": "Hi",
+    "final": True,
+    "interrupted": False,
+    "attachments": [],
+    "action": None,
+}
+STUDENT_MESSAGE = {
+    "kind": "student-message",
+    "client_id": "c-1",
+    "text": "Hi",
+    "attachment_ids": [],
+    "voice": True,
+}
 CLIENT_METRICS = {
     "kind": "client-metrics",
     "ttfa_ms": 900,
@@ -111,6 +130,16 @@ def test_envelope():
             {"kind": "turn-metrics", "metrics": {**METRICS, "extra": 1}},
             id="undeclared metric",
         ),
+        pytest.param({**MESSAGE, "role": "system"}, id="unknown message role"),
+        pytest.param({**MESSAGE, "final": "yes"}, id="string for final"),
+        pytest.param({k: v for k, v in MESSAGE.items() if k != "action"}, id="action missing"),
+        pytest.param(
+            {
+                **MESSAGE,
+                "action": {"kind": "draw", "side": "wall", "item": None, "attachment_id": None},
+            },
+            id="unknown action side",
+        ),
     ],
 )
 def test_server_events_refuse_what_the_contract_does_not_say(event):
@@ -129,6 +158,15 @@ def test_server_events_refuse_what_the_contract_does_not_say(event):
         pytest.param({**CLIENT_METRICS, "ttfa_ms": float("inf")}, id="infinite time"),
         pytest.param({**CLIENT_METRICS, "ttfa_ms": float("nan")}, id="NaN time"),
         pytest.param({**CLIENT_METRICS, "extra": 1}, id="undeclared field"),
+        pytest.param({**STUDENT_MESSAGE, "text": "x" * 4001}, id="message too long"),
+        pytest.param(
+            {**STUDENT_MESSAGE, "attachment_ids": ["a", "b", "c", "d", "e"]},
+            id="more than four images",
+        ),
+        pytest.param({**STUDENT_MESSAGE, "voice": "on"}, id="string for voice"),
+        pytest.param(
+            {**STUDENT_MESSAGE, "text": "", "attachment_ids": []}, id="neither text nor image"
+        ),
     ],
 )
 def test_client_events_refuse_what_the_contract_does_not_say(event):
