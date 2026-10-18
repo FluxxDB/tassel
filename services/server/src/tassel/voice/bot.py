@@ -464,6 +464,10 @@ class _TurnContext(FrameProcessor):
                     # a stale "I'll remove the three PCs" (2de450e6).
                     if self.coordinator:
                         await self.coordinator.cancel()
+                    if self.screen and self.screen.epoch != screen_epoch:
+                        return
+                    if self.screen and self.screen.source and self.on_screen_turn:
+                        await self.on_screen_turn(self.screen.epoch)
                     await self.push_frame(LLMFullResponseStartFrame(), direction)
                     await self.push_frame(LLMTextFrame(VIEW_ACKS[view][self.lang()]), direction)
                     await self.push_frame(LLMFullResponseEndFrame(), direction)
