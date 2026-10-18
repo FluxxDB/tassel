@@ -23,12 +23,20 @@ export interface AutomatonSpec {
 }
 
 /** A piece of an automaton: its start arrow, a state, or the edge of an ordered pair. */
-export type ElementRef = 'start' | `state:${string}` | `edge:${string}>${string}`;
+export type ElementRef =
+  | 'start'
+  | `state:${string}`
+  | `edge:${string}>${string}`
+  /** A diagram's node or group (board.diagram). Its edges are `edge:A>B` between node ids. */
+  | `node:${string}`
+  | `group:${string}`;
 
 export type ParsedElementRef =
   | { kind: 'start' }
   | { kind: 'state'; id: StateId }
-  | { kind: 'edge'; from: StateId; to: StateId };
+  | { kind: 'edge'; from: StateId; to: StateId }
+  | { kind: 'node'; id: StateId }
+  | { kind: 'group'; id: StateId };
 
 // JavaScript's $ matches only at the very end, so "q1\n" fails (Python's re.fullmatch agrees).
 // No id starts with "_", so none can meet Graphviz's "__start" node.
@@ -43,13 +51,22 @@ export function edgeRef(from: StateId, to: StateId): ElementRef {
   return `edge:${from}>${to}`;
 }
 
-/** Reads 'start', 'state:q0' or 'edge:q0>q1' (a self-loop is 'edge:q0>q0'); else null. */
+/**
+ * Reads 'start', 'state:q0', 'edge:q0>q1' (a self-loop is 'edge:q0>q0'), 'node:r1' or
+ * 'group:zone1'; else null.
+ */
 export function parseElementRef(ref: string): ParsedElementRef | null {
   if (typeof ref !== 'string') return null;
   if (ref === 'start') return { kind: 'start' };
   if (ref.startsWith('state:')) {
     const id = ref.slice('state:'.length);
     return isStateId(id) ? { kind: 'state', id } : null;
+  }
+  for (const kind of ['node', 'group'] as const) {
+    if (ref.startsWith(`${kind}:`)) {
+      const id = ref.slice(kind.length + 1);
+      return isStateId(id) ? { kind, id } : null;
+    }
   }
   if (ref.startsWith('edge:')) {
     const ends = ref.slice('edge:'.length).split('>');

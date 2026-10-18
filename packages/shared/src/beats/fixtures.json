@@ -5,14 +5,48 @@
       "item": "wrong",
       "spec": {
         "kind": "dfa",
-        "states": [{ "id": "q0" }, { "id": "q1" }, { "id": "q2" }, { "id": "q3", "accept": true }],
+        "states": [
+          {
+            "id": "q0"
+          },
+          {
+            "id": "q1"
+          },
+          {
+            "id": "q2"
+          },
+          {
+            "id": "q3",
+            "accept": true
+          }
+        ],
         "start": "q0",
         "transitions": [
-          { "from": "q0", "to": "q0", "symbols": ["1"] },
-          { "from": "q0", "to": "q1", "symbols": ["0"] },
-          { "from": "q1", "to": "q2", "symbols": ["1"] },
-          { "from": "q2", "to": "q3", "symbols": ["0"] },
-          { "from": "q3", "to": "q3", "symbols": ["0", "1"] }
+          {
+            "from": "q0",
+            "to": "q0",
+            "symbols": ["1"]
+          },
+          {
+            "from": "q0",
+            "to": "q1",
+            "symbols": ["0"]
+          },
+          {
+            "from": "q1",
+            "to": "q2",
+            "symbols": ["1"]
+          },
+          {
+            "from": "q2",
+            "to": "q3",
+            "symbols": ["0"]
+          },
+          {
+            "from": "q3",
+            "to": "q3",
+            "symbols": ["0", "1"]
+          }
         ]
       },
       "title": "Your DFA",
@@ -23,12 +57,35 @@
       "item": "guess",
       "spec": {
         "kind": "nfa",
-        "states": [{ "id": "p0" }, { "id": "p1" }, { "id": "p2", "accept": true }],
+        "states": [
+          {
+            "id": "p0"
+          },
+          {
+            "id": "p1"
+          },
+          {
+            "id": "p2",
+            "accept": true
+          }
+        ],
         "start": "p0",
         "transitions": [
-          { "from": "p0", "to": "p0", "symbols": ["0", "1"] },
-          { "from": "p0", "to": "p1", "symbols": ["ε"] },
-          { "from": "p1", "to": "p2", "symbols": ["0"] }
+          {
+            "from": "p0",
+            "to": "p0",
+            "symbols": ["0", "1"]
+          },
+          {
+            "from": "p0",
+            "to": "p1",
+            "symbols": ["ε"]
+          },
+          {
+            "from": "p1",
+            "to": "p2",
+            "symbols": ["0"]
+          }
         ]
       },
       "reveal": "none"
@@ -38,44 +95,141 @@
       "item": "parity",
       "spec": {
         "kind": "dfa",
-        "states": [{ "id": "0", "accept": true }, { "id": "1" }],
+        "states": [
+          {
+            "id": "0",
+            "accept": true
+          },
+          {
+            "id": "1"
+          }
+        ],
         "start": "0",
         "transitions": [
-          { "from": "0", "to": "0", "symbols": ["0"] },
-          { "from": "0", "to": "1", "symbols": ["1"] },
-          { "from": "1", "to": "1", "symbols": ["0"] },
-          { "from": "1", "to": "0", "symbols": ["1"] }
+          {
+            "from": "0",
+            "to": "0",
+            "symbols": ["0"]
+          },
+          {
+            "from": "0",
+            "to": "1",
+            "symbols": ["1"]
+          },
+          {
+            "from": "1",
+            "to": "1",
+            "symbols": ["0"]
+          },
+          {
+            "from": "1",
+            "to": "0",
+            "symbols": ["1"]
+          }
         ]
       },
       "title": "Your DFA"
     },
-    { "kind": "board.addState", "item": "fix", "id": "qd", "accept": false },
-    { "kind": "board.addTransition", "item": "fix", "from": "q1", "to": "qd", "symbols": ["0"] },
-    { "kind": "board.reveal", "item": "fix", "els": ["start", "state:q0", "edge:q0>q1"] },
-    { "kind": "board.reveal", "item": "fix" },
-    { "kind": "board.reveal", "item": "parity", "els": ["start", "state:0", "edge:0>1"] },
-    { "kind": "board.highlight", "item": "wrong", "el": "edge:q0>q0", "on": true },
-    { "kind": "board.highlight", "item": "wrong", "el": "edge:q0>q0", "on": false },
-    { "kind": "board.pulse", "item": "wrong", "el": "state:q3" },
+    {
+      "kind": "board.addState",
+      "item": "fix",
+      "id": "qd",
+      "accept": false
+    },
+    {
+      "kind": "board.addTransition",
+      "item": "fix",
+      "from": "q1",
+      "to": "qd",
+      "symbols": ["0"]
+    },
+    {
+      "kind": "board.reveal",
+      "item": "fix",
+      "els": ["start", "state:q0", "edge:q0>q1"]
+    },
+    {
+      "kind": "board.reveal",
+      "item": "fix"
+    },
+    {
+      "kind": "board.reveal",
+      "item": "parity",
+      "els": ["start", "state:0", "edge:0>1"]
+    },
+    {
+      "kind": "board.highlight",
+      "item": "wrong",
+      "el": "edge:q0>q0",
+      "on": true
+    },
+    {
+      "kind": "board.highlight",
+      "item": "wrong",
+      "el": "edge:q0>q0",
+      "on": false
+    },
+    {
+      "kind": "board.pulse",
+      "item": "wrong",
+      "el": "state:q3"
+    },
     {
       "kind": "board.note",
       "item": "why",
       "text": "This loop lets 1010 in.",
-      "near": { "item": "wrong", "el": "edge:q0>q0" }
+      "near": {
+        "item": "wrong",
+        "el": "edge:q0>q0"
+      }
     },
     {
       "kind": "board.trace",
       "item": "run",
       "spec": {
         "kind": "dfa",
-        "states": [{ "id": "q0" }, { "id": "q1" }, { "id": "q2" }, { "id": "q3", "accept": true }],
+        "states": [
+          {
+            "id": "q0"
+          },
+          {
+            "id": "q1"
+          },
+          {
+            "id": "q2"
+          },
+          {
+            "id": "q3",
+            "accept": true
+          }
+        ],
         "start": "q0",
         "transitions": [
-          { "from": "q0", "to": "q0", "symbols": ["1"] },
-          { "from": "q0", "to": "q1", "symbols": ["0"] },
-          { "from": "q1", "to": "q2", "symbols": ["1"] },
-          { "from": "q2", "to": "q3", "symbols": ["0"] },
-          { "from": "q3", "to": "q3", "symbols": ["0", "1"] }
+          {
+            "from": "q0",
+            "to": "q0",
+            "symbols": ["1"]
+          },
+          {
+            "from": "q0",
+            "to": "q1",
+            "symbols": ["0"]
+          },
+          {
+            "from": "q1",
+            "to": "q2",
+            "symbols": ["1"]
+          },
+          {
+            "from": "q2",
+            "to": "q3",
+            "symbols": ["0"]
+          },
+          {
+            "from": "q3",
+            "to": "q3",
+            "symbols": ["0", "1"]
+          }
         ]
       },
       "input": "1010",
@@ -88,20 +242,61 @@
       "item": "long",
       "spec": {
         "kind": "dfa",
-        "states": [{ "id": "q0" }, { "id": "q1" }, { "id": "q2" }, { "id": "q3", "accept": true }],
+        "states": [
+          {
+            "id": "q0"
+          },
+          {
+            "id": "q1"
+          },
+          {
+            "id": "q2"
+          },
+          {
+            "id": "q3",
+            "accept": true
+          }
+        ],
         "start": "q0",
         "transitions": [
-          { "from": "q0", "to": "q0", "symbols": ["1"] },
-          { "from": "q0", "to": "q1", "symbols": ["0"] },
-          { "from": "q1", "to": "q2", "symbols": ["1"] },
-          { "from": "q2", "to": "q3", "symbols": ["0"] },
-          { "from": "q3", "to": "q3", "symbols": ["0", "1"] }
+          {
+            "from": "q0",
+            "to": "q0",
+            "symbols": ["1"]
+          },
+          {
+            "from": "q0",
+            "to": "q1",
+            "symbols": ["0"]
+          },
+          {
+            "from": "q1",
+            "to": "q2",
+            "symbols": ["1"]
+          },
+          {
+            "from": "q2",
+            "to": "q3",
+            "symbols": ["0"]
+          },
+          {
+            "from": "q3",
+            "to": "q3",
+            "symbols": ["0", "1"]
+          }
         ]
       },
       "input": "1010101010101010101010101010101010101010101010101010101010101010"
     },
-    { "kind": "board.traceStep", "item": "run", "step": 2 },
-    { "kind": "board.traceStep", "item": "run" },
+    {
+      "kind": "board.traceStep",
+      "item": "run",
+      "step": 2
+    },
+    {
+      "kind": "board.traceStep",
+      "item": "run"
+    },
     {
       "kind": "board.verdict",
       "item": "run",
@@ -109,116 +304,388 @@
       "expected": "reject",
       "note": "1010 doesn't start with 010."
     },
-    { "kind": "board.focus", "item": "fix" },
-    { "kind": "board.focus" },
-    { "kind": "board.clear", "item": "run" },
-    { "kind": "board.clear" },
-    { "kind": "paper.freeze", "frame": { "kind": "fixture", "name": "dfa-wrong" } },
+    {
+      "kind": "board.focus",
+      "item": "fix"
+    },
+    {
+      "kind": "board.focus"
+    },
+    {
+      "kind": "board.clear",
+      "item": "run"
+    },
+    {
+      "kind": "board.clear"
+    },
     {
       "kind": "paper.freeze",
-      "frame": { "kind": "frame", "id": "6f1c2d3e-4b5a-4c6d-8e7f-9a0b1c2d3e4f" },
+      "frame": {
+        "kind": "fixture",
+        "name": "dfa-wrong"
+      }
+    },
+    {
+      "kind": "paper.freeze",
+      "frame": {
+        "kind": "frame",
+        "id": "6f1c2d3e-4b5a-4c6d-8e7f-9a0b1c2d3e4f"
+      },
       "elements": {
         "states": {
-          "q0": { "center": { "x": 0.18, "y": 0.55 }, "r": 0.055 },
-          "q1": { "center": { "x": 0.39, "y": 0.55 }, "r": 0.055 },
-          "q2": { "center": { "x": 0.6, "y": 0.55 }, "r": 0.055 },
-          "q3": { "center": { "x": 0.81, "y": 0.55 }, "r": 0.055 }
+          "q0": {
+            "center": {
+              "x": 0.18,
+              "y": 0.55
+            },
+            "r": 0.055
+          },
+          "q1": {
+            "center": {
+              "x": 0.39,
+              "y": 0.55
+            },
+            "r": 0.055
+          },
+          "q2": {
+            "center": {
+              "x": 0.6,
+              "y": 0.55
+            },
+            "r": 0.055
+          },
+          "q3": {
+            "center": {
+              "x": 0.81,
+              "y": 0.55
+            },
+            "r": 0.055
+          }
         },
         "edges": {
           "q0>q0": {
-            "path": [{ "x": 0.15, "y": 0.505 }, { "x": 0.18, "y": 0.4 }, { "x": 0.21, "y": 0.505 }],
-            "label": { "x": 0.18, "y": 0.38 }
+            "path": [
+              {
+                "x": 0.15,
+                "y": 0.505
+              },
+              {
+                "x": 0.18,
+                "y": 0.4
+              },
+              {
+                "x": 0.21,
+                "y": 0.505
+              }
+            ],
+            "label": {
+              "x": 0.18,
+              "y": 0.38
+            }
           },
           "q0>q1": {
-            "path": [{ "x": 0.235, "y": 0.55 }, { "x": 0.335, "y": 0.55 }],
-            "label": { "x": 0.285, "y": 0.525 }
+            "path": [
+              {
+                "x": 0.235,
+                "y": 0.55
+              },
+              {
+                "x": 0.335,
+                "y": 0.55
+              }
+            ],
+            "label": {
+              "x": 0.285,
+              "y": 0.525
+            }
           },
           "q1>q2": {
-            "path": [{ "x": 0.445, "y": 0.55 }, { "x": 0.545, "y": 0.55 }],
-            "label": { "x": 0.495, "y": 0.525 }
+            "path": [
+              {
+                "x": 0.445,
+                "y": 0.55
+              },
+              {
+                "x": 0.545,
+                "y": 0.55
+              }
+            ],
+            "label": {
+              "x": 0.495,
+              "y": 0.525
+            }
           },
           "q2>q3": {
-            "path": [{ "x": 0.655, "y": 0.55 }, { "x": 0.755, "y": 0.55 }],
-            "label": { "x": 0.705, "y": 0.525 }
+            "path": [
+              {
+                "x": 0.655,
+                "y": 0.55
+              },
+              {
+                "x": 0.755,
+                "y": 0.55
+              }
+            ],
+            "label": {
+              "x": 0.705,
+              "y": 0.525
+            }
           },
           "q3>q3": {
-            "path": [{ "x": 0.78, "y": 0.505 }, { "x": 0.81, "y": 0.4 }, { "x": 0.84, "y": 0.505 }],
-            "label": { "x": 0.81, "y": 0.38 }
+            "path": [
+              {
+                "x": 0.78,
+                "y": 0.505
+              },
+              {
+                "x": 0.81,
+                "y": 0.4
+              },
+              {
+                "x": 0.84,
+                "y": 0.505
+              }
+            ],
+            "label": {
+              "x": 0.81,
+              "y": 0.38
+            }
           }
         },
-        "start": { "path": [{ "x": 0.08, "y": 0.55 }, { "x": 0.125, "y": 0.55 }] }
+        "start": {
+          "path": [
+            {
+              "x": 0.08,
+              "y": 0.55
+            },
+            {
+              "x": 0.125,
+              "y": 0.55
+            }
+          ]
+        }
       },
       "spec": {
         "kind": "dfa",
-        "states": [{ "id": "q0" }, { "id": "q1" }, { "id": "q2" }, { "id": "q3", "accept": true }],
+        "states": [
+          {
+            "id": "q0"
+          },
+          {
+            "id": "q1"
+          },
+          {
+            "id": "q2"
+          },
+          {
+            "id": "q3",
+            "accept": true
+          }
+        ],
         "start": "q0",
         "transitions": [
-          { "from": "q0", "to": "q0", "symbols": ["1"] },
-          { "from": "q0", "to": "q1", "symbols": ["0"] },
-          { "from": "q1", "to": "q2", "symbols": ["1"] },
-          { "from": "q2", "to": "q3", "symbols": ["0"] },
-          { "from": "q3", "to": "q3", "symbols": ["0", "1"] }
+          {
+            "from": "q0",
+            "to": "q0",
+            "symbols": ["1"]
+          },
+          {
+            "from": "q0",
+            "to": "q1",
+            "symbols": ["0"]
+          },
+          {
+            "from": "q1",
+            "to": "q2",
+            "symbols": ["1"]
+          },
+          {
+            "from": "q2",
+            "to": "q3",
+            "symbols": ["0"]
+          },
+          {
+            "from": "q3",
+            "to": "q3",
+            "symbols": ["0", "1"]
+          }
         ]
       }
     },
-    { "kind": "paper.freeze", "frame": { "kind": "latest" } },
-    { "kind": "paper.freeze", "frame": { "kind": "live" } },
     {
       "kind": "paper.freeze",
-      "frame": { "kind": "latest" },
+      "frame": {
+        "kind": "latest"
+      }
+    },
+    {
+      "kind": "paper.freeze",
+      "frame": {
+        "kind": "live"
+      }
+    },
+    {
+      "kind": "paper.freeze",
+      "frame": {
+        "kind": "latest"
+      },
       "elements": {
         "states": {
-          "0": { "center": { "x": 0.3, "y": 0.5 }, "r": 0.06 },
-          "1": { "center": { "x": 0.7, "y": 0.5 }, "r": 0.06 }
+          "0": {
+            "center": {
+              "x": 0.3,
+              "y": 0.5
+            },
+            "r": 0.06
+          },
+          "1": {
+            "center": {
+              "x": 0.7,
+              "y": 0.5
+            },
+            "r": 0.06
+          }
         },
         "edges": {
           "0>1": {
-            "path": [{ "x": 0.36, "y": 0.48 }, { "x": 0.64, "y": 0.48 }],
-            "label": { "x": 0.5, "y": 0.45 }
+            "path": [
+              {
+                "x": 0.36,
+                "y": 0.48
+              },
+              {
+                "x": 0.64,
+                "y": 0.48
+              }
+            ],
+            "label": {
+              "x": 0.5,
+              "y": 0.45
+            }
           },
-          "1>0": { "path": [{ "x": 0.64, "y": 0.52 }, { "x": 0.36, "y": 0.52 }] }
+          "1>0": {
+            "path": [
+              {
+                "x": 0.64,
+                "y": 0.52
+              },
+              {
+                "x": 0.36,
+                "y": 0.52
+              }
+            ]
+          }
         },
-        "start": { "path": [{ "x": 0.16, "y": 0.5 }, { "x": 0.24, "y": 0.5 }] }
+        "start": {
+          "path": [
+            {
+              "x": 0.16,
+              "y": 0.5
+            },
+            {
+              "x": 0.24,
+              "y": 0.5
+            }
+          ]
+        }
       },
       "spec": {
         "kind": "dfa",
-        "states": [{ "id": "0", "accept": true }, { "id": "1" }],
+        "states": [
+          {
+            "id": "0",
+            "accept": true
+          },
+          {
+            "id": "1"
+          }
+        ],
         "start": "0",
         "transitions": [
-          { "from": "0", "to": "0", "symbols": ["0"] },
-          { "from": "0", "to": "1", "symbols": ["1"] },
-          { "from": "1", "to": "1", "symbols": ["0"] },
-          { "from": "1", "to": "0", "symbols": ["1"] }
+          {
+            "from": "0",
+            "to": "0",
+            "symbols": ["0"]
+          },
+          {
+            "from": "0",
+            "to": "1",
+            "symbols": ["1"]
+          },
+          {
+            "from": "1",
+            "to": "1",
+            "symbols": ["0"]
+          },
+          {
+            "from": "1",
+            "to": "0",
+            "symbols": ["1"]
+          }
         ]
       }
     },
     {
       "kind": "paper.mark",
-      "mark": { "type": "circle", "id": "loop", "target": { "el": "edge:q0>q0" }, "wash": true }
+      "mark": {
+        "type": "circle",
+        "id": "loop",
+        "target": {
+          "el": "edge:q0>q0"
+        },
+        "wash": true
+      }
     },
     {
       "kind": "paper.mark",
-      "mark": { "type": "circle", "id": "start", "target": { "el": "start" } }
+      "mark": {
+        "type": "circle",
+        "id": "start",
+        "target": {
+          "el": "start"
+        }
+      }
     },
     {
       "kind": "paper.mark",
       "mark": {
         "type": "arrow",
         "id": "m2",
-        "from": { "at": { "x": 0.5, "y": 0.2 } },
-        "to": { "el": "state:q1" }
+        "from": {
+          "at": {
+            "x": 0.5,
+            "y": 0.2
+          }
+        },
+        "to": {
+          "el": "state:q1"
+        }
       }
     },
     {
       "kind": "paper.mark",
-      "mark": { "type": "step", "id": "s1", "n": 1, "target": { "el": "edge:q0>q0" } }
+      "mark": {
+        "type": "step",
+        "id": "s1",
+        "n": 1,
+        "target": {
+          "el": "edge:q0>q0"
+        }
+      }
     },
     {
       "kind": "paper.mark",
       "mark": {
         "type": "callout",
         "id": "c1",
-        "target": { "box": { "x": 0.1, "y": 0.4, "w": 0.2, "h": 0.15 } },
+        "target": {
+          "box": {
+            "x": 0.1,
+            "y": 0.4,
+            "w": 0.2,
+            "h": 0.15
+          }
+        },
         "text": "This loop is what lets 1010 in."
       }
     },
@@ -227,7 +694,9 @@
       "mark": {
         "type": "callout",
         "id": "c2",
-        "target": { "el": "state:q3" },
+        "target": {
+          "el": "state:q3"
+        },
         "text": "Este bucle en q0 es lo que deja pasar a 1010: con un 1 al principio te quedas en q0, Este bucle en q0 es lo que deja pasar a 1010: con un 1 al principio te quedas en q0, Este bucle en q0 es lo que deja pasar a 1010: con un 1 al principio te quedas en q0, Este bucle en q0 es lo q🙂"
       }
     },
@@ -236,29 +705,64 @@
       "mark": {
         "type": "callout",
         "id": "c3",
-        "target": { "el": "edge:q0>q0" },
+        "target": {
+          "el": "edge:q0>q0"
+        },
         "text": "이 루프 때문에 1010이 통과해요."
       }
     },
     {
       "kind": "paper.mark",
-      "mark": { "type": "strike", "id": "m5", "target": { "el": "edge:q2>q3" } }
+      "mark": {
+        "type": "strike",
+        "id": "m5",
+        "target": {
+          "el": "edge:q2>q3"
+        }
+      }
     },
     {
       "kind": "paper.mark",
-      "mark": { "type": "check", "id": "m6", "target": { "at": { "x": 0.81, "y": 0.4 } } }
+      "mark": {
+        "type": "check",
+        "id": "m6",
+        "target": {
+          "at": {
+            "x": 0.81,
+            "y": 0.4
+          }
+        }
+      }
     },
-    { "kind": "paper.unmark", "id": "c1" },
-    { "kind": "paper.trace", "input": "1010" },
+    {
+      "kind": "paper.unmark",
+      "id": "c1"
+    },
+    {
+      "kind": "paper.trace",
+      "input": "1010"
+    },
     {
       "kind": "paper.trace",
       "input": "1010101010101010101010101010101010101010101010101010101010101010"
     },
-    { "kind": "paper.traceStep", "step": 1 },
-    { "kind": "paper.traceStep" },
-    { "kind": "paper.clear" },
-    { "kind": "paper.live" },
-    { "kind": "stage", "view": "split" },
+    {
+      "kind": "paper.traceStep",
+      "step": 1
+    },
+    {
+      "kind": "paper.traceStep"
+    },
+    {
+      "kind": "paper.clear"
+    },
+    {
+      "kind": "paper.live"
+    },
+    {
+      "kind": "stage",
+      "view": "split"
+    },
     {
       "kind": "paper.freeze",
       "frame": {
@@ -296,6 +800,115 @@
           "el": "m3"
         }
       }
+    },
+    {
+      "kind": "board.diagram",
+      "item": "net",
+      "spec": {
+        "title": "Three subnets",
+        "direction": "LR",
+        "groups": [
+          {
+            "id": "z1",
+            "label": "Zone 1",
+            "sublabel": "10.0.0.0/26"
+          },
+          {
+            "id": "z2",
+            "label": "Zone 2",
+            "sublabel": "10.0.0.64/27"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "r1",
+            "label": "Router",
+            "sublabel": "10.0.0.1",
+            "icon": "router",
+            "group": "z1"
+          },
+          {
+            "id": "pc1",
+            "label": "PC-1",
+            "sublabel": "10.0.0.2",
+            "icon": "pc",
+            "group": "z1"
+          },
+          {
+            "id": "r2",
+            "label": "Router",
+            "sublabel": "10.0.0.65",
+            "icon": "router",
+            "group": "z2"
+          },
+          {
+            "id": "core",
+            "label": "Core",
+            "icon": "switch"
+          }
+        ],
+        "edges": [
+          {
+            "from": "pc1",
+            "to": "r1",
+            "directed": false,
+            "style": "solid"
+          },
+          {
+            "from": "r1",
+            "to": "core",
+            "label": "uplink",
+            "directed": false,
+            "style": "solid"
+          },
+          {
+            "from": "r2",
+            "to": "core",
+            "directed": true,
+            "style": "dashed"
+          }
+        ]
+      },
+      "reveal": "none"
+    },
+    {
+      "kind": "board.diagram",
+      "item": "flow",
+      "spec": {
+        "direction": "TB",
+        "groups": [],
+        "nodes": [
+          {
+            "id": "a",
+            "label": "Start",
+            "icon": "circle"
+          },
+          {
+            "id": "b",
+            "label": "Read input",
+            "icon": "box"
+          }
+        ],
+        "edges": [
+          {
+            "from": "a",
+            "to": "b",
+            "directed": true,
+            "style": "solid"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "board.highlight",
+      "item": "net",
+      "el": "node:r1",
+      "on": true
+    },
+    {
+      "kind": "board.reveal",
+      "item": "net",
+      "els": ["group:z1", "node:pc1", "edge:pc1>r1"]
     }
   ],
   "invalidActions": [
@@ -303,7 +916,13 @@
       "why": "detected target rejects trailing carriage return",
       "data": {
         "kind": "paper.mark",
-        "mark": { "id": "a", "type": "circle", "target": { "el": "m3\r" } }
+        "mark": {
+          "id": "a",
+          "type": "circle",
+          "target": {
+            "el": "m3\r"
+          }
+        }
       }
     },
     {
@@ -541,18 +1160,47 @@
         "spec": {
           "kind": "dfa",
           "states": [
-            { "id": "q0" },
-            { "id": "q1" },
-            { "id": "q2" },
-            { "id": "q3", "accept": true }
+            {
+              "id": "q0"
+            },
+            {
+              "id": "q1"
+            },
+            {
+              "id": "q2"
+            },
+            {
+              "id": "q3",
+              "accept": true
+            }
           ],
           "start": "q9",
           "transitions": [
-            { "from": "q0", "to": "q0", "symbols": ["1"] },
-            { "from": "q0", "to": "q1", "symbols": ["0"] },
-            { "from": "q1", "to": "q2", "symbols": ["1"] },
-            { "from": "q2", "to": "q3", "symbols": ["0"] },
-            { "from": "q3", "to": "q3", "symbols": ["0", "1"] }
+            {
+              "from": "q0",
+              "to": "q0",
+              "symbols": ["1"]
+            },
+            {
+              "from": "q0",
+              "to": "q1",
+              "symbols": ["0"]
+            },
+            {
+              "from": "q1",
+              "to": "q2",
+              "symbols": ["1"]
+            },
+            {
+              "from": "q2",
+              "to": "q3",
+              "symbols": ["0"]
+            },
+            {
+              "from": "q3",
+              "to": "q3",
+              "symbols": ["0", "1"]
+            }
           ]
         }
       }
@@ -565,19 +1213,52 @@
         "spec": {
           "kind": "dfa",
           "states": [
-            { "id": "q0" },
-            { "id": "q1" },
-            { "id": "q2" },
-            { "id": "q3", "accept": true }
+            {
+              "id": "q0"
+            },
+            {
+              "id": "q1"
+            },
+            {
+              "id": "q2"
+            },
+            {
+              "id": "q3",
+              "accept": true
+            }
           ],
           "start": "q0",
           "transitions": [
-            { "from": "q0", "to": "q0", "symbols": ["1"] },
-            { "from": "q0", "to": "q1", "symbols": ["0"] },
-            { "from": "q1", "to": "q2", "symbols": ["1"] },
-            { "from": "q2", "to": "q3", "symbols": ["0"] },
-            { "from": "q3", "to": "q3", "symbols": ["0", "1"] },
-            { "from": "q1", "to": "q3", "symbols": ["ε"] }
+            {
+              "from": "q0",
+              "to": "q0",
+              "symbols": ["1"]
+            },
+            {
+              "from": "q0",
+              "to": "q1",
+              "symbols": ["0"]
+            },
+            {
+              "from": "q1",
+              "to": "q2",
+              "symbols": ["1"]
+            },
+            {
+              "from": "q2",
+              "to": "q3",
+              "symbols": ["0"]
+            },
+            {
+              "from": "q3",
+              "to": "q3",
+              "symbols": ["0", "1"]
+            },
+            {
+              "from": "q1",
+              "to": "q3",
+              "symbols": ["ε"]
+            }
           ]
         },
         "input": "1010"
@@ -585,13 +1266,30 @@
     },
     {
       "why": "a mark with no target",
-      "data": { "kind": "paper.mark", "mark": { "type": "circle", "id": "loop" } }
+      "data": {
+        "kind": "paper.mark",
+        "mark": {
+          "type": "circle",
+          "id": "loop"
+        }
+      }
     },
     {
       "why": "edge:q0 as a ref",
-      "data": { "kind": "board.highlight", "item": "wrong", "el": "edge:q0", "on": true }
+      "data": {
+        "kind": "board.highlight",
+        "item": "wrong",
+        "el": "edge:q0",
+        "on": true
+      }
     },
-    { "why": "an unknown kind", "data": { "kind": "board.erase", "item": "wrong" } },
+    {
+      "why": "an unknown kind",
+      "data": {
+        "kind": "board.erase",
+        "item": "wrong"
+      }
+    },
     {
       "why": "a 281-character callout",
       "data": {
@@ -599,20 +1297,43 @@
         "mark": {
           "type": "callout",
           "id": "c2",
-          "target": { "el": "state:q3" },
+          "target": {
+            "el": "state:q3"
+          },
           "text": "Este bucle en q0 es lo que deja pasar a 1010: con un 1 al principio te quedas en q0, Este bucle en q0 es lo que deja pasar a 1010: con un 1 al principio te quedas en q0, Este bucle en q0 es lo que deja pasar a 1010: con un 1 al principio te quedas en q0, Este bucle en q0 es lo qab"
         }
       }
     },
-    { "why": "an unknown field", "data": { "kind": "board.focus", "item": "fix", "zoom": 2 } },
-    { "why": "an item id with a space", "data": { "kind": "board.clear", "item": "your dfa" } },
+    {
+      "why": "an unknown field",
+      "data": {
+        "kind": "board.focus",
+        "item": "fix",
+        "zoom": 2
+      }
+    },
+    {
+      "why": "an item id with a space",
+      "data": {
+        "kind": "board.clear",
+        "item": "your dfa"
+      }
+    },
     {
       "why": "a state id with a space",
-      "data": { "kind": "board.addState", "item": "fix", "id": "q 1" }
+      "data": {
+        "kind": "board.addState",
+        "item": "fix",
+        "id": "q 1"
+      }
     },
     {
       "why": "a newline after a state id",
-      "data": { "kind": "board.addState", "item": "fix", "id": "q1\n" }
+      "data": {
+        "kind": "board.addState",
+        "item": "fix",
+        "id": "q1\n"
+      }
     },
     {
       "why": "a symbol with a comma",
@@ -626,11 +1347,19 @@
     },
     {
       "why": "a highlight without on",
-      "data": { "kind": "board.highlight", "item": "wrong", "el": "state:q0" }
+      "data": {
+        "kind": "board.highlight",
+        "item": "wrong",
+        "el": "state:q0"
+      }
     },
     {
       "why": "a step that is not a whole number",
-      "data": { "kind": "board.traceStep", "item": "run", "step": 1.5 }
+      "data": {
+        "kind": "board.traceStep",
+        "item": "run",
+        "step": 1.5
+      }
     },
     {
       "why": "a target with two anchors",
@@ -639,7 +1368,13 @@
         "mark": {
           "type": "check",
           "id": "m6",
-          "target": { "el": "state:q3", "at": { "x": 0.81, "y": 0.4 } }
+          "target": {
+            "el": "state:q3",
+            "at": {
+              "x": 0.81,
+              "y": 0.4
+            }
+          }
         }
       }
     },
@@ -650,16 +1385,42 @@
         "mark": {
           "type": "circle",
           "id": "b1",
-          "target": { "box": { "x": 0.3, "y": 0.4, "w": -0.1, "h": 0.1 } }
+          "target": {
+            "box": {
+              "x": 0.3,
+              "y": 0.4,
+              "w": -0.1,
+              "h": 0.1
+            }
+          }
         }
       }
     },
     {
       "why": "a fixture page that does not exist",
-      "data": { "kind": "paper.freeze", "frame": { "kind": "fixture", "name": "dfa-right" } }
+      "data": {
+        "kind": "paper.freeze",
+        "frame": {
+          "kind": "fixture",
+          "name": "dfa-right"
+        }
+      }
     },
-    { "why": "a view that does not exist", "data": { "kind": "stage", "view": "both" } },
-    { "why": "an empty note", "data": { "kind": "board.note", "item": "why", "text": "" } },
+    {
+      "why": "a view that does not exist",
+      "data": {
+        "kind": "stage",
+        "view": "both"
+      }
+    },
+    {
+      "why": "an empty note",
+      "data": {
+        "kind": "board.note",
+        "item": "why",
+        "text": ""
+      }
+    },
     {
       "why": "a trace input over 64 symbols",
       "data": {
@@ -668,18 +1429,47 @@
         "spec": {
           "kind": "dfa",
           "states": [
-            { "id": "q0" },
-            { "id": "q1" },
-            { "id": "q2" },
-            { "id": "q3", "accept": true }
+            {
+              "id": "q0"
+            },
+            {
+              "id": "q1"
+            },
+            {
+              "id": "q2"
+            },
+            {
+              "id": "q3",
+              "accept": true
+            }
           ],
           "start": "q0",
           "transitions": [
-            { "from": "q0", "to": "q0", "symbols": ["1"] },
-            { "from": "q0", "to": "q1", "symbols": ["0"] },
-            { "from": "q1", "to": "q2", "symbols": ["1"] },
-            { "from": "q2", "to": "q3", "symbols": ["0"] },
-            { "from": "q3", "to": "q3", "symbols": ["0", "1"] }
+            {
+              "from": "q0",
+              "to": "q0",
+              "symbols": ["1"]
+            },
+            {
+              "from": "q0",
+              "to": "q1",
+              "symbols": ["0"]
+            },
+            {
+              "from": "q1",
+              "to": "q2",
+              "symbols": ["1"]
+            },
+            {
+              "from": "q2",
+              "to": "q3",
+              "symbols": ["0"]
+            },
+            {
+              "from": "q3",
+              "to": "q3",
+              "symbols": ["0", "1"]
+            }
           ]
         },
         "input": "10101010101010101010101010101010101010101010101010101010101010101"
@@ -700,30 +1490,801 @@
         "spec": {
           "kind": "dfa",
           "states": [
-            { "id": "q0" },
-            { "id": "q1" },
-            { "id": "q2" },
-            { "id": "q3", "accept": true }
+            {
+              "id": "q0"
+            },
+            {
+              "id": "q1"
+            },
+            {
+              "id": "q2"
+            },
+            {
+              "id": "q3",
+              "accept": true
+            }
           ],
           "start": "q0",
           "transitions": [
-            { "from": "q0", "to": "q0", "symbols": ["1"] },
-            { "from": "q0", "to": "q1", "symbols": ["0"] },
-            { "from": "q1", "to": "q2", "symbols": ["1"] },
-            { "from": "q2", "to": "q3", "symbols": ["0"] },
-            { "from": "q3", "to": "q3", "symbols": ["0", "1"] },
-            { "from": "q1", "to": "q1", "symbols": [] }
+            {
+              "from": "q0",
+              "to": "q0",
+              "symbols": ["1"]
+            },
+            {
+              "from": "q0",
+              "to": "q1",
+              "symbols": ["0"]
+            },
+            {
+              "from": "q1",
+              "to": "q2",
+              "symbols": ["1"]
+            },
+            {
+              "from": "q2",
+              "to": "q3",
+              "symbols": ["0"]
+            },
+            {
+              "from": "q3",
+              "to": "q3",
+              "symbols": ["0", "1"]
+            },
+            {
+              "from": "q1",
+              "to": "q1",
+              "symbols": []
+            }
           ]
         }
       }
     },
     {
       "why": "a state id that starts with an underscore",
-      "data": { "kind": "board.addState", "item": "fix", "id": "_0" }
+      "data": {
+        "kind": "board.addState",
+        "item": "fix",
+        "id": "_0"
+      }
     },
     {
       "why": "a state id of 17 characters",
-      "data": { "kind": "board.addState", "item": "fix", "id": "q1111111111111111" }
+      "data": {
+        "kind": "board.addState",
+        "item": "fix",
+        "id": "q1111111111111111"
+      }
+    },
+    {
+      "why": "diagram edge to an unknown node",
+      "data": {
+        "kind": "board.diagram",
+        "item": "net",
+        "spec": {
+          "title": "Three subnets",
+          "direction": "LR",
+          "groups": [
+            {
+              "id": "z1",
+              "label": "Zone 1",
+              "sublabel": "10.0.0.0/26"
+            },
+            {
+              "id": "z2",
+              "label": "Zone 2",
+              "sublabel": "10.0.0.64/27"
+            }
+          ],
+          "nodes": [
+            {
+              "id": "r1",
+              "label": "Router",
+              "sublabel": "10.0.0.1",
+              "icon": "router",
+              "group": "z1"
+            },
+            {
+              "id": "pc1",
+              "label": "PC-1",
+              "sublabel": "10.0.0.2",
+              "icon": "pc",
+              "group": "z1"
+            },
+            {
+              "id": "r2",
+              "label": "Router",
+              "sublabel": "10.0.0.65",
+              "icon": "router",
+              "group": "z2"
+            },
+            {
+              "id": "core",
+              "label": "Core",
+              "icon": "switch"
+            }
+          ],
+          "edges": [
+            {
+              "from": "pc1",
+              "to": "r1",
+              "directed": false,
+              "style": "solid"
+            },
+            {
+              "from": "r1",
+              "to": "core",
+              "label": "uplink",
+              "directed": false,
+              "style": "solid"
+            },
+            {
+              "from": "r2",
+              "to": "core",
+              "directed": true,
+              "style": "dashed"
+            },
+            {
+              "from": "pc1",
+              "to": "ghost",
+              "directed": false,
+              "style": "solid"
+            }
+          ]
+        },
+        "reveal": "none"
+      }
+    },
+    {
+      "why": "diagram node in an unknown group",
+      "data": {
+        "kind": "board.diagram",
+        "item": "net",
+        "spec": {
+          "title": "Three subnets",
+          "direction": "LR",
+          "groups": [
+            {
+              "id": "z1",
+              "label": "Zone 1",
+              "sublabel": "10.0.0.0/26"
+            },
+            {
+              "id": "z2",
+              "label": "Zone 2",
+              "sublabel": "10.0.0.64/27"
+            }
+          ],
+          "nodes": [
+            {
+              "id": "r1",
+              "label": "Router",
+              "sublabel": "10.0.0.1",
+              "icon": "router",
+              "group": "z1"
+            },
+            {
+              "id": "pc1",
+              "label": "PC-1",
+              "sublabel": "10.0.0.2",
+              "icon": "pc",
+              "group": "z1"
+            },
+            {
+              "id": "r2",
+              "label": "Router",
+              "sublabel": "10.0.0.65",
+              "icon": "router",
+              "group": "z2"
+            },
+            {
+              "id": "core",
+              "label": "Core",
+              "icon": "switch"
+            },
+            {
+              "id": "pc9",
+              "label": "PC-9",
+              "icon": "pc",
+              "group": "z9"
+            }
+          ],
+          "edges": [
+            {
+              "from": "pc1",
+              "to": "r1",
+              "directed": false,
+              "style": "solid"
+            },
+            {
+              "from": "r1",
+              "to": "core",
+              "label": "uplink",
+              "directed": false,
+              "style": "solid"
+            },
+            {
+              "from": "r2",
+              "to": "core",
+              "directed": true,
+              "style": "dashed"
+            }
+          ]
+        },
+        "reveal": "none"
+      }
+    },
+    {
+      "why": "diagram duplicate id across nodes and groups",
+      "data": {
+        "kind": "board.diagram",
+        "item": "net",
+        "spec": {
+          "title": "Three subnets",
+          "direction": "LR",
+          "groups": [
+            {
+              "id": "z1",
+              "label": "Zone 1",
+              "sublabel": "10.0.0.0/26"
+            },
+            {
+              "id": "z2",
+              "label": "Zone 2",
+              "sublabel": "10.0.0.64/27"
+            }
+          ],
+          "nodes": [
+            {
+              "id": "r1",
+              "label": "Router",
+              "sublabel": "10.0.0.1",
+              "icon": "router",
+              "group": "z1"
+            },
+            {
+              "id": "pc1",
+              "label": "PC-1",
+              "sublabel": "10.0.0.2",
+              "icon": "pc",
+              "group": "z1"
+            },
+            {
+              "id": "r2",
+              "label": "Router",
+              "sublabel": "10.0.0.65",
+              "icon": "router",
+              "group": "z2"
+            },
+            {
+              "id": "core",
+              "label": "Core",
+              "icon": "switch"
+            },
+            {
+              "id": "z1",
+              "label": "Dup",
+              "icon": "box"
+            }
+          ],
+          "edges": [
+            {
+              "from": "pc1",
+              "to": "r1",
+              "directed": false,
+              "style": "solid"
+            },
+            {
+              "from": "r1",
+              "to": "core",
+              "label": "uplink",
+              "directed": false,
+              "style": "solid"
+            },
+            {
+              "from": "r2",
+              "to": "core",
+              "directed": true,
+              "style": "dashed"
+            }
+          ]
+        },
+        "reveal": "none"
+      }
+    },
+    {
+      "why": "diagram unknown icon",
+      "data": {
+        "kind": "board.diagram",
+        "item": "net",
+        "spec": {
+          "title": "Three subnets",
+          "direction": "LR",
+          "groups": [
+            {
+              "id": "z1",
+              "label": "Zone 1",
+              "sublabel": "10.0.0.0/26"
+            },
+            {
+              "id": "z2",
+              "label": "Zone 2",
+              "sublabel": "10.0.0.64/27"
+            }
+          ],
+          "nodes": [
+            {
+              "id": "r1",
+              "label": "Router",
+              "sublabel": "10.0.0.1",
+              "icon": "toaster",
+              "group": "z1"
+            },
+            {
+              "id": "pc1",
+              "label": "PC-1",
+              "sublabel": "10.0.0.2",
+              "icon": "pc",
+              "group": "z1"
+            },
+            {
+              "id": "r2",
+              "label": "Router",
+              "sublabel": "10.0.0.65",
+              "icon": "router",
+              "group": "z2"
+            },
+            {
+              "id": "core",
+              "label": "Core",
+              "icon": "switch"
+            }
+          ],
+          "edges": [
+            {
+              "from": "pc1",
+              "to": "r1",
+              "directed": false,
+              "style": "solid"
+            },
+            {
+              "from": "r1",
+              "to": "core",
+              "label": "uplink",
+              "directed": false,
+              "style": "solid"
+            },
+            {
+              "from": "r2",
+              "to": "core",
+              "directed": true,
+              "style": "dashed"
+            }
+          ]
+        },
+        "reveal": "none"
+      }
+    },
+    {
+      "why": "diagram label over 40 characters",
+      "data": {
+        "kind": "board.diagram",
+        "item": "net",
+        "spec": {
+          "title": "Three subnets",
+          "direction": "LR",
+          "groups": [
+            {
+              "id": "z1",
+              "label": "Zone 1",
+              "sublabel": "10.0.0.0/26"
+            },
+            {
+              "id": "z2",
+              "label": "Zone 2",
+              "sublabel": "10.0.0.64/27"
+            }
+          ],
+          "nodes": [
+            {
+              "id": "r1",
+              "label": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+              "sublabel": "10.0.0.1",
+              "icon": "router",
+              "group": "z1"
+            },
+            {
+              "id": "pc1",
+              "label": "PC-1",
+              "sublabel": "10.0.0.2",
+              "icon": "pc",
+              "group": "z1"
+            },
+            {
+              "id": "r2",
+              "label": "Router",
+              "sublabel": "10.0.0.65",
+              "icon": "router",
+              "group": "z2"
+            },
+            {
+              "id": "core",
+              "label": "Core",
+              "icon": "switch"
+            }
+          ],
+          "edges": [
+            {
+              "from": "pc1",
+              "to": "r1",
+              "directed": false,
+              "style": "solid"
+            },
+            {
+              "from": "r1",
+              "to": "core",
+              "label": "uplink",
+              "directed": false,
+              "style": "solid"
+            },
+            {
+              "from": "r2",
+              "to": "core",
+              "directed": true,
+              "style": "dashed"
+            }
+          ]
+        },
+        "reveal": "none"
+      }
+    },
+    {
+      "why": "diagram with no nodes",
+      "data": {
+        "kind": "board.diagram",
+        "item": "net",
+        "spec": {
+          "title": "Three subnets",
+          "direction": "LR",
+          "groups": [],
+          "nodes": [],
+          "edges": []
+        },
+        "reveal": "none"
+      }
+    },
+    {
+      "why": "diagram with 25 nodes",
+      "data": {
+        "kind": "board.diagram",
+        "item": "net",
+        "spec": {
+          "title": "Three subnets",
+          "direction": "LR",
+          "groups": [
+            {
+              "id": "z1",
+              "label": "Zone 1",
+              "sublabel": "10.0.0.0/26"
+            },
+            {
+              "id": "z2",
+              "label": "Zone 2",
+              "sublabel": "10.0.0.64/27"
+            }
+          ],
+          "nodes": [
+            {
+              "id": "r1",
+              "label": "Router",
+              "sublabel": "10.0.0.1",
+              "icon": "router",
+              "group": "z1"
+            },
+            {
+              "id": "pc1",
+              "label": "PC-1",
+              "sublabel": "10.0.0.2",
+              "icon": "pc",
+              "group": "z1"
+            },
+            {
+              "id": "r2",
+              "label": "Router",
+              "sublabel": "10.0.0.65",
+              "icon": "router",
+              "group": "z2"
+            },
+            {
+              "id": "core",
+              "label": "Core",
+              "icon": "switch"
+            },
+            {
+              "id": "n0",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n1",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n2",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n3",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n4",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n5",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n6",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n7",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n8",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n9",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n10",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n11",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n12",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n13",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n14",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n15",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n16",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n17",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n18",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n19",
+              "label": "n",
+              "icon": "box"
+            },
+            {
+              "id": "n20",
+              "label": "n",
+              "icon": "box"
+            }
+          ],
+          "edges": [
+            {
+              "from": "pc1",
+              "to": "r1",
+              "directed": false,
+              "style": "solid"
+            },
+            {
+              "from": "r1",
+              "to": "core",
+              "label": "uplink",
+              "directed": false,
+              "style": "solid"
+            },
+            {
+              "from": "r2",
+              "to": "core",
+              "directed": true,
+              "style": "dashed"
+            }
+          ]
+        },
+        "reveal": "none"
+      }
+    },
+    {
+      "why": "diagram edge style other than solid or dashed",
+      "data": {
+        "kind": "board.diagram",
+        "item": "net",
+        "spec": {
+          "title": "Three subnets",
+          "direction": "LR",
+          "groups": [
+            {
+              "id": "z1",
+              "label": "Zone 1",
+              "sublabel": "10.0.0.0/26"
+            },
+            {
+              "id": "z2",
+              "label": "Zone 2",
+              "sublabel": "10.0.0.64/27"
+            }
+          ],
+          "nodes": [
+            {
+              "id": "r1",
+              "label": "Router",
+              "sublabel": "10.0.0.1",
+              "icon": "router",
+              "group": "z1"
+            },
+            {
+              "id": "pc1",
+              "label": "PC-1",
+              "sublabel": "10.0.0.2",
+              "icon": "pc",
+              "group": "z1"
+            },
+            {
+              "id": "r2",
+              "label": "Router",
+              "sublabel": "10.0.0.65",
+              "icon": "router",
+              "group": "z2"
+            },
+            {
+              "id": "core",
+              "label": "Core",
+              "icon": "switch"
+            }
+          ],
+          "edges": [
+            {
+              "from": "pc1",
+              "to": "r1",
+              "directed": false,
+              "style": "dotted"
+            },
+            {
+              "from": "r1",
+              "to": "core",
+              "label": "uplink",
+              "directed": false,
+              "style": "solid"
+            },
+            {
+              "from": "r2",
+              "to": "core",
+              "directed": true,
+              "style": "dashed"
+            }
+          ]
+        },
+        "reveal": "none"
+      }
+    },
+    {
+      "why": "diagram direction other than LR or TB",
+      "data": {
+        "kind": "board.diagram",
+        "item": "net",
+        "spec": {
+          "title": "Three subnets",
+          "direction": "RL",
+          "groups": [
+            {
+              "id": "z1",
+              "label": "Zone 1",
+              "sublabel": "10.0.0.0/26"
+            },
+            {
+              "id": "z2",
+              "label": "Zone 2",
+              "sublabel": "10.0.0.64/27"
+            }
+          ],
+          "nodes": [
+            {
+              "id": "r1",
+              "label": "Router",
+              "sublabel": "10.0.0.1",
+              "icon": "router",
+              "group": "z1"
+            },
+            {
+              "id": "pc1",
+              "label": "PC-1",
+              "sublabel": "10.0.0.2",
+              "icon": "pc",
+              "group": "z1"
+            },
+            {
+              "id": "r2",
+              "label": "Router",
+              "sublabel": "10.0.0.65",
+              "icon": "router",
+              "group": "z2"
+            },
+            {
+              "id": "core",
+              "label": "Core",
+              "icon": "switch"
+            }
+          ],
+          "edges": [
+            {
+              "from": "pc1",
+              "to": "r1",
+              "directed": false,
+              "style": "solid"
+            },
+            {
+              "from": "r1",
+              "to": "core",
+              "label": "uplink",
+              "directed": false,
+              "style": "solid"
+            },
+            {
+              "from": "r2",
+              "to": "core",
+              "directed": true,
+              "style": "dashed"
+            }
+          ]
+        },
+        "reveal": "none"
+      }
+    },
+    {
+      "why": "node ref with a bad id",
+      "data": {
+        "kind": "board.highlight",
+        "item": "net",
+        "el": "node:_x",
+        "on": true
+      }
     }
   ],
   "beats": [
@@ -736,27 +2297,90 @@
       "text": "Let's walk 1010 through your DFA, one symbol at a time.",
       "durationSec": 4.02,
       "shapeSet": "rhubarb9",
-      "mouthCues": [{ "start": 0, "end": 4.02, "value": "X" }],
+      "mouthCues": [
+        {
+          "start": 0,
+          "end": 4.02,
+          "value": "X"
+        }
+      ],
       "words": [
-        { "text": "Let's", "start": 0, "end": 0.31 },
-        { "text": "walk", "start": 0.37, "end": 0.68 },
-        { "text": "1010", "start": 0.74, "end": 1.05 },
-        { "text": "through", "start": 1.11, "end": 1.585 },
-        { "text": "your", "start": 1.645, "end": 1.955 },
-        { "text": "DFA,", "start": 2.015, "end": 2.27 },
-        { "text": "one", "start": 2.45, "end": 2.705 },
-        { "text": "symbol", "start": 2.765, "end": 3.185 },
-        { "text": "at", "start": 3.245, "end": 3.445 },
-        { "text": "a", "start": 3.505, "end": 3.65 },
-        { "text": "time.", "start": 3.71, "end": 4.02 }
+        {
+          "text": "Let's",
+          "start": 0,
+          "end": 0.31
+        },
+        {
+          "text": "walk",
+          "start": 0.37,
+          "end": 0.68
+        },
+        {
+          "text": "1010",
+          "start": 0.74,
+          "end": 1.05
+        },
+        {
+          "text": "through",
+          "start": 1.11,
+          "end": 1.585
+        },
+        {
+          "text": "your",
+          "start": 1.645,
+          "end": 1.955
+        },
+        {
+          "text": "DFA,",
+          "start": 2.015,
+          "end": 2.27
+        },
+        {
+          "text": "one",
+          "start": 2.45,
+          "end": 2.705
+        },
+        {
+          "text": "symbol",
+          "start": 2.765,
+          "end": 3.185
+        },
+        {
+          "text": "at",
+          "start": 3.245,
+          "end": 3.445
+        },
+        {
+          "text": "a",
+          "start": 3.505,
+          "end": 3.65
+        },
+        {
+          "text": "time.",
+          "start": 3.71,
+          "end": 4.02
+        }
       ],
       "markers": [
         {
           "id": "marks-demo-1-0.1",
           "word": 6,
-          "action": { "kind": "paper.freeze", "frame": { "kind": "fixture", "name": "dfa-wrong" } }
+          "action": {
+            "kind": "paper.freeze",
+            "frame": {
+              "kind": "fixture",
+              "name": "dfa-wrong"
+            }
+          }
         },
-        { "id": "marks-demo-1-0.2", "word": 11, "action": { "kind": "stage", "view": "split" } }
+        {
+          "id": "marks-demo-1-0.2",
+          "word": 11,
+          "action": {
+            "kind": "stage",
+            "view": "split"
+          }
+        }
       ]
     },
     {
@@ -770,16 +2394,36 @@
       "shapeSet": "rhubarb9",
       "mouthCues": [],
       "words": [
-        { "text": "Empezamos", "start": null, "end": null },
-        { "text": "en", "start": null, "end": null },
-        { "text": "q", "start": null, "end": null },
-        { "text": "cero.", "start": null, "end": null }
+        {
+          "text": "Empezamos",
+          "start": null,
+          "end": null
+        },
+        {
+          "text": "en",
+          "start": null,
+          "end": null
+        },
+        {
+          "text": "q",
+          "start": null,
+          "end": null
+        },
+        {
+          "text": "cero.",
+          "start": null,
+          "end": null
+        }
       ],
       "markers": [
         {
           "id": "beat-3f9a.1",
           "word": 2,
-          "action": { "kind": "board.reveal", "item": "fix", "els": ["start", "state:q0"] }
+          "action": {
+            "kind": "board.reveal",
+            "item": "fix",
+            "els": ["start", "state:q0"]
+          }
         }
       ]
     },
@@ -794,11 +2438,31 @@
       "shapeSet": "rhubarb9",
       "mouthCues": [],
       "words": [
-        { "text": "이", "start": null, "end": null },
-        { "text": "루프", "start": null, "end": null },
-        { "text": "때문에", "start": null, "end": null },
-        { "text": "1010이", "start": null, "end": null },
-        { "text": "통과해요.", "start": null, "end": null }
+        {
+          "text": "이",
+          "start": null,
+          "end": null
+        },
+        {
+          "text": "루프",
+          "start": null,
+          "end": null
+        },
+        {
+          "text": "때문에",
+          "start": null,
+          "end": null
+        },
+        {
+          "text": "1010이",
+          "start": null,
+          "end": null
+        },
+        {
+          "text": "통과해요.",
+          "start": null,
+          "end": null
+        }
       ],
       "markers": [
         {
@@ -806,7 +2470,14 @@
           "word": 1,
           "action": {
             "kind": "paper.mark",
-            "mark": { "type": "circle", "id": "m1", "target": { "el": "edge:q0>q0" }, "wash": true }
+            "mark": {
+              "type": "circle",
+              "id": "m1",
+              "target": {
+                "el": "edge:q0>q0"
+              },
+              "wash": true
+            }
           }
         }
       ]
@@ -823,7 +2494,14 @@
       "mouthCues": [],
       "words": [],
       "markers": [
-        { "id": "beat-3f9b.1", "word": 0, "action": { "kind": "stage", "view": "split" } },
+        {
+          "id": "beat-3f9b.1",
+          "word": 0,
+          "action": {
+            "kind": "stage",
+            "view": "split"
+          }
+        },
         {
           "id": "beat-3f9b.2",
           "word": 0,
@@ -833,22 +2511,65 @@
             "spec": {
               "kind": "dfa",
               "states": [
-                { "id": "q0" },
-                { "id": "q1" },
-                { "id": "q2" },
-                { "id": "q3", "accept": true },
-                { "id": "qd" }
+                {
+                  "id": "q0"
+                },
+                {
+                  "id": "q1"
+                },
+                {
+                  "id": "q2"
+                },
+                {
+                  "id": "q3",
+                  "accept": true
+                },
+                {
+                  "id": "qd"
+                }
               ],
               "start": "q0",
               "transitions": [
-                { "from": "q0", "to": "q1", "symbols": ["0"] },
-                { "from": "q1", "to": "q2", "symbols": ["1"] },
-                { "from": "q2", "to": "q3", "symbols": ["0"] },
-                { "from": "q3", "to": "q3", "symbols": ["0", "1"] },
-                { "from": "q0", "to": "qd", "symbols": ["1"] },
-                { "from": "q1", "to": "qd", "symbols": ["0"] },
-                { "from": "q2", "to": "qd", "symbols": ["1"] },
-                { "from": "qd", "to": "qd", "symbols": ["0", "1"] }
+                {
+                  "from": "q0",
+                  "to": "q1",
+                  "symbols": ["0"]
+                },
+                {
+                  "from": "q1",
+                  "to": "q2",
+                  "symbols": ["1"]
+                },
+                {
+                  "from": "q2",
+                  "to": "q3",
+                  "symbols": ["0"]
+                },
+                {
+                  "from": "q3",
+                  "to": "q3",
+                  "symbols": ["0", "1"]
+                },
+                {
+                  "from": "q0",
+                  "to": "qd",
+                  "symbols": ["1"]
+                },
+                {
+                  "from": "q1",
+                  "to": "qd",
+                  "symbols": ["0"]
+                },
+                {
+                  "from": "q2",
+                  "to": "qd",
+                  "symbols": ["1"]
+                },
+                {
+                  "from": "qd",
+                  "to": "qd",
+                  "symbols": ["0", "1"]
+                }
               ]
             },
             "title": "A DFA that works",
@@ -870,17 +2591,39 @@
         "text": "Try this one.",
         "durationSec": 0.9,
         "shapeSet": "rhubarb9",
-        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "mouthCues": [
+          {
+            "start": 0,
+            "end": 0.9,
+            "value": "X"
+          }
+        ],
         "words": [
-          { "text": "Try", "start": 0, "end": 0.2 },
-          { "text": "this", "start": 0.3, "end": 0.5 },
-          { "text": "one.", "start": 0.6, "end": 0.9 }
+          {
+            "text": "Try",
+            "start": 0,
+            "end": 0.2
+          },
+          {
+            "text": "this",
+            "start": 0.3,
+            "end": 0.5
+          },
+          {
+            "text": "one.",
+            "start": 0.6,
+            "end": 0.9
+          }
         ],
         "markers": [
           {
             "id": "m1",
             "word": 1,
-            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+            "action": {
+              "kind": "board.pulse",
+              "item": "wrong",
+              "el": "state:q0"
+            }
           }
         ]
       }
@@ -896,17 +2639,39 @@
         "text": "Try this one.",
         "durationSec": 0.9,
         "shapeSet": "rhubarb9",
-        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "mouthCues": [
+          {
+            "start": 0,
+            "end": 0.9,
+            "value": "X"
+          }
+        ],
         "words": [
-          { "text": "Try", "start": 0, "end": 0.2 },
-          { "text": "this", "start": 0.3, "end": 0.5 },
-          { "text": "one.", "start": 0.25, "end": 0.9 }
+          {
+            "text": "Try",
+            "start": 0,
+            "end": 0.2
+          },
+          {
+            "text": "this",
+            "start": 0.3,
+            "end": 0.5
+          },
+          {
+            "text": "one.",
+            "start": 0.25,
+            "end": 0.9
+          }
         ],
         "markers": [
           {
             "id": "m1",
             "word": 1,
-            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+            "action": {
+              "kind": "board.pulse",
+              "item": "wrong",
+              "el": "state:q0"
+            }
           }
         ]
       }
@@ -923,19 +2688,43 @@
         "durationSec": 0.9,
         "shapeSet": "rhubarb9",
         "mouthCues": [
-          { "start": 0, "end": 0.4, "value": "B" },
-          { "start": 0.4, "end": 0.9, "value": "C" }
+          {
+            "start": 0,
+            "end": 0.4,
+            "value": "B"
+          },
+          {
+            "start": 0.4,
+            "end": 0.9,
+            "value": "C"
+          }
         ],
         "words": [
-          { "text": "Try", "start": 0, "end": 0.2 },
-          { "text": "this", "start": 0.3, "end": 0.5 },
-          { "text": "one.", "start": 0.6, "end": 0.9 }
+          {
+            "text": "Try",
+            "start": 0,
+            "end": 0.2
+          },
+          {
+            "text": "this",
+            "start": 0.3,
+            "end": 0.5
+          },
+          {
+            "text": "one.",
+            "start": 0.6,
+            "end": 0.9
+          }
         ],
         "markers": [
           {
             "id": "m1",
             "word": 1,
-            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+            "action": {
+              "kind": "board.pulse",
+              "item": "wrong",
+              "el": "state:q0"
+            }
           }
         ]
       }
@@ -952,19 +2741,43 @@
         "durationSec": 0.9,
         "shapeSet": "rhubarb9",
         "mouthCues": [
-          { "start": 0, "end": 0.2, "value": "B" },
-          { "start": 0.25, "end": 0.9, "value": "X" }
+          {
+            "start": 0,
+            "end": 0.2,
+            "value": "B"
+          },
+          {
+            "start": 0.25,
+            "end": 0.9,
+            "value": "X"
+          }
         ],
         "words": [
-          { "text": "Try", "start": 0, "end": 0.2 },
-          { "text": "this", "start": 0.3, "end": 0.5 },
-          { "text": "one.", "start": 0.6, "end": 0.9 }
+          {
+            "text": "Try",
+            "start": 0,
+            "end": 0.2
+          },
+          {
+            "text": "this",
+            "start": 0.3,
+            "end": 0.5
+          },
+          {
+            "text": "one.",
+            "start": 0.6,
+            "end": 0.9
+          }
         ],
         "markers": [
           {
             "id": "m1",
             "word": 1,
-            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+            "action": {
+              "kind": "board.pulse",
+              "item": "wrong",
+              "el": "state:q0"
+            }
           }
         ]
       }
@@ -980,17 +2793,39 @@
         "text": "Try this one.",
         "durationSec": null,
         "shapeSet": "rhubarb9",
-        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "mouthCues": [
+          {
+            "start": 0,
+            "end": 0.9,
+            "value": "X"
+          }
+        ],
         "words": [
-          { "text": "Try", "start": 0, "end": 0.2 },
-          { "text": "this", "start": 0.3, "end": 0.5 },
-          { "text": "one.", "start": 0.6, "end": 0.9 }
+          {
+            "text": "Try",
+            "start": 0,
+            "end": 0.2
+          },
+          {
+            "text": "this",
+            "start": 0.3,
+            "end": 0.5
+          },
+          {
+            "text": "one.",
+            "start": 0.6,
+            "end": 0.9
+          }
         ],
         "markers": [
           {
             "id": "m1",
             "word": 1,
-            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+            "action": {
+              "kind": "board.pulse",
+              "item": "wrong",
+              "el": "state:q0"
+            }
           }
         ]
       }
@@ -1006,22 +2841,48 @@
         "text": "Try this one.",
         "durationSec": 0.9,
         "shapeSet": "rhubarb9",
-        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "mouthCues": [
+          {
+            "start": 0,
+            "end": 0.9,
+            "value": "X"
+          }
+        ],
         "words": [
-          { "text": "Try", "start": 0, "end": 0.2 },
-          { "text": "this", "start": 0.3, "end": 0.5 },
-          { "text": "one.", "start": 0.6, "end": 0.9 }
+          {
+            "text": "Try",
+            "start": 0,
+            "end": 0.2
+          },
+          {
+            "text": "this",
+            "start": 0.3,
+            "end": 0.5
+          },
+          {
+            "text": "one.",
+            "start": 0.6,
+            "end": 0.9
+          }
         ],
         "markers": [
           {
             "id": "m1",
             "word": 1,
-            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+            "action": {
+              "kind": "board.pulse",
+              "item": "wrong",
+              "el": "state:q0"
+            }
           },
           {
             "id": "m2",
             "word": 7,
-            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+            "action": {
+              "kind": "board.pulse",
+              "item": "wrong",
+              "el": "state:q0"
+            }
           }
         ]
       }
@@ -1037,13 +2898,40 @@
         "text": "Try this one.",
         "durationSec": 0.9,
         "shapeSet": "rhubarb9",
-        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
-        "words": [
-          { "text": "Try", "start": 0, "end": 0.2 },
-          { "text": "this", "start": 0.3, "end": 0.5 },
-          { "text": "one.", "start": 0.6, "end": 0.9 }
+        "mouthCues": [
+          {
+            "start": 0,
+            "end": 0.9,
+            "value": "X"
+          }
         ],
-        "markers": [{ "id": "m1", "word": 0, "action": { "kind": "board.erase", "item": "wrong" } }]
+        "words": [
+          {
+            "text": "Try",
+            "start": 0,
+            "end": 0.2
+          },
+          {
+            "text": "this",
+            "start": 0.3,
+            "end": 0.5
+          },
+          {
+            "text": "one.",
+            "start": 0.6,
+            "end": 0.9
+          }
+        ],
+        "markers": [
+          {
+            "id": "m1",
+            "word": 0,
+            "action": {
+              "kind": "board.erase",
+              "item": "wrong"
+            }
+          }
+        ]
       }
     },
     {
@@ -1057,22 +2945,48 @@
         "text": "Try this one.",
         "durationSec": 0.9,
         "shapeSet": "rhubarb9",
-        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "mouthCues": [
+          {
+            "start": 0,
+            "end": 0.9,
+            "value": "X"
+          }
+        ],
         "words": [
-          { "text": "Try", "start": 0, "end": 0.2 },
-          { "text": "this", "start": 0.3, "end": 0.5 },
-          { "text": "one.", "start": 0.6, "end": 0.9 }
+          {
+            "text": "Try",
+            "start": 0,
+            "end": 0.2
+          },
+          {
+            "text": "this",
+            "start": 0.3,
+            "end": 0.5
+          },
+          {
+            "text": "one.",
+            "start": 0.6,
+            "end": 0.9
+          }
         ],
         "markers": [
           {
             "id": "m1",
             "word": 0,
-            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+            "action": {
+              "kind": "board.pulse",
+              "item": "wrong",
+              "el": "state:q0"
+            }
           },
           {
             "id": "m1",
             "word": 2,
-            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+            "action": {
+              "kind": "board.pulse",
+              "item": "wrong",
+              "el": "state:q0"
+            }
           }
         ]
       }
@@ -1088,17 +3002,39 @@
         "text": "Try this one.",
         "durationSec": 0.9,
         "shapeSet": "rhubarb9",
-        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "mouthCues": [
+          {
+            "start": 0,
+            "end": 0.9,
+            "value": "X"
+          }
+        ],
         "words": [
-          { "text": "Try", "start": 0, "end": 0.2 },
-          { "text": "this", "start": 0.3, "end": 0.5 },
-          { "text": "one.", "start": 0.6, "end": 0.9 }
+          {
+            "text": "Try",
+            "start": 0,
+            "end": 0.2
+          },
+          {
+            "text": "this",
+            "start": 0.3,
+            "end": 0.5
+          },
+          {
+            "text": "one.",
+            "start": 0.6,
+            "end": 0.9
+          }
         ],
         "markers": [
           {
             "id": "m1",
             "word": 1,
-            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+            "action": {
+              "kind": "board.pulse",
+              "item": "wrong",
+              "el": "state:q0"
+            }
           }
         ]
       }
@@ -1114,17 +3050,39 @@
         "text": "Try this one.",
         "durationSec": 0.9,
         "shapeSet": "preston",
-        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "mouthCues": [
+          {
+            "start": 0,
+            "end": 0.9,
+            "value": "X"
+          }
+        ],
         "words": [
-          { "text": "Try", "start": 0, "end": 0.2 },
-          { "text": "this", "start": 0.3, "end": 0.5 },
-          { "text": "one.", "start": 0.6, "end": 0.9 }
+          {
+            "text": "Try",
+            "start": 0,
+            "end": 0.2
+          },
+          {
+            "text": "this",
+            "start": 0.3,
+            "end": 0.5
+          },
+          {
+            "text": "one.",
+            "start": 0.6,
+            "end": 0.9
+          }
         ],
         "markers": [
           {
             "id": "m1",
             "word": 1,
-            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+            "action": {
+              "kind": "board.pulse",
+              "item": "wrong",
+              "el": "state:q0"
+            }
           }
         ]
       }
@@ -1140,17 +3098,39 @@
         "text": "Try this one.",
         "durationSec": 0.9,
         "shapeSet": "rhubarb9",
-        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "mouthCues": [
+          {
+            "start": 0,
+            "end": 0.9,
+            "value": "X"
+          }
+        ],
         "words": [
-          { "text": "Try", "start": 0, "end": 0.2 },
-          { "text": "this", "start": 0.3, "end": 0.5 },
-          { "text": "one.", "start": 0.6, "end": 0.9 }
+          {
+            "text": "Try",
+            "start": 0,
+            "end": 0.2
+          },
+          {
+            "text": "this",
+            "start": 0.3,
+            "end": 0.5
+          },
+          {
+            "text": "one.",
+            "start": 0.6,
+            "end": 0.9
+          }
         ],
         "markers": [
           {
             "id": "m1",
             "word": 1,
-            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+            "action": {
+              "kind": "board.pulse",
+              "item": "wrong",
+              "el": "state:q0"
+            }
           }
         ],
         "mood": "happy"
@@ -1167,17 +3147,39 @@
         "text": "Try this one.",
         "durationSec": 0.9,
         "shapeSet": "rhubarb9",
-        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "mouthCues": [
+          {
+            "start": 0,
+            "end": 0.9,
+            "value": "X"
+          }
+        ],
         "words": [
-          { "text": "Try", "start": 0, "end": 0.2 },
-          { "text": "this", "start": 0.3, "end": null },
-          { "text": "one.", "start": 0.6, "end": 0.9 }
+          {
+            "text": "Try",
+            "start": 0,
+            "end": 0.2
+          },
+          {
+            "text": "this",
+            "start": 0.3,
+            "end": null
+          },
+          {
+            "text": "one.",
+            "start": 0.6,
+            "end": 0.9
+          }
         ],
         "markers": [
           {
             "id": "m1",
             "word": 1,
-            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+            "action": {
+              "kind": "board.pulse",
+              "item": "wrong",
+              "el": "state:q0"
+            }
           }
         ]
       }
@@ -1193,17 +3195,39 @@
         "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "durationSec": 0.9,
         "shapeSet": "rhubarb9",
-        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "mouthCues": [
+          {
+            "start": 0,
+            "end": 0.9,
+            "value": "X"
+          }
+        ],
         "words": [
-          { "text": "Try", "start": 0, "end": 0.2 },
-          { "text": "this", "start": 0.3, "end": 0.5 },
-          { "text": "one.", "start": 0.6, "end": 0.9 }
+          {
+            "text": "Try",
+            "start": 0,
+            "end": 0.2
+          },
+          {
+            "text": "this",
+            "start": 0.3,
+            "end": 0.5
+          },
+          {
+            "text": "one.",
+            "start": 0.6,
+            "end": 0.9
+          }
         ],
         "markers": [
           {
             "id": "m1",
             "word": 1,
-            "action": { "kind": "board.pulse", "item": "wrong", "el": "state:q0" }
+            "action": {
+              "kind": "board.pulse",
+              "item": "wrong",
+              "el": "state:q0"
+            }
           }
         ]
       }
@@ -1219,11 +3243,29 @@
         "text": "Try this one.",
         "durationSec": 0.9,
         "shapeSet": "rhubarb9",
-        "mouthCues": [{ "start": 0, "end": 0.9, "value": "X" }],
+        "mouthCues": [
+          {
+            "start": 0,
+            "end": 0.9,
+            "value": "X"
+          }
+        ],
         "words": [
-          { "text": "Try", "start": 0, "end": 0.2 },
-          { "text": "this", "start": 0.3, "end": 0.5 },
-          { "text": "one.", "start": 0.6, "end": 0.9 }
+          {
+            "text": "Try",
+            "start": 0,
+            "end": 0.2
+          },
+          {
+            "text": "this",
+            "start": 0.3,
+            "end": 0.5
+          },
+          {
+            "text": "one.",
+            "start": 0.6,
+            "end": 0.9
+          }
         ],
         "markers": [
           {

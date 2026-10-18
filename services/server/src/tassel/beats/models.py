@@ -71,11 +71,16 @@ def is_symbol(value: object) -> bool:
 
 
 def parse_element_ref(ref: object) -> tuple[str, ...] | None:
-    """('start',), ('state', id) or ('edge', from, to) for 'start', 'state:q0' or 'edge:q0>q1'."""
+    """('start',), ('state', id), ('edge', from, to), ('node', id) or ('group', id) for 'start',
+    'state:q0', 'edge:q0>q1', and a diagram's 'node:r1' or 'group:zone1'."""
     if not isinstance(ref, str):
         return None
     if ref == "start":
         return ("start",)
+    for kind in ("node", "group"):
+        if ref.startswith(kind + ":"):
+            ident = ref.removeprefix(kind + ":")
+            return (kind, ident) if is_state_id(ident) else None
     if ref.startswith("state:"):
         state = ref.removeprefix("state:")
         return ("state", state) if is_state_id(state) else None
@@ -320,6 +325,89 @@ class BoardAutomatonSpec(AutomatonSpec):
                     moves.append(move.model_copy(update={"symbols": symbols}))
             object.__setattr__(self, "transitions", moves)
         return super()._checked()
+
+
+# Diagrams: networks, flowcharts, trees. Structure only; the app lays them out.
+
+DIAGRAM_ICONS = (
+    "router",
+    "switch",
+    "pc",
+    "laptop",
+    "server",
+    "cloud",
+    "firewall",
+    "phone",
+    "database",
+    "box",
+    "circle",
+)
+DIAGRAM_MAX_NODES, DIAGRAM_MAX_GROUPS, DIAGRAM_MAX_EDGES, DIAGRAM_LABEL_MAX = 24, 6, 40, 40
+Label = Annotated[str, PlainValidator(_sized(1, DIAGRAM_LABEL_MAX))]
+
+
+class DiagramGroup(Wire):
+    id: StateId
+    label: Label
+    sublabel: Label | None = None
+
+
+class DiagramNode(Wire):
+    id: StateId
+    label: Label
+    sublabel: Label | None = None
+    icon: Literal[
+        "router",
+        "switch",
+        "pc",
+        "laptop",
+        "server",
+        "cloud",
+        "firewall",
+        "phone",
+        "database",
+        "box",
+        "circle",
+    ]
+    group: StateId | None = None
+
+
+class DiagramEdge(Wire):
+    from_: StateId = Field(alias="from")
+    to: StateId
+    label: Label | None = None
+    directed: StrictBool
+    style: Literal["solid", "dashed"]
+
+
+class DiagramSpec(Wire):
+    title: Text | None = None
+    direction: Literal["LR", "TB"]
+    groups: Annotated[list[DiagramGroup], Field(max_length=DIAGRAM_MAX_GROUPS)]
+    nodes: Annotated[list[DiagramNode], Field(min_length=1, max_length=DIAGRAM_MAX_NODES)]
+    edges: Annotated[list[DiagramEdge], Field(max_length=DIAGRAM_MAX_EDGES)]
+
+    @model_validator(mode="after")
+    def _resolves(self) -> Self:
+        ids = [g.id for g in self.groups] + [n.id for n in self.nodes]
+        if len(set(ids)) != len(ids):
+            raise ValueError("diagram ids repeat")
+        groups = {g.id for g in self.groups}
+        nodes = {n.id for n in self.nodes}
+        if any(n.group is not None and n.group not in groups for n in self.nodes):
+            raise ValueError("a node names an unknown group")
+        if any(e.from_ not in nodes or e.to not in nodes for e in self.edges):
+            raise ValueError("an edge names an unknown node")
+        return self
+
+
+class BoardDiagram(Wire):
+    """A whole diagram; the same item again replaces it, so edits redraw in place."""
+
+    kind: Literal["board.diagram"]
+    item: Id
+    spec: DiagramSpec
+    reveal: Literal["all", "none"] | None = None
 
 
 class BoardAutomaton(Wire):
@@ -622,6 +710,7 @@ class StageAction(Wire):
 
 BeatAction = Annotated[
     BoardAutomaton
+    | BoardDiagram
     | BoardAddState
     | BoardAddTransition
     | BoardReveal
