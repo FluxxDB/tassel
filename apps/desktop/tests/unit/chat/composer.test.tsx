@@ -234,4 +234,23 @@ describe('the chat composer', () => {
     await renderSidebar();
     expect(screen.queryByRole('button', { name: 'Snap my paper' })).not.toBeInTheDocument();
   });
+
+  it("opens an image action row in the sidebar's own viewer when no stage shows images", async () => {
+    const { user } = await renderSidebar();
+    act(() =>
+      useChatStore.getState().receive({
+        id: 'a1',
+        client_id: null,
+        role: 'action',
+        source: null,
+        text: '',
+        final: true,
+        interrupted: false,
+        attachments: [],
+        action: { kind: 'mark', side: 'image', item: 'm4', attachment_id: 'att-1' },
+      }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Marked your image' }));
+    expect(await screen.findByRole('dialog', { name: 'Your image' })).toBeInTheDocument();
+  });
 });

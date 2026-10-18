@@ -2,12 +2,19 @@
 // session beside the stage at 1440×900 and over it at 1024×680, never over Ada's tile, the
 // captions or the dock; the scripted spoken lines show in italics, a typed message gets Ada's
 // answer and an action row that moves the stage, a text-only answer comes without a caption, and
-// two synthetic images go on as chips (the server's attachments route answers 501 until the
-// chat server lands, so the message shows Not sent and Retry). The choice to hide it carries to
-// the next session.
+// two synthetic images go on as chips, a refused upload shows Not sent and Retry, and the retry
+// sends them. The title stays whole, or ellipsizes, beside the sidebar's toggle. The choice to
+// hide it carries to the next session.
 import { deflateSync } from 'node:zlib';
 import { type ElectronApplication, expect, type Locator, type Page, test } from '@playwright/test';
-import { launchApp as launch, settle, setWindowSize, snap, startPaperSession } from './fixtures';
+import {
+  callApi,
+  launchApp as launch,
+  settle,
+  setWindowSize,
+  snap,
+  startPaperSession,
+} from './fixtures';
 
 const launchApp = (env: Record<string, string> = {}) =>
   launch({ TASSEL_CHAT_SIDEBAR: 'open', ...env });
@@ -99,6 +106,19 @@ const newestInView = (page: Page) =>
     return line.top >= box.top - 1 && line.bottom <= box.bottom + 1;
   });
 
+/**
+ * Ada's title, typed on in full (a capture mid-type-on shows it cut short), on one line that
+ * would ellipsize if the strip were too narrow for it.
+ */
+async function expectTitle(page: Page): Promise<void> {
+  await expect(page.getByTestId('title-typed')).toHaveText('Strings that start with 010');
+  const title = page.getByRole('heading', { level: 1 });
+  await expect(title).toHaveCSS('text-overflow', 'ellipsis');
+  await expect(title).toHaveCSS('white-space', 'nowrap');
+  // It fits whole in the strip beside the sidebar's toggle.
+  expect(await title.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+}
+
 async function close(app: ElectronApplication): Promise<void> {
   await app.close();
 }
@@ -132,6 +152,7 @@ test('a conversation in the sidebar at 1440×900, beside the stage', async () =>
   ).toBeVisible();
   // Captions stay on the stage while the chat is open.
   await expect(page.getByTestId('captions')).toBeVisible();
+  await expectTitle(page);
   await settle(page);
   await snap(page, 'chat-1440-open');
 
@@ -165,8 +186,27 @@ test('a conversation in the sidebar at 1440×900, beside the stage', async () =>
   await expect(page.getByRole('region', { name: "Ada's board" })).toBeVisible();
   await expectClearOfStage(page);
 
-  // Two synthetic images as chips. The attachments route isn't served yet (501): the message
-  // shows at once, then Not sent, with Retry.
+  // Two synthetic images as chips. The first upload fails (the network refuses it here, so the
+  // spec holds whether or not the server's attachments route is served): the message shows at
+  // once, then Not sent, with Retry. The retry goes through: to the server when it takes images,
+  // or to a stand-in answer while its route is still a stub.
+  let uploads = 0;
+  await app.context().route(
+    (url) => url.pathname.endsWith('/attachments'),
+    async (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      uploads += 1;
+      if (uploads === 1) return route.abort('failed');
+      const response = await route.fetch();
+      if (response.ok()) return route.fulfill({ response });
+      return route.fulfill({
+        response,
+        status: 201,
+        headers: { ...response.headers(), 'content-type': 'application/json' },
+        body: JSON.stringify({ id: `e2e-image-${uploads}`, w: 640, h: 400 }),
+      });
+    },
+  );
   await page.getByTestId('chat-file-input').setInputFiles([
     { name: 'part-a.png', mimeType: 'image/png', buffer: syntheticPng(640, 400, 10) },
     { name: 'part-b.png', mimeType: 'image/png', buffer: syntheticPng(480, 480, 40) },
@@ -190,6 +230,12 @@ test('a conversation in the sidebar at 1440×900, beside the stage', async () =>
   await page.keyboard.press('Escape');
   await settle(page);
   await snap(page, 'chat-1440-not-sent');
+  // Retry uploads both, sends them, and the echo takes the line's place.
+  await log(page).getByRole('button', { name: 'Retry' }).click();
+  await expect(log(page).getByText('Not sent')).toHaveCount(0);
+  await expect.poll(() => uploads).toBe(3);
+  await expect(log(page).getByRole('button', { name: 'Image 2' }).locator('img')).toBeVisible();
+  await expect(log(page).getByText("Here's part b")).toHaveCount(1);
 
   // Hidden: the stage takes the window back.
   await page.getByRole('button', { name: 'Hide chat' }).click();
@@ -224,6 +270,7 @@ test('over the stage at 1024×680, clear of the tiles, captions and dock', async
   await field(page).fill('Can you sketch it?');
   await field(page).press('Enter');
   await expect(log(page).getByRole('button', { name: 'Drew on the board' })).toBeVisible();
+  await expectTitle(page);
   await settle(page);
   await snap(page, 'chat-1024-open');
 
@@ -264,6 +311,40 @@ test('her choice to hide it carries to the next session', async () => {
   // And a fresh session starts with an empty chat.
   await page.keyboard.press('t');
   await expect(log(page).getByText('Can you sketch it?')).toHaveCount(0);
+  await close(app);
+});
+
+test('a long title ellipsizes on one line beside the toggle at 1024×680', async () => {
+  const { app, page } = await launchApp({ TASSEL_FAKE_SPEED: '1' });
+  await setWindowSize(app, page, 1024, 680);
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  const title = 'Demostración por inducción de la fórmula para la suma de los n impares';
+  const created = await callApi(page, '/v1/sessions', {
+    method: 'POST',
+    body: JSON.stringify({ type: 'studying', language: 'es', source: 'paper' }),
+  });
+  const { id } = (await created.json()) as { id: string };
+  await callApi(page, `/v1/sessions/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ title, subject: 'Matemáticas discretas' }),
+  });
+  await page.reload();
+  // Its card, once the library lists it.
+  await page.getByRole('list').getByText(title).click();
+  await expect(page.getByTestId('stage')).toBeVisible();
+  await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true');
+  const heading = page.getByRole('heading', { level: 1 });
+  await expect(heading).toHaveText(title);
+  expect(await heading.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+  await expect(heading).toHaveCSS('text-overflow', 'ellipsis');
+  await expect(heading).toHaveCSS('white-space', 'nowrap');
+  // The toggle keeps its place at the strip's right end.
+  const strip = await boxOf(page.getByRole('banner'));
+  const button = await boxOf(toggle(page));
+  expect(button.x + button.width).toBeLessThanOrEqual(strip.x + strip.width);
+  expect(intersects(await boxOf(heading), button)).toBe(false);
+  await settle(page);
+  await snap(page, 'chat-1024-long-title');
   await close(app);
 });
 
