@@ -24,6 +24,9 @@ Commands (ITEM is a board item's id; EL is "start", a state such as "q0", or an 
     circle EL · wash EL · number N EL · strike EL · underline EL · check EL · callout EL "…"
       (on paper EL may also be a numbered marker, m3, or a page region, box=x,y,w,h)
     ptrace INPUT · pstep · live · freeze [latest|frame=ID]   (review I8)
+    image show · image clear · image circle|wash|strike|underline|check EL · image number N EL ·
+      image callout EL "…"   (the student's image on stage, BoardContext.image: EL is one of its
+      numbered markers, m3, or a region of it, box=x,y,w,h)
 """
 
 import re
@@ -53,7 +56,11 @@ from .models import (
     BoardTrace,
     BoardTraceStep,
     BoardVerdict,
+    DetectedElements,
     DiagramSpec,
+    ImageClear,
+    ImageMarkAction,
+    ImageShow,
     PaperElements,
     PaperFrame,
     PaperFreeze,
@@ -72,6 +79,15 @@ MAX_TAG = 1000
 UNDO_DEPTH = 10
 
 
+@dataclass(frozen=True)
+class StageImage:
+    """The student's image Ada may show and mark: an attachment she sent in the chat, with its
+    Set-of-Mark boxes (``vision.image_marks``) when they're known."""
+
+    id: str
+    detected: DetectedElements | None = None
+
+
 @dataclass
 class BoardContext:
     """One per bot: the automata Ada has defined, which trace copies, and the paper-mark counter.
@@ -84,6 +100,8 @@ class BoardContext:
     paper_frame: PaperFrame | None = None
     paper_elements: PaperElements | None = None
     paper_spec: AutomatonSpec | None = None
+    # The student's image on stage, or the latest she sent: what [[image …]] tags act on.
+    image: StageImage | None = None
     # Her edit history: the board (automata and diagrams) as it was before each of her last
     # drawing turns, newest last, so [[undo]] can put it back (owner, 2026-10-18).
     history: list[tuple[dict[str, AutomatonSpec], dict[str, DiagramSpec]]] = field(
@@ -546,6 +564,8 @@ def _command(command: str, ctx: BoardContext, notes: list[str] | None = None) ->
         return _make(StageAction, view=view)
     if verb in ("circle", "wash", "number", "strike", "underline", "check", "callout"):
         return _mark(verb, rest, ctx)
+    if verb == "image":
+        return _image(rest, ctx)
     if verb == "ptrace":
         [text] = _between(rest, 1, 1, "ptrace INPUT")
         return _make(PaperTrace, input=text)
@@ -738,28 +758,58 @@ def _verdict(args: list[_Arg]) -> BeatAction:
 
 
 def _mark(verb: str, args: list[_Arg], ctx: BoardContext) -> BeatAction:
+    action = _make(PaperMarkAction, mark=_mark_spec(verb, args, ctx, _paper_target))
+    ctx.next_mark += 1
+    return action
+
+
+_MARK_VERBS = ("circle", "wash", "number", "strike", "underline", "check", "callout")
+
+
+def _mark_spec(verb: str, args: list[_Arg], ctx: BoardContext, target) -> dict[str, Any]:
+    """A mark's fields, its target read by `target`; the id is the next mark number."""
     mark: dict[str, Any] = {"id": f"m{ctx.next_mark}"}
     if verb == "number":
         n, el = _between(args, 2, 2, "number N EL")
         if not re.fullmatch(r"[0-9]+", n):
             raise MarkupError(f"{n!r} isn't a number")
-        mark |= {"type": "step", "n": int(n), "target": _paper_target(el)}
+        mark |= {"type": "step", "n": int(n), "target": target(el)}
     elif verb == "callout":
         if len(args) != 2 or not args[1].quoted:
             raise MarkupError('callout needs EL "TEXT"')
-        mark |= {
-            "type": "callout",
-            "target": _paper_target(args[0].text),
-            "text": args[1].text,
-        }
+        mark |= {"type": "callout", "target": target(args[0].text), "text": args[1].text}
     else:
         [el] = _between(args, 1, 1, f"{verb} EL")
-        mark |= {"type": "circle" if verb == "wash" else verb, "target": _paper_target(el)}
+        mark |= {"type": "circle" if verb == "wash" else verb, "target": target(el)}
         if verb == "wash":
             mark["wash"] = True
-    action = _make(PaperMarkAction, mark=mark)
+    return mark
+
+
+def _image(args: list[_Arg], ctx: BoardContext) -> BeatAction:
+    """[[image show]], [[image clear]], or a paper mark's verb and target on the image on stage."""
+    if ctx.image is None:
+        raise MarkupError("no student image to show or mark")
+    attachment = ctx.image.id
+    step = args[0].text.lower() if args and not args[0].quoted else ""
+    if step in ("show", "clear"):
+        _between(args, 1, 1, f"image {step}")
+        return _make(ImageShow if step == "show" else ImageClear, attachment_id=attachment)
+    if step not in _MARK_VERBS:
+        raise MarkupError("usage: image show|clear|circle|wash|strike|underline|check EL…")
+    mark = _mark_spec(step, args[1:], ctx, _image_target)
+    action = _make(ImageMarkAction, attachment_id=attachment, mark=mark)
     ctx.next_mark += 1
     return action
+
+
+def _image_target(text: str) -> dict[str, Any]:
+    """On the image a target is one of its numbered markers or a region of it, never a state."""
+    if text.startswith("box="):
+        return {"box": paper_box(text)}
+    if re.fullmatch(r"m[1-9][0-9]{0,2}", text):
+        return {"el": text}
+    raise MarkupError(f"an image mark needs a marker (m3) or box=x,y,w,h, not {text!r}")
 
 
 def _freeze(args: list[_Arg], ctx: BoardContext) -> BeatAction:
@@ -851,6 +901,9 @@ _KINDS: dict[type[BaseModel], str] = {
     PaperTraceStep: "paper.traceStep",
     PaperLive: "paper.live",
     StageAction: "stage",
+    ImageShow: "image.show",
+    ImageMarkAction: "image.mark",
+    ImageClear: "image.clear",
 }
 
 

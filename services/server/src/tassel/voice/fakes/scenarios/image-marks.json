@@ -1,0 +1,67 @@
+{
+  "name": "image-marks",
+  "title": "Ada marks the student's image",
+  "subject": "Marking an image she sent in the chat",
+  "langs": {
+    "en": {
+      "greeting": "Hi, I'm Ada. Send me what you're working on.",
+      "after_switch": "Okay, we'll keep going in English.",
+      "fallback": "Tell me more about what you're trying.",
+      "turns": [
+        {
+          "when": "here's my worksheet",
+          "say": "Thanks, I have your worksheet."
+        },
+        {
+          "when": "circle the diagram",
+          "say": "Let me look at your image.",
+          "brief": {
+            "say": "This is the diagram to look at.",
+            "image_marks": [{ "verb": "circle", "target": "the diagram" }]
+          }
+        },
+        {
+          "when": "circle the box",
+          "say": "Let me look at your picture.",
+          "brief": {
+            "say": "This box is the one to look at.",
+            "image": ["[[image circle m1]]"]
+          }
+        }
+      ],
+      "student": ["Circle the box in my picture."]
+    },
+    "es": {
+      "greeting": "Hola, soy Ada. Mándame lo que estás haciendo.",
+      "after_switch": "Perfecto, seguimos en español.",
+      "fallback": "Cuéntame un poco más sobre lo que estás intentando.",
+      "turns": [
+        {
+          "when": "circle the box",
+          "say": "Déjame ver tu imagen.",
+          "brief": {
+            "say": "Este es el recuadro que hay que mirar.",
+            "image": ["[[image circle m1]]"]
+          }
+        }
+      ],
+      "student": ["Circle the box in my picture."]
+    },
+    "ko": {
+      "greeting": "안녕하세요, 에이다예요. 하고 있는 걸 보내 주세요.",
+      "after_switch": "좋아요, 이제 한국어로 계속할게요.",
+      "fallback": "어떻게 풀고 있는지 조금 더 말씀해 주세요.",
+      "turns": [
+        {
+          "when": "circle the box",
+          "say": "이미지를 볼게요.",
+          "brief": {
+            "say": "이 상자를 보세요.",
+            "image": ["[[image circle m1]]"]
+          }
+        }
+      ],
+      "student": ["Circle the box in my picture."]
+    }
+  }
+}

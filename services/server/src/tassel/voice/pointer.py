@@ -284,3 +284,9 @@ def mark_tags(marks):
             tag = f"[[{verb} {mark_id}]]"
         tags.append(tag)
     return ["[[freeze]]", *tags] if tags else []
+
+
+def image_mark_tags(marks):
+    """Tags for resolved marks on her image: shown first, then each mark, as [[image VERB …]]."""
+    tags = [f"[[image {tag[2:]}" for tag in mark_tags(marks) if tag != "[[freeze]]"]
+    return ["[[image show]]", *tags] if tags else []

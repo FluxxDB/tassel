@@ -628,6 +628,34 @@
         "title": "DfaVerdict",
         "type": "object"
       },
+      "ElementBoxOut": {
+        "properties": {
+          "h": {
+            "title": "H",
+            "type": "number"
+          },
+          "w": {
+            "title": "W",
+            "type": "number"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "w",
+          "h"
+        ],
+        "title": "ElementBoxOut",
+        "type": "object"
+      },
       "Fix": {
         "additionalProperties": false,
         "properties": {
@@ -1096,6 +1124,59 @@
           "ice_servers"
         ],
         "title": "IceServersOut",
+        "type": "object"
+      },
+      "ImageElementOut": {
+        "properties": {
+          "box": {
+            "$ref": "#/components/schemas/ElementBoxOut"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "circle",
+              "label"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "box"
+        ],
+        "title": "ImageElementOut",
+        "type": "object"
+      },
+      "ImageElementsOut": {
+        "description": "An image's Set-of-Mark: the beats ``DetectedElements`` shape, in the image's pixels.",
+        "properties": {
+          "height": {
+            "title": "Height",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ImageElementOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "width",
+          "height",
+          "items"
+        ],
+        "title": "ImageElementsOut",
         "type": "object"
       },
       "Issue": {
@@ -2929,6 +3010,71 @@
           }
         ],
         "summary": "Get Attachment",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/attachments/{attachment_id}/elements": {
+      "get": {
+        "description": "The image's numbered Set-of-Mark boxes in its own pixels: the markers Ada's marks on it\nname (``image.mark`` with ``el: mN``), the same ones she was shown.",
+        "operationId": "get_attachment_elements_v1_sessions__session_id__attachments__attachment_id__elements_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageElementsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "No such image for this learner"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "The frame store is unavailable; try again later"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Get Attachment Elements",
         "tags": [
           "chat"
         ]

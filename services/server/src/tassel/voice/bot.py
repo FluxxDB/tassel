@@ -54,6 +54,7 @@ from tassel.board.history import BoardHistory, replay
 from tassel.board.snapshots import BoardSnapshots
 from tassel.chat.log import ChatLog
 from tassel.chat.store import ChatStore
+from tassel.chat.student_image import LatestImage
 from tassel.chat.turns import model_text, with_images
 from tassel.models import Lang, SessionPatch
 from tassel.screen.api import ScreenDrawing
@@ -301,6 +302,8 @@ class _TurnContext(FrameProcessor):
         self.typed: TypedTurn | None = None
         self.reply = ReplyMode()
         self.on_spoken: Callable[[str], Awaitable[None]] | None = None
+        # The latest image she sent, which a turn about her image shows the thinker, numbered.
+        self.student_images: LatestImage | None = None
 
     def _board_items(self):
         items = dict(self.board_history.board_items) if self.board_history else {}
@@ -397,6 +400,9 @@ class _TurnContext(FrameProcessor):
                     self.typed if self.typed is not None and self.typed.message is user else None
                 )
                 self.typed = None
+                sent_image = typed is not None and bool(typed.images)
+                if sent_image and self.student_images is not None:
+                    self.student_images.sent(typed.images)
                 if typed is None:
                     # A spoken turn: always answered aloud, and a line in the chat.
                     self.reply.voice = True
@@ -449,6 +455,7 @@ class _TurnContext(FrameProcessor):
                             self.pending_image is not None
                             or self.page_revision != self.seen_revision
                         ),
+                        image=sent_image,
                     )
                     # The playbook's ladder: still confused after an explanation means drawing.
                     answered = any(m.get("role") == "assistant" for m in messages)
@@ -464,7 +471,7 @@ class _TurnContext(FrameProcessor):
                         student_text,
                         self.decision,
                         confusions=self.confusions,
-                        drew_last=bool(last and (last.board or last.paper)),
+                        drew_last=bool(last and (last.board or last.paper or last.image)),
                     )
                     if escalated != self.decision:
                         if self.director.log:
@@ -542,6 +549,9 @@ class _TurnContext(FrameProcessor):
                 ):
                     # The thinker waits for the page; the talker doesn't run at all.
                     _drop_images(messages)
+                    about_image = (
+                        self.decision.action == "mark_image" or self.decision.refers_to == "image"
+                    )
                     await self.coordinator.prepare(
                         frame.context,
                         student_text,
@@ -549,6 +559,11 @@ class _TurnContext(FrameProcessor):
                         page=self._thinker_page if self.decision.needs_vision else None,
                         board_page=self._thinker_board_page,
                         attachments=typed.images if typed else None,
+                        student_image=(
+                            self.student_images.current
+                            if about_image and self.student_images is not None
+                            else None
+                        ),
                     )
                     await self._thinker_reply(direction)
                     return
@@ -893,6 +908,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     )
     turn_context = _TurnContext(ctx.session_id, ctx.turn_image)
     turn_context.screen = ctx.screen
+    turn_context.student_images = LatestImage(ctx.chat, ctx.learner_id, ctx.session_id)
     turn_context.default_tools = tools if tools_ok else None
 
     async def preferred_prompt(lang):

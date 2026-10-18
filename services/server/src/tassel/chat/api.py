@@ -10,7 +10,7 @@ import contextlib
 import logging
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 import anyio
 import anyio.to_thread
@@ -60,6 +60,27 @@ class ChatMessageOut(BaseModel):
 
 class ChatHistoryOut(BaseModel):
     messages: list[ChatMessageOut]
+
+
+class ElementBoxOut(BaseModel):
+    x: float
+    y: float
+    w: float
+    h: float
+
+
+class ImageElementOut(BaseModel):
+    id: str
+    kind: Literal["circle", "label"]
+    box: ElementBoxOut
+
+
+class ImageElementsOut(BaseModel):
+    """An image's Set-of-Mark: the beats ``DetectedElements`` shape, in the image's pixels."""
+
+    width: int
+    height: int
+    items: list[ImageElementOut]
 
 
 def _not_found(what: str) -> HTTPException:
@@ -193,6 +214,38 @@ async def get_attachment(
         raise _not_found("Image")
     return Response(
         content=data, media_type=row.mime, headers={"Cache-Control": "private, no-store"}
+    )
+
+
+@router.get(
+    "/{session_id}/attachments/{attachment_id}/elements",
+    response_model=ImageElementsOut,
+    responses={404: {"description": "No such image for this learner"}, **STORE_UNAVAILABLE},
+)
+async def get_attachment_elements(
+    session_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    learner: Learner = Depends(current_learner),
+    db: AsyncSession = Depends(get_db),
+    store: ObjectStore = Depends(get_object_store),
+) -> Response:
+    """The image's numbered Set-of-Mark boxes in its own pixels: the markers Ada's marks on it
+    name (``image.mark`` with ``el: mN``), the same ones she was shown."""
+    from tassel.chat.student_image import detected_elements, view_of
+
+    row = await repo.attachment_for(db, learner.id, session_id, attachment_id)
+    if row is None:
+        raise _not_found("Attachment")
+    data = await store.get(row.object_key)
+    if data is None:
+        raise _not_found("Image")
+    view = await view_of(str(row.id), data)
+    if view is None:
+        raise _not_found("Image")
+    return Response(
+        content=detected_elements(view).model_dump_json(by_alias=True),
+        media_type="application/json",
+        headers={"Cache-Control": "private, no-store"},
     )
 
 

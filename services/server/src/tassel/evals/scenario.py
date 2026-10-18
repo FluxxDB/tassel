@@ -17,7 +17,7 @@ from tassel.voice.director import certain, view_request
 SCENARIOS_DIR = Path(__file__).with_name("scenarios")
 
 View = Literal["paper", "board", "split"]
-Action = Literal["none", "explain", "draw_board", "mark_paper", "trace"]
+Action = Literal["none", "explain", "draw_board", "mark_paper", "mark_image", "trace"]
 
 
 def _literal_values(union) -> set[str]:

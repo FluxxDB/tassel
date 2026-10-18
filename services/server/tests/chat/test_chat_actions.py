@@ -1,7 +1,7 @@
 """The chat's action rows come from what Ada's tags did: one row per drawing, clear, undo, redo,
 paper mark and view switch, never for the animation steps between them."""
 
-from tassel.beats.markup import BoardContext, MarkupStream
+from tassel.beats.markup import BoardContext, MarkupStream, StageImage
 from tassel.chat.actions import rows_for, view_row
 from tassel.voice.messages import MessageAction
 
@@ -53,3 +53,12 @@ def test_a_stage_tag_and_a_stage_event_are_view_rows():
     assert view_row("board") == row("view", "board")
     # Split shows the board beside her paper: the row moves the stage to the board.
     assert view_row("split") == row("view", "board")
+
+
+def test_a_mark_on_her_image_names_its_mark_and_the_image():
+    board = BoardContext(image=StageImage("a-1"))
+    marked = MessageAction(kind="mark", side="image", item="m1", attachment_id="a-1")
+    # Showing the image makes no row of its own: the mark's row shows it.
+    assert rows("[[image show]][[image circle m3]]This one.", board) == [marked]
+    cleared = MessageAction(kind="clear", side="image", item=None, attachment_id="a-1")
+    assert rows("All clean. [[image clear]]", board) == [cleared]

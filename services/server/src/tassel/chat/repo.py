@@ -50,6 +50,19 @@ async def attachments_for(
     return [found[i] for i in dict.fromkeys(ids) if i in found]
 
 
+async def latest_attachment(
+    db, learner_id: uuid.UUID, session_id: uuid.UUID
+) -> SessionAttachment | None:
+    """The newest image of that session of that learner."""
+    return await db.scalar(
+        select(SessionAttachment)
+        .join(TutoringSession, SessionAttachment.session_id == TutoringSession.id)
+        .where(SessionAttachment.session_id == session_id, TutoringSession.learner_id == learner_id)
+        .order_by(SessionAttachment.created_at.desc())
+        .limit(1)
+    )
+
+
 async def has_attachments(db, session_id: uuid.UUID) -> bool:
     return bool(await db.scalar(select(exists().where(SessionAttachment.session_id == session_id))))
 

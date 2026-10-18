@@ -36,3 +36,20 @@ def with_images(content, images: Sequence[LoadedAttachment]) -> list[dict]:
     if isinstance(content, str):
         content = [{"type": "text", "text": content}]
     return [*content, *image_blocks(images)]
+
+
+MARKED_IMAGE = (
+    "[image] Her latest image (attachment {id}), with numbered candidates for image_marks. {legend}"
+)
+
+
+def marked_image_blocks(image) -> list[dict]:
+    """Her latest image as the thinker marks it (``chat.student_image.StudentImage``): numbered,
+    with its legend, so image_marks name what she means."""
+    view = image.view
+    url = "data:image/jpeg;base64," + base64.b64encode(view.marked_jpeg).decode()
+    return [
+        {"type": "text", "text": STUDENT_IMAGE},
+        {"type": "text", "text": MARKED_IMAGE.format(id=image.id, legend=view.legend_text)},
+        {"type": "image_url", "image_url": {"url": url}},
+    ]
