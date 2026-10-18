@@ -1,13 +1,18 @@
 // The session screen's chat: a fresh conversation for each session, its saved history loaded
 // when it opens (a past session from the library shows what was said, images included), and the
-// launch's say on whether the sidebar starts open.
+// launch's say on whether the sidebar starts open. The scripted tutor saves nothing on the
+// server, so a fake launch has no history to load and doesn't ask.
 import type { ApiClient } from '@tassel/shared/api';
 import { useEffect, useLayoutEffect } from 'react';
 import { fetchHistory } from './chat-api';
 import { useChatPrefs } from './chat-prefs';
 import { useChatStore } from './chat-store';
 
-export function useSessionChat(api: ApiClient, sessionId: string, startClosed: boolean): void {
+export function useSessionChat(
+  api: ApiClient,
+  sessionId: string,
+  { startClosed, history }: { startClosed: boolean; history: boolean },
+): void {
   // Before the first paint, so neither the last session's lines nor the wrong layout flash.
   // biome-ignore lint/correctness/useExhaustiveDependencies: each session starts its own chat.
   useLayoutEffect(() => {
@@ -16,6 +21,7 @@ export function useSessionChat(api: ApiClient, sessionId: string, startClosed: b
     return () => useChatStore.getState().reset();
   }, [sessionId, startClosed]);
   useEffect(() => {
+    if (!history) return;
     let live = true;
     void fetchHistory(api, sessionId).then((messages) => {
       if (live && messages.length > 0) useChatStore.getState().loadHistory(messages);
@@ -23,5 +29,5 @@ export function useSessionChat(api: ApiClient, sessionId: string, startClosed: b
     return () => {
       live = false;
     };
-  }, [api, sessionId]);
+  }, [api, sessionId, history]);
 }

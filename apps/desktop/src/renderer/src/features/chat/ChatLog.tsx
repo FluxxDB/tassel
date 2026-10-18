@@ -5,7 +5,7 @@
 // reads at the bottom, and leaves her place alone when she has scrolled up.
 import type { Lang } from '@tassel/shared/i18n';
 import type { MessageAction } from '@tassel/shared/voice';
-import { useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useBoardStore } from '../../board/board-store';
 import { Board, ImageIcon, Mic, Paper, Undo } from '../../components/icons';
@@ -36,6 +36,17 @@ export function ChatLog({ sessionId, lang, onRetry, onOpenImage }: ChatLogProps)
     const el = box.current;
     if (el && stuck.current) el.scrollTop = el.scrollHeight;
   }, [lines]);
+  // The log shrinks as the composer grows (chips, more lines, a notice): the newest line stays
+  // in view while she's reading there.
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      if (stuck.current) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   return (
     <div
       ref={box}
@@ -47,7 +58,8 @@ export function ChatLog({ sessionId, lang, onRetry, onOpenImage }: ChatLogProps)
         const el = event.currentTarget;
         stuck.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX;
       }}
-      className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-1 pb-5"
+      // Lines scrolled up past the header fade out under it, as the captions do.
+      className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-3 pb-5 [mask-image:linear-gradient(to_bottom,transparent,#000_14px)]"
     >
       {lines.length === 0 ? (
         <p className="m-auto max-w-[248px] text-center text-[13px] leading-5 text-smoke-text">
@@ -59,6 +71,7 @@ export function ChatLog({ sessionId, lang, onRetry, onOpenImage }: ChatLogProps)
           {lines.map((line, index) => (
             <li
               key={line.key}
+              data-testid="chat-line"
               data-role={line.role}
               className={cn(
                 'flex flex-col',

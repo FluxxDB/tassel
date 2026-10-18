@@ -20,6 +20,7 @@ import { usePaperStore } from '../../paper/paper-store';
 import { usePaperTag } from '../../paper/use-paper-capture';
 import { ScreenPanel } from '../../screen/ScreenControls';
 import { useScreen } from '../../screen/store';
+import { useStageInset } from '../chat/chat-layout';
 import { CameraPip } from './CameraPip';
 import { type StageMode, useStageStore } from './stage-store';
 import { TutorTile } from './TutorTile';
@@ -68,8 +69,14 @@ export function Stage({ source, onUnpinned }: StageProps) {
   // Her camera's picture in picture: any paper source's stream, only while the board is alone.
   const stream = usePaperStore((state) => state.stream);
   const cameraOn = useStageStore((state) => state.cameraOn);
+  // Clear of the chat sidebar while it lies over the stage in split.
+  const inset = useStageInset();
   return (
-    <div data-testid="stage" className="absolute top-2 right-4 bottom-[104px] left-4 flex">
+    <div
+      data-testid="stage"
+      className="absolute top-2 right-4 bottom-[104px] left-4 flex"
+      style={inset}
+    >
       <Panel shown={paperShown} label={tag}>
         {paper ? (
           <PaperPanel fallback={<Waiting source="paper" />} />
