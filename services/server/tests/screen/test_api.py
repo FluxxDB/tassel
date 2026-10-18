@@ -145,15 +145,15 @@ def test_pointer_requires_one_point_and_circle_requires_area():
         )
 
 
-def test_screen_tool_defines_image_coordinates_and_shape_geometry():
+def test_screen_target_tool_delegates_geometry_and_keeps_new_artwork_on_astra():
     from tassel.voice.tools import DRAW_SCREEN
 
     schema = DRAW_SCREEN.to_default_dict()
-    points = schema["parameters"]["properties"]["points"]["description"]
-    assert "opposite corners" in points
-    assert "underline" in points and "below" in points
-    assert "pointer" in points and "one" in points
-    assert "width" in schema["description"] and "height" in schema["description"]
+    properties = schema["parameters"]["properties"]
+    assert "target" in schema["parameters"]["required"]
+    assert "points" not in properties
+    assert set(properties["kind"]["enum"]) == {"pointer", "circle", "underline", "rectangle"}
+    assert "draw_screen_artwork" in schema["description"]
 
 
 @pytest.mark.parametrize(

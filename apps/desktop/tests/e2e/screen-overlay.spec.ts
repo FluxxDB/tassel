@@ -258,6 +258,35 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
                 ],
               },
               {
+                id: 'house-roof',
+                author: 'tutor',
+                kind: 'freehand',
+                color: 'violet',
+                points: [
+                  { x: 0.1, y: 0.4 },
+                  { x: 0.2, y: 0.2 },
+                  { x: 0.3, y: 0.4 },
+                ],
+              },
+              {
+                id: 'house-body',
+                author: 'tutor',
+                kind: 'rectangle',
+                color: 'violet',
+                points: [
+                  { x: 0.12, y: 0.4 },
+                  { x: 0.28, y: 0.6 },
+                ],
+              },
+              {
+                id: 'house-label',
+                author: 'tutor',
+                kind: 'text',
+                text: 'House',
+                color: 'violet',
+                points: [{ x: 0.1, y: 0.65 }],
+              },
+              {
                 id: 'underline',
                 author: 'tutor',
                 kind: 'underline',
@@ -272,6 +301,9 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
         { width, height },
       );
       await expect(ink.locator('.tl-shape[data-shape-id="shape:screen.circle"]')).toHaveCount(1);
+      for (const id of ['house-roof', 'house-body', 'house-label']) {
+        await expect(ink.locator(`.tl-shape[data-shape-id="shape:screen.${id}"]`)).toHaveCount(1);
+      }
       const measureGeometry = () =>
         ink.evaluate(() => {
           const ellipse = document

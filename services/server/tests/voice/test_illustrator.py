@@ -58,7 +58,7 @@ async def test_valid_and_edit_in_place():
         assert board.diagrams[item].title == title
     assert list(board.diagrams) == ["net"]
     assert "net" in client.requests[1]["messages"][1]["content"]
-    assert client.requests[0]["reasoning_effort"] == "none"
+    assert client.requests[0]["reasoning_effort"] == "low"
     assert client.requests[0]["response_format"] == {"type": "json_object"}
 
 
@@ -284,8 +284,10 @@ async def test_openrouter_429_uses_backup():
         body=None,
     )
     client = BusyClient(error, response())
-    illustrator = Illustrator(VoiceSettings(illustrator_provider="openrouter"), client=client)
-    assert await illustrator.draw("network", BoardContext(), "ko")
+    from tassel.voice.illustrator import ChatClient
+
+    legacy = ChatClient(VoiceSettings(illustrator_provider="openrouter"), client=client)
+    assert await legacy.complete([{"role": "user", "content": "network"}])
     first, second = client.requests
     assert first["model"] == "qwen/qwen3.8-27b"
     assert first["response_format"]["type"] == "json_schema"
@@ -299,7 +301,7 @@ async def test_deadline_bounds_hung_client():
         async def create(self, **request):
             await asyncio.Event().wait()
 
-    illustrator = Illustrator(VoiceSettings(illustrator_timeout_s=0.01), client=HungClient())
+    illustrator = Illustrator(VoiceSettings(whiteboard_timeout_s=0.01), client=HungClient())
     assert await asyncio.wait_for(illustrator.draw("network", BoardContext(), "en"), 1) is None
 
 
@@ -348,10 +350,9 @@ async def test_cancel_removes_ready_but_undelivered_spec():
 
 @pytest.mark.asyncio
 async def test_provider_schema_is_strict_and_types_custom_wire_strings():
-    client = Client(response())
-    illustrator = Illustrator(VoiceSettings(illustrator_provider="openrouter"), client=client)
-    await illustrator.draw("network", BoardContext(), "en")
-    schema = client.requests[0]["response_format"]["json_schema"]["schema"]
+    from tassel.voice.illustrator import drawing_schema
+
+    schema = drawing_schema()
     assert schema["properties"]["item"]["type"] == "string"
     for definition in schema["$defs"].values():
         assert set(definition["required"]) == set(definition["properties"])
@@ -400,11 +401,8 @@ async def test_diagram_reaches_beat_before_matching_speech():
     await c.close()
 
 
-def test_illustrator_defaults_to_qwen_on_cerebras():
-    # Live on the owner's network turns: Qwen 0.8-1.3 s vs luna 4.0-4.5 s, same valid diagram.
-    from tassel.voice.settings import VoiceSettings
-
-    assert VoiceSettings().illustrator_provider == "openrouter"
+def test_shared_whiteboard_defaults_to_astra():
+    assert VoiceSettings().whiteboard_model == "gpt-6-astra"
 
 
 @pytest.mark.asyncio
@@ -441,3 +439,34 @@ async def test_only_automata_constructions_think_at_low(text, effort):
     await c.result()
     assert efforts[0] == effort
     await c.close()
+
+
+@pytest.mark.asyncio
+async def test_shared_illustrator_uses_astra_even_with_legacy_router_settings():
+    client = Client(response())
+    illustrator = Illustrator(VoiceSettings(illustrator_provider="openrouter"), client=client)
+    assert await illustrator.draw("network", BoardContext(), "en")
+    assert client.requests[0]["model"] == "gpt-6-astra"
+    assert client.requests[0]["reasoning_effort"] == "low"
+
+
+@pytest.mark.asyncio
+async def test_astra_draws_general_overlay_shapes_against_the_captured_image():
+    strokes = [
+        {
+            "kind": "freehand",
+            "points": [{"x": 0.2, "y": 0.4}, {"x": 0.3, "y": 0.2}, {"x": 0.4, "y": 0.4}],
+        },
+        {"kind": "rectangle", "points": [{"x": 0.22, "y": 0.4}, {"x": 0.38, "y": 0.6}]},
+        {"kind": "circle", "points": [{"x": 0.28, "y": 0.45}, {"x": 0.32, "y": 0.49}]},
+        {"kind": "text", "points": [{"x": 0.2, "y": 0.65}], "text": "House"},
+    ]
+    client = Client({"strokes": strokes})
+    illustrator = Illustrator(VoiceSettings(), client=client)
+    result = await illustrator.draw_screen("Draw a house", b"synthetic-jpeg", {}, "en")
+    assert [mark["kind"] for mark in result["marks"]] == ["freehand", "rectangle", "circle", "text"]
+    assert all(mark["color"] == "violet" for mark in result["marks"])
+    assert client.requests[0]["model"] == "gpt-6-astra"
+    assert client.requests[0]["max_completion_tokens"] >= 8192
+    image = client.requests[0]["messages"][1]["content"][1]
+    assert image["image_url"]["url"].endswith("c3ludGhldGljLWpwZWc=")

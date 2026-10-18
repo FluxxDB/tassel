@@ -86,4 +86,5 @@ def test_image_free_retry_cannot_draw_on_screen():
     assert "edit_screen" in [tool.name for tool in retry.tools.standard_tools]
     assert "draw_screen_illustration" not in [tool.name for tool in retry.tools.standard_tools]
     assert "draw_screen_board" not in [tool.name for tool in retry.tools.standard_tools]
+    assert "draw_screen_artwork" not in [tool.name for tool in retry.tools.standard_tools]
     assert "draw_screen" in [tool.name for tool in original.tools.standard_tools]

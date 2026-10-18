@@ -18,11 +18,14 @@ the native canvas never paints a screenshot over the real desktop.
 - `draw_screen` grounds a named existing target with the existing pointer client
   against the current delivered image. It rejects ambiguous targets and changed
   frames. The talker does not need to guess coordinates before grounding.
-- `draw_screen_board` accepts the existing checked automaton, diagram and note
-  actions plus a screen placement. It uses the regular whiteboard figures and
-  bindings, rather than generating an imitation of them.
-- `draw_screen_illustration` draws a batch of actual paths, shapes, arrows and
-  text. Screen drawing requests do not enter the graph-only illustrator route.
+- `draw_screen_artwork` sends a plain-language request and the full captured image
+  to the shared Astra illustrator. It generates either checked board actions with
+  placement or general freehand paths, shapes, arrows and written text. The talker
+  cannot bypass this generator by submitting new artwork through `draw_screen`.
+- Regular structured diagrams and automaton constructions also use `gpt-6-astra`.
+  Legacy fast-illustrator profile settings do not override shared drawing routing.
+- The low-level `draw_screen_board` and `draw_screen_illustration` handlers remain
+  available for calls already in flight; they are no longer advertised to the tutor.
 - Purple is the default, including DFA labels. Explicit colors apply to paths,
   writing and structured board items. Board text follows the session language.
 
@@ -95,3 +98,21 @@ the tool callback. Unconfirmed delivery is described separately from invalid inp
 Opt-in development transcripts record `screen_tool_result` with tool name, argument
 field names, frame ID, action kind and the result, without image bytes or paths.
 Stale geometry remains rejected; these diagnostics do not relax positioning checks.
+
+## Astra generation and the missing-drawing regression
+
+The supplied live trace showed complete board actions encoded as JSON strings,
+followed by fallback stroke arrays cut off at the conversation's 400-token cap.
+Complete container strings are decoded before normal validation; truncated JSON is
+rejected without guessing missing geometry. Screen tool calls have a separate
+minimum output allowance. New artwork now uses short plain-language tool arguments,
+with the shared Astra illustrator generating validated geometry from the screenshot.
+Drawing generation allows 8192 completion tokens and a bounded 30-second deadline.
+The current frame is checked again after generation, before delivery; completion
+claims still require desktop acknowledgement. Screen generation logs its model and
+elapsed time. Rendering guidance stays out of spoken explanations.
+
+Regression checks cover native and JSON-encoded arguments, truncation, request token
+budgets, Astra routing for regular diagrams and DFAs, screenshot-aware mixed shapes,
+acknowledgement gating and stale-frame rejection. The synthetic Electron flow also
+renders freehand, rectangle and text artwork at multiple display aspect ratios.

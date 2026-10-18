@@ -64,9 +64,7 @@ def _without_images(context: LLMContext) -> LLMContext:
     ):
         tools = ToolsSchema(
             standard_tools=[
-                t
-                for t in tools.standard_tools
-                if t.name not in {"draw_screen", "draw_screen_illustration", "draw_screen_board"}
+                t for t in tools.standard_tools if not t.name.startswith("draw_screen")
             ],
             custom_tools=tools.custom_tools,
         )
@@ -74,6 +72,7 @@ def _without_images(context: LLMContext) -> LLMContext:
             "draw_screen",
             "draw_screen_illustration",
             "draw_screen_board",
+            "draw_screen_artwork",
         }:
             choice = "auto"
     return LLMContext(messages, tools=tools, tool_choice=choice)
@@ -258,6 +257,7 @@ class LiveLLMService(OpenRouterLLMService):
             requested != "openai" and router_key and router_key.get_secret_value().strip()
         )
         self.active_provider = "openrouter" if use_router else "openai"
+        self._talk_max_tokens = s.llm_max_tokens
         self._openai_model = s.openai_model
         self._openai_extra = (
             {"reasoning_effort": s.openai_reasoning_effort}
@@ -310,6 +310,17 @@ class LiveLLMService(OpenRouterLLMService):
                     convert_developer_to_user=not self.supports_developer_role,
                 )
                 request = self.build_chat_completion_params(params)
+                # Speech's short response cap must not truncate drawing JSON.
+                if any(
+                    tool.get("function", {}).get("name", "").startswith("draw_screen")
+                    for tool in (request.get("tools") or [])
+                ):
+                    cap = (
+                        "max_completion_tokens"
+                        if self.active_provider == "openai"
+                        else "max_tokens"
+                    )
+                    request[cap] = max(self._talk_max_tokens, 4096)
                 request["messages"] = leading_system_only(
                     windowed(list(request["messages"]), TALKER_WINDOW)
                 )

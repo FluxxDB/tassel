@@ -525,3 +525,36 @@ async def test_busy_cerebras_retries_the_same_model_on_backup_hosts(status):
     assert calls[0]["provider"] == OPENROUTER_PROVIDER
     assert "cerebras" in calls[1]["provider"]["ignore"]
     assert llm.active_provider == "openrouter"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider", ["openrouter", "openai"])
+async def test_screen_drawing_has_room_for_complete_tool_arguments(provider):
+    from tassel.voice.tools import SCREEN_TOOLS, TOOLS
+
+    calls = []
+
+    def respond(request):
+        calls.append(json.loads(request.content))
+        return sse()
+
+    settings = VoiceSettings(llm_provider=provider, openrouter_api_key="or", openai_api_key="oa")
+    llm = make_llm(route_for("en"), settings, None)
+    await llm._client.close()
+    llm._client = AsyncOpenAI(
+        api_key="synthetic",
+        base_url="https://synthetic.test",
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+    )
+    try:
+        for tools in (SCREEN_TOOLS, TOOLS):
+            context = LLMContext([{"role": "user", "content": "Draw the DFA"}], tools=tools)
+            async for _chunk in await llm.get_chat_completions(context):
+                pass
+        cap = "max_completion_tokens" if provider == "openai" else "max_tokens"
+        assert calls[0][cap] >= 4096
+        assert calls[1][cap] == settings.llm_max_tokens
+    finally:
+        await llm._client.close()
+        if llm._fallback_client:
+            await llm._fallback_client.close()

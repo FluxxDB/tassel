@@ -338,3 +338,26 @@ async def test_failed_thinker_speaks_failure_after_bridge():
     assert "couldn't finish checking" in spoken
     assert "secret provider details" not in spoken
     await c.close()
+
+
+@pytest.mark.asyncio
+async def test_regular_automaton_construction_uses_astra():
+    requests = []
+
+    class Client:
+        chat = property(lambda self: self)
+        completions = property(lambda self: self)
+
+        async def create(self, **request):
+            requests.append(request)
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(message=SimpleNamespace(content=brief().model_dump_json()))
+                ]
+            )
+
+    thinker = Thinker(VoiceSettings(), client=Client())
+    await thinker.think([{"role": "user", "content": "Draw a DFA"}], effort="low")
+    assert requests[0]["model"] == "gpt-6-astra"
+    assert requests[0]["reasoning_effort"] == "low"
+    assert requests[0]["max_completion_tokens"] >= 8192

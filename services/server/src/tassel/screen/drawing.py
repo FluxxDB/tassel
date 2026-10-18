@@ -1,6 +1,7 @@
 """Screen drawing validation and acknowledgement, sharing the whiteboard's action schema."""
 
 import asyncio
+import json
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -35,7 +36,41 @@ def grounded_points(kind, box):
     return [ScreenPoint(x=box.x, y=box.y), ScreenPoint(x=box.x + box.w, y=box.y + box.h)]
 
 
+def screen_arguments(arguments):
+    """Decode complete JSON containers emitted as strings by some tool providers.
+
+    Never repair truncated geometry; the ordinary checked models still validate
+    every decoded field before anything is sent to the desktop.
+    """
+    arguments = dict(arguments)
+    for field, expected in (
+        ("action", dict),
+        ("region", dict),
+        ("strokes", list),
+        ("points", list),
+        ("ids", list),
+    ):
+        value = arguments.get(field)
+        if not isinstance(value, str):
+            continue
+        if len(value) > 200_000:
+            raise ValueError(f"{field} is too large")
+        try:
+            value = json.loads(value)
+        except (ValueError, RecursionError):
+            raise ValueError(
+                f"{field} must be complete JSON. Send a smaller complete batch; "
+                "do not repeat the truncated arguments."
+            ) from None
+        if not isinstance(value, expected):
+            name = "array" if expected is list else "object"
+            raise ValueError(f"{field} must be a JSON {name}")
+        arguments[field] = value
+    return arguments
+
+
 def checked_board(arguments):
+    arguments = screen_arguments(arguments)
     action = BEAT_ACTION.validate_python(arguments["action"])
     if action.kind not in ("board.automaton", "board.diagram", "board.note"):
         raise ValueError("Expected a whiteboard action")
@@ -50,6 +85,7 @@ def checked_board(arguments):
 
 
 def checked_edit(arguments, objects):
+    arguments = screen_arguments(arguments)
     operation = arguments.get("operation")
     if operation == "list":
         return {"operation": "list"}

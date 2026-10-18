@@ -41,65 +41,24 @@ TALKER_TOOLS = ToolsSchema(standard_tools=[SET_LANGUAGE])
 
 DRAW_SCREEN = FunctionSchema(
     name="draw_screen",
-    description="Point at the student's currently shared digital assignment. "
-    "Use coordinates of the ENTIRE attached image: x = pixel_x / image width, "
-    "y = pixel_y / image height (0 to 1, origin top-left, y increases downward). "
-    "Do not use coordinates relative to the question, a crop, a window, or a square image. "
-    "Use the exact frame_id "
-    "from its caption. Never guess a frame ID.",
+    description=(
+        "Mark an EXISTING object in the current shared screenshot. Describe its visible "
+        "label and context in target; the dedicated pointer locates it against the entire "
+        "image. Use the exact frame_id from the screenshot caption. "
+        "For any NEW drawing or written text, use draw_screen_artwork."
+    ),
     properties={
         "frame_id": {"type": "string"},
-        "target": {
-            "type": "string",
-            ("description"): (
-                "Required when marking an EXISTING screen object: describe its "
-                "visible label and context. A dedicated pointer resolves its "
-                "location from the current image. Omit only when creating new "
-                "artwork or text in empty space."
-            ),
-        },
+        "target": {"type": "string", "minLength": 1, "maxLength": 500},
+        "kind": {"type": "string", "enum": ["pointer", "circle", "underline", "rectangle"]},
         "color": {
             "type": "string",
             "enum": ["violet", "red", "blue", "green", "orange", "black", "white"],
         },
-        "kind": {
-            "type": "string",
-            "enum": ["pointer", "circle", "underline", "arrow", "rectangle", "text", "freehand"],
-        },
-        "text": {
-            "type": "string",
-            "maxLength": 500,
-            "description": "Required for kind=text: the exact text to write, "
-            "using newline for line breaks.",
-        },
-        "points": {
-            "description": "Omit points when target is supplied; the dedicated pointer locates it. "
-            "pointer: exactly one point at the target. "
-            "circle: exactly two opposite corners (top-left and bottom-right) of the "
-            "target's bounding box, NOT center and radius. "
-            "underline: exactly two endpoints of a line just below the text, "
-            "left to right at the same y. arrow: exactly two points, tail then tip. "
-            "rectangle: two opposite corners. text: one top-left anchor plus the text field. "
-            "freehand: two to 512 successive path points. "
-            "Locate the requested target in the CURRENT image before drawing. Cross-check "
-            "its visible label and surrounding content; do not mark a similarly placed app "
-            "or a target from earlier conversation. Omit the call if uncertain.",
-            "type": "array",
-            "minItems": 1,
-            "maxItems": 512,
-            "items": {
-                "type": "object",
-                "properties": {
-                    "x": {"type": "number", "minimum": 0, "maximum": 1},
-                    "y": {"type": "number", "minimum": 0, "maximum": 1},
-                },
-                "required": ["x", "y"],
-                "additionalProperties": False,
-            },
-        },
     },
-    required=["frame_id", "kind"],
+    required=["frame_id", "kind", "target"],
 )
+
 EDIT_SCREEN = FunctionSchema(
     name="edit_screen",
     description=(
@@ -127,8 +86,7 @@ DRAW_SCREEN_ILLUSTRATION = FunctionSchema(
         "For existing screen objects, circle/underline/point with draw_screen.target instead. "
         "This tool creates NEW artwork. Draw an illustration directly on the transparent screen "
         "whiteboard. Use multiple freehand paths, geometric shapes, arrows"
-        " and written text in ONE batch. Draw the actual requested "
-        "subject, not a graph of labeled boxes. Each stroke uses "
+        " and written text in complete batches. Draw the requested subject. Each stroke uses "
         "full-image normalized coordinates. Purple is default; honor "
         "requested colors. Use draw_screen_board for a DFA or structured "
         "graph instead."
@@ -179,13 +137,27 @@ DRAW_SCREEN_BOARD = FunctionSchema(
     },
     required=["frame_id", "action", "region"],
 )
+DRAW_SCREEN_ARTWORK = FunctionSchema(
+    name="draw_screen_artwork",
+    description=(
+        "Ask the shared whiteboard illustrator to draw directly over the current screen. "
+        "Supports general illustrations, arbitrary freehand shapes, written text, DFAs and "
+        "structured diagrams. Supply the student's request and any placement/color preferences "
+        "in plain language; the illustrator sees the full screenshot and generates the geometry. "
+        "Wait for ok=true before saying it appeared."
+    ),
+    properties={
+        "frame_id": {"type": "string"},
+        "request": {"type": "string", "minLength": 1, "maxLength": 2000},
+    },
+    required=["frame_id", "request"],
+)
 SCREEN_TOOLS = ToolsSchema(
     standard_tools=[
         SHOW_STAGE,
         SET_LANGUAGE,
         DRAW_SCREEN,
         EDIT_SCREEN,
-        DRAW_SCREEN_ILLUSTRATION,
-        DRAW_SCREEN_BOARD,
+        DRAW_SCREEN_ARTWORK,
     ]
 )
