@@ -262,3 +262,31 @@ async def test_state_target_with_relational_label_or_arrow_rejects_far_label(tar
         )
         == []
     )
+
+
+@pytest.mark.asyncio
+async def test_a_dropped_upload_is_retried_once():
+    import httpx
+    from openai import APIConnectionError
+
+    from tassel.voice.pointer import ChatClient
+    from tassel.voice.settings import VoiceSettings
+
+    calls = []
+
+    class Completions:
+        async def create(self, **kw):
+            calls.append(kw)
+            if len(calls) == 1:
+                raise APIConnectionError(request=httpx.Request("POST", "https://x"))
+            return SimpleNamespace(
+                usage=None,
+                choices=[SimpleNamespace(message=SimpleNamespace(content='{"marks": []}'))],
+            )
+
+    chat = ChatClient(
+        VoiceSettings(openai_api_key="k"),
+        SimpleNamespace(chat=SimpleNamespace(completions=Completions())),
+    )
+    assert await chat.complete([{"role": "user", "content": "x"}]) == '{"marks": []}'
+    assert len(calls) == 2

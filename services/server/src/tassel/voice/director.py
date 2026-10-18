@@ -159,7 +159,7 @@ def guard(text, decision):
     elif (
         CONSTRUCT.search(HELP.sub(" ", text))
         and not named_paper
-        and decision.action != "draw_board"
+        and (decision.action != "draw_board" or decision.focus not in ("board", "split"))
     ):
         update.update(action="draw_board", focus="split" if decision.focus == "split" else "board")
     merged = decision.model_copy(update=update)

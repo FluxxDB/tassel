@@ -6,7 +6,7 @@ import json
 import re
 from typing import Literal
 
-from openai import AsyncOpenAI, RateLimitError
+from openai import APIConnectionError, AsyncOpenAI, RateLimitError
 from pydantic import BaseModel, ConfigDict, Field
 
 from tassel.voice.director import QWEN_BACKUP_PROVIDER, QWEN_PRIMARY_PROVIDER, report_usage
@@ -79,6 +79,10 @@ class ChatClient:
             if not router:
                 raise
             request["extra_body"]["provider"] = dict(QWEN_BACKUP_PROVIDER)
+            response = await self.client.chat.completions.create(**request)
+        except APIConnectionError:
+            # This network drops some image uploads at once (bad record mac); one quick retry
+            # still fits the Pointer's budget.
             response = await self.client.chat.completions.create(**request)
         report_usage(self.on_usage, "pointer:" + request["model"], response)
         return response.choices[0].message.content or ""

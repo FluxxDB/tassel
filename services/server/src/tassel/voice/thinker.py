@@ -301,7 +301,8 @@ class TutorCoordinator:
             if brief is None:
                 return None
             said = [n.say for n in self.notes[-3:]]
-            if any(_similar(brief.say, old) for old in said):
+            tracing = any(STEP.match(t) for t in brief.board + brief.paper)
+            if not tracing and any(_similar(brief.say, old) for old in said):
                 # Retest #8: the same sentence three times. Change words and tools instead.
                 self.log("reject", source="repeat", text=brief.say)
                 retry = await self._brief(
