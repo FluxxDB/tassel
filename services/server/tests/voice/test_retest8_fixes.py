@@ -330,3 +330,41 @@ async def test_still_lost_after_her_trace_moves_to_the_contrast_rung():
         await c.result()
     assert "rung c" in seen[0] and "rung d" in seen[1]
     await c.close()
+
+
+def test_a_construction_drawn_on_the_board_shows_the_board():
+    # Live: the model chose draw_board but kept the paper in view.
+    out = guard(
+        "So can you write me an NFA for the correct version of this language?",
+        decision(action="draw_board", focus="paper"),
+    )
+    assert out.focus == "board"
+
+
+@pytest.mark.asyncio
+async def test_a_trace_is_never_rewritten_as_a_repeat():
+    # Live: a full walk-through on the fix resembled the trace on hers, and was cut to one step.
+    class Thinker:
+        def __init__(self):
+            self.calls = 0
+
+        async def think(self, messages, effort=None):
+            self.calls += 1
+            return brief().model_copy(
+                update={
+                    "board": [YOURS, "[[trace t yours 010]]", "[[step t]]"],
+                    "say": "Start at q zero. Zero takes you to q one.",
+                }
+            )
+
+        async def close(self):
+            pass
+
+    thinker = Thinker()
+    c = TutorCoordinator(thinker, BoardContext())
+    ctx = LLMContext([{"role": "user", "content": "walk me through"}])
+    for _ in range(2):
+        await c.prepare(ctx, "walk me through", decision=decision(action="trace", focus="split"))
+        await c.result()
+    assert thinker.calls == 2
+    await c.close()
