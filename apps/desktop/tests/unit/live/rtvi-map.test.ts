@@ -247,3 +247,9 @@ describe('mapRtvi', () => {
     });
   });
 });
+
+it('maps restored actions directly to the board renderer', () => {
+  const actions = [{ kind: 'board.clear' }];
+  const result = run([{ kind: 'server', data: { tassel: { kind: 'actions', actions } } }]);
+  expect(result.events).toEqual([{ type: 'actions', actions }]);
+});

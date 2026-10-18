@@ -8,6 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from tassel import __version__
 from tassel.api import devices, health, sessions
+from tassel.board import api as board_api
+from tassel.board.snapshots import BoardSnapshots
 from tassel.config import Settings
 from tassel.frames import api as frames
 from tassel.frames.objects import make_object_store
@@ -43,6 +45,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.voice = VoiceRegistry(
             settings=voice_settings,
             sessions=app.state.session_factory,
+            board_snapshots=app.state.board_snapshots,
             # Each student turn sees her latest stored page (vision-lite), on the bot's board.
             turn_images=lambda board: make_turn_image_for(
                 app.state.session_factory, app.state.object_store, context=board
@@ -74,6 +77,7 @@ def create_app(
     # Here, not in the lifespan, so tests can swap it. The S3 store connects on first use.
     app.state.object_store = make_object_store(settings)
     app.state.voice_settings = voice_settings
+    app.state.board_snapshots = BoardSnapshots()
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -87,6 +91,7 @@ def create_app(
         devices.router,
         sessions.router,
         frames.router,
+        board_api.router,
         voice_api.router,
         vision.router,
     ):

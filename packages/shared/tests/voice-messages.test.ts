@@ -30,6 +30,8 @@ describe('parseServerEvent', () => {
     'x',
     {},
     { tassel: { kind: 'nope' } },
+    { tassel: { kind: 'actions' } },
+    { tassel: { kind: 'actions', actions: [{ kind: 'unknown' }] } },
     { tassel: { kind: 'beat', beat: null } },
     { tassel: { kind: 'beat', beat: { version: 1 } } },
     { tassel: { kind: 'title' } },
