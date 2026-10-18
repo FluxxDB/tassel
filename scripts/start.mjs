@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CANONICAL, launcherOptions } from './backend.mjs';
 
 function pathFrom(base, value) {
   return isAbsolute(value) ? value : resolve(base, value);
@@ -15,8 +16,10 @@ export function buildStartup({
   env = process.env,
   exists = existsSync,
   local = {},
+  hostServer = launcherOptions([], env).hostServer,
 }) {
-  const port = local.port ?? 8864;
+  // The canonical backend (scripts/backend.mjs) unless .local/start.json names an existing one.
+  const port = local.port ?? CANONICAL.port;
   if (!Number.isInteger(port) || port < 1024 || port > 65535)
     throw new Error('Startup port must be an integer from 1024 to 65535.');
   for (const key of ['userData', 'databaseUrl', 'voiceEnvFile', 's3Bucket', 'toolsDir'])
@@ -42,11 +45,10 @@ export function buildStartup({
   Object.assign(next, {
     TASSEL_PORT: String(port),
     TASSEL_SERVER_URL: `http://127.0.0.1:${port}`,
-    // Preserve the existing primary development library; its old name is not a feature gate.
     TASSEL_DATABASE_URL:
       local.databaseUrl ??
-      'postgresql+psycopg://tassel:tassel@127.0.0.1:54329/tassel_t2_avatar_dev',
-    TASSEL_S3_BUCKET: local.s3Bucket ?? 'tassel-t2-avatar-dev',
+      `postgresql+psycopg://tassel:tassel@127.0.0.1:54329/${CANONICAL.database}`,
+    TASSEL_S3_BUCKET: local.s3Bucket ?? CANONICAL.bucket,
     TASSEL_USER_DATA: userData,
     TASSEL_TUTOR: 'live',
     TASSEL_PROVIDERS: 'live',
@@ -76,6 +78,7 @@ export function buildStartup({
   return {
     root,
     sharedRoot,
+    hostServer,
     tools,
     settingsFile: join(sharedRoot, '.local/start.json'),
     voiceEnvFile,
@@ -88,12 +91,26 @@ export function safeSummary(config) {
     sharedSettings: config.settingsFile,
     profile: config.env.TASSEL_USER_DATA,
     server: config.env.TASSEL_SERVER_URL,
+    backend: config.hostServer ? 'host' : 'docker',
     database: new URL(
       config.env.TASSEL_DATABASE_URL.replace(/^postgresql\+psycopg:/, 'postgresql:'),
     ).pathname.slice(1),
     providerSettings: config.voiceEnvFile,
     capture: config.env.TASSEL_PAPER_SOURCE,
     features: 'Paper, Screen, voice, board, avatar, memory, personality',
+  };
+}
+/** `--check` prints the summary only; `--host-server` reaches pnpm dev (scripts/backend.mjs). */
+export function startArgs(argv) {
+  if (argv.some((arg) => arg !== '--check' && arg !== '--host-server'))
+    throw new Error(
+      'Usage: Start-Tassel.cmd [--check] [--host-server]. Choose features inside Tassel.',
+    );
+  const hostServer = argv.includes('--host-server');
+  return {
+    check: argv.includes('--check'),
+    hostServer,
+    devArgs: hostServer ? ['--host-server'] : [],
   };
 }
 export function sharedRepositoryRoot(root) {
@@ -116,12 +133,15 @@ function main() {
   const local = existsSync(settingsFile) ? JSON.parse(readFileSync(settingsFile, 'utf8')) : {};
   if (!local || typeof local !== 'object' || Array.isArray(local))
     throw new Error('Invalid .local/start.json');
-  const config = buildStartup({ root, sharedRoot, local });
-  const args = process.argv.slice(2);
-  if (args.some((arg) => arg !== '--check'))
-    throw new Error('Usage: Start-Tassel.cmd [--check]. Choose features inside Tassel.');
+  const args = startArgs(process.argv.slice(2));
+  const config = buildStartup({
+    root,
+    sharedRoot,
+    local,
+    hostServer: args.hostServer || process.env.TASSEL_HOST_SERVER === '1',
+  });
   console.log(JSON.stringify(safeSummary(config), null, 2));
-  if (args.includes('--check')) return;
+  if (args.check) return;
   const [major, minor] = process.versions.node.split('.').map(Number);
   if (major < 22 || (major === 22 && minor < 18))
     throw new Error('Tassel needs Node 22.18 or later.');
@@ -160,7 +180,7 @@ function main() {
       if (error.code !== 'EEXIST') throw error;
     }
   }
-  const result = spawn.sync(process.execPath, [join(root, 'scripts/dev.mjs')], {
+  const result = spawn.sync(process.execPath, [join(root, 'scripts/dev.mjs'), ...args.devArgs], {
     cwd: root,
     env: config.env,
     stdio: 'inherit',

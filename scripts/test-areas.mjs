@@ -196,9 +196,17 @@ export const AREAS = [
   },
   {
     name: 'tooling',
-    title: 'Repo scripts: dev, live, camera launch, checks, test selection',
-    app: ['scripts/**'],
+    title:
+      'Repo scripts and the Docker backend: dev, live, start, camera launch, checks, test selection',
+    app: [
+      'scripts/**',
+      'docker-compose.yml',
+      `${S}/{Dockerfile,.dockerignore,no-provider-keys.env}`,
+    ],
+    // The server container's start, and the settings its Compose environment must cover.
+    server: [`${SRC}/scripts/{container,ensure_database}.py`, `${SRC}/{voice,vision}/settings.py`],
     node: ['scripts/*.test.mjs'],
+    pytest: [`${PY}/scripts/{test_container,test_docker_setup}.py`],
   },
 ];
 
@@ -273,7 +281,6 @@ export const NO_TESTS = [
   '.gitattributes',
   '.gitignore',
   'biome.json',
-  'docker-compose.yml',
   'tsconfig.base.json',
   `${D}/playwright.camera.config.ts`,
   `${S}/src/tassel/voice/playbook.md`,

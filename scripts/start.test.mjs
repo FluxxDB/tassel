@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { buildStartup, safeSummary } from './start.mjs';
+import { buildStartup, safeSummary, startArgs } from './start.mjs';
 
 const root = process.cwd(),
   shared = join(root, 'shared-repository');
@@ -83,4 +83,51 @@ test('explicit local configuration wins without putting secrets in the report', 
       local: { port: 0 },
     }),
   );
+});
+test('the default backend is the canonical one everyone shares: 8787, tassel, tassel-frames', () => {
+  const result = buildStartup({ root, sharedRoot: shared, platform: 'win32', env: {}, exists });
+  assert.equal(result.env.TASSEL_PORT, '8787');
+  assert.equal(result.env.TASSEL_SERVER_URL, 'http://127.0.0.1:8787');
+  assert.equal(
+    result.env.TASSEL_DATABASE_URL,
+    'postgresql+psycopg://tassel:tassel@127.0.0.1:54329/tassel',
+  );
+  assert.equal(result.env.TASSEL_S3_BUCKET, 'tassel-frames');
+  assert.equal(safeSummary(result).backend, 'docker');
+});
+test('saved settings keep reaching existing data: 8864, tassel_t2_avatar_dev', () => {
+  const result = buildStartup({
+    root,
+    sharedRoot: shared,
+    platform: 'win32',
+    env: {},
+    exists,
+    local: {
+      port: 8864,
+      databaseUrl: 'postgresql+psycopg://tassel:tassel@127.0.0.1:54329/tassel_t2_avatar_dev',
+      s3Bucket: 'tassel-t2-avatar-dev',
+    },
+  });
+  assert.equal(result.env.TASSEL_PORT, '8864');
+  assert.equal(safeSummary(result).database, 'tassel_t2_avatar_dev');
+  assert.equal(result.env.TASSEL_S3_BUCKET, 'tassel-t2-avatar-dev');
+});
+test('pnpm start takes --check and --host-server, and passes --host-server on to pnpm dev', () => {
+  assert.deepEqual(startArgs([]), { check: false, hostServer: false, devArgs: [] });
+  assert.deepEqual(startArgs(['--check']), { check: true, hostServer: false, devArgs: [] });
+  assert.deepEqual(startArgs(['--host-server']), {
+    check: false,
+    hostServer: true,
+    devArgs: ['--host-server'],
+  });
+  assert.throws(() => startArgs(['voice']), /Usage/);
+  const host = buildStartup({ root, sharedRoot: shared, env: {}, exists, hostServer: true });
+  assert.equal(safeSummary(host).backend, 'host');
+  const fromEnv = buildStartup({
+    root,
+    sharedRoot: shared,
+    env: { TASSEL_HOST_SERVER: '1' },
+    exists,
+  });
+  assert.equal(safeSummary(fromEnv).backend, 'host');
 });
