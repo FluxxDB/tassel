@@ -97,12 +97,20 @@ class Expect(_Strict):
     forbid: list[str] = Field(default_factory=list)
     allow_repeat: bool = False
     spoke: bool = True
+    # The chat: her line and a final reply of Ada's reach it as message events.
+    chat: bool | None = None
+    # Whether the reply made speech audio: False for a text-only reply.
+    audio: bool | None = None
     max_ms: dict[Literal["director", "thinker", "first_audio"], float] = Field(default_factory=dict)
 
 
 class Turn(_Strict):
     student: str = Field(min_length=1)
     page: str | None = None
+    # Sent as a chat message (student-message) with these page fixtures as her images, or with
+    # her voice off; otherwise typed through RTVI send-text as before.
+    images: list[str] = Field(default_factory=list, max_length=4)
+    voice: bool = True
     stage: StageState | None = None
     expect: Expect = Field(default_factory=Expect)
 
@@ -130,6 +138,9 @@ class Scenario(_Strict):
             where = f"turn {index}"
             if turn.page not in (None, "none") and turn.page not in FIXTURES:
                 raise ValueError(f"{where}: unknown page fixture {turn.page!r}")
+            for image in turn.images:
+                if image not in FIXTURES:
+                    raise ValueError(f"{where}: unknown image fixture {image!r}")
             expect = turn.expect
             for kind in [*(expect.tags or []), *expect.no_tags]:
                 if kind not in TAG_KINDS:

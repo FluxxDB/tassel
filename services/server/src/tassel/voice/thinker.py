@@ -214,6 +214,7 @@ class TutorCoordinator:
         self.decision = None
         self._page = None
         self._board_page = None
+        self.attachments = []
 
     def log(self, event, **data):
         if self.transcript:
@@ -278,12 +279,15 @@ class TutorCoordinator:
         decision=None,
         page=None,
         board_page=None,
+        attachments=None,
     ):
         """page: an async callable returning (image, caption[, ink]) or None, awaited by the
         thinker so the talker's bridge never waits for the camera. board_page returns PNG
-        bytes or None and is fetched only for board-focused thinker turns."""
+        bytes or None and is fetched only for board-focused thinker turns. attachments: the
+        images she sent with a typed message (``chat.store.LoadedAttachment``), for this turn."""
         await self.cancel()
         self.context, self.text = context, text
+        self.attachments = list(attachments or [])
         self.decision = decision
         self.delivered = False
         self._page = page
@@ -341,6 +345,8 @@ class TutorCoordinator:
                 await self._attach_board_page()
                 if generation != self.generation:
                     return None
+            if self.attachments:
+                self._attach_student_images()
             effort = None
             if (
                 self.decision
@@ -537,6 +543,14 @@ class TutorCoordinator:
             ]
         else:
             user["content"] = [{"type": "text", "text": text}, {"type": "text", "text": NO_VIEW}]
+
+    def _attach_student_images(self):
+        """The images she sent with this turn's message, after her words and her page."""
+        from tassel.chat.turns import with_images
+
+        user = next((m for m in reversed(self.messages) if m.get("role") == "user"), None)
+        if user is not None:
+            user["content"] = with_images(user["content"], self.attachments)
 
     async def _attach_board_page(self):
         page, self._board_page = self._board_page, None

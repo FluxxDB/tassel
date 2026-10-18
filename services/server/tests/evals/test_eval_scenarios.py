@@ -69,6 +69,7 @@ def base(**turn):
     "turn,reason",
     [
         ({"page": "no-such-page"}, "unknown page fixture"),
+        ({"images": ["no-such-page"]}, "unknown image fixture"),
         ({"expect": {"tags": ["board.sketch"]}}, "unknown tag kind"),
         ({"expect": {"board": {"same_as_turn": 1}}}, "earlier turn"),
         ({"expect": {"marks": [{"type": "circle", "truth": "q0"}]}}, "page fixture"),

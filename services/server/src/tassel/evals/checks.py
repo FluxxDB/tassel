@@ -38,6 +38,9 @@ class Observation:
     prompt_tokens: int = 0
     tokens: dict[str, dict] = field(default_factory=dict)
     finished: bool = True
+    # The chat's message events this turn, and whether the reply made speech audio.
+    chat: list[dict] = field(default_factory=list)
+    audio: bool = False
 
     def to_json(self) -> dict:
         data = asdict(self)
@@ -174,6 +177,25 @@ def _mark_problems(turn: Turn, obs: Observation) -> list[str]:
     return problems
 
 
+def _chat_problems(turn: Turn, obs: Observation) -> list[str]:
+    finals = [m for m in obs.chat if m.get("final")]
+    problems = []
+    typed = bool(turn.images) or not turn.voice
+    student = [m for m in finals if m.get("role") == "student"]
+    if not student:
+        problems.append("her line never reached the chat")
+    elif typed and len(student[-1].get("attachments", [])) != len(turn.images):
+        problems.append(
+            f"{len(student[-1].get('attachments', []))} images in the chat, sent {len(turn.images)}"
+        )
+    replies = [m for m in finals if m.get("role") == "tutor" and m.get("text", "").strip()]
+    if not replies:
+        problems.append("no final reply in the chat")
+    elif typed and replies[-1].get("source") != "typed":
+        problems.append(f"the reply's source is {replies[-1].get('source')}, wanted typed")
+    return problems
+
+
 def check_turn(turn: Turn, obs: Observation, *, earlier: list[Observation]) -> list[CheckResult]:
     expect = turn.expect
     results = [CheckResult("finished", obs.finished, "" if obs.finished else "timed out")]
@@ -186,6 +208,11 @@ def check_turn(turn: Turn, obs: Observation, *, earlier: list[Observation]) -> l
     add("forbidden phrases", forbidden_phrases(obs.spoken, expect.forbid))
     if not expect.allow_repeat:
         add("no stale repeats", stale_repeats(obs.spoken, [e.spoken for e in earlier]))
+    if expect.chat:
+        add("chat", _chat_problems(turn, obs))
+    if expect.audio is not None:
+        wrong = "no speech audio" if expect.audio else "speech audio for a text-only reply"
+        add("audio", [] if obs.audio == expect.audio else [wrong])
     if expect.route == "view":
         problems = []
         if obs.view_request is None:

@@ -17,6 +17,7 @@ from pipecat.frames.frames import (
     BotStoppedSpeakingFrame,
     InputTransportMessageFrame,
     LLMFullResponseEndFrame,
+    TTSAudioRawFrame,
     TTSStoppedFrame,
     TTSTextFrame,
 )
@@ -82,6 +83,30 @@ class _NoMemory:
 @asynccontextmanager
 async def _no_db():
     yield _NoMemory()
+
+
+class _FixtureChat:
+    """The bot's chat store for the eval: a turn's images are page fixtures, prepared as an
+    upload is, and saved lines stay in memory."""
+
+    def __init__(self):
+        self.saved = []
+
+    async def load_attachments(self, learner_id, session_id, ids):
+        from tassel.chat.images import prepare
+        from tassel.chat.store import LoadedAttachment
+
+        out = []
+        for name in ids:
+            image = await asyncio.to_thread(prepare, render(name).jpeg)
+            out.append(LoadedAttachment(name, image.data, image.mime, image.width, image.height))
+        return out
+
+    async def last_seq(self, session_id):
+        return 0
+
+    async def save(self, session_id, seq, line):
+        self.saved.append((seq, line))
 
 
 def with_effort(create, effort):
@@ -177,6 +202,7 @@ class PipelineSession:
             turn_image=self._turn_image if scenario.has_pages else None,
             board=self.board,
             board_actions=seed_actions(scenario),
+            chat=_FixtureChat(),
         )
         self.bot = build_bot(_Passthrough(), self.out, self.ctx)
         self.coordinator = self.bot._turn_context.coordinator
@@ -309,13 +335,29 @@ class PipelineSession:
         frames = len(self.out.frames)
         self.served = None
         started = time.monotonic()
-        await self._message(
-            "send-text",
-            {
-                "content": turn.student,
-                "options": {"run_immediately": True, "audio_response": True},
-            },
-        )
+        if turn.images or not turn.voice:
+            # The chat's composer: a student-message with her images, or her voice off.
+            await self._message(
+                "client-message",
+                {
+                    "t": "tassel",
+                    "d": {
+                        "kind": "student-message",
+                        "client_id": f"eval-{index + 1}",
+                        "text": turn.student,
+                        "attachment_ids": list(turn.images),
+                        "voice": turn.voice,
+                    },
+                },
+            )
+        else:
+            await self._message(
+                "send-text",
+                {
+                    "content": turn.student,
+                    "options": {"run_immediately": True, "audio_response": True},
+                },
+            )
         finished = await self._settle(frames)
         wall_ms = (time.monotonic() - started) * 1000
         events = self.out.events(frames)
@@ -336,11 +378,21 @@ class PipelineSession:
             values = [e["ms"] for e in log if e["event"] == name and "ms" in e]
             return sum(values) if values else None
 
+        chat = [e for e in events if e["kind"] == "message"]
+        spoken = " ".join(
+            f.text for f in self.out.frames[frames:] if isinstance(f, TTSTextFrame)
+        ).strip()
+        audio = any(isinstance(f, TTSAudioRawFrame) for f in self.out.frames[frames:])
+        if not spoken:
+            # A text-only reply says nothing aloud: what she wrote is in the chat.
+            spoken = " ".join(
+                m["text"] for m in chat if m["role"] == "tutor" and m["final"]
+            ).strip()
         return Observation(
             student=turn.student,
-            spoken=" ".join(
-                f.text for f in self.out.frames[frames:] if isinstance(f, TTSTextFrame)
-            ).strip(),
+            spoken=spoken,
+            chat=chat,
+            audio=audio,
             stage=stage,
             actions=actions,
             tags=[e["text"] for e in log if e["event"] == "tags"],

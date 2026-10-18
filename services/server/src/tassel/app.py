@@ -26,6 +26,7 @@ from tassel.voice.settings import VoiceConfigError, VoiceSettings, check_voice_s
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    from tassel.chat.store import ChatStore
     from tassel.vision.turn_image import make_turn_image_for
     from tassel.voice.registry import VoiceRegistry
 
@@ -50,6 +51,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             screens=app.state.screens,
             sessions=app.state.session_factory,
             board_snapshots=app.state.board_snapshots,
+            chat=ChatStore(app.state.session_factory, app.state.object_store),
             # Each student turn sees her latest stored page (vision-lite), on the bot's board.
             turn_images=lambda board: make_turn_image_for(
                 app.state.session_factory, app.state.object_store, context=board
