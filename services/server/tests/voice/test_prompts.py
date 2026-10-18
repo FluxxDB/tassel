@@ -122,3 +122,12 @@ def test_thinker_real_case_examples_match_schema_and_diagnose_missing_final_one(
             # Her paper gets marks, never a board diagram, except the playbook's board trace.
             traced = any(t.startswith("[[trace") for t in brief.board)
             assert traced or (brief.paper and not brief.board)
+
+
+def test_thinker_page_and_marks_come_from_this_turns_image_only():
+    from tassel.voice.prompts import thinker_system_prompt
+    from tassel.voice.thinker import GuidanceBrief
+
+    prompt = thinker_system_prompt(GuidanceBrief.model_json_schema())
+    assert "page describes this turn's image only" in prompt
+    assert "earlier sessions" in prompt and "the image wins" in prompt

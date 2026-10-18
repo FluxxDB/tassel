@@ -328,6 +328,10 @@ def thinker_system_prompt(schema: dict, *, ideal_tutor: str = "") -> str:
         "machine unless requested. Her copy as yours is exempt from the target check; your "
         "own machines must be correct. "
         "Examples use m4 only because it is visible there; use only IDs in the actual turn image.\n"
+        "page describes this turn's image only: never carry a value from the notes of earlier "
+        "sessions, the conversation or an earlier turn into page or a mark target. Where a note "
+        "and the image disagree, the image wins; a past session's exercise is on this page only "
+        "when you can read it there.\n"
         + BOARD_RULES
         + "\nWorked guidance briefs:\n"
         + json.dumps(THINKER_EXAMPLES)
