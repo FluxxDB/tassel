@@ -3,6 +3,7 @@ import { Wordmark } from './Wordmark';
 
 const LINKS = [
   { href: '#features', label: 'Features' },
+  { href: '#tutor', label: 'Your tutor' },
   { href: '#download', label: 'Download' },
 ];
 
@@ -29,7 +30,7 @@ export function Navbar() {
               </li>
             ))}
           </ul>
-          <DownloadButton size="sm" compact />
+          <DownloadButton size="sm" />
         </div>
       </nav>
     </header>

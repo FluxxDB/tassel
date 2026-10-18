@@ -3,6 +3,7 @@ import { DownloadButton } from '../components/DownloadButton';
 import { Footer } from '../components/Footer';
 import { HeroStage } from '../components/HeroStage';
 import { Navbar } from '../components/Navbar';
+import { TutorLineup } from '../components/TutorLineup';
 
 const FEATURES = [
   {
@@ -20,14 +21,26 @@ const FEATURES = [
   {
     eyebrow: 'Showing, not telling',
     title: 'Draws on your own work',
-    body: 'She marks up your paper to show where it goes wrong, then redraws it step by step on a shared whiteboard.',
+    body: 'She circles the step that goes wrong right on your page, then redraws it on the whiteboard as she explains.',
     tint: 'bg-mint',
   },
   {
-    eyebrow: 'English · Español · 한국어',
-    title: 'In your language',
-    body: 'Learn in English, Spanish or Korean, from a tutor you customize, and understand why, not just what.',
+    eyebrow: 'Chat',
+    title: 'Type it, or snap it',
+    body: "Rather type? Ask in the chat beside the stage, or drop in a photo of the page. She'll mark up the image too.",
     tint: 'bg-sky',
+  },
+  {
+    eyebrow: 'Screen share',
+    title: 'Stays with you in other apps',
+    body: 'Share your screen and Tassel shrinks to a small bar, then draws right over your PDF or problem set.',
+    tint: 'bg-rose-mist',
+  },
+  {
+    eyebrow: 'Memory',
+    title: 'Remembers where you left off',
+    body: 'She keeps track of what you know and what tripped you up, so each session builds on the last.',
+    tint: 'bg-seafoam',
   },
 ];
 
@@ -71,7 +84,7 @@ export default function Home() {
               watching, listening, and stepping in at the right moment.
             </p>
           </div>
-          <ul className="mt-10 grid gap-3 sm:grid-cols-2 sm:gap-4">
+          <ul className="mt-10 grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
             {FEATURES.map((f) => (
               <li key={f.title} className={`${f.tint} flex flex-col gap-3 rounded-card p-6 sm:p-8`}>
                 <p className="mono text-[11px] text-smoke-text">{f.eyebrow}</p>
@@ -82,6 +95,26 @@ export default function Home() {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section id="tutor" className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 sm:pb-24">
+          <div className="grid gap-10 rounded-hero border border-hairline bg-paper p-6 sm:p-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-center lg:gap-14">
+            <div>
+              <p className="mono text-[11px] text-smoke-text">Your tutor</p>
+              <h2 className="mt-3 text-balance text-[30px] leading-[1.15] font-w520 tracking-[-0.03em] sm:text-[36px]">
+                Make her yours.
+              </h2>
+              <p className="mt-4 text-[17px] leading-relaxed text-slate-plum">
+                Pick her name, hair, hat, outfit and voice, and tell her how you like to learn. She
+                teaches in English, Spanish or Korean, so you can understand why, in your own
+                language.
+              </p>
+              <p className="mono mt-6 text-[11px] text-smoke-text">
+                English · <span lang="es">Español</span> · <span lang="ko">한국어</span>
+              </p>
+            </div>
+            <TutorLineup />
+          </div>
         </section>
 
         <section id="download" className="mx-auto max-w-6xl px-4 pb-20 pt-4 sm:px-6 sm:pb-28">

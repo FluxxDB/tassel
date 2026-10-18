@@ -1,11 +1,11 @@
 'use client';
-// The download call to action. On a Mac it links to the DMG; on anything else it's a disabled pill
-// that says the app isn't available there. The static HTML has no user agent, so the first render
-// is the neutral Mac state and the real check runs after mount: nothing flashes "not available"
-// on a Mac.
+// The download call to action. It always reads "Download for Mac": on a Mac it links to the DMG,
+// and on anything else the same pill is greyed out and disabled. The static HTML has no user
+// agent, so the first render is the Mac state and the real check runs after mount: nothing flashes
+// greyed out on a Mac.
 import { useEffect, useState } from 'react';
 import { cn } from '../lib/cn';
-import { detectBrowserPlatform, PLATFORM_NAMES, type Platform } from '../lib/platform';
+import { detectBrowserPlatform, type Platform } from '../lib/platform';
 import { DOWNLOAD_URL } from '../lib/site';
 import { AppleIcon } from './AppleIcon';
 import { BUTTON_BASE, BUTTON_SIZES, BUTTON_VARIANTS } from './Button';
@@ -16,8 +16,6 @@ export interface DownloadButtonProps {
   variant?: 'primary' | 'paper';
   /** Show the availability line under the button. */
   note?: boolean;
-  /** Short label for the navbar: "Download" instead of "Download for Mac". */
-  compact?: boolean;
   className?: string;
 }
 
@@ -31,7 +29,6 @@ export function DownloadButton({
   size = 'lg',
   variant = 'primary',
   note = false,
-  compact = false,
   className,
 }: DownloadButtonProps) {
   const platform = usePlatform();
@@ -39,17 +36,24 @@ export function DownloadButton({
   const onInk = variant === 'paper';
   const classes = cn(BUTTON_BASE, BUTTON_SIZES[size], BUTTON_VARIANTS[variant]);
 
+  const label = (
+    <>
+      <AppleIcon className="-mt-0.5" />
+      Download for Mac
+    </>
+  );
+
   return (
     <div className={cn('flex flex-col items-center gap-2.5', className)}>
       {available ? (
         <a href={DOWNLOAD_URL} className={classes} data-platform={platform ?? 'pending'}>
-          <AppleIcon className="-mt-0.5" />
-          {compact ? 'Download' : 'Download for Mac'}
+          {label}
         </a>
       ) : (
         <button
           type="button"
           disabled
+          title="Tassel is available on Mac only"
           data-platform={platform}
           className={cn(
             BUTTON_BASE,
@@ -58,9 +62,7 @@ export function DownloadButton({
             'cursor-not-allowed select-none opacity-40',
           )}
         >
-          {compact
-            ? `Not on ${PLATFORM_NAMES[platform]}`
-            : `Not available for ${PLATFORM_NAMES[platform]}`}
+          {label}
         </button>
       )}
       {note && (

@@ -208,6 +208,12 @@ export const AREAS = [
     pytest: [`${PY}/domains/**`],
   },
   {
+    name: 'web',
+    title: 'Marketing site (apps/web): the macOS landing page and its platform check',
+    app: ['apps/web/**'],
+    unit: ['apps/web/tests/**'],
+  },
+  {
     name: 'tooling',
     title:
       'Repo scripts and the Docker backend: dev, live, start, camera launch, checks, test selection',

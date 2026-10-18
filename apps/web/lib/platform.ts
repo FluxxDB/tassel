@@ -1,5 +1,5 @@
 // Which OS the visitor is on, from the browser's user agent. Tassel ships for macOS only, so the
-// download buttons only need to tell a Mac from everything else, and name the "everything else".
+// download buttons only need to tell a Mac from everything else.
 export type Platform =
   | 'mac'
   | 'windows'
@@ -9,17 +9,6 @@ export type Platform =
   | 'iphone'
   | 'ipad'
   | 'unknown';
-
-/** Display names for the "Not available for …" label. */
-export const PLATFORM_NAMES: Record<Exclude<Platform, 'mac'>, string> = {
-  windows: 'Windows',
-  linux: 'Linux',
-  chromeos: 'ChromeOS',
-  android: 'Android',
-  iphone: 'iPhone',
-  ipad: 'iPad',
-  unknown: 'this device',
-};
 
 export interface PlatformHints {
   userAgent: string;

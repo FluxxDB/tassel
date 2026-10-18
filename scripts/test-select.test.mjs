@@ -286,6 +286,7 @@ test('the checkout has tests of every kind to place', () => {
   assert.ok(real.node.includes('scripts/test-select.test.mjs'), 'pnpm test runs this file');
   assert.deepEqual(realPackages.map(({ dir }) => dir).sort(), [
     'apps/desktop',
+    'apps/web',
     'packages/paper-synth',
     'packages/shared',
   ]);
