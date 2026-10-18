@@ -30,6 +30,7 @@ Commands (ITEM is a board item's id; EL is "start", a state such as "q0", or an 
 """
 
 import re
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
@@ -102,6 +103,9 @@ class BoardContext:
     paper_spec: AutomatonSpec | None = None
     # The student's image on stage, or the latest she sent: what [[image …]] tags act on.
     image: StageImage | None = None
+    # Moves a mark's box onto her ink on the paper_frame it names: (frame id, refine), where
+    # refine(verb, box) gives the box on her ink or None (tassel.vision.ink_boxes).
+    paper_ink: tuple[str, Callable[[str, dict[str, float]], dict[str, float] | None]] | None = None
     # Her edit history: the board (automata and diagrams) as it was before each of her last
     # drawing turns, newest last, so [[undo]] can put it back (owner, 2026-10-18).
     history: list[tuple[dict[str, AutomatonSpec], dict[str, DiagramSpec]]] = field(
@@ -758,7 +762,9 @@ def _verdict(args: list[_Arg]) -> BeatAction:
 
 
 def _mark(verb: str, args: list[_Arg], ctx: BoardContext) -> BeatAction:
-    action = _make(PaperMarkAction, mark=_mark_spec(verb, args, ctx, _paper_target))
+    mark = _mark_spec(verb, args, ctx, _paper_target)
+    mark["target"] = _on_ink(verb, mark["target"], ctx)
+    action = _make(PaperMarkAction, mark=mark)
     ctx.next_mark += 1
     return action
 
@@ -835,6 +841,36 @@ def _between(args: list[_Arg], low: int, high: int | None, usage: str) -> list[s
     if len(args) < low or (high is not None and len(args) > high):
         raise MarkupError(f"usage: {usage}")
     return [arg.text for arg in args]
+
+
+# Marks whose line must find her ink's own edge, not a marker's padded box: an underline
+# under a padded label ran into the line below on her tight lines (live, 2026-10-18).
+_ON_INK = {"underline", "strike"}
+
+
+def _on_ink(verb: str, target: dict[str, Any], ctx: BoardContext) -> dict[str, Any]:
+    """A box target moved onto the ink it points at, and an underline's or strike's handwriting
+    marker turned into its ink's box, when this turn's paper has the ink; else `target`."""
+    if ctx.paper_ink is None or ctx.paper_frame is None or ctx.paper_ink[0] != ctx.paper_frame.id:
+        return target
+    refine = ctx.paper_ink[1]
+    if "box" in target:
+        refined = refine(verb, target["box"])
+        return target if refined is None else {"box": refined}
+    detected = ctx.paper_elements.detected if ctx.paper_elements else None
+    if verb not in _ON_INK or detected is None or not detected.width or not detected.height:
+        return target
+    item = next((i for i in detected.items if i.id == target.get("el")), None)
+    if item is None or item.kind != "label":
+        return target
+    box = {
+        "x": item.box.x / detected.width,
+        "y": item.box.y / detected.height,
+        "w": item.box.w / detected.width,
+        "h": item.box.h / detected.height,
+    }
+    refined = refine(verb, box)
+    return target if refined is None else {"box": refined}
 
 
 def _paper_target(text: str) -> dict[str, Any]:

@@ -93,9 +93,19 @@ async def test_the_ip_she_wrote_resolves_to_its_marker(page):
     assert (freeze, tag) == ("[[freeze]]", f"[[underline {page.ip.id}]]")
     ctx = board(page)
     action = parse_command(tag[2:-2], ctx)
-    assert action.mark.target.el == page.ip.id
     [item] = [e for e in ctx.paper_elements.detected.items if e.id == page.ip.id]
     assert iou((item.box.x, item.box.y, item.box.w, item.box.h), page.truth) >= 0.5
+    # The underline goes under the IP's own ink, not under its marker's padded box.
+    assert_under_the_ip(action.mark.target.box.model_dump(), page)
+
+
+def assert_under_the_ip(got, page):
+    x, y, w, h = page.truth
+    W, H = page.view.width, page.view.height
+    assert got["x"] * W == pytest.approx(x, abs=0.02 * w)
+    assert got["w"] * W == pytest.approx(w, abs=0.04 * w)
+    assert got["y"] * H == pytest.approx(y, abs=0.1 * h)
+    assert y + h - 2 <= (got["y"] + got["h"]) * H <= y + 1.3 * h
 
 
 @pytest.mark.asyncio
@@ -122,8 +132,7 @@ async def test_a_box_when_no_marker_fits(page, answer):
     [_, tag] = mark_tags(resolved)
     assert tag == f"[[underline {where}]]"
     mark = BEAT_ACTION.dump_python(parse_command(tag[2:-2], board(page)), mode="json")["mark"]
-    got = mark["target"]["box"]
-    assert got == pytest.approx(box, abs=0.001)
+    assert_under_the_ip(mark["target"]["box"], page)
     assert any(e == "pointer_brief" and d.get("box") == where for e, d in logs)
 
 
