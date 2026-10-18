@@ -20,12 +20,13 @@ export function Avatar({
   const hair = COLORS.hair[p.hairColor];
   const skin = COLORS.skin[p.skin];
   const outfit = COLORS.outfit[p.outfitColor];
-  const scarf = p.hair === 'headscarf';
+  const scarf = p.hat === 'headscarf';
+  const hat = COLORS.hair[p.hatColor];
   const happy = celebrating || p.face === 'happy';
   const eyes = happy
     ? 'M77 100l8-7 8 7 M110 100l8-7 8 7'
     : p.face === 'sideways'
-      ? 'M79 92l9 6-9 6 M112 92l9 6-9 6'
+      ? 'M81 92.5l9 6-9 6 M114 92.5l9 6-9 6'
       : p.face === 'sleepy'
         ? 'M78 99q8 6 16 0 M110 99q8 6 16 0'
         : 'M85 96v5 M118 96v5';
@@ -38,6 +39,7 @@ export function Avatar({
       data-speaking={speaking && !celebrating}
       data-outfit={p.outfit}
       data-hair={p.hair}
+      data-hat={p.hat}
       data-face={celebrating ? 'celebration' : p.face}
       style={
         { '--avatar-hair': hair, '--avatar-skin': skin, '--avatar-outfit': outfit } as CSSProperties
@@ -64,7 +66,7 @@ export function Avatar({
           />
         </linearGradient>
       </defs>
-      <g fill={`url(#${id}-hair)`}>
+      <g fill={`url(#${id}-hair)`} visibility={scarf ? 'hidden' : undefined}>
         {p.hair === 'ponytail' && (
           <path d="M125 48Q184 28 176 95Q170 131 145 149Q156 106 128 78Z" />
         )}
@@ -83,8 +85,8 @@ export function Avatar({
         )}
         <path d="M55 90Q48 32 102 30Q157 32 150 94L142 119H63Z" />
       </g>
-      {scarf && <path d="M45 92Q43 23 102 23Q164 23 162 93L169 164Q101 191 34 164Z" fill={hair} />}
-      <path d="M89 124H114V164H89Z" fill={skin} />
+      {scarf && <path d="M45 92Q43 23 102 23Q164 23 162 93L169 164Q101 191 34 164Z" fill={hat} />}
+      <path d="M89 124H114V164H89Z" fill={scarf ? hat : skin} />
       <g clipPath={`url(#${id}-body)`}>
         <path d={body} fill={outfit} />
         {dress && (
@@ -163,7 +165,7 @@ export function Avatar({
       {scarf ? (
         <path
           d="M58 93Q50 41 102 34Q155 40 147 93Q124 59 99 53Q87 78 58 93ZM58 113Q69 147 102 151Q136 146 147 113L154 163Q99 182 49 162Z"
-          fill={hair}
+          fill={hat}
         />
       ) : (
         <path
@@ -179,6 +181,26 @@ export function Avatar({
           fill={`url(#${id}-hair)`}
         />
       )}
+      {p.hat === 'cap' && (
+        <g fill={hat}>
+          <path d="M52 74Q53 26 103 24Q151 26 152 74Q101 61 52 74Z" />
+          <path d="M51 71Q103 58 155 72L172 82Q131 93 100 76Q73 83 51 80Z" />
+          <path d="M104 29V64" fill="none" stroke="#fff9f3" strokeOpacity=".2" strokeWidth="2" />
+        </g>
+      )}
+      {p.hat === 'beanie' && (
+        <g fill={hat}>
+          <path d="M49 70Q50 23 102 21Q154 23 155 70Z" />
+          <rect x="49" y="61" width="106" height="21" rx="7" />
+          <path
+            d="M58 65v12m12-12v12m12-12v12m12-12v12m12-12v12m12-12v12m12-12v12m12-12v12"
+            stroke="#fff9f3"
+            strokeOpacity=".2"
+            strokeWidth="2"
+          />
+          <circle cx="102" cy="22" r="10" />
+        </g>
+      )}
       <g
         fill="none"
         stroke="#30232b"
@@ -186,7 +208,7 @@ export function Avatar({
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <path d={eyes} />
+        <path data-testid="avatar-eyes" d={eyes} />
         <path className="avatar-mouth-rest" d="M94 112q0 12 8 12t8-12" />
         <path className="avatar-mouth avatar-mouth-closed" d="M96 117h12" />
         <ellipse
@@ -212,7 +234,7 @@ export function Avatar({
         <ellipse cx="77" cy="111" rx="7" ry="3" />
         <ellipse cx="128" cy="111" rx="7" ry="3" />
       </g>
-      {p.accessory === 'clip' && (
+      {p.accessory === 'clip' && p.hat === 'none' && (
         <path d="M129 62l11 8" stroke="#e0b1e5" strokeWidth="7" strokeLinecap="round" />
       )}
       {p.accessory === 'glasses' && (
@@ -222,13 +244,13 @@ export function Avatar({
           <path d="M98 98h7M65 95l7 2m59 0 9-3" />
         </g>
       )}
-      {p.accessory === 'earrings' && (
+      {p.accessory === 'earrings' && !scarf && (
         <g fill="none" stroke="#e2be6b" strokeWidth="3">
           <circle cx="62" cy="116" r="6" />
           <circle cx="142" cy="116" r="6" />
         </g>
       )}
-      {p.accessory === 'stars' && (
+      {p.accessory === 'stars' && p.hat === 'none' && (
         <path d="M136 56l3 7 8 1-6 5 2 8-7-4-7 4 2-8-6-5 8-1Z" fill="#f0d08c" />
       )}
     </svg>

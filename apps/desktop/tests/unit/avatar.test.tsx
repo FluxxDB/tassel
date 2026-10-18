@@ -111,3 +111,24 @@ it('migrates placeholder voices without discarding appearance or enabling speech
   expect(saved.voiceEs).toBe('off');
   expect(saved.voiceKo).toBe('off');
 });
+
+it('migrates the old headscarf hairstyle into a hat without changing its color', () => {
+  const migrated = readAvatar({ hair: 'headscarf', hairColor: 'plum', name: 'Nova' });
+  expect(migrated.hat).toBe('headscarf');
+  expect(migrated.hatColor).toBe('plum');
+  expect(migrated.hair).toBe('ponytail');
+  expect(migrated.name).toBe('Nova');
+  expect(HAIR).not.toContain('headscarf');
+});
+it('cycles hats independently from the hairstyle', async () => {
+  await open();
+  fireEvent.click(screen.getByRole('button', { name: 'Next Hat' }));
+  expect(screen.getByTestId('avatar-preview').querySelector('svg')).toHaveAttribute(
+    'data-hat',
+    'cap',
+  );
+  expect(screen.getByTestId('avatar-preview').querySelector('svg')).toHaveAttribute(
+    'data-hair',
+    'ponytail',
+  );
+});

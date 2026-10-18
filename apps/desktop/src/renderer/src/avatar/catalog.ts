@@ -1,6 +1,6 @@
 import voiceCatalog from './voices.json';
 
-export const HAIR = ['ponytail', 'bob', 'long', 'pixie', 'curls', 'buns', 'headscarf'] as const;
+export const HAIR = ['ponytail', 'bob', 'long', 'pixie', 'curls', 'buns'] as const;
 export const HAIR_COLORS = [
   'espresso',
   'chestnut',
@@ -11,6 +11,8 @@ export const HAIR_COLORS = [
   'plum',
   'blue',
 ] as const;
+export const HATS = ['none', 'cap', 'beanie', 'headscarf'] as const;
+export const HAT_COLORS = HAIR_COLORS;
 export const OUTFITS = ['sweater', 'collar', 'hoodie', 'overalls', 'dress'] as const;
 export const OUTFIT_COLORS = ['lilac', 'sage', 'peach', 'navy', 'cream'] as const;
 export const ACCESSORIES = ['none', 'clip', 'glasses', 'earrings', 'stars'] as const;
@@ -64,6 +66,8 @@ export interface AvatarProfile {
   voiceEs: string;
   voiceKo: string;
   hair: (typeof HAIR)[number];
+  hat: (typeof HATS)[number];
+  hatColor: (typeof HAT_COLORS)[number];
   hairColor: (typeof HAIR_COLORS)[number];
   outfit: (typeof OUTFITS)[number];
   outfitColor: (typeof OUTFIT_COLORS)[number];
@@ -77,6 +81,8 @@ export const DEFAULT_AVATAR: AvatarProfile = {
   voiceEs: 'off',
   voiceKo: 'off',
   hair: 'ponytail',
+  hat: 'none',
+  hatColor: 'chestnut',
   hairColor: 'chestnut',
   outfit: 'sweater',
   outfitColor: 'lilac',
@@ -94,6 +100,8 @@ export function readAvatar(value: unknown): AvatarProfile {
   if (!value || typeof value !== 'object') return result;
   const fields = {
     hair: HAIR,
+    hat: HATS,
+    hatColor: HAT_COLORS,
     hairColor: HAIR_COLORS,
     outfit: OUTFITS,
     outfitColor: OUTFIT_COLORS,
@@ -105,6 +113,10 @@ export function readAvatar(value: unknown): AvatarProfile {
     const choice = Reflect.get(value, key);
     if (typeof choice === 'string' && (options as readonly string[]).includes(choice))
       Reflect.set(result, key, choice);
+  }
+  if (Reflect.get(value, 'hair') === 'headscarf' && Reflect.get(value, 'hat') === undefined) {
+    result.hat = 'headscarf';
+    result.hatColor = result.hairColor;
   }
   for (const lang of VOICE_LANGUAGES) {
     const field = VOICE_FIELDS[lang];

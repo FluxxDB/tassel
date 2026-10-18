@@ -66,7 +66,7 @@ test('outfits stay aligned and speaking animates only while the tutor speaks', a
       await snap(page, `avatar-outfit-${outfit}`);
       await page.getByRole('button', { name: 'Next Outfit', exact: true }).click();
     }
-    for (let hair = 0; hair < 7; hair++) {
+    for (let hair = 0; hair < 6; hair++) {
       for (let outfit = 0; outfit < 5; outfit++) {
         const preview = page.getByTestId('avatar-preview');
         const svg = preview.locator('svg');
@@ -158,17 +158,17 @@ test('dress, material contrast and real voice choices stay offline', async () =>
   });
   try {
     await page.getByRole('button', { name: 'Customize tutor' }).click();
-    await expect(page.getByLabel('English voice')).toHaveCount(0);
+    await expect(page.getByLabel('English voice', { exact: true })).toHaveCount(0);
     await page.getByRole('tab', { name: 'Body', exact: true }).click();
-    await expect(page.getByLabel('English voice')).toHaveValue('off');
+    await expect(page.getByLabel('English voice', { exact: true })).toHaveValue('off');
     await page.getByRole('button', { name: 'Skin tone 7', exact: true }).click();
     const voice = await page
-      .getByLabel('English voice')
+      .getByLabel('English voice', { exact: true })
       .locator('option')
       .nth(1)
       .getAttribute('value');
     expect(voice).toBeTruthy();
-    await page.getByLabel('English voice').selectOption(voice || 'off');
+    await page.getByLabel('English voice', { exact: true }).selectOption(voice || 'off');
     await snap(page, 'avatar-material-boundaries');
     await page.getByRole('tab', { name: 'Style', exact: true }).click();
     for (let step = 0; step < 3; step++) {
@@ -177,7 +177,7 @@ test('dress, material contrast and real voice choices stay offline', async () =>
     }
     await snap(page, 'avatar-navy-overalls');
     await page.getByRole('button', { name: 'Next Outfit', exact: true }).click();
-    await page.getByRole('button', { name: 'Previous Hair style', exact: true }).click();
+    await page.getByRole('button', { name: 'Previous Hat', exact: true }).click();
     await expect(page.getByTestId('dress-layer')).toBeVisible();
     await snap(page, 'avatar-headscarf-dress');
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
@@ -189,8 +189,95 @@ test('dress, material contrast and real voice choices stay offline', async () =>
       'dress',
     );
     await page.getByRole('tab', { name: 'Body', exact: true }).click();
-    await expect(page.getByLabel('English voice')).toHaveValue(voice || 'off');
+    await expect(page.getByLabel('English voice', { exact: true })).toHaveValue(voice || 'off');
     expect(audioRequests).toEqual([]);
+  } finally {
+    await app.close();
+  }
+});
+
+test('hats and centered sideways eyes persist, and previews play only public samples', async () => {
+  const { app, page } = await launchApp();
+  const requests: string[] = [];
+  // Twenty seconds of generated silence, served instead of external audio. Never call a provider.
+  const wav = Buffer.alloc(44 + 16000 * 2 * 20);
+  wav.write('RIFF', 0);
+  wav.writeUInt32LE(wav.length - 8, 4);
+  wav.write('WAVEfmt ', 8);
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(16000, 24);
+  wav.writeUInt32LE(32000, 28);
+  wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write('data', 36);
+  wav.writeUInt32LE(wav.length - 44, 40);
+  const serve = async (route: import('@playwright/test').Route) => {
+    const request = route.request();
+    requests.push(request.url());
+    expect(request.method()).toBe('GET');
+    expect(request.url()).not.toContain('text-to-speech');
+    await route.fulfill({ status: 200, contentType: 'audio/wav', body: wav });
+  };
+  await page.route('https://api.us.elevenlabs.io/**', serve);
+  await page.route('https://storage.googleapis.com/eleven-public-prod/**', serve);
+  try {
+    await page.getByRole('button', { name: 'Customize tutor' }).click();
+    for (const hat of ['cap', 'beanie', 'headscarf']) {
+      await page.getByRole('button', { name: 'Next Hat', exact: true }).click();
+      await expect(page.getByTestId('avatar-preview').locator('svg')).toHaveAttribute(
+        'data-hat',
+        hat,
+      );
+      await snap(page, `avatar-hat-${hat}`);
+    }
+    await page.getByRole('button', { name: 'Next Hat', exact: true }).click();
+    await page.getByRole('tab', { name: 'Body', exact: true }).click();
+    await page.getByRole('button', { name: 'Next Face style', exact: true }).click();
+    await page.getByRole('button', { name: 'Next Face style', exact: true }).click();
+    const eyes = await page
+      .getByTestId('avatar-preview')
+      .getByTestId('avatar-eyes')
+      .evaluate((node) => {
+        const box = (node as unknown as SVGGraphicsElement).getBBox();
+        return { centerX: box.x + box.width / 2, centerY: box.y + box.height / 2 };
+      });
+    expect(eyes).toEqual({ centerX: 102, centerY: 98.5 });
+    await snap(page, 'avatar-sideways-centered');
+    const voice = await page
+      .getByLabel('English voice', { exact: true })
+      .locator('option')
+      .nth(1)
+      .getAttribute('value');
+    await page.getByLabel('English voice', { exact: true }).selectOption(voice || 'off');
+    expect(requests).toHaveLength(0);
+    await page.getByRole('button', { name: 'Preview English voice', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Stop preview English voice', exact: true }),
+    ).toBeVisible();
+    await expect.poll(() => requests.length).toBeGreaterThan(0);
+    await expect(
+      page.getByRole('button', { name: 'Preview English voice', exact: true }),
+    ).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Preview English voice', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Stop preview English voice', exact: true }),
+    ).toBeVisible();
+    await page.getByRole('tab', { name: 'Style', exact: true }).click();
+    await page.getByRole('button', { name: 'Next Hat', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.reload();
+    await page.getByRole('button', { name: 'Customize tutor' }).click();
+    await expect(page.getByTestId('avatar-preview').locator('svg')).toHaveAttribute(
+      'data-hat',
+      'cap',
+    );
+    await page.getByRole('tab', { name: 'Body', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Preview English voice', exact: true }),
+    ).toBeVisible();
   } finally {
     await app.close();
   }

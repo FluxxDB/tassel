@@ -355,7 +355,9 @@
       "outfit": "Outfit",
       "outfitColor": "Outfit color",
       "accessory": "Accessory",
-      "face": "Face style"
+      "face": "Face style",
+      "hat": "Hat",
+      "hatColor": "Hat color"
     },
     "options": {
       "ponytail": "Ponytail",
@@ -394,15 +396,22 @@
       "gentle": "Gentle",
       "bright": "Bright",
       "calm": "Calm",
-      "dress": "Dress"
+      "dress": "Dress",
+      "cap": "Cap",
+      "beanie": "Beanie"
     },
     "voiceOff": "Off · no ElevenLabs audio",
     "voiceDisabled": "ElevenLabs is off. These choices are saved for later and will not generate audio.",
-    "voiceLibraryNote": "Library voices need account access and listening checks before live use. No audio previews are loaded.",
+    "voiceLibraryNote": "Play listens to an existing public sample for up to 8 seconds. Live speech stays off.",
     "voiceLanguages": {
       "en": "English voice",
       "es": "Spanish voice",
       "ko": "Korean voice"
-    }
+    },
+    "play": "Play",
+    "stop": "Stop",
+    "playPreview": "Preview {language}",
+    "stopPreview": "Stop preview {language}",
+    "previewUnavailable": "Preview unavailable. No audio was generated."
   }
 }

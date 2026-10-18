@@ -140,3 +140,29 @@ Validation: the new dress framing assertion failed against the expanded version
 and passes with this correction. Nine avatar unit tests, TypeScript, focused
 Biome checks, build, and two Electron outfit/offline-voice specs passed. Reviewed
 the corrected dress screenshot. Checks used the existing fake-only team2 setup.
+
+## Hats, sample playback and sideways-eye alignment
+
+Hats now have separate style/color rows: none, cap, beanie and headscarf. Hair
+retains six hairstyles independently. Legacy `hair=headscarf` saves migrate to
+`hat=headscarf`, preserving their scarf color and name while choosing a hidden
+ponytail as the underlying hair. Headscarves hide hair and cover the neck;
+covered clips/star pins/earrings are suppressed without deleting preferences.
+Cap and beanie layers leave the underlying hairstyle intact. All artwork remains
+bust-only, without the removed external outlines.
+
+The sideways eye pair is recentered on x=102 and y=98.5, leaving its mouth and
+other faces alone. The new preview player uses only existing public audio GETs,
+never synthesis. It loads only on Play, permits one clip at a time, stops at eight
+seconds, cancels on selection/tab/save/reset/close/unmount, and rejects stale
+loading completions. Missing/expired samples show an unavailable message with
+no paid fallback. CSP permits media only from self and the two stored public
+preview hosts. Live TTS defaults and voice settings remain unchanged/off.
+
+Validation: 68 desktop unit tests and repository checks passed; final TypeScript
+and build passed. All five Electron avatar scenarios passed across focused runs,
+including actual playback of mocked silent WAV media under the app's CSP,
+eight-second stopping, no requests before Play, hat persistence, and exact eye
+bounding-box alignment. Tests never contacted a provider. Hat and sideways-face
+screenshots were reviewed. The existing team2 port/database and fake capture
+were used. See the ElevenLabs catalog handoff for the updated preview contract.

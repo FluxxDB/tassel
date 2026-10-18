@@ -12,6 +12,8 @@ import {
   FACES,
   HAIR,
   HAIR_COLORS,
+  HAT_COLORS,
+  HATS,
   OUTFIT_COLORS,
   OUTFITS,
   SKINS,
@@ -20,6 +22,7 @@ import {
   VOICES,
 } from './catalog';
 import { useAvatar } from './store';
+import { type PreviewState, publicPreviewUrl, VoicePreviewPlayer } from './voice-preview';
 import './avatar.css';
 
 export function AvatarCustomizer({
@@ -39,24 +42,33 @@ export function AvatarCustomizer({
       className="avatar-customizer isolate max-w-[860px]"
     >
       {/* Sheet owns unmounting after its exit animation; keep the editor intact until then. */}
-      <Editor onClose={() => onOpenChange(false)} />
+      <Editor open={open} onClose={() => onOpenChange(false)} />
     </Sheet>
   );
 }
 const SPARKS = Array.from({ length: 24 }, (_, i) => i * 15);
 
-function Editor({ onClose }: { onClose(): void }) {
+function Editor({ open, onClose }: { open: boolean; onClose(): void }) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState(() => ({ ...useAvatar.getState().profile }));
   const [tab, setTab] = useState<'style' | 'body'>('style');
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(false);
+  const [preview, setPreview] = useState<PreviewState>(null);
+  const [player] = useState(() => new VoicePreviewPlayer(setPreview));
+  useEffect(() => () => player.dispose(), [player]);
+  useEffect(() => {
+    if (!open) player.stop();
+  }, [open, player]);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const saving = useRef(false);
   useEffect(() => () => clearTimeout(timer.current), []);
-  const update = (key: keyof AvatarProfile, value: string) =>
+  const update = (key: keyof AvatarProfile, value: string) => {
+    player.stop();
     setDraft((current) => ({ ...current, [key]: value }));
+  };
   const save = () => {
+    player.stop();
     if (saving.current) return;
     saving.current = true;
     try {
@@ -164,7 +176,10 @@ function Editor({ onClose }: { onClose(): void }) {
                 tabIndex={tab === value ? 0 : -1}
                 aria-controls={`avatar-panel-${value}`}
                 id={`avatar-tab-${value}`}
-                onClick={() => setTab(value)}
+                onClick={() => {
+                  player.stop();
+                  setTab(value);
+                }}
                 onKeyDown={(event) => {
                   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
                   event.preventDefault();
@@ -176,6 +191,7 @@ function Editor({ onClose }: { onClose(): void }) {
                         : value === 'style'
                           ? 'body'
                           : 'style';
+                  player.stop();
                   setTab(next);
                   document.getElementById(`avatar-tab-${next}`)?.focus();
                 }}
@@ -190,6 +206,8 @@ function Editor({ onClose }: { onClose(): void }) {
               <>
                 {row('hair', HAIR)}
                 {row('hairColor', HAIR_COLORS)}
+                {row('hat', HATS)}
+                {row('hatColor', HAT_COLORS)}
                 {row('outfit', OUTFITS)}
                 {row('outfitColor', OUTFIT_COLORS)}
                 {row('accessory', ACCESSORIES)}
@@ -224,23 +242,57 @@ function Editor({ onClose }: { onClose(): void }) {
                 {row('face', FACES)}
                 <fieldset className="mt-4 flex min-w-0 flex-col gap-3">
                   <legend className="mb-2 text-sm font-w520">{t('avatar.voice')}</legend>
-                  {VOICE_LANGUAGES.map((lang) => (
-                    <label key={lang} className="flex min-w-0 flex-col gap-1 text-[13px]">
-                      {t(`avatar.voiceLanguages.${lang}`)}
-                      <select
-                        value={draft[VOICE_FIELDS[lang]]}
-                        onChange={(event) => update(VOICE_FIELDS[lang], event.target.value)}
-                        className="w-full min-w-0 rounded-input border border-hairline bg-paper p-2 text-ink"
-                      >
-                        <option value="off">{t('avatar.voiceOff')}</option>
-                        {VOICES.filter((voice) => voice.language === lang).map((voice) => (
-                          <option key={voice.id} value={voice.id}>
-                            {voice.name} · {voice.accent}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ))}
+                  {VOICE_LANGUAGES.map((lang) => {
+                    const voice = VOICES.find(
+                      (item) => item.id === draft[VOICE_FIELDS[lang]] && item.language === lang,
+                    );
+                    const active =
+                      !!voice &&
+                      preview?.id === `${lang}:${voice.id}` &&
+                      preview.status !== 'error';
+                    return (
+                      <div key={lang} className="flex min-w-0 flex-col gap-1 text-[13px]">
+                        <label htmlFor={`avatar-voice-${lang}`}>
+                          {t(`avatar.voiceLanguages.${lang}`)}
+                        </label>
+                        <div className="flex min-w-0 gap-2">
+                          <select
+                            id={`avatar-voice-${lang}`}
+                            value={draft[VOICE_FIELDS[lang]]}
+                            onChange={(event) => update(VOICE_FIELDS[lang], event.target.value)}
+                            className="w-full min-w-0 rounded-input border border-hairline bg-paper p-2 text-ink"
+                          >
+                            <option value="off">{t('avatar.voiceOff')}</option>
+                            {VOICES.filter((item) => item.language === lang).map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.name} · {item.accent}
+                              </option>
+                            ))}
+                          </select>
+                          <Button
+                            variant="ghost"
+                            disabled={!voice || !publicPreviewUrl(voice.previewUrl)}
+                            aria-label={t(active ? 'avatar.stopPreview' : 'avatar.playPreview', {
+                              language: t(`avatar.voiceLanguages.${lang}`),
+                            })}
+                            onClick={() => {
+                              if (active) player.stop();
+                              else if (voice)
+                                void player.play(`${lang}:${voice.id}`, voice.previewUrl);
+                            }}
+                          >
+                            {t(active ? 'avatar.stop' : 'avatar.play')}
+                          </Button>
+                        </div>
+                        {voice &&
+                          (!publicPreviewUrl(voice.previewUrl) ||
+                            (preview?.id === `${lang}:${voice.id}` &&
+                              preview.status === 'error')) && (
+                            <p role="status">{t('avatar.previewUnavailable')}</p>
+                          )}
+                      </div>
+                    );
+                  })}
                   <p className="text-[13px] text-smoke-text">{t('avatar.voiceDisabled')}</p>
                   <p className="text-[12px] text-smoke-text">{t('avatar.voiceLibraryNote')}</p>
                 </fieldset>
@@ -250,11 +302,25 @@ function Editor({ onClose }: { onClose(): void }) {
         </div>
       </fieldset>
       <div className="sticky bottom-0 z-30 flex flex-wrap items-center gap-2 border-t border-hairline bg-paper py-4">
-        <Button variant="ghost" disabled={saved} onClick={() => setDraft({ ...DEFAULT_AVATAR })}>
+        <Button
+          variant="ghost"
+          disabled={saved}
+          onClick={() => {
+            player.stop();
+            setDraft({ ...DEFAULT_AVATAR });
+          }}
+        >
           {t('avatar.reset')}
         </Button>
         <div className="flex-1" />
-        <Button variant="ghost" disabled={saved} onClick={onClose}>
+        <Button
+          variant="ghost"
+          disabled={saved}
+          onClick={() => {
+            player.stop();
+            onClose();
+          }}
+        >
           {t('common.cancel')}
         </Button>
         <Button disabled={saved} onClick={save}>

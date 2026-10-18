@@ -355,7 +355,9 @@
       "outfit": "Ropa",
       "outfitColor": "Color de ropa",
       "accessory": "Accesorio",
-      "face": "Expresión"
+      "face": "Expresión",
+      "hat": "Sombrero",
+      "hatColor": "Color del sombrero"
     },
     "options": {
       "ponytail": "Coleta",
@@ -394,15 +396,22 @@
       "gentle": "Suave",
       "bright": "Alegre",
       "calm": "Tranquila",
-      "dress": "Vestido"
+      "dress": "Vestido",
+      "cap": "Gorra",
+      "beanie": "Gorro"
     },
     "voiceOff": "Desactivada · sin audio de ElevenLabs",
     "voiceDisabled": "ElevenLabs está desactivado. Estas opciones se guardan para más adelante y no generarán audio.",
-    "voiceLibraryNote": "Las voces requieren acceso de la cuenta y una revisión antes de usarlas. No se cargan muestras de audio.",
+    "voiceLibraryNote": "Escuchar reproduce una muestra pública de hasta 8 segundos. La voz en directo sigue desactivada.",
     "voiceLanguages": {
       "en": "Voz en inglés",
       "es": "Voz en español",
       "ko": "Voz en coreano"
-    }
+    },
+    "play": "Escuchar",
+    "stop": "Detener",
+    "playPreview": "Escuchar {language}",
+    "stopPreview": "Detener muestra {language}",
+    "previewUnavailable": "Muestra no disponible. No se generó audio."
   }
 }

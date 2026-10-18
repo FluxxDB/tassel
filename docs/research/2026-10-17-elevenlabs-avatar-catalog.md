@@ -84,7 +84,7 @@ References:
 4. Keep existing environment voice overrides and language routing intentional,
    and document which source wins. Revalidate retired/unavailable IDs gracefully.
 5. Treat stored preview URLs only as metadata until preview use is authorized.
-   Do not fetch them automatically. Never ship or log the provider API key.
+   Fetch only on an explicit Play click; never fetch automatically. Never ship or log the provider API key.
 
 ## Validation
 
@@ -93,3 +93,25 @@ and credential-safe errors. Two Node tests verify default-off TTS even with a
 key/global-live mode, while preserving an explicit owner override. Avatar tests
 verify off defaults and migration. Electron verifies that voice choices are only
 on Body, persist after reload, and make no ElevenLabs or media requests.
+
+
+## Public sample playback (now implemented)
+
+The owner authorized playing existing public voice samples, not paid synthesis.
+Each language selector now has Play/Stop. Playback makes an ordinary media GET
+of the existing catalog URL, never a text-to-speech request and never with an API
+key. It is user initiated, single-clip, and capped at eight seconds. Changing a
+choice or tab, saving, resetting, closing or unmounting stops the clip and clears
+the source. Failures show an unavailable message without a generated fallback.
+A loading timeout and stale-promise guard prevent delayed playback after closing.
+
+Only HTTPS `storage.googleapis.com/eleven-public-prod/…` and the exact public
+`api.us.elevenlabs.io/v1/voices/<id>/previews/audio` path are accepted. CSP adds
+only these media hosts, preserving local media support and existing connection
+rules. Signed previews may expire; no automatic catalog refresh occurs. The
+owner can explicitly refresh metadata with the existing script if needed.
+
+Live synthesis remains off and all voice preferences still default to off. A
+preview button is not an enable switch for live speech. Agent tests serve
+locally generated silent WAVs at intercepted preview URLs; they do not contact
+providers or play a real ElevenLabs sample.
