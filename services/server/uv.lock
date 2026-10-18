@@ -1421,6 +1421,7 @@ dependencies = [
     { name = "numpy" },
     { name = "openai" },
     { name = "opencv-python-headless" },
+    { name = "pillow" },
     { name = "pipecat-ai", extra = ["deepgram", "webrtc"] },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
@@ -1433,7 +1434,6 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "httpx" },
-    { name = "pillow" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
@@ -1451,6 +1451,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.5,<3" },
     { name = "openai", specifier = ">=3.31,<4" },
     { name = "opencv-python-headless", specifier = "==4.14.0.94" },
+    { name = "pillow", specifier = ">=12" },
     { name = "pipecat-ai", extras = ["deepgram", "webrtc"], specifier = "==1.12.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3" },
     { name = "pydantic", specifier = ">=2" },
@@ -1463,7 +1464,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "httpx" },
-    { name = "pillow", specifier = ">=12" },
     { name = "pytest" },
     { name = "pytest-asyncio", specifier = ">=1.4" },
     { name = "ruff" },

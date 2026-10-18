@@ -42,11 +42,13 @@ class BeatTagProcessor(FrameProcessor):
         lang: Callable[[], Lang],
         board: BoardContext,
         transcript=None,
+        on_actions=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self._events = events
         self._transcript = transcript
+        self._on_actions = on_actions
         self._lang = lang
         self._board = board
         self._stream = MarkupStream(board)
@@ -77,6 +79,8 @@ class BeatTagProcessor(FrameProcessor):
                 lang=self._lang(),
             )
             await self._events.send(BeatEvent(beat=beat))
+            if self._on_actions:
+                self._on_actions([marker.action for marker in beat.markers])
             if sentence.clean:
                 await self.push_frame(frame)
 

@@ -1,6 +1,7 @@
 """Tutoring sessions, always scoped to one learner. Each write commits."""
 
 import uuid
+from typing import Any
 
 from sqlalchemy import ColumnElement, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -75,3 +76,26 @@ async def delete_for(db: AsyncSession, learner_id: uuid.UUID, session_id: uuid.U
     )
     await db.commit()
     return deleted_id is not None
+
+
+async def load_board_actions(
+    db: AsyncSession, learner_id: uuid.UUID, session_id: uuid.UUID
+) -> list[dict[str, Any]]:
+    return (
+        await db.scalar(
+            select(TutoringSession.board_actions).where(*_owned(learner_id, session_id))
+        )
+        or []
+    )
+
+
+async def save_board_actions(
+    db: AsyncSession,
+    learner_id: uuid.UUID,
+    session_id: uuid.UUID,
+    actions: list[dict[str, Any]],
+) -> None:
+    await db.execute(
+        update(TutoringSession).where(*_owned(learner_id, session_id)).values(board_actions=actions)
+    )
+    await db.commit()

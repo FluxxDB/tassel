@@ -15,7 +15,9 @@ from sqlalchemy import (
     Text,
     column,
     func,
+    text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from tassel.models import Lang, SessionType, Source, TitleSource
@@ -71,6 +73,9 @@ class TutoringSession(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     learner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("learners.id"))
+    board_actions: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, server_default=text("'[]'::jsonb")
+    )
     title: Mapped[str | None] = mapped_column(Text)
     title_source: Mapped[str | None] = mapped_column(Text)
     subject: Mapped[str | None] = mapped_column(Text)
