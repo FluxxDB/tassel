@@ -16,8 +16,9 @@ Tassel is a live AI tutor for the desktop: an Electron + React app (`apps/deskto
 | Command | What it does |
 |---|---|
 | `pnpm install` | Installs everything, downloads Electron 44.9.0, copies the fonts |
-| `pnpm start` | Shared owner startup: current checkout, saved profile/backend, all features |
-| `pnpm dev` | Postgres, migrations, the server on 8787, then the app (`scripts/dev.mjs`); Ctrl+C stops both |
+| `pnpm start` | Shared startup (`Start-Tassel.cmd` on Windows): current checkout, saved profile and backend overrides, all features, then `pnpm dev` |
+| `pnpm dev` | The backend in Docker (`docker compose up -d --wait --build db s3 server`: Postgres, S3, the server on 8787, migrated, reloading on `src/` edits), then the app on the host (`scripts/dev.mjs`); Ctrl+C stops the app and the server container. `--host-server` runs the server with uv on the host instead |
+| `pnpm live` | The owner's live run on macOS: the same Docker backend with keys from `TASSEL_VOICE_ENV_FILE`, then Tassel through LaunchServices |
 | `pnpm test` | Every package's unit tests (Vitest), then the server's tests (pytest, database `tassel_test`) |
 | `pnpm test:changed` | Only the tests the change needs: everything since the merge-base with the nearest origin branch, committed or not (`scripts/test-changed.mjs`). `--dry-run` prints the plan, `--no-e2e` or `--only unit,pytest` narrows it, `--base <ref>` and `--files a,b` pick the changes |
 | `pnpm test:area <name...>` | Every unit, E2E and server test of the named areas; `--list` names them (`scripts/test-areas.mjs`) |
@@ -68,6 +69,7 @@ A new test or source file goes in an area in `scripts/test-areas.mjs`; `scripts/
 ## Constraints in brief
 
 - **Platforms:** macOS first, Windows too. Scripts are Node with `cross-spawn`, never bash-only.
+- **Same backend everywhere:** `db`, `s3` and `server` run in Docker (`docker-compose.yml`, `services/server/Dockerfile`, started by `scripts/backend.mjs`); Electron, the Desk View helper, camera and microphone stay on the host. Canonical: port 8787, database `tassel`, bucket `tassel-frames`; `.local/start.json` or `TASSEL_PORT`/`TASSEL_DATABASE_URL`/`TASSEL_S3_BUCKET` override them. Provider keys reach the container only as the read-only mounted `TASSEL_VOICE_ENV_FILE` (none: `services/server/no-provider-keys.env`), never in the image or its environment. Tests (pytest, E2E on 8799) keep the server on the host via uv. A new server setting goes in the `server` environment in `docker-compose.yml` (`tests/scripts/test_docker_setup.py` fails until it does).
 - **Electron** stays at exactly 44.9.0 (macOS ties camera and microphone grants to that build), with `contextIsolation` and `sandbox` on and no `nodeIntegration`; the preload bridge is the only IPC surface.
 - **Secrets:** the desktop app holds no provider API keys, only a device token (Electron `safeStorage`, or plaintext JSON when `TASSEL_TOKEN_STORE=file` in dev and E2E). Never read or print `.env` files or tokens.
 - **Origins:** the renderer is `app://tassel` in builds and `http://localhost:5173` in dev; the server's CORS allows exactly those two.

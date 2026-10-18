@@ -10,10 +10,10 @@ The retired `Start-Tassel-Avatar.cmd`, `Start-Tassel-Live-Voice.cmd`, `Start-Tas
 
 The first normal launch records local paths in the primary Git checkout's `.local/start.json`. Git's common directory determines that location, so worktrees use the same settings. The file is ignored and contains infrastructure paths/settings, never provider API key values.
 
-Defaults preserve this machine's existing primary avatar development profile and database:
+Defaults:
 
 - Profile: `<primary-checkout>/.local/avatar-app-data` (saved avatar and local settings).
-- Backend: `http://127.0.0.1:8864`, existing database `tassel_t2_avatar_dev`, bucket `tassel-t2-avatar-dev`. These legacy names preserve existing data; they do not restrict features.
+- Backend: the canonical one (below), `http://127.0.0.1:8787`, database `tassel`, bucket `tassel-frames`. A `.local/start.json` saved by an earlier launch keeps its values, so a machine whose file says `8864`, `tassel_t2_avatar_dev` and `tassel-t2-avatar-dev` keeps reaching that existing data.
 - Provider settings: current/primary `services/server/.env`, with the existing `.local/live-test/services/server/.env` as a migration fallback. Its contents are neither copied nor printed.
 - Local tooling: `<primary-checkout>/.local/tools`, with normal PATH support.
 
@@ -21,7 +21,17 @@ To use another existing installation, configure `userData`, `port`, `databaseUrl
 
 Normal launch uses live voice/provider configuration rather than silently forcing fake TTS or a feature demo. Missing credentials are reported by the existing provider validation. Agent/CI checks continue to use explicit fake-device/provider fixtures; they do not run live startup.
 
-`Start-Tassel.cmd --check` (or `pnpm start --check`) prints the checkout, shared settings/profile paths, server, database name and capture configuration. It does not initialize providers, read key contents, migrate databases or open devices. Close the running app/server before starting a different branch against the same shared profile/backend; an occupied backend port fails clearly instead of attaching to potentially stale code.
+`Start-Tassel.cmd --check` (or `pnpm start --check`) prints the checkout, shared settings/profile paths, server, backend (`docker` or `host`), database name and capture configuration. It does not initialize providers, read key contents, migrate databases or open devices. Close the running app/server before starting a different branch against the same shared profile/backend; an occupied backend port fails clearly instead of attaching to potentially stale code.
+
+## Same setup for every collaborator
+
+Every launcher (`pnpm start`/`Start-Tassel.cmd`, `pnpm dev`, `pnpm live`) starts the same backend, in Docker, through `scripts/backend.mjs`: `docker compose up -d --wait --build db s3 server`. **Docker Desktop is required** (Windows: the WSL 2 backend).
+
+- **In Docker:** `db` (Postgres 17 + pgvector), `s3` (Versity) and `server` (FastAPI + Pipecat from `services/server/Dockerfile`, one Linux image for arm64 and amd64), each on 127.0.0.1 only. The server's container creates and migrates its database at start and reloads on `services/server/src` edits.
+- **On the host:** Electron, the Desk View helper, the camera and the microphone, and the tests (pytest, and the E2E server on 8799, via uv).
+- **Canonical names:** port 8787, database `tassel`, bucket `tassel-frames`. `.local/start.json` (`port`, `databaseUrl`, `s3Bucket`) or `TASSEL_PORT`, `TASSEL_DATABASE_URL`, `TASSEL_S3_BUCKET` override them; the launcher maps the host port and rewrites the database host to the `db` service, so saved databases keep their data. Nothing deletes profiles, databases or volumes.
+- **Provider keys:** the provider settings file above is mounted read-only into the container and read by the server; it's never copied into the image or put in the container's environment.
+- **Escape hatch:** `--host-server` (or `TASSEL_HOST_SERVER=1`) runs the server with uv on the host, as before, with Postgres and S3 still in Docker.
 
 ## Sharing with Claude and other branches
 
