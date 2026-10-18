@@ -11,6 +11,7 @@ from tassel.domains.dfa.contract import DfaReading
 from tassel.domains.dfa.reference import Reference
 from tassel.domains.dfa.regex import compile_regex
 from tassel.domains.dfa.verify import verify
+from tassel.domains.network.check import check_network
 
 
 class TargetLanguage(BaseModel):
@@ -144,6 +145,9 @@ def check_tags(tags, decision, board, language=None, *, allow=allowed):
                         result.repair = "DFA uses a symbol outside the target alphabet."
             except ValueError:
                 result.repair = "The target language could not be verified."
+        for action in actions:
+            if action.kind == "board.diagram":
+                result.repair = check_network(action.spec) or result.repair
         if result.repair:
             # Atomic rejection: no prefix of an incorrect construction reaches the board.
             return CheckedTags([], list(tags), result.repair)
