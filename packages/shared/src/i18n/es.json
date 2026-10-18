@@ -443,11 +443,6 @@
       "percentiles": "p50 {p50} · p90 {p90}",
       "unavailable": "—"
     },
-    "dev": {
-      "label": "Student message",
-      "placeholder": "Type what the student says",
-      "send": "Send"
-    },
     "language": {
       "menu": "Idioma de la sesión",
       "switching": "Cambiando a {language}…",

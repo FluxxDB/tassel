@@ -29,12 +29,7 @@ const logDir = join(root, '.cache', 'live');
 const rendererUrl = 'http://localhost:5173';
 const STARTUP_MS = 60_000;
 /** Desktop settings only a smoke check sets; the owner's run leaves them unset. */
-const FAKE_SETTINGS = [
-  'TASSEL_FAKE_MIC',
-  'TASSEL_FAKE_MIC_LOOP',
-  'TASSEL_REQUIRE_FAKE_CAPTURE',
-  'TASSEL_DEV_CONSOLE',
-];
+const FAKE_SETTINGS = ['TASSEL_FAKE_MIC', 'TASSEL_FAKE_MIC_LOOP', 'TASSEL_REQUIRE_FAKE_CAPTURE'];
 
 const requireFromDesktop = createRequire(join(desktopDir, 'package.json'));
 const electronVite = join(

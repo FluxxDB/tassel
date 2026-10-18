@@ -1,6 +1,6 @@
 // Ada marks the student's own image, end to end on the server's fake providers: the student's
 // image (a synthetic box drawn on a canvas, never a camera frame) is uploaded to the session,
-// she asks "Circle the box in my picture." in the developer console, the director sends it to
+// she asks "Circle the box in my picture." in the chat composer, the director sends it to
 // the thinker as mark_image, the scripted brief circles m1, and the app loads the image with
 // its Set-of-Mark from the elements route: the circle sits on the box the server numbered m1.
 import { expect, type Page, test } from '@playwright/test';
@@ -59,7 +59,9 @@ async function boxOf(page: Page, testId: string): Promise<Box> {
 }
 
 test("Ada circles the box in the student's picture, on the box the server numbered", async () => {
-  const { app, page } = await launchVoice({ env: { TASSEL_FAKE_SCRIPT: 'image-marks' } });
+  const { app, page } = await launchVoice({
+    env: { TASSEL_FAKE_SCRIPT: 'image-marks', TASSEL_CHAT_SIDEBAR: 'open' },
+  });
   try {
     const sessionId = await startVoiceSession(page, { language: 'en' });
     const captions = page.getByTestId('captions');
@@ -77,9 +79,14 @@ test("Ada circles the box in the student's picture, on the box the server number
     const m1 = elements.items.find((item) => item.id === 'm1');
     if (!m1) throw new Error('The server numbered no m1 on her picture');
 
-    const input = page.getByRole('textbox', { name: 'Student message' });
-    await input.fill('Circle the box in my picture.');
-    await input.press('Enter');
+    // Her line goes in through the chat composer and shows in the chat log, not the captions.
+    const sidebar = page.getByTestId('chat-sidebar');
+    const composer = sidebar.getByRole('textbox', { name: 'Message to Ada' });
+    await composer.fill('Circle the box in my picture.');
+    await composer.press('Enter');
+    await expect(
+      sidebar.locator('[data-testid="chat-log"] li').filter({ hasText: 'Circle the box' }),
+    ).toHaveAttribute('data-role', 'student');
 
     // Her picture takes the paper panel, and Ada's circle lands on it.
     const image = page.getByTestId('stage-image');

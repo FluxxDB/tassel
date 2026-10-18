@@ -85,14 +85,10 @@ it('real devices are the default; packaged builds ignore fake mic flags', () => 
   expect(readVoiceConfig({}, false, 'linux')).toEqual({
     devTools: true,
     fakeMic: false,
-    devConsole: false,
     canOpenMicSettings: false,
   });
-  const env = {
-    TASSEL_FAKE_MIC: resolve('tests/unit/windows.test.ts'),
-    TASSEL_DEV_CONSOLE: '1',
-  };
-  expect(readVoiceConfig(env, false, 'darwin')).toMatchObject({ fakeMic: true, devConsole: true });
+  const env = { TASSEL_FAKE_MIC: resolve('tests/unit/windows.test.ts') };
+  expect(readVoiceConfig(env, false, 'darwin')).toMatchObject({ fakeMic: true });
   expect(readVoiceConfig(env, true, 'darwin')).toMatchObject({ fakeMic: false, devTools: false });
 });
 it('voice IPC refuses every untrusted or missing sender before any side effect', async () => {

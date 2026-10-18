@@ -1,7 +1,7 @@
 // The live voice session behind the session screen: it runs useVoiceSession, connects its client
 // through useTutorSession, and publishes it to the screen's controls (live-voice.ts). In
-// unpackaged builds it also mounts the latency HUD (Ctrl/Cmd+Shift+L) and, for a fake route or
-// TASSEL_DEV_CONSOLE=1, the developer console that types student lines.
+// unpackaged builds it also mounts the latency HUD (Ctrl/Cmd+Shift+L). Typed student lines go
+// through the chat sidebar's composer (features/chat), which sends them as `student-message`.
 import type { Lang } from '@tassel/shared/i18n';
 import { useEffect } from 'react';
 import type { AppConfig } from '../../../../shared/bridge';
@@ -9,11 +9,9 @@ import type { VoiceConfig } from '../../../../shared/voice-bridge';
 import { useApi } from '../../lib/api';
 import { useTutorSession } from '../../tutor/use-tutor-session';
 import { isHudShortcut } from '../session/shortcuts';
-import { DevConsole } from './DevConsole';
 import { LatencyHud } from './LatencyHud';
 import { useLiveVoice } from './live-voice';
 import { useVoiceSession } from './use-voice-session';
-import { useVoiceDebug } from './voice-debug';
 
 /** Mounted only once the session's saved language is known. */
 export function VoiceSession({
@@ -49,20 +47,6 @@ export function VoiceSession({
   }, [config.devTools]);
 
   const hudOpen = useLiveVoice((state) => state.hudOpen);
-  const fakeRoute = useVoiceDebug((state) => state.route?.stt === 'fake');
   if (!live || !config.devTools) return null;
-  return (
-    <>
-      {hudOpen && <LatencyHud />}
-      {(fakeRoute || config.devConsole) && client && (
-        // Bottom left, beside the dock and below the captions: the dock is about 520px wide.
-        <div
-          data-testid="dev-console"
-          className="absolute bottom-[22px] left-4 z-20 w-[min(340px,calc(50%-290px))] min-w-[200px]"
-        >
-          <DevConsole onSend={(text) => client.sendText(text)} />
-        </div>
-      )}
-    </>
-  );
+  return <>{hudOpen && <LatencyHud />}</>;
 }

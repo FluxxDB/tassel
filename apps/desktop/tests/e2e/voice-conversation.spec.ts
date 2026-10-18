@@ -1,5 +1,6 @@
 // P2 Task 18: a whole conversation with the live voice tutor, on the fake mic and the server's
-// fake providers. Typed student lines go in through the developer console (P2-R9).
+// fake providers. Typed student lines go in through the chat sidebar's composer, as
+// `student-message` events; they show in the chat log, not the captions.
 import { expect, type Page, test } from '@playwright/test';
 import { callApi, launchVoice, settle, setWindowSize, snap, startVoiceSession } from './fixtures';
 
@@ -47,12 +48,15 @@ async function watchVoice(page: Page) {
 }
 
 test('a conversation with Ada: captions, audio, HUD, split, and End stops her (R37)', async () => {
-  const { app, page } = await launchVoice();
+  const { app, page } = await launchVoice({ env: { TASSEL_CHAT_SIDEBAR: 'open' } });
   try {
     await watchVoice(page);
     const id = await startVoiceSession(page, { language: 'en' });
     const tile = page.getByTestId('tutor-tile');
     const captions = page.getByTestId('captions');
+    const sidebar = page.getByTestId('chat-sidebar');
+    const lines = sidebar.locator('[data-testid="chat-log"] li');
+    const composer = sidebar.getByRole('textbox', { name: 'Message to Ada' });
 
     // Connecting, then Speaking: her greeting, two sentences in one caption.
     await expect(tile).toContainText('Speaking', { timeout: 20_000 });
@@ -64,11 +68,11 @@ test('a conversation with Ada: captions, audio, HUD, split, and End stops her (R
       timeout: 15_000,
     });
 
-    // The developer console types her first line; it shows as hers.
-    const input = page.getByRole('textbox', { name: 'Student message' });
-    await input.fill(FIRST);
-    await input.press('Enter');
-    await expect(captions).toContainText(FIRST);
+    // The chat composer types her first line; it shows as hers in the log, and Ada's spoken
+    // reply is captioned.
+    await composer.fill(FIRST);
+    await composer.press('Enter');
+    await expect(lines.filter({ hasText: FIRST })).toHaveAttribute('data-role', 'student');
     await expect(captions.locator('[aria-live="polite"]')).toContainText(FIRST_REPLY, {
       timeout: 15_000,
     });
@@ -94,8 +98,9 @@ test('a conversation with Ada: captions, audio, HUD, split, and End stops her (R
     await expect(hud.getByTestId('hud-first-audio')).toContainText('Budget 1200 ms');
 
     // Her second line: Ada asks for paper and board, and a trace of 1010.
-    await input.fill(SECOND);
-    await input.press('Enter');
+    await composer.fill(SECOND);
+    await composer.press('Enter');
+    await expect(lines.filter({ hasText: SECOND })).toHaveAttribute('data-role', 'student');
     await expect(page.getByRole('region', { name: "Ada's board" })).toBeVisible({
       timeout: 15_000,
     });
@@ -103,7 +108,8 @@ test('a conversation with Ada: captions, audio, HUD, split, and End stops her (R
     await settle(page);
     await snap(page, 'p2-voice-conversation');
 
-    // At 1024×680 nothing covers anything else.
+    // At 1024×680 nothing covers anything else: the chat sidebar overlays the stage there, and
+    // the tile, captions, dock and HUD keep clear of it.
     await setWindowSize(app, page, 1024, 680);
     await settle(page);
     const boxes: Record<string, Box> = {};
@@ -112,7 +118,7 @@ test('a conversation with Ada: captions, audio, HUD, split, and End stops her (R
       ['captions', captions],
       ['tile', tile],
       ['hud', hud],
-      ['console', page.getByTestId('dev-console')],
+      ['chat', sidebar],
     ] as const) {
       const box = await locator.boundingBox();
       if (!box) throw new Error(`${name} isn't on screen`);
