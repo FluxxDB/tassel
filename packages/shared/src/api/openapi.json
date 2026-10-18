@@ -1,6 +1,33 @@
 {
   "components": {
     "schemas": {
+      "AttachmentOut": {
+        "additionalProperties": false,
+        "description": "An uploaded image: its id for ``student-message`` and its stored size in pixels.",
+        "properties": {
+          "h": {
+            "exclusiveMinimum": 0.0,
+            "title": "H",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "w": {
+            "exclusiveMinimum": 0.0,
+            "title": "W",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "w",
+          "h"
+        ],
+        "title": "AttachmentOut",
+        "type": "object"
+      },
       "Blame": {
         "additionalProperties": false,
         "description": "The first step of the counterexample where her machine leaves the right track (P4-R10).",
@@ -109,6 +136,24 @@
         "title": "BoardSnapshotUpload",
         "type": "object"
       },
+      "Body_upload_attachment_v1_sessions__session_id__attachments_post": {
+        "properties": {
+          "image": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          }
+        },
+        "title": "Body_upload_attachment_v1_sessions__session_id__attachments_post",
+        "type": "object"
+      },
       "Body_upload_frame_v1_sessions__session_id__frames_post": {
         "properties": {
           "crop": {
@@ -188,6 +233,101 @@
           "cells"
         ],
         "title": "CellMask",
+        "type": "object"
+      },
+      "ChatHistoryOut": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ChatMessageOut"
+            },
+            "title": "Messages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "messages"
+        ],
+        "title": "ChatHistoryOut",
+        "type": "object"
+      },
+      "ChatMessageOut": {
+        "additionalProperties": false,
+        "description": "A saved line of the conversation, as the ``message`` event carried it when final.",
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessageAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/MessageAttachment"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "interrupted": {
+            "title": "Interrupted",
+            "type": "boolean"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "client_id",
+          "role",
+          "source",
+          "text",
+          "interrupted",
+          "attachments",
+          "action",
+          "created_at"
+        ],
+        "title": "ChatMessageOut",
         "type": "object"
       },
       "Counterexample": {
@@ -1148,6 +1288,90 @@
           "revision"
         ],
         "title": "MemoryPatch",
+        "type": "object"
+      },
+      "MessageAction": {
+        "additionalProperties": false,
+        "description": "What Ada did on the stage, shown as a row in the chat that moves the stage there.\n\n``item`` names what she drew, cleared or marked (a board item or a marker id) when there is\none; ``attachment_id`` is the image she marked when ``side`` is ``image``.",
+        "properties": {
+          "attachment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attachment Id"
+          },
+          "item": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item"
+          },
+          "kind": {
+            "enum": [
+              "draw",
+              "clear",
+              "undo",
+              "redo",
+              "mark",
+              "view"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "side": {
+            "enum": [
+              "board",
+              "paper",
+              "image"
+            ],
+            "title": "Side",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "side",
+          "item",
+          "attachment_id"
+        ],
+        "title": "MessageAction",
+        "type": "object"
+      },
+      "MessageAttachment": {
+        "additionalProperties": false,
+        "description": "An image the student sent (``POST /v1/sessions/{id}/attachments``), in pixels.",
+        "properties": {
+          "h": {
+            "exclusiveMinimum": 0.0,
+            "title": "H",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "w": {
+            "exclusiveMinimum": 0.0,
+            "title": "W",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "w",
+          "h"
+        ],
+        "title": "MessageAttachment",
         "type": "object"
       },
       "NormBox": {
@@ -2562,6 +2786,136 @@
         ]
       }
     },
+    "/v1/sessions/{session_id}/attachments": {
+      "post": {
+        "description": "A JPEG or PNG the student sends (8 MiB at most), or ``frame_id``: her latest paper frame\n(\"Snap my paper\"). Stored downscaled to 2048 px on the long side.",
+        "operationId": "upload_attachment_v1_sessions__session_id__attachments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "frame_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Frame Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_attachment_v1_sessions__session_id__attachments_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Upload Attachment",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/attachments/{attachment_id}": {
+      "get": {
+        "operationId": "get_attachment_v1_sessions__session_id__attachments__attachment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Get Attachment",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
     "/v1/sessions/{session_id}/board/snapshot": {
       "post": {
         "operationId": "upload_snapshot_v1_sessions__session_id__board_snapshot_post",
@@ -2931,6 +3285,55 @@
         "summary": "Finish Memory",
         "tags": [
           "memory"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/messages": {
+      "get": {
+        "description": "The session's saved conversation, oldest first.",
+        "operationId": "list_messages_v1_sessions__session_id__messages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatHistoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "List Messages",
+        "tags": [
+          "chat"
         ]
       }
     },

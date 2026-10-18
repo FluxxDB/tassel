@@ -148,6 +148,15 @@ export const AREAS = [
     pytest: [`${PY}/voice/**`, `${PY}/evals/**`],
   },
   {
+    name: 'chat',
+    title: 'The chat sidebar: conversation, typed messages, student images, saved history',
+    app: [`${R}/features/chat/**`],
+    server: [`${SRC}/chat/**`],
+    unit: [`${UNIT}/chat/**`],
+    e2e: [`${E2E}/chat*.spec.ts`],
+    pytest: [`${PY}/chat/**`],
+  },
+  {
     name: 'evals',
     title: 'The live tutor eval: scenarios, page fixtures, checks, the budget, reports',
     server: [`${SRC}/evals/**`],

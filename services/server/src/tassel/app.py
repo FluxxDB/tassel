@@ -10,6 +10,7 @@ from tassel import __version__
 from tassel.api import devices, health, memory, sessions
 from tassel.board import api as board_api
 from tassel.board.snapshots import BoardSnapshots
+from tassel.chat import api as chat_api
 from tassel.config import Settings
 from tassel.frames import api as frames
 from tassel.frames.objects import make_object_store
@@ -97,6 +98,7 @@ def create_app(
         memory.router,
         frames.router,
         board_api.router,
+        chat_api.router,
         voice_api.router,
         screen_api.router,
         vision.router,

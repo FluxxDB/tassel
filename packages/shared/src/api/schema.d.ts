@@ -134,6 +134,44 @@ export interface paths {
         patch: operations["patch_session_v1_sessions__session_id__patch"];
         trace?: never;
     };
+    "/v1/sessions/{session_id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Attachment
+         * @description A JPEG or PNG the student sends (8 MiB at most), or ``frame_id``: her latest paper frame
+         *     ("Snap my paper"). Stored downscaled to 2048 px on the long side.
+         */
+        post: operations["upload_attachment_v1_sessions__session_id__attachments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/attachments/{attachment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Attachment */
+        get: operations["get_attachment_v1_sessions__session_id__attachments__attachment_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sessions/{session_id}/board/snapshot": {
         parameters: {
             query?: never;
@@ -223,6 +261,26 @@ export interface paths {
         put?: never;
         /** Finish Memory */
         post: operations["finish_memory_v1_sessions__session_id__memory_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Messages
+         * @description The session's saved conversation, oldest first.
+         */
+        get: operations["list_messages_v1_sessions__session_id__messages_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -337,6 +395,18 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AttachmentOut
+         * @description An uploaded image: its id for ``student-message`` and its stored size in pixels.
+         */
+        AttachmentOut: {
+            /** H */
+            h: number;
+            /** Id */
+            id: string;
+            /** W */
+            w: number;
+        };
+        /**
          * Blame
          * @description The first step of the counterexample where her machine leaves the right track (P4-R10).
          */
@@ -376,6 +446,11 @@ export interface components {
             /** Image Png */
             image_png?: string | null;
         };
+        /** Body_upload_attachment_v1_sessions__session_id__attachments_post */
+        Body_upload_attachment_v1_sessions__session_id__attachments_post: {
+            /** Image */
+            image?: string | null;
+        };
         /** Body_upload_frame_v1_sessions__session_id__frames_post */
         Body_upload_frame_v1_sessions__session_id__frames_post: {
             /**
@@ -408,6 +483,37 @@ export interface components {
             cols: number;
             /** Rows */
             rows: number;
+        };
+        /** ChatHistoryOut */
+        ChatHistoryOut: {
+            /** Messages */
+            messages: components["schemas"]["ChatMessageOut"][];
+        };
+        /**
+         * ChatMessageOut
+         * @description A saved line of the conversation, as the ``message`` event carried it when final.
+         */
+        ChatMessageOut: {
+            action: components["schemas"]["MessageAction"] | null;
+            /** Attachments */
+            attachments: components["schemas"]["MessageAttachment"][];
+            /** Client Id */
+            client_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Interrupted */
+            interrupted: boolean;
+            /** Role */
+            role: string;
+            /** Source */
+            source: string | null;
+            /** Text */
+            text: string;
         };
         /** Counterexample */
         Counterexample: {
@@ -745,6 +851,41 @@ export interface components {
             enabled: boolean;
             /** Revision */
             revision: number;
+        };
+        /**
+         * MessageAction
+         * @description What Ada did on the stage, shown as a row in the chat that moves the stage there.
+         *
+         *     ``item`` names what she drew, cleared or marked (a board item or a marker id) when there is
+         *     one; ``attachment_id`` is the image she marked when ``side`` is ``image``.
+         */
+        MessageAction: {
+            /** Attachment Id */
+            attachment_id: string | null;
+            /** Item */
+            item: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "draw" | "clear" | "undo" | "redo" | "mark" | "view";
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "board" | "paper" | "image";
+        };
+        /**
+         * MessageAttachment
+         * @description An image the student sent (``POST /v1/sessions/{id}/attachments``), in pixels.
+         */
+        MessageAttachment: {
+            /** H */
+            h: number;
+            /** Id */
+            id: string;
+            /** W */
+            w: number;
         };
         /**
          * NormBox
@@ -1451,6 +1592,76 @@ export interface operations {
             };
         };
     };
+    upload_attachment_v1_sessions__session_id__attachments_post: {
+        parameters: {
+            query?: {
+                frame_id?: string | null;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_attachment_v1_sessions__session_id__attachments_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_attachment_v1_sessions__session_id__attachments__attachment_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": unknown;
+                    "image/png": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     upload_snapshot_v1_sessions__session_id__board_snapshot_post: {
         parameters: {
             query?: never;
@@ -1705,6 +1916,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_messages_v1_sessions__session_id__messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatHistoryOut"];
+                };
             };
             /** @description Validation Error */
             422: {
