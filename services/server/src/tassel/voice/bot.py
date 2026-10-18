@@ -249,7 +249,17 @@ class _TurnContext(FrameProcessor):
                 and not is_note(user["content"])
             ):
                 self._last_user = user
-                student_text = user["content"]
+                # Flux can split one question into two turns ("What's wrong with my DFA?" then
+                # "on your whiteboard."); unanswered fragments reach the director together.
+                fragments = []
+                for message in reversed(messages):
+                    if message.get("role") == "assistant":
+                        break
+                    content = message.get("content")
+                    if message.get("role") == "user" and isinstance(content, str):
+                        if not is_note(content):
+                            fragments.insert(0, content)
+                student_text = " ".join(fragments) or user["content"]
                 ink_image = None
                 note = None
                 history = []
@@ -336,11 +346,23 @@ class _TurnContext(FrameProcessor):
                     await self.coordinator.prepare(
                         frame.context, student_text, ink_image, decision=self.decision
                     )
+                    if self.decision.route == "thinker" and self.coordinator.thinker is not None:
+                        # The thinker has its own copy with the page; the talker only bridges,
+                        # and Qwen with a page attached took 5–7 s to say anything.
+                        _drop_images(messages)
         await self.push_frame(frame, direction)
 
     async def cleanup(self):
         await self.director.close()
         await super().cleanup()
+
+
+def _drop_images(messages):
+    for message in messages:
+        if isinstance(message.get("content"), list):
+            message["content"] = [
+                b for b in message["content"] if b.get("type") not in ("image_url", "image")
+            ]
 
 
 class _SpeechStarts(BaseObserver):
@@ -484,11 +506,18 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     async def on_ignored(text):
         await bot.events.send(BackchannelEvent(text=text))
 
+    def answer_pending():
+        # A thinker answer still on its way: noise must not cancel it.
+        coordinator = turn_context.coordinator
+        return coordinator is not None and coordinator.pending()
+
     user, assistant = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(
             vad_analyzer=make_vad(),
-            user_turn_strategies=make_turn_strategies(kind, tuning, ctx.lang, on_ignored),
+            user_turn_strategies=make_turn_strategies(
+                kind, tuning, ctx.lang, on_ignored, busy=lambda: answer_pending()
+            ),
         ),
     )
     turn_context = _TurnContext(ctx.session_id, ctx.turn_image)
@@ -589,7 +618,13 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         # Pipecat 1.12 has no public aggregator setter; isolate its controller
         # access here. Its public update_strategies cleans/setup each strategy.
         await user._user_turn_controller.update_strategies(
-            make_turn_strategies(stt_kind(route_for(lang), ctx.settings), tuning, lang, on_ignored)
+            make_turn_strategies(
+                stt_kind(route_for(lang), ctx.settings),
+                tuning,
+                lang,
+                on_ignored,
+                busy=answer_pending,
+            )
         )
         if isinstance(llm, FakeLLMService):
             llm.set_language(lang)

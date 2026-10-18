@@ -7,7 +7,14 @@ from copy import deepcopy
 import aiohttp
 import httpx
 from loguru import logger
-from openai import NOT_GIVEN, APIConnectionError, APIError, AsyncOpenAI
+from openai import (
+    NOT_GIVEN,
+    APIConnectionError,
+    APIError,
+    AsyncOpenAI,
+    InternalServerError,
+    RateLimitError,
+)
 from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.services.deepgram.flux.stt import DeepgramFluxSTTService
 from pipecat.services.deepgram.stt import DeepgramSTTService
@@ -19,6 +26,7 @@ from pipecat.services.tts_service import TTSService
 from pipecat.transcriptions.language import Language
 
 from tassel.vision.turn_image import NO_VIEW
+from tassel.voice.director import QWEN_BACKUP_PROVIDER
 from tassel.voice.fakes.llm import FakeLLMService
 from tassel.voice.fakes.scenario import FakeScenario, load_scenario
 from tassel.voice.fakes.stt import FakeSTTService
@@ -268,6 +276,7 @@ class LiveLLMService(OpenRouterLLMService):
         self.last_completion = None
         emitted = False
         retries = 0
+        backup = False
         while True:
             stream = None
             try:
@@ -279,6 +288,11 @@ class LiveLLMService(OpenRouterLLMService):
                 )
                 request = self.build_chat_completion_params(params)
                 request["messages"] = leading_system_only(list(request["messages"]))
+                if backup:
+                    request["extra_body"] = {
+                        **(request.get("extra_body") or {}),
+                        "provider": {**QWEN_BACKUP_PROVIDER, "require_parameters": True},
+                    }
                 stream = await self._client.chat.completions.create(**request)
                 async for chunk in stream:
                     substantive = any(
@@ -299,6 +313,16 @@ class LiveLLMService(OpenRouterLLMService):
                 return
             except Exception as error:
                 kind = type(error).__name__
+                if (
+                    not emitted
+                    and not backup
+                    and self.active_provider == "openrouter"
+                    and isinstance(error, (RateLimitError, InternalServerError))
+                ):
+                    # A busy Cerebras: the same model on other hosts, at once.
+                    backup = True
+                    logger.warning("LLM call failed ({}), retrying on backup providers", kind)
+                    continue
                 if not emitted and _transport_error(error) and retries < 2:
                     retries += 1
                     if retries == 2:

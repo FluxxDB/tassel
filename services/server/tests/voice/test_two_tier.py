@@ -36,7 +36,7 @@ class FakeThinker:
         self.active = self.peak = 0
         self.gate = gate
 
-    async def think(self, messages):
+    async def think(self, messages, effort=None):
         self.calls += 1
         self.active += 1
         self.peak = max(self.peak, self.active)
@@ -145,7 +145,7 @@ async def test_invalid_json_retried_once_and_no_tools_sent():
     assert (await thinker.think([{"role": "user", "content": "check"}])).say
     assert len(requests) == 2
     assert all(
-        "tools" not in r and r["reasoning_effort"] == "low" and r["model"] == "gpt-6-luna"
+        "tools" not in r and r["reasoning_effort"] == "none" and r["model"] == "gpt-6-luna"
         for r in requests
     )
     # Measured live on the owner's page: luna 3.1–4.6 s vs astra 7.4 s, same diagnosis.
@@ -296,7 +296,7 @@ async def test_notes_expire_with_time_and_keep_older_summaries():
 @pytest.mark.asyncio
 async def test_failed_thinker_speaks_failure_after_bridge():
     class FailedThinker(FakeThinker):
-        async def think(self, messages):
+        async def think(self, messages, effort=None):
             raise TimeoutError("secret provider details")
 
     c = TutorCoordinator(FailedThinker(), BoardContext())

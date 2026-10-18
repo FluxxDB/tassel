@@ -53,7 +53,10 @@ class Thinker:
             api_key=settings.openai_api_key.get_secret_value(), max_retries=0, timeout=20
         )
 
-    async def think(self, messages: list[dict]) -> GuidanceBrief:
+    async def think(self, messages: list[dict], effort=None) -> GuidanceBrief:
+        effort = effort or self.settings.thinker_effort
+        if self.settings.thinker_model.startswith("gpt-6-astra") and effort == "none":
+            effort = "low"  # astra refuses "none"
         request = [
             {"role": "system", "content": thinker_system_prompt(GuidanceBrief.model_json_schema())},
             *deepcopy(messages),
@@ -62,7 +65,7 @@ class Thinker:
             try:
                 response = await self.client.chat.completions.create(
                     model=self.settings.thinker_model,
-                    reasoning_effort=self.settings.thinker_effort,
+                    reasoning_effort=effort,
                     messages=request,
                     response_format={"type": "json_object"},
                     max_completion_tokens=1200,
@@ -138,6 +141,9 @@ class TutorCoordinator:
         if self.transcript:
             self.transcript.record(event, data)
 
+    def pending(self):
+        return self.task is not None and not self.delivered
+
     async def cancel(self):
         self.generation += 1
         task, self.task = self.task, None
@@ -212,7 +218,12 @@ class TutorCoordinator:
     async def _run(self, generation):
         started = time.monotonic()
         try:
-            brief = await self.thinker.think(self.messages)
+            effort = None
+            if self.decision and self.decision.action == "draw_board":
+                # Constructions are checked by the exact verifier; give them more thought.
+                settings = getattr(self.thinker, "settings", None)
+                effort = getattr(settings, "thinker_draw_effort", "low")
+            brief = await self.thinker.think(self.messages, effort=effort)
             if generation != self.generation:
                 return None
             decision = self.decision or rules(self.text)
@@ -233,7 +244,8 @@ class TutorCoordinator:
                                 + " Keep the same target language and director action. "
                                 "Previous brief: " + brief.model_dump_json(),
                             },
-                        ]
+                        ],
+                        effort=effort,
                     )
                     # A repair may not evade verification by removing/changing the target.
                     brief = repaired.model_copy(update={"language": original_language})

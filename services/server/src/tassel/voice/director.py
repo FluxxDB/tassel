@@ -7,8 +7,18 @@ import time
 from typing import Literal
 
 from loguru import logger
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, InternalServerError, RateLimitError
 from pydantic import BaseModel, ConfigDict, model_validator
+
+# Cerebras sometimes answers 429 for a few seconds; the same Qwen model on these hosts measured
+# 250–450 ms to first token (2026-10-18), so a busy Cerebras never silences Ada.
+QWEN_PRIMARY_PROVIDER = {"only": ["cerebras"], "allow_fallbacks": False}
+QWEN_BACKUP_PROVIDER = {
+    "order": ["deepinfra", "ionstream", "parasail"],
+    "allow_fallbacks": True,
+    "ignore": ["cerebras"],
+}
+BUSY = (RateLimitError, InternalServerError)
 
 
 class Decision(BaseModel):
@@ -32,16 +42,45 @@ PAPER = re.compile(
 SIMPLE = re.compile(r"^\W*(what(?: is|'s| are)|define|what does .{1,30} mean)\b", re.I)
 BOARD = re.compile(r"\b(board|whiteboard)\b", re.I)
 DRAW = re.compile(r"\b(draw|mark|highlight|circle|wash|strike|callout)\b", re.I)
+# Her own work ("the DFA I tried to draw", "my DFA") is a paper reference, not a draw request.
+SELF_WORK = re.compile(
+    r"\b(?:I (?:try|tried|was trying|am trying|'m trying) to draw|I drew|I(?:'ve| have) drawn|"
+    r"what I (?:drew|wrote|did)|my (?:dfa|nfa|automaton|machine|diagram|chain|answer))\b",
+    re.I,
+)
+# Show/point requests that name the paper or the board are drawing requests there.
+SHOW = re.compile(r"\b(show|point|walk (?:me )?through|counter.?example)\b", re.I)
+# "…on your whiteboard": the board as the place to show an explanation.
+ON_BOARD = re.compile(r"\b(?:on|onto|in) (?:the |your |a )?(?:white)?board\b", re.I)
+# "I don't see anything on the whiteboard": she expected a drawing that never came.
+BOARD_MISSING = re.compile(
+    r"\b(?:don'?t|do not|can'?t|cannot) see (?:anything|it|that|the drawing|your drawing)\b"
+    r"[^.?!]{0,30}\b(?:board|whiteboard)\b|\bnothing on (?:the |your )?(?:white)?board\b",
+    re.I,
+)
+# A new machine or a changed version of hers is a board construction unless she names her paper.
+CONSTRUCT = re.compile(
+    r"\b(?:(?:show|draw|build|construct|make|design|convert|modify)\b[^.?!]{0,40}\b"
+    r"(?:nfa|dfa|automat\w*|machine|version)|modified version)\b",
+    re.I,
+)
 COMPLEX = re.compile(
     r"\b(check|diagnos\w*|find (?:a |the |my )?mistake|why|prove|derive|step.by.step|"
+    r"what'?s wrong|what is wrong|walk (?:me )?through|counter.?example|"
+    r"is (?:it|this|that|my \w+) (?:right|correct)|does (?:it|this|that) work|"
     r"(?:show|draw|build|construct|make|design|convert|modify)\b[^.?!]{0,40}\b(?:nfa|dfa|"
     r"automat\w*|machine|version)|modified version|minimi[sz]e|trace)\b",
     re.I,
 )
 
 
+def _draw_request(text):
+    return bool(DRAW.search(SELF_WORK.sub(" ", text)))
+
+
 def rules(text, *, focus="none", page_changed=False, **_):
-    paper, board = bool(PAPER.search(text)), bool(BOARD.search(text))
+    board = bool(BOARD.search(text))
+    paper = bool(PAPER.search(text)) or (bool(SELF_WORK.search(text)) and not board)
     if (
         not paper
         and not board
@@ -51,7 +90,8 @@ def rules(text, *, focus="none", page_changed=False, **_):
     ref = "paper" if paper else "board" if board else "conversation"
     target = "paper" if paper else "board" if board else focus
     action = "none"
-    if DRAW.search(text):
+    show = SHOW.search(text) and (paper or board)
+    if _draw_request(text) or BOARD_MISSING.search(text) or show:
         action = "mark_paper" if paper else "draw_board"
         target = "paper" if paper else "board"
         ref = target
@@ -60,7 +100,9 @@ def rules(text, *, focus="none", page_changed=False, **_):
     elif COMPLEX.search(text) or re.search(r"\b(explain|what is|how)\b", text, re.I):
         action = "explain"
     changed = page_changed and target in ("paper", "split") and ref != "board"
-    complex_turn = bool(DRAW.search(text) or COMPLEX.search(text) or action == "trace" or changed)
+    complex_turn = bool(
+        action in ("draw_board", "mark_paper", "trace") or COMPLEX.search(text) or changed or paper
+    )
     return Decision(
         focus=target,
         needs_vision=paper or changed,
@@ -72,17 +114,42 @@ def rules(text, *, focus="none", page_changed=False, **_):
 
 def guard(text, decision):
     """Explicit words beat the model: naming the paper or camera (and not the board) means
-    paper marks; any construction or diagnosis request goes to the thinker."""
-    paper, board = bool(PAPER.search(text)), bool(BOARD.search(text))
+    paper marks; her own drawing means the paper; board requests and complaints mean a board
+    drawing; anything that needs the page or a construction goes to the thinker."""
+    named_paper, board = bool(PAPER.search(text)), bool(BOARD.search(text))
+    self_work = bool(SELF_WORK.search(text)) and not board
+    draw = _draw_request(text) or bool(SHOW.search(text))
     update = {}
-    if paper and not board and decision.action == "draw_board":
+    if named_paper and not board and (draw or decision.action == "draw_board"):
         update.update(action="mark_paper", focus="paper", refers_to="paper", needs_vision=True)
-    if (DRAW.search(text) or COMPLEX.search(text)) and decision.route == "talker":
+    elif self_work and not named_paper and decision.refers_to != "paper":
+        update.update(focus="paper", refers_to="paper", needs_vision=True)
+        if decision.action == "draw_board":
+            update["action"] = "explain"
+    elif (
+        board
+        and not named_paper
+        and (draw or BOARD_MISSING.search(text) or (ON_BOARD.search(text) and COMPLEX.search(text)))
+    ):
+        update.update(action="draw_board", focus="board", refers_to="board", needs_vision=False)
+    elif BOARD_MISSING.search(text):
+        update.update(action="draw_board", focus="board", refers_to="board", needs_vision=False)
+    elif CONSTRUCT.search(text) and not named_paper and decision.action != "draw_board":
+        update.update(action="draw_board", focus="split" if decision.focus == "split" else "board")
+    merged = decision.model_copy(update=update)
+    if merged.route == "talker" and (
+        merged.needs_vision
+        or merged.action in ("draw_board", "mark_paper", "trace")
+        or _draw_request(text)
+        or COMPLEX.search(text)
+    ):
+        # The talker is fast only without the page or a construction; the thinker reads both.
         update["route"] = "thinker"
     elif (
-        decision.route == "thinker"
+        merged.route == "thinker"
         and SIMPLE.search(text)
-        and not (paper or board or DRAW.search(text) or COMPLEX.search(text))
+        and not (named_paper or board or self_work or draw or COMPLEX.search(text))
+        and not merged.needs_vision
         and len(text.split()) <= 12
     ):
         # Short definitional questions are the fast talker's: instant, no brief needed.
@@ -103,7 +170,7 @@ class Director:
         if self.client is not None:
             try:
                 async with asyncio.timeout(self.budget_s):
-                    response = await self.client.chat.completions.create(
+                    request = dict(
                         model="qwen/qwen3.8-27b",
                         messages=[
                             {
@@ -121,8 +188,10 @@ class Director:
                                     "followups go to talker. "
                                     "Drawing, marking, diagnosis, new why questions and "
                                     "multi-step reasoning "
-                                    "go to thinker. Resolve intent from context; don't "
-                                    "reconfirm clear intent."
+                                    "go to thinker. 'The DFA I drew' or 'my DFA' is her "
+                                    "paper (needs vision). A complaint that the board is "
+                                    "empty means draw_board. Resolve intent from context; "
+                                    "don't reconfirm clear intent."
                                 ),
                             },
                             {
@@ -148,16 +217,24 @@ class Director:
                             },
                         },
                         extra_body={
-                            "provider": {
-                                "only": ["cerebras"],
-                                "allow_fallbacks": False,
-                            },
+                            "provider": dict(QWEN_PRIMARY_PROVIDER),
                             # Cerebras doesn't list structured output among its parameters,
                             # so require_parameters made every call 404 (rules only).
                             "reasoning": {"enabled": False},
                         },
                         max_tokens=150,
                     )
+                    try:
+                        response = await self.client.chat.completions.create(**request)
+                    except BUSY as busy:
+                        logger.warning(
+                            "Director retrying on backup providers ({})", type(busy).__name__
+                        )
+                        request["extra_body"] = {
+                            **request["extra_body"],
+                            "provider": dict(QWEN_BACKUP_PROVIDER),
+                        }
+                        response = await self.client.chat.completions.create(**request)
                     decision = Decision.model_validate_json(response.choices[0].message.content)
                     source = "model"
             except Exception as error:

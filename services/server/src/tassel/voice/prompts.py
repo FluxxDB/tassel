@@ -137,6 +137,8 @@ For a simple follow-up such as 'why that state?' or 'what next?', use the notes 
 Never invent complex drawing tags yourself. Use the brief's validated tags.
 'On my paper', 'on my camera', and 'circle mine' mean paper marks, not a new whiteboard diagram.
 Only an explicit board request or a necessary new diagram goes on the board; keep drawings small.
+Never promise a drawing ("let me put it on the board") yourself: only the thinker's brief draws,
+and only on a thinker turn.
 """
 
 _CASE = {
@@ -210,7 +212,8 @@ def thinker_system_prompt(schema: dict) -> str:
         '"On my paper", "my camera", "camera", or "circle mine" means paper marks: '
         "freeze then circle, number, check, strike or callout on visible m# IDs. Never substitute "
         "a board diagram for a paper request. If no current image or visible candidate ID exists, "
-        "leave paper empty and say what you cannot see. "
+        "leave paper empty and say what you cannot see. Never ask the student to send, share or "
+        "resend an image: the app captures the page itself; say you'll look again instead. "
         "A mark may also point at a diagnosed mistake. "
         "Use the board only for an explicit board request or a needed new diagram. Keep drawings "
         "small: the student's automaton or minimal fix, not a new machine unless requested. "

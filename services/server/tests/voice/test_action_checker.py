@@ -37,7 +37,7 @@ def test_large_board_skipped_and_edge_edits_checked():
 @pytest.mark.parametrize("fixed", [True, False])
 async def test_wrong_dfa_gets_one_repair_then_is_drawn_or_skipped(fixed):
     class Repairer(FakeThinker):
-        async def think(self, messages):
+        async def think(self, messages, effort=None):
             self.calls += 1
             tag = RIGHT if fixed and self.calls == 2 else WRONG
             return brief().model_copy(update={"board": [tag], "language": TARGET})
@@ -88,7 +88,7 @@ async def test_checked_brief_reaches_board_in_real_bot_pipeline(monkeypatch):
     from tassel.voice import bot as bot_module
 
     class DrawingThinker(FakeThinker):
-        async def think(self, messages):
+        async def think(self, messages, effort=None):
             assert any("draw_board" in str(m) for m in messages)
             return brief().model_copy(update={"board": [RIGHT], "language": TARGET})
 

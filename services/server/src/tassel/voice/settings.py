@@ -84,7 +84,10 @@ class VoiceSettings(BaseSettings):
     two_tier: bool | None = None
     # Measured live on the owner's page: luna 4.6 s, astra 7.4 s, same diagnosis and mark.
     thinker_model: str = "gpt-6-luna"
-    thinker_effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"
+    # Retest #7: luna at "low" took 6–8.6 s per brief; "none" read the owner's page correctly in
+    # 2.6–2.9 s. Board constructions still think at "low" (thinker_draw_effort).
+    thinker_effort: Literal["none", "low", "medium", "high", "xhigh", "max"] = "none"
+    thinker_draw_effort: Literal["none", "low", "medium", "high", "xhigh", "max"] = "low"
 
     @property
     def two_tier_enabled(self) -> bool:

@@ -492,3 +492,36 @@ def test_only_the_leading_system_message_reaches_cerebras():
     assert out[2] == {"role": "user", "content": "[director] {} Follow this decision."}
     assert out[3] == {"role": "user", "content": "[app note] Tutor notes: x"}
     assert messages[2]["role"] == "system"  # the context itself is left alone
+
+
+@pytest.mark.parametrize("status", [429, 503])
+@pytest.mark.asyncio
+async def test_busy_cerebras_retries_the_same_model_on_backup_hosts(status):
+    # Retest #7: two 429s from Cerebras left Ada silent for whole turns.
+    calls = []
+
+    def respond(request):
+        body = json.loads(request.content)
+        calls.append(body)
+        if len(calls) == 1:
+            return httpx.Response(status, json={"error": {"message": "Rate limited"}})
+        return sse()
+
+    llm = make_llm(
+        route_for("en"), VoiceSettings(openrouter_api_key="or", openai_api_key="oa"), None
+    )
+    await llm._client.close()
+    llm._client = AsyncOpenAI(
+        api_key="or",
+        base_url="https://router.test",
+        max_retries=0,
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+    )
+    context = LLMContext([{"role": "user", "content": "Help"}])
+    down, _ = await run_test(llm, frames_to_send=[LLMContextFrame(context)])
+    assert [f.text for f in down if isinstance(f, LLMTextFrame)] == ["What have you tried?"]
+    assert not any(isinstance(f, ErrorFrame) for f in down)
+    assert [c["model"] for c in calls] == ["qwen/qwen3.8-27b"] * 2
+    assert calls[0]["provider"] == OPENROUTER_PROVIDER
+    assert "cerebras" in calls[1]["provider"]["ignore"]
+    assert llm.active_provider == "openrouter"
