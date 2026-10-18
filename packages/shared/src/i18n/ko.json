@@ -24,7 +24,7 @@
     "loading": "세션을 불러오는 중…",
     "empty": {
       "title": "아직 세션이 없어요",
-      "body": "세션을 시작해서 Ada와 함께 문제를 풀어 보세요. 세션은 여기에 표시돼요."
+      "body": "세션을 시작해서 {tutorName}와 함께 문제를 풀어 보세요. 세션은 여기에 표시돼요."
     },
     "noResults": {
       "title": "\"{query}\"에 맞는 세션이 없어요",
@@ -69,7 +69,7 @@
   },
   "session": {
     "untitled": "제목 없는 세션",
-    "tutorName": "Ada",
+    "tutorName": "{tutorName}",
     "you": "나",
     "loadError": "세션을 불러오지 못했어요",
     "timer": "경과 시간: {elapsed}",
@@ -110,11 +110,11 @@
       }
     },
     "board": {
-      "tag": "Ada의 칠판"
+      "tag": "{tutorName}의 칠판"
     },
     "pin": {
       "label": "고정됨 · {view}",
-      "adaAsks": "Ada의 요청: {view}",
+      "adaAsks": "{tutorName}의 요청: {view}",
       "unpin": "고정 해제"
     },
     "dock": {
@@ -125,7 +125,7 @@
       "share": "화면 공유",
       "shareLater": "화면 공유는 나중에 지원돼요",
       "board": "칠판",
-      "boardFollow": "칠판: Ada 따라가기",
+      "boardFollow": "칠판: {tutorName} 따라가기",
       "boardPinned": "칠판: {view} 고정됨",
       "captions": "자막",
       "end": "세션 종료",
@@ -137,7 +137,7 @@
       "cancel": "계속하기"
     },
     "tile": {
-      "ada": "Ada 타일",
+      "ada": "{tutorName} 타일",
       "hint": "원하는 곳으로 끌어 옮길 수 있어요. 화살표 키로 다른 모서리로 옮기고, Shift와 화살표 키로 크기를 바꿔요."
     },
     "pip": {
@@ -156,7 +156,7 @@
       },
       "off": {
         "title": "카메라가 꺼져 있어요",
-        "body": "Ada가 종이를 보게 하려면 카메라를 켜 주세요.",
+        "body": "{tutorName}가 종이를 보게 하려면 카메라를 켜 주세요.",
         "action": "카메라 켜기"
       },
       "denied": {
@@ -188,7 +188,7 @@
       "switch": "카메라 바꾸기"
     },
     "upload": {
-      "failing": "Ada가 아직 최근 작업을 못 보고 있어요. 다시 연결하는 중이에요…"
+      "failing": "{tutorName}가 아직 최근 작업을 못 보고 있어요. 다시 연결하는 중이에요…"
     },
     "debug": {
       "toggle": "히트맵",
@@ -229,7 +229,7 @@
       "eraser": "지우개"
     },
     "description": {
-      "label": "Ada의 보드에 있는 것",
+      "label": "{tutorName}의 보드에 있는 것",
       "states": "상태: {list}",
       "start": "시작: {state}",
       "accepting": "수락 상태: {list}",
@@ -294,7 +294,7 @@
     "failed": "스냅샷을 불러오지 못했어요",
     "alt": "내 종이의 스냅샷",
     "description": {
-      "label": "내 종이에 Ada가 남긴 표시",
+      "label": "내 종이에 {tutorName}가 남긴 표시",
       "step": "{n}단계: {target}",
       "circle": "표시: {target}",
       "note": "메모: {text}",
@@ -317,8 +317,8 @@
       "unreachable": "Cannot reach the voice server. Check your connection and try again.",
       "reconnecting": "Reconnecting…",
       "retry": "Retry",
-      "connecting": "에이다와 연결하는 중",
-      "failed": "에이다와 연결할 수 없어요."
+      "connecting": "{tutorName}와 연결하는 중",
+      "failed": "{tutorName}와 연결할 수 없어요."
     },
     "settings": {
       "title": "오디오",
@@ -328,7 +328,7 @@
       "output": "스피커",
       "systemDefault": "시스템 기본 장치",
       "presenter": "발표 모드",
-      "presenterHint": "Ada의 목소리가 강의실 스피커 같은 두 번째 장치에서도 나와요. 스피커 소리가 마이크에 다시 들어갈 수 있어서 눌러서 말하기가 켜져요.",
+      "presenterHint": "{tutorName}의 목소리가 강의실 스피커 같은 두 번째 장치에서도 나와요. 스피커 소리가 마이크에 다시 들어갈 수 있어서 눌러서 말하기가 켜져요.",
       "presenterOutput": "발표용 출력",
       "chooseOutput": "발표용 스피커를 선택하세요",
       "noRoomOutput": "발표 모드를 사용하려면 다른 스피커를 연결해 주세요.",
@@ -340,7 +340,7 @@
         "normal": "보통",
         "high": "즉시"
       },
-      "sensitivityHint": "“응” 같은 짧은 맞장구는 Ada의 말을 끊지 않아요. 단, 즉시 모드에서는 말을 끊어요."
+      "sensitivityHint": "“응” 같은 짧은 맞장구는 {tutorName}의 말을 끊지 않아요. 단, 즉시 모드에서는 말을 끊어요."
     },
     "device": {
       "input": "마이크 {n}",
@@ -351,7 +351,7 @@
     },
     "mic": {
       "holdSpace": "스페이스 바를 누르고 말하세요",
-      "denied": "Tassel이 마이크를 사용할 수 없어요. 에이다에게 입력해서 말할 수는 있어요.",
+      "denied": "Tassel이 마이크를 사용할 수 없어요. {tutorName}에게 입력해서 말할 수는 있어요.",
       "unavailable": "마이크를 사용할 수 없어요. 다른 앱에서 사용 중일 수 있어요.",
       "openSettings": "설정 열기",
       "dismiss": "닫기"
@@ -502,14 +502,14 @@
   "screen": {
     "choose": "Share a display",
     "noDisplays": "No displays available. Try again.",
-    "ready": "Open your assignment and share a display with Ada.",
+    "ready": "화면 공유 꺼짐 · 대기 중",
     "sharing": "Screen shared",
     "paused": "Screen sharing paused",
     "pause": "Pause",
     "resume": "Resume",
     "stop": "Stop sharing",
     "reset": "Reset annotations",
-    "resetHint": "Clear annotations and interrupt Ada (Ctrl/Cmd+Shift+Backspace)",
+    "resetHint": "Clear annotations and interrupt {tutorName} (Ctrl/Cmd+Shift+Backspace)",
     "restore": "Open Tassel",
     "collapse": "Collapse to bar",
     "draw": "Draw",
@@ -522,8 +522,10 @@
     "failed": "Screen sharing needs attention. Restore Tassel and retry.",
     "micOn": "Mic on",
     "micOff": "Mic off",
-    "resetDone": "Annotations reset · Ada is listening",
-    "board": "Open board"
+    "resetDone": "Annotations reset · {tutorName} is listening",
+    "board": "Open board",
+    "visibleIdle": "{tutorName}에게 화면 공유 중 · 대기 중",
+    "pausedIdle": "화면 공유 일시 정지 · 대기 중"
   },
   "personalization": {
     "title": "나의 이상적인 튜터",

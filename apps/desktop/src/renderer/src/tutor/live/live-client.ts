@@ -72,6 +72,9 @@ export class LiveTutorClient implements TutorClient {
     this.state = initialMapState(deps.lang());
     const self = this;
     this.voice = {
+      setTutorName(name) {
+        self.send({ kind: 'tutor-name', name });
+      },
       setTalking(held) {
         self.talking = held;
         deps.mic.setGate(held);

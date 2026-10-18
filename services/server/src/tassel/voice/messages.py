@@ -176,10 +176,16 @@ class ClientMetricsEvent(_Message):
     sensitivity: Sensitivity
 
 
+class TutorNameEvent(_Message):
+    kind: Literal["tutor-name"]
+    name: str = Field(min_length=1, max_length=100)
+
+
 class OfferRequestData(_Message):
     """The RTVI ``requestData`` of a voice offer."""
 
     # The fake LLM's scenario; None means the server's default.
+    tutor_name: str = Field(default="Tutor", min_length=1, max_length=100)
     scenario: str | None = None
     sensitivity: Sensitivity = "normal"
     ptt: bool = False
@@ -201,7 +207,7 @@ ServerEvent = Annotated[
     Field(discriminator="kind"),
 ]
 ClientEvent = Annotated[
-    PushToTalkEvent | SensitivityEvent | ClientMetricsEvent | StageStateEvent,
+    PushToTalkEvent | SensitivityEvent | ClientMetricsEvent | StageStateEvent | TutorNameEvent,
     Field(discriminator="kind"),
 ]
 SERVER_EVENTS: Final = TypeAdapter(ServerEvent)

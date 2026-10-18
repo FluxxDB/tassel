@@ -114,3 +114,14 @@ export const Sliders = icon(
     <circle cx="9" cy="17" r="2" />
   </>,
 );
+
+export const Pause = icon('Pause', <path d="M8 5v14M16 5v14" />);
+export const Play = icon('Play', <path d="m8 5 11 7-11 7Z" />);
+export const Pencil = icon(
+  'Pencil',
+  <>
+    <path d="m4 16-1 5 5-1L20 8l-4-4Z" />
+    <path d="m13 7 4 4" />
+  </>,
+);
+export const UndoRound = icon('UndoRound', <path d="M8 4 3 9l5 5M3 9h10a6 6 0 0 1 0 12h-3" />);

@@ -10,6 +10,7 @@ export class FakeTutorClient implements TutorClient {
   private readonly clock: Clock;
   private readonly speed: number;
   private readonly lang: Lang;
+  private readonly tutorName?: () => string;
   private readonly listeners = new Set<(event: TutorEvent) => void>();
   private timer: unknown = null;
   private connected = false;
@@ -18,12 +19,16 @@ export class FakeTutorClient implements TutorClient {
    * @param opts.speed how many times faster than the script's own times (TASSEL_FAKE_SPEED).
    * @param opts.lang the language of lines sent with sendText; English by default.
    */
-  constructor(script: FakeScript, opts: { clock?: Clock; speed?: number; lang?: Lang } = {}) {
+  constructor(
+    script: FakeScript,
+    opts: { clock?: Clock; speed?: number; lang?: Lang; tutorName?: () => string } = {},
+  ) {
     // A stable sort, so steps at the same time keep the script's order.
     this.steps = [...script.steps].sort((a, b) => a.at - b.at);
     this.clock = opts.clock ?? systemClock;
     this.speed = opts.speed && opts.speed > 0 ? opts.speed : 1;
     this.lang = opts.lang ?? 'en';
+    this.tutorName = opts.tutorName;
   }
 
   /** Starts the script from its beginning, also after an earlier connect. */
@@ -64,7 +69,12 @@ export class FakeTutorClient implements TutorClient {
     const delay = Math.max(0, start + step.at / this.speed - this.clock.now());
     this.timer = this.clock.setTimeout(() => {
       this.timer = null;
-      this.emit(step.event);
+      const event = step.event;
+      this.emit(
+        event.type === 'caption' && this.tutorName
+          ? { ...event, text: event.text.replaceAll('Ada', this.tutorName()) }
+          : event,
+      );
       if (this.connected) this.schedule(index + 1, start);
     }, delay);
   }

@@ -66,6 +66,35 @@ async def test_owned_explicit_sharing_is_required_and_reset_rejects_old_frames(m
                 headers={"Content-Type": "image/jpeg"},
             )
         ).status_code == 201
+        from unittest.mock import AsyncMock
+
+        screen = app.state.screens.get(learner.id, session_id)
+        screen.cancel = AsyncMock()
+        for revision, active in [(1, False), (2, True)]:
+            response = await client.post(
+                base + "/activity",
+                json={
+                    "source": "display",
+                    "epoch": 1,
+                    "revision": revision,
+                    "active": active,
+                },
+            )
+            assert response.status_code == 200
+            assert screen.active is active
+            assert screen.frame is None
+        screen.cancel.assert_not_awaited()
+        assert (
+            await client.post(
+                base + "/activity",
+                json={
+                    "source": "display",
+                    "epoch": 1,
+                    "revision": 1,
+                    "active": False,
+                },
+            )
+        ).status_code == 409
         assert (
             await client.post(
                 base + "/control", json={"source": "display", "epoch": 2, "active": False}
@@ -125,3 +154,17 @@ def test_screen_tool_defines_image_coordinates_and_shape_geometry():
     assert "underline" in points and "below" in points
     assert "pointer" in points and "one" in points
     assert "width" in schema["description"] and "height" in schema["description"]
+
+
+@pytest.mark.parametrize(
+    "kind,points,text",
+    [
+        ("text", [{"x": 0.2, "y": 0.3}], "A useful note"),
+        ("rectangle", [{"x": 0.2, "y": 0.3}, {"x": 0.6, "y": 0.7}], None),
+        ("freehand", [{"x": 0.2, "y": 0.3}, {"x": 0.6, "y": 0.7}, {"x": 0.4, "y": 0.5}], None),
+    ],
+)
+def test_extended_screen_shapes(kind, points, text):
+    from tassel.screen.api import ScreenDrawing
+
+    assert ScreenDrawing(frame_id="current", kind=kind, points=points, text=text).kind == kind

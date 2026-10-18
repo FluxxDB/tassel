@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
   OverlayIntent,
@@ -8,16 +8,54 @@ import type {
 } from '../../../shared/screen-bridge';
 import { Avatar } from '../avatar/Avatar';
 import { readAvatar } from '../avatar/catalog';
-import { Board, Mic, MicOff } from '../components/icons';
+import { useAvatar } from '../avatar/store';
+import { Board, Mic, MicOff, Pause, Pencil, Play, UndoRound } from '../components/icons';
 import './overlay.css';
 
 const action = (intent: OverlayIntent) => window.tassel.screen.intent(intent);
 
+export function ScrollCaption({ text }: { text: string }) {
+  const element = useRef<HTMLParagraphElement>(null);
+  const follow = useRef(true);
+  useLayoutEffect(() => {
+    const node = element.current;
+    if (!text) follow.current = true;
+    if (node && follow.current) node.scrollTop = node.scrollHeight;
+  }, [text]);
+  return (
+    <p
+      ref={element}
+      onScroll={() => {
+        const node = element.current;
+        if (node) follow.current = node.scrollHeight - node.clientHeight - node.scrollTop <= 12;
+      }}
+    >
+      {text}
+    </p>
+  );
+}
+
 export function MarkLayer({ marks }: { marks: ScreenMark[] }) {
+  const svg = useRef<SVGSVGElement>(null);
+  const [size, setSize] = useState({ width: 1000, height: 1000 });
+  useLayoutEffect(() => {
+    const node = svg.current;
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    const measure = () => {
+      const bounds = node.getBoundingClientRect();
+      if (bounds.width && bounds.height) setSize({ width: bounds.width, height: bounds.height });
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    measure();
+    return () => observer.disconnect();
+  }, []);
+  const { width, height } = size;
   return (
     <svg
+      ref={svg}
       className="screen-ink"
-      viewBox="0 0 1000 1000"
+      viewBox={`0 0 ${width} ${height}`}
       preserveAspectRatio="none"
       aria-hidden="true"
     >
@@ -37,22 +75,52 @@ export function MarkLayer({ marks }: { marks: ScreenMark[] }) {
         const a = mark.points[0];
         if (!a) return null;
         const b = mark.points[1] ?? a;
+        if (mark.kind === 'text')
+          return (
+            <text
+              key={mark.id}
+              x={a.x * width}
+              y={a.y * height}
+              fill="currentColor"
+              stroke="none"
+              fontSize="18"
+              dominantBaseline="hanging"
+            >
+              {(mark.text ?? '').split('\n').map((line, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: Lines belong to one immutable annotation, never a reordered list.
+                <tspan key={`${i}:${line}`} x={a.x * width} dy={i ? '1.3em' : 0}>
+                  {line}
+                </tspan>
+              ))}
+            </text>
+          );
+        if (mark.kind === 'rectangle')
+          return (
+            <rect
+              key={mark.id}
+              x={Math.min(a.x, b.x) * width}
+              y={Math.min(a.y, b.y) * height}
+              width={Math.abs(b.x - a.x) * width}
+              height={Math.abs(b.y - a.y) * height}
+              rx="3"
+            />
+          );
         if (mark.kind === 'circle')
           return (
             <ellipse
               key={mark.id}
-              cx={(a.x + b.x) * 500}
-              cy={(a.y + b.y) * 500}
-              rx={Math.max(5, Math.abs(b.x - a.x) * 500)}
-              ry={Math.max(5, Math.abs(b.y - a.y) * 500)}
+              cx={((a.x + b.x) * width) / 2}
+              cy={((a.y + b.y) * height) / 2}
+              rx={Math.max(5, (Math.abs(b.x - a.x) * width) / 2)}
+              ry={Math.max(5, (Math.abs(b.y - a.y) * height) / 2)}
             />
           );
         if (mark.kind === 'pointer')
-          return <circle key={mark.id} cx={a.x * 1000} cy={a.y * 1000} r="9" />;
+          return <circle key={mark.id} cx={a.x * width} cy={a.y * height} r="9" />;
         return (
           <polyline
             key={mark.id}
-            points={mark.points.map((p) => `${p.x * 1000},${p.y * 1000}`).join(' ')}
+            points={mark.points.map((p) => `${p.x * width},${p.y * height}`).join(' ')}
             markerEnd={mark.kind === 'arrow' ? 'url(#screen-arrow)' : undefined}
           />
         );
@@ -63,6 +131,8 @@ export function MarkLayer({ marks }: { marks: ScreenMark[] }) {
 export function Overlay({ kind }: { kind: 'hud' | 'ink' }) {
   const { t } = useTranslation();
   const [state, setState] = useState<OverlayState | null>(null);
+  const [arrivals, setArrivals] = useState(0);
+  useEffect(() => window.tassel.screen.onArrived?.(() => setArrivals((value) => value + 1)), []);
   const [stroke, setStroke] = useState<ScreenPoint[]>([]);
   const pending = useRef<ScreenPoint[]>([]);
   const seq = useRef(-1);
@@ -72,6 +142,7 @@ export function Overlay({ kind }: { kind: 'hud' | 'ink' }) {
       if (next.sequence > seq.current) {
         seq.current = next.sequence;
         setState(next);
+        useAvatar.setState({ profile: readAvatar(next.avatar) });
         if (!next.draw) {
           pending.current = [];
           setStroke([]);
@@ -164,6 +235,9 @@ export function Overlay({ kind }: { kind: 'hud' | 'ink' }) {
   return (
     <div className="overlay-shell" data-testid="screen-overlay">
       <div className="overlay-bar">
+        {arrivals > 0 && (
+          <div key={arrivals} className="overlay-arrival avatar-rainbow" aria-hidden="true" />
+        )}
         <div className="overlay-main">
           <span className="overlay-avatar">
             <Avatar
@@ -173,7 +247,18 @@ export function Overlay({ kind }: { kind: 'hud' | 'ink' }) {
           </span>
           <div className="overlay-caption" aria-live="polite">
             <span className="overlay-status">{t(`screen.${status}`)}</span>
-            <p>{state?.caption || t('screen.ready')}</p>
+            <ScrollCaption
+              text={
+                state?.caption ||
+                t(
+                  state?.status === 'sharing'
+                    ? 'screen.visibleIdle'
+                    : state?.status === 'paused'
+                      ? 'screen.pausedIdle'
+                      : 'screen.ready',
+                )
+              }
+            />
           </div>
           <div className="overlay-controls">
             <button type="button" onClick={() => action('reset')} title={t('screen.resetHint')}>
@@ -215,19 +300,34 @@ export function Overlay({ kind }: { kind: 'hud' | 'ink' }) {
             <i data-paused={state?.status === 'paused'} />
             {t(state?.status === 'paused' ? 'screen.paused' : 'screen.sharing')}
           </span>
-          <button type="button" onClick={() => action('pause')}>
-            {t(state?.status === 'paused' ? 'screen.resume' : 'screen.pause')}
+          <button
+            type="button"
+            className="overlay-icon"
+            onClick={() => action('pause')}
+            aria-label={t(state?.status === 'paused' ? 'screen.resume' : 'screen.pause')}
+            title={t(state?.status === 'paused' ? 'screen.resume' : 'screen.pause')}
+          >
+            {state?.status === 'paused' ? <Play /> : <Pause />}
           </button>
           <button
             type="button"
+            className="overlay-icon"
+            aria-label={t('screen.draw')}
+            title={t('screen.draw')}
             aria-pressed={state?.draw ?? false}
             disabled={state?.status !== 'sharing'}
             onClick={() => action('draw')}
           >
-            {t('screen.draw')}
+            <Pencil />
           </button>
-          <button type="button" onClick={() => action('undo')}>
-            {t('screen.undo')}
+          <button
+            type="button"
+            className="overlay-icon"
+            onClick={() => action('undo')}
+            aria-label={t('screen.undo')}
+            title={t('screen.undo')}
+          >
+            <UndoRound />
           </button>
           <button
             type="button"

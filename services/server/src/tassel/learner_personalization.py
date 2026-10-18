@@ -70,9 +70,17 @@ class TutorPreferences:
     def notes(self) -> str:
         return memory_instruction(self.memory)
 
-    def talker_prompt(self, lang: Lang, *, tools: bool, two_tier: bool) -> str:
+    def talker_prompt(
+        self, lang: Lang, *, tools: bool, two_tier: bool, tutor_name: str = "Tutor"
+    ) -> str:
         return (
-            system_prompt(lang, tools=tools, two_tier=two_tier, ideal_tutor=self.ideal_tutor)
+            system_prompt(
+                lang,
+                tutor_name=tutor_name,
+                tools=tools,
+                two_tier=two_tier,
+                ideal_tutor=self.ideal_tutor,
+            )
             + self.notes
         )
 

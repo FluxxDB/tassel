@@ -1322,6 +1322,13 @@
             ],
             "title": "Sensitivity",
             "type": "string"
+          },
+          "tutor_name": {
+            "default": "Tutor",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Tutor Name",
+            "type": "string"
           }
         },
         "title": "OfferRequestData",
@@ -1710,6 +1717,40 @@
           "active"
         ],
         "title": "ScreenAck",
+        "type": "object"
+      },
+      "ScreenActivity": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "epoch": {
+            "maximum": 9007199254740991.0,
+            "minimum": 1.0,
+            "title": "Epoch",
+            "type": "integer"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "source": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "epoch",
+          "active",
+          "revision"
+        ],
+        "title": "ScreenActivity",
         "type": "object"
       },
       "ScreenControl": {
@@ -2931,6 +2972,64 @@
         "summary": "Finish Memory",
         "tags": [
           "memory"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/screen/activity": {
+      "post": {
+        "operationId": "activity_v1_sessions__session_id__screen_activity_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScreenActivity"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenAck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Activity",
+        "tags": [
+          "screen"
         ]
       }
     },

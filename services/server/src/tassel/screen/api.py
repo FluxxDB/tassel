@@ -25,6 +25,10 @@ class ScreenControl(BaseModel):
     active: bool
 
 
+class ScreenActivity(ScreenControl):
+    revision: int = Field(ge=0)
+
+
 class ScreenAck(BaseModel):
     epoch: int
     active: bool
@@ -39,17 +43,24 @@ class ScreenPoint(BaseModel):
 class ScreenDrawing(BaseModel):
     model_config = ConfigDict(extra="forbid")
     frame_id: str = Field(max_length=80)
-    kind: Literal["pointer", "circle", "underline", "arrow"]
-    points: list[ScreenPoint] = Field(min_length=1, max_length=2)
+    kind: Literal["pointer", "circle", "underline", "arrow", "rectangle", "text", "freehand"]
+    points: list[ScreenPoint] = Field(min_length=1, max_length=512)
+    text: str | None = Field(default=None, max_length=500)
 
     @model_validator(mode="after")
     def shape_geometry(self):
-        expected = 1 if self.kind == "pointer" else 2
+        if self.kind == "freehand":
+            if len(self.points) < 2:
+                raise ValueError("freehand requires at least two points")
+            return self
+        if self.kind == "text" and not (self.text and self.text.strip()):
+            raise ValueError("text requires a nonempty label")
+        expected = 1 if self.kind in ("pointer", "text") else 2
         if len(self.points) != expected:
             raise ValueError(f"{self.kind} requires {expected} points")
         if expected == 2:
             a, b = self.points
-            if a == b or (self.kind == "circle" and (a.x == b.x or a.y == b.y)):
+            if a == b or (self.kind in ("circle", "rectangle") and (a.x == b.x or a.y == b.y)):
                 raise ValueError("Shape must have nonzero extent")
         return self
 
@@ -70,6 +81,31 @@ async def control(
 ) -> ScreenAck:
     screen = await owned(request, learner, db, session_id)
     await screen.reset(**body.model_dump())
+    return ScreenAck(epoch=screen.epoch, active=screen.active)
+
+
+@router.post("/activity")
+async def activity(
+    session_id: uuid.UUID,
+    body: ScreenActivity,
+    request: Request,
+    learner: Learner = Depends(current_learner),
+    db: AsyncSession = Depends(get_db),
+) -> ScreenAck:
+    screen = await owned(request, learner, db, session_id)
+    async with screen.lock:
+        if (
+            screen.source != body.source
+            or screen.epoch != body.epoch
+            or body.revision < screen.revision
+            or screen.cancel_pending
+        ):
+            raise HTTPException(409, "Obsolete screen activity")
+        # Pausing capture is independent of cancelling a spoken response.
+        screen.active = body.active
+        screen.revision = body.revision
+        screen.frame = None
+        screen.changed.set()
     return ScreenAck(epoch=screen.epoch, active=screen.active)
 
 

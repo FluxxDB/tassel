@@ -3,6 +3,7 @@ import type { ApiClient } from '@tassel/shared/api';
 import type { Lang } from '@tassel/shared/i18n';
 import { ICE_SERVERS_PATH, type OfferRequestData } from '@tassel/shared/voice';
 import type { AppConfig, TasselBridge } from '../../../shared/bridge';
+import { useAvatar } from '../avatar/store';
 import { fixtureSource, registerSnapshotSource } from '../board/marks/snapshot-sources';
 import { compileScript } from '../board/script/compile';
 import type { AuthoredScript } from '../board/script/types';
@@ -91,6 +92,7 @@ export function createTutorClient(cfg: AppConfig, deps?: LiveDeps): TutorClient 
   return new Client(compileScript(script, cfg.fakeScript), {
     speed: cfg.fakeSpeed,
     lang: cfg.uiLanguage,
+    tutorName: () => useAvatar.getState().profile.name,
   });
 }
 

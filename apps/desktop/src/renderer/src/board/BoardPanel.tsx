@@ -136,7 +136,10 @@ class CanvasBoundary extends Component<{ children: ReactNode }, { failed: boolea
   }
 
   override componentDidCatch(error: unknown): void {
-    console.warn("[tassel] Ada's board couldn't start, so this session goes on without it:", error);
+    console.warn(
+      "[tassel] Tutor's board couldn't start, so this session goes on without it:",
+      error,
+    );
   }
 
   override render(): ReactNode {

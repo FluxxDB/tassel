@@ -6,7 +6,7 @@ import { useAvatar } from '../avatar/store';
 import { beatPlayer } from '../board/beats/player';
 import { useStageStore } from '../features/session/stage-store';
 import { useLiveVoice } from '../features/voice/live-voice';
-import { viewportChanged } from './geometry';
+import { paintStudentInk, viewportChanged } from './geometry';
 import { ScreenSession } from './session';
 import { bindScreenActions, useScreen } from './store';
 
@@ -43,6 +43,8 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
     let presentationVersion = 0;
     let preparing = false;
     let uploadAbort: AbortController | null = null;
+    let currentCapture: Promise<void> | null = null;
+    let lastCaptureStarted = 0;
     const get = () => useScreen.getState();
     const set = (state: Partial<ReturnType<typeof get>>) => {
       if (!disposed) useScreen.setState(state);
@@ -118,7 +120,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
               : state.status === 'resetting'
                 ? 'resetting'
                 : 'sharing',
-        caption: stage.captionsOn ? (stage.caption.current?.text ?? '') : '',
+        caption: stage.captionsOn ? (stage.caption.current?.text ?? '').slice(-16000) : '',
         tutorState: stage.tutorState,
         micOn: stage.micOn,
         draw: state.draw,
@@ -196,9 +198,8 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         await bridge.prepare?.();
         if (disposed || version !== presentationVersion || !get().selected) return;
         set({ presentation: 'collapsing' });
-        await sleep(matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 280);
         if (disposed || version !== presentationVersion || !get().selected) return;
-        await bridge.collapse();
+        await bridge.collapse(matchMedia('(prefers-reduced-motion: reduce)').matches);
         if (version === presentationVersion) set({ presentation: 'overlay' });
       } catch {
         if (version === presentationVersion) set({ presentation: 'expanded', notice: 'failed' });
@@ -209,8 +210,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
     async function restore() {
       const version = ++presentationVersion;
       set({ presentation: 'restoring' });
-      await bridge.restore();
-      await sleep(matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 280);
+      await bridge.restore(matchMedia('(prefers-reduced-motion: reduce)').matches);
       if (version === presentationVersion) set({ presentation: 'expanded' });
     }
     function canvasFrame(width: number) {
@@ -225,9 +225,25 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
       return { canvas, context, width, height };
     }
     async function capture() {
+      // A second turn must await its own fresh frame rather than silently skipping a busy upload.
+      while (currentCapture) await currentCapture;
+      const task = takeFrame();
+      currentCapture = task;
+      try {
+        await task;
+      } finally {
+        if (currentCapture === task) currentCapture = null;
+      }
+    }
+    async function takeFrame() {
       if (disposed || uploading || get().status !== 'sharing' || !video) return;
       uploading = true;
       const identity = session.identity();
+      const started = performance.now();
+      let captured = started;
+      let encoded = started;
+      let uploaded = started;
+      let delivered = false;
       try {
         await controlQueue;
         const mask = await bridge.capture(true);
@@ -245,12 +261,16 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
             Math.ceil(mask.height * frame.height) + 8,
           );
         }
+        paintStudentInk(frame.context, get().marks, frame.width, frame.height);
+        captured = performance.now();
         const jpeg = await new Promise<Blob | null>((resolve) =>
           frame.canvas.toBlob(resolve, 'image/jpeg', 0.88),
         );
         if (!jpeg || disposed || !session.accepts(identity) || get().status !== 'sharing') return;
+        encoded = performance.now();
         const id = crypto.randomUUID();
         lastFrameId = id;
+        lastCaptureStarted = started;
         if (!fake) {
           uploadAbort = new AbortController();
           await api(
@@ -263,9 +283,18 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
             },
           );
         }
+        uploaded = performance.now();
+        delivered = true;
       } catch {
         if (!disposed && session.accepts(identity)) set({ notice: 'failed' });
       } finally {
+        console.info('[screen-timing]', {
+          frameId: lastFrameId,
+          captureMs: Math.round(captured - started),
+          encodeMs: Math.round(Math.max(0, encoded - captured)),
+          uploadMs: delivered ? Math.round(uploaded - encoded) : null,
+          delivered,
+        });
         uploading = false;
         await bridge.capture(false).catch(() => {});
       }
@@ -277,6 +306,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         const frame = canvasFrame(160);
         if (!frame) return;
         const mask = await bridge.capture(false);
+        if (uploading || disposed || get().status !== 'sharing') return;
         if (mask)
           frame.context.clearRect(
             mask.x * frame.width,
@@ -308,11 +338,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         if (sample && viewportChanged(sample, current)) {
           session.invalidate();
           lastFrameId = '';
-          set({ marks: [], draw: false });
-          // Invalidate server work as well as local geometry; stale speech must not continue.
-          void reset().then(() => {
-            if (!disposed) set({ notice: '' });
-          });
+          // Keep visible ink and speech. Only pending geometry belongs to the old viewport.
         }
         sample = current;
         previousMarks = currentMarks;
@@ -376,8 +402,22 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
       restore,
       pause: async () => {
         const paused = get().status === 'paused';
-        set({ status: paused ? 'sharing' : 'paused', notice: '' });
-        await reset();
+        session.invalidate();
+        lastFrameId = '';
+        uploadAbort?.abort();
+        set({ status: paused ? 'sharing' : 'paused', draw: false, notice: '' });
+        const identity = session.identity();
+        const task = async () => {
+          if (!fake)
+            await api('activity', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...identity, active: paused }),
+            });
+        };
+        const result = controlQueue.catch(() => {}).then(task);
+        controlQueue = result;
+        await result;
       },
       look: async () => {
         if (get().status !== 'sharing') return;
@@ -433,9 +473,18 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
       for (const mark of message.marks)
         if (
           validPoints(mark.points) &&
-          ['circle', 'pointer', 'arrow', 'underline'].includes(mark.kind)
+          ['circle', 'pointer', 'arrow', 'underline', 'rectangle', 'text', 'freehand'].includes(
+            mark.kind,
+          ) &&
+          (mark.kind !== 'text' || (typeof mark.text === 'string' && mark.text.length <= 500))
         )
           session.add({ ...mark, author: 'tutor' }, message);
+      console.info('[screen-timing]', {
+        frameId: message.frame_id,
+        stage: 'marks-received',
+        sinceCaptureRequestMs: Math.round(performance.now() - lastCaptureStarted),
+        marks: message.marks.length,
+      });
       set({ marks: session.marks });
     };
     const onKey = (event: KeyboardEvent) => {

@@ -75,7 +75,7 @@ export function createBeatPlayer(deps: {
         deps.dispatch([marker.action]);
       } catch (error) {
         // A bug behind dispatch, not bad input: report it and go on with the rest.
-        console.error(`[tassel] Ada's marker ${marker.id} failed:`, error);
+        console.error(`[tassel] Tutor's marker ${marker.id} failed:`, error);
       }
     }
   };
@@ -92,7 +92,7 @@ export function createBeatPlayer(deps: {
       try {
         listener({ doc: p.doc, index: word, atMs });
       } catch (error) {
-        console.error("[tassel] A listener to Ada's words failed:", error);
+        console.error("[tassel] A listener to the tutor's words failed:", error);
       }
     }
   };

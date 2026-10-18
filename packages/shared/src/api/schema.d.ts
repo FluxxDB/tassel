@@ -229,6 +229,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sessions/{session_id}/screen/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Activity */
+        post: operations["activity_v1_sessions__session_id__screen_activity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sessions/{session_id}/screen/control": {
         parameters: {
             query?: never;
@@ -816,6 +833,11 @@ export interface components {
              * @enum {string}
              */
             sensitivity: "low" | "normal" | "high";
+            /**
+             * Tutor Name
+             * @default Tutor
+             */
+            tutor_name: string;
         };
         /**
          * PageGeometry
@@ -956,6 +978,17 @@ export interface components {
             active: boolean;
             /** Epoch */
             epoch: number;
+        };
+        /** ScreenActivity */
+        ScreenActivity: {
+            /** Active */
+            active: boolean;
+            /** Epoch */
+            epoch: number;
+            /** Revision */
+            revision: number;
+            /** Source */
+            source: string;
         };
         /** ScreenControl */
         ScreenControl: {
@@ -1705,6 +1738,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    activity_v1_sessions__session_id__screen_activity_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScreenActivity"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenAck"];
+                };
             };
             /** @description Validation Error */
             422: {

@@ -49,6 +49,7 @@ export type TutorEvent =
 
 /** The live voice tutor's controls, beyond P1's TutorClient. */
 export interface VoiceControls {
+  setTutorName?(name: string): void;
   /** Push-to-talk: whether Space is held. */
   setTalking(held: boolean): void;
   setSensitivity(level: Sensitivity): void;

@@ -636,3 +636,16 @@ async def test_reconnected_unanswered_request_is_history_not_a_new_fragment():
         with patch.object(gate, "push_frame", AsyncMock()):
             await gate.process_frame(LLMContextFrame(bot.context), FrameDirection.DOWNSTREAM)
         assert gate.director.decide.call_args.args[0] == "Explain the next question"
+
+
+async def test_configured_name_is_used_for_greeting_and_changes_without_reconnecting():
+    from tassel.voice.fakes.llm import FakeLLMService
+    from tassel.voice.messages import OfferRequestData
+
+    async with running(context(request=OfferRequestData(tutor_name="Mira"))) as (bot, out):
+        await until(lambda: "Hi, I'm Mira." in out.text())
+        assert "Hi, I'm Ada." not in out.text()
+        await message(
+            bot, "client-message", {"t": "tassel", "d": {"kind": "tutor-name", "name": "Nova"}}
+        )
+        await until(lambda: isinstance(bot.llm, FakeLLMService) and bot.llm.tutor_name == "Nova")

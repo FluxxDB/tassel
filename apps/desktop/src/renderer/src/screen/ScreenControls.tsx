@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../components/Button';
+import { Pause, Play } from '../components/icons';
 import { Sheet } from '../components/Sheet';
 import { MarkLayer } from '../overlay/Overlay';
 import { containRect } from './geometry';
@@ -92,8 +93,12 @@ export function ScreenPanel() {
           {state.status === 'error' && (
             <Button onClick={() => void screenActions()?.reset()}>{t('common.retry')}</Button>
           )}
-          <Button onClick={() => void screenActions()?.pause()}>
-            {t(state.status === 'paused' ? 'screen.resume' : 'screen.pause')}
+          <Button
+            aria-label={t(state.status === 'paused' ? 'screen.resume' : 'screen.pause')}
+            title={t(state.status === 'paused' ? 'screen.resume' : 'screen.pause')}
+            onClick={() => void screenActions()?.pause()}
+          >
+            {state.status === 'paused' ? <Play /> : <Pause />}
           </Button>
           <Button onClick={() => void screenActions()?.reset()}>{t('screen.reset')}</Button>
           <Button onClick={() => void screenActions()?.collapse()}>{t('screen.collapse')}</Button>

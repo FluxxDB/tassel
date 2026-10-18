@@ -145,3 +145,22 @@ describe('screen controller lifecycle', () => {
     h.hook.unmount();
   });
 });
+
+it('pause and resume preserve speech and student ink', async () => {
+  const h = harness();
+  await act(async () => screenActions()?.start('test'));
+  act(() =>
+    h.stroke([
+      { x: 0.2, y: 0.3 },
+      { x: 0.4, y: 0.5 },
+    ]),
+  );
+  const interruptions = h.interrupt.mock.calls.length;
+  await act(async () => screenActions()?.pause());
+  expect(useScreen.getState().marks).toHaveLength(1);
+  expect(h.interrupt).toHaveBeenCalledTimes(interruptions);
+  await act(async () => screenActions()?.pause());
+  expect(useScreen.getState().marks).toHaveLength(1);
+  expect(h.interrupt).toHaveBeenCalledTimes(interruptions);
+  h.hook.unmount();
+});

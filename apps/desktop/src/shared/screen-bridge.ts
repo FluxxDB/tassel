@@ -15,9 +15,10 @@ export interface ScreenPoint {
 }
 export interface ScreenMark {
   id: string;
-  kind: 'pointer' | 'circle' | 'underline' | 'arrow' | 'freehand';
+  kind: 'pointer' | 'circle' | 'underline' | 'arrow' | 'freehand' | 'rectangle' | 'text';
   points: ScreenPoint[];
   author: 'student' | 'tutor';
+  text?: string;
 }
 export interface OverlayState {
   sequence: number;
@@ -47,8 +48,8 @@ export interface ScreenBridge {
   displays(): Promise<DisplayChoice[]>;
   select(id: string): Promise<DisplayChoice>;
   prepare(): Promise<void>;
-  collapse(): Promise<void>;
-  restore(): Promise<void>;
+  collapse(reducedMotion?: boolean): Promise<void>;
+  restore(reducedMotion?: boolean): Promise<void>;
   close(): Promise<void>;
   publish(state: OverlayState): void;
   onState(listener: (state: OverlayState) => void): () => void;
@@ -57,6 +58,7 @@ export interface ScreenBridge {
   stroke(points: ScreenPoint[]): void;
   onStroke(listener: (points: ScreenPoint[]) => void): () => void;
   ready(): void;
+  onArrived?(listener: () => void): () => void;
   /** Hide annotations for a clean frame on platforms without capture exclusion. */
   capture(clean: boolean): Promise<{ x: number; y: number; width: number; height: number } | null>;
 }
@@ -73,6 +75,7 @@ export const SCREEN_IPC = {
   stroke: 'screen:stroke',
   ready: 'screen:ready',
   capture: 'screen:capture',
+  arrived: 'screen:arrived',
 } as const;
 export const OVERLAY_INTENTS: readonly string[] = [
   'reset',
@@ -136,9 +139,12 @@ export function validOverlayState(value: unknown): value is OverlayState {
       !mark ||
       typeof mark.id !== 'string' ||
       mark.id.length > 100 ||
-      !['pointer', 'circle', 'underline', 'arrow', 'freehand'].includes(mark.kind) ||
+      !['pointer', 'circle', 'underline', 'arrow', 'freehand', 'rectangle', 'text'].includes(
+        mark.kind,
+      ) ||
       !['student', 'tutor'].includes(mark.author) ||
-      !validPoints(mark.points)
+      !validPoints(mark.points) ||
+      (mark.text !== undefined && (typeof mark.text !== 'string' || mark.text.length > 500))
     )
       return false;
     points += mark.points.length;

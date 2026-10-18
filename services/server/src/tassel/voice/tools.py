@@ -29,17 +29,30 @@ DRAW_SCREEN = FunctionSchema(
     "from its caption. Never guess a frame ID.",
     properties={
         "frame_id": {"type": "string"},
-        "kind": {"type": "string", "enum": ["pointer", "circle", "underline", "arrow"]},
+        "kind": {
+            "type": "string",
+            "enum": ["pointer", "circle", "underline", "arrow", "rectangle", "text", "freehand"],
+        },
+        "text": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Required for kind=text: the exact text to write, "
+            "using newline for line breaks.",
+        },
         "points": {
             "description": "pointer: exactly one point at the target. "
             "circle: exactly two opposite corners (top-left and bottom-right) of the "
             "target's bounding box, NOT center and radius. "
             "underline: exactly two endpoints of a line just below the text, "
             "left to right at the same y. arrow: exactly two points, tail then tip. "
-            "Locate the target in the current image before drawing; omit the call if uncertain.",
+            "rectangle: two opposite corners. text: one top-left anchor plus the text field. "
+            "freehand: two to 512 successive path points. "
+            "Locate the requested target in the CURRENT image before drawing. Cross-check "
+            "its visible label and surrounding content; do not mark a similarly placed app "
+            "or a target from earlier conversation. Omit the call if uncertain.",
             "type": "array",
             "minItems": 1,
-            "maxItems": 2,
+            "maxItems": 512,
             "items": {
                 "type": "object",
                 "properties": {

@@ -107,7 +107,12 @@
       "sensitivity": "normal"
     }
   ],
-  "offer_request_data": { "scenario": "dfa-opening", "sensitivity": "normal", "ptt": false },
+  "offer_request_data": {
+    "scenario": "dfa-opening",
+    "sensitivity": "normal",
+    "ptt": false,
+    "tutor_name": "Mira"
+  },
   "scenario_lines": {
     "dfa-opening": {
       "en": [

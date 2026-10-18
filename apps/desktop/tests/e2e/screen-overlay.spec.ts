@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -60,6 +60,15 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
     TASSEL_FAKE_SPEED: '.1',
   });
   const errors: string[] = [];
+  const timings: Record<string, unknown>[] = [];
+  page.on('console', (message) => {
+    if (message.text().startsWith('[screen-timing]')) {
+      void message
+        .args()[1]
+        ?.jsonValue()
+        .then((value) => timings.push(value));
+    }
+  });
   page.on('pageerror', (error) => errors.push(error.message));
   try {
     await page.evaluate(
@@ -134,6 +143,15 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
     await ink.mouse.down();
     await ink.mouse.move(220, 170, { steps: 8 });
     await ink.mouse.up();
+    await expect(ink.locator('polyline')).toHaveCount(1);
+    // Capture a fresh changed assignment while keeping existing ink on screen.
+    await hud.getByRole('button', { name: 'Pause', exact: true }).click();
+    await expect(hud.getByRole('button', { name: 'Resume', exact: true })).toBeVisible();
+    await expect(ink.locator('polyline')).toHaveCount(1);
+    await hud.getByRole('button', { name: 'Resume', exact: true }).click();
+    await expect(ink.locator('polyline')).toHaveCount(1);
+    await hud.getByRole('button', { name: 'Look again', exact: true }).click();
+    await expect.poll(() => timings.some((value) => value.delivered === true)).toBe(true);
     await expect(ink.locator('polyline')).toHaveCount(1);
     await hud.getByRole('button', { name: 'Reset annotations', exact: true }).click();
     await expect(ink.locator('polyline')).toHaveCount(0);
@@ -225,6 +243,51 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
       expect(geometry.line.width).toBeCloseTo(geometry.width * 0.3, 1);
     }
     await ink.screenshot({ path: join(dir, 'screen-tutor-geometry.png') });
+    await app.evaluate(({ BrowserWindow }) => {
+      const hudWindow = BrowserWindow.getAllWindows().find((w) =>
+        w.webContents.getURL().endsWith('#overlay-hud'),
+      );
+      hudWindow?.webContents.send('screen:state', {
+        sequence: 200001,
+        status: 'sharing',
+        caption: 'A long caption that continues onto new lines. '.repeat(60),
+        tutorState: 'speaking',
+        micOn: true,
+        draw: false,
+        marks: [],
+        avatar: { name: 'Mira' },
+        notice: '',
+      });
+    });
+    await expect.poll(() => timings.some((value) => value.delivered === true)).toBe(true);
+    writeFileSync(join(dir, 'screen-timings.json'), JSON.stringify(timings, null, 2));
+    console.log('Synthetic screen timing:', JSON.stringify(timings));
+    const caption = hud.locator('.overlay-caption p');
+    await expect(caption).toContainText('A long caption');
+    await expect
+      .poll(() => caption.evaluate((el) => el.scrollTop > 0 && el.scrollHeight > el.clientHeight))
+      .toBe(true);
+    await caption.evaluate((el) => {
+      el.scrollTop = 0;
+      el.dispatchEvent(new Event('scroll'));
+    });
+    await app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()
+        .find((w) => w.webContents.getURL().endsWith('#overlay-hud'))
+        ?.webContents.send('screen:state', {
+          sequence: 200002,
+          status: 'sharing',
+          caption: 'A long caption that continues onto new lines. '.repeat(65),
+          tutorState: 'speaking',
+          micOn: true,
+          draw: false,
+          marks: [],
+          avatar: { name: 'Mira' },
+          notice: '',
+        });
+    });
+    await expect.poll(() => caption.evaluate((el) => el.scrollTop)).toBe(0);
+    await hud.screenshot({ path: join(dir, 'screen-overlay-captions.png') });
     await hud.getByRole('button', { name: 'Stop sharing', exact: true }).click();
     await expect.poll(() => app.windows().length).toBe(1);
     await expect(page.getByRole('button', { name: 'Share screen', exact: true })).toHaveAttribute(

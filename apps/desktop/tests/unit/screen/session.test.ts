@@ -62,3 +62,56 @@ it('keeps preview marks inside the actual contained video', async () => {
     height: 562.5,
   });
 });
+
+it('keeps visible ink when the viewport changes but rejects pending old geometry', () => {
+  const session = new ScreenSession(async () => {});
+  session.start('display');
+  const identity = session.identity();
+  session.add(
+    { id: 'student', kind: 'freehand', author: 'student', points: [{ x: 0.2, y: 0.3 }] },
+    identity,
+  );
+  session.invalidate();
+  expect(session.marks).toHaveLength(1);
+  expect(session.accepts(identity)).toBe(false);
+});
+
+it('composites student strokes into the captured frame and excludes tutor marks', async () => {
+  const { paintStudentInk } = await import('../../../src/renderer/src/screen/geometry');
+  const context = {
+    save: vi.fn(),
+    restore: vi.fn(),
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    stroke: vi.fn(),
+  };
+  paintStudentInk(
+    context as unknown as CanvasRenderingContext2D,
+    [
+      {
+        id: 'student',
+        author: 'student',
+        kind: 'freehand',
+        points: [
+          { x: 0.2, y: 0.3 },
+          { x: 0.4, y: 0.5 },
+        ],
+      },
+      {
+        id: 'tutor',
+        author: 'tutor',
+        kind: 'underline',
+        points: [
+          { x: 0.6, y: 0.7 },
+          { x: 0.8, y: 0.9 },
+        ],
+      },
+    ],
+    1000,
+    500,
+  );
+  expect(context.moveTo).toHaveBeenCalledExactlyOnceWith(200, 150);
+  expect(context.lineTo).toHaveBeenCalledExactlyOnceWith(400, 250);
+  expect(context.stroke).toHaveBeenCalledOnce();
+});

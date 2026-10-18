@@ -517,7 +517,7 @@ class TutorCoordinator:
             {
                 "type": "text",
                 "text": "[board] The shared whiteboard right now, including anything the student "
-                "drew or moved. Ada's own items are listed in the board items; anything else "
+                "drew or moved. The tutor's own items are listed in the board items; anything else "
                 "is the student's.",
             },
             {"type": "image_url", "image_url": {"url": _image_url(image)}},
