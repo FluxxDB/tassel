@@ -38,6 +38,7 @@ from tassel.voice.erase import (
 )
 from tassel.voice.history import windowed
 from tassel.voice.illustrator import Illustrator
+from tassel.voice.ladder import Ladder
 from tassel.voice.pointer import MarkIntent, Pointer, image_mark_tags, mark_tags
 from tassel.voice.prompts import thinker_system_prompt
 from tassel.voice.settings import VoiceSettings
@@ -62,6 +63,13 @@ class GuidanceBrief(BaseModel):
     followups: list[str]
     language: TargetLanguage | None = None
     draw: str | None = None
+
+
+# A brief's completion room: an answer at effort "none" is short; a brief that thinks (a
+# construction, or the ladder's redraw with its highlights and one step per spoken sentence)
+# needs room for its reasoning and every tag, or it is cut off mid-JSON.
+BRIEF_TOKENS = 1200
+DRAWN_BRIEF_TOKENS = 4000
 
 
 def make_thinker(settings: VoiceSettings):
@@ -102,7 +110,7 @@ class Thinker:
                     reasoning_effort=effort,
                     messages=request,
                     response_format={"type": "json_object"},
-                    max_completion_tokens=1200,
+                    max_completion_tokens=BRIEF_TOKENS if effort == "none" else DRAWN_BRIEF_TOKENS,
                 )
             except (APIConnectionError, TimeoutError) as error:
                 reason = type(error).__name__
@@ -268,6 +276,9 @@ class TutorCoordinator:
         self.ink = None
         self.delivered = False
         self.decision = None
+        # The whiteboard ladder for her current problem, and this turn's rung (step, attempt).
+        self.ladder = Ladder()
+        self.rung: tuple[int | None, bool] = (None, False)
         self._page = None
         self._board_page = None
         self.attachments = []
@@ -349,6 +360,7 @@ class TutorCoordinator:
         (``chat.student_image.StudentImage``) or None, for a turn about her image: the thinker
         sees it numbered, and its marks go on it."""
         await self.cancel()
+        self.rung = self.ladder.take()
         self.context, self.text = context, text
         self.attachments = list(attachments or [])
         self._student_image, self.student_image = student_image, None
@@ -366,20 +378,13 @@ class TutorCoordinator:
         )
         if changed or time.monotonic() > self.expires:
             self.notes.clear()
+        self._new_work(current)
         # Compare against the last brief's page, so small edits accumulate.
         if not self.notes:
             self.ink = current
         self._notes_context()
         # The thinker sees the last 6 exchanges; the notes carry what came before.
         self.messages = windowed(deepcopy(context.get_messages()), THINKER_WINDOW)
-        if decision is not None:
-            where = "board" if decision.refers_to == "board" else "paper"
-            rung = RUNGS.get((decision.action, where))
-            traced = any("[[dfa yours" in t for n in self.notes[-1:] for t in n.board)
-            if decision.action == "trace" and where == "paper" and traced:
-                rung = CONTRAST
-            if rung:
-                self.messages.append({"role": "system", "content": rung})
         if (
             decision.route == "thinker"
             if decision
@@ -387,6 +392,37 @@ class TutorCoordinator:
         ):
             self.trigger()
         self._notes_context()
+
+    def _new_work(self, ink):
+        """Her ink changed past the notes' threshold since the ladder began: a ladder turn
+        diagnoses her new work from step 0."""
+        if self.ladder.see(ink) and self.rung[0] is not None:
+            self.ladder.begin("paper")
+            self.ladder.see(ink)
+            self.rung = self.ladder.take()
+            self.log("ladder", step=0, reason="new work")
+
+    def _add_rung(self):
+        """This turn's rung for the thinker: the ladder's step, or the playbook's for the
+        director's action."""
+        decision = self.decision
+        step, attempt = self.rung
+        if step is not None:
+            note = LADDER[step]
+            if attempt:
+                note = ATTEMPT + note.removeprefix("[app note] ")
+            self.messages.append({"role": "system", "content": note})
+            self.log("ladder", step=step, attempt=attempt)
+            return
+        if decision is None:
+            return
+        where = "board" if decision.refers_to == "board" else "paper"
+        rung = RUNGS.get((decision.action, where))
+        traced = any("[[dfa yours" in t for n in self.notes[-1:] for t in n.board)
+        if decision.action == "trace" and where == "paper" and traced:
+            rung = CONTRAST
+        if rung:
+            self.messages.append({"role": "system", "content": rung})
 
     def trigger(self):
         if self.thinker is None or (self.decision and self.decision.route != "thinker"):
@@ -415,8 +451,14 @@ class TutorCoordinator:
                     return None
             if self.attachments or self.student_image is not None:
                 self._attach_student_images()
+            self._add_rung()
             effort = None
-            if (
+            if self.rung[0] in (1, 2):
+                # The ladder's redraw, highlights and trace: an exact copy of her work and one
+                # step per sentence take a little thought (and DRAWN_BRIEF_TOKENS of room).
+                settings = getattr(self.thinker, "settings", None)
+                effort = getattr(settings, "thinker_draw_effort", "low")
+            elif (
                 self.decision
                 and self.decision.action == "draw_board"
                 and AUTOMATA.search(self.text)
@@ -435,7 +477,9 @@ class TutorCoordinator:
                 return None
             said = [n.say for n in self.notes[-3:]]
             tracing = any(STEP.match(t) for t in brief.board + brief.paper)
-            if not tracing and any(_similar(brief.say, old) for old in said):
+            # The ladder's step 0 asks the same question by design ("Can you spot it?").
+            asking = self.rung[0] == 0
+            if not tracing and not asking and any(_similar(brief.say, old) for old in said):
                 # Retest #8: the same sentence three times. Change words and tools instead.
                 self.log("reject", source="repeat", text=brief.say)
                 retry = await self._brief(
@@ -447,8 +491,9 @@ class TutorCoordinator:
                             "content": "[app note] You already said: "
                             + " | ".join(said)
                             + " The student still doesn't follow. Say something new and move "
-                            "up the playbook's ladder: mark her paper, or copy her machine to "
-                            "the board as yours and trace the counterexample step by step.",
+                            "up the playbook's ladder on the board: copy her machine there as "
+                            "yours and trace the counterexample step by step, or draw the "
+                            "correct one if you already did.",
                         },
                     ],
                     effort,
@@ -483,6 +528,7 @@ class TutorCoordinator:
                 self.illustrator_task = asyncio.create_task(self._draw(brief.draw, generation))
             self.notes = [*self.notes[-3:], brief]
             self.expires = time.monotonic() + self.ttl_s
+            self.ladder.record(*self.rung, brief)
             self.log("thinker_brief", brief=brief.model_dump())
             self._notes_context()
             return brief
@@ -587,6 +633,7 @@ class TutorCoordinator:
             self.page_image, self.page_caption = image, caption
             ink = result[2] if len(result) > 2 and result[2] else image
             current = ink_signature(ink)
+            self._new_work(current)
             if (
                 current is not None
                 and self.ink is not None
@@ -869,9 +916,11 @@ class TutorCoordinator:
 
     def _illustrator_takes_over(self, brief, decision) -> bool:
         """A draw turn whose brief carries nothing to draw goes to the Illustrator, unless it
-        is an automaton (the exact verifier's) or an erase."""
+        is an automaton (the exact verifier's), an erase, or a ladder rung (her words there are
+        "no", nothing to draw: the rung's brief draws, or says plainly that it couldn't)."""
         return bool(
             decision.action == "draw_board"
+            and self.rung[0] is None
             and not brief.board
             and not brief.draw
             and not AUTOMATA.search(self.text)
@@ -881,13 +930,15 @@ class TutorCoordinator:
     def validate_tags(self, brief):
         context = deepcopy(self.board)
         decision = self.decision or rules(self.text)
-        # Her paper never gets a board diagram in its place, except the playbook's trace: her
-        # machine is copied to the board as yours and traced there, beside her page (the stage
-        # manager opens the split view), even when her words name her paper.
+        # Her paper never gets a board diagram in its place, except the playbook's trace and the
+        # ladder's steps 1 and 2: her machine is copied to the board as yours and traced there,
+        # beside her page (the stage manager opens the split view), even when her words name
+        # her paper.
         paper_only = (
             bool(PAPER.search(self.text))
             and not re.search(r"\bboard\b", self.text, re.I)
             and decision.action != "trace"
+            and self.rung[0] not in (1, 2)
         )
         valid = {"board": [], "paper": [], "image": []}
         for location in valid:
@@ -1000,15 +1051,45 @@ PAPER_VERB = re.compile(
     r"\[\[\s*(?:freeze|circle|wash|number|strike|underline|check|callout|ptrace|pstep|live)\b"
 )
 SAY_TAG = re.compile(r"\[\[[^\[\]]*\]\]")
-# Per-action guidance for the thinker: the playbook's rung, made explicit for this turn.
+# The whiteboard ladder's steps (voice/ladder.py), one note per turn: the same ladder for every
+# board topic, automata and diagrams alike. Board only: her paper gets marks only when she asks.
+LADDER = {
+    0: "[app note] Whiteboard ladder, step 0 (diagnose and ask): find her mistake yourself and "
+    "keep it in diagnosis and followups. In say, tell her only that there's an error in her work "
+    'and ask her to spot it, like "There\'s an error in your DFA. Can you spot it?" Name no '
+    "state, edge, value or input, and draw nothing: board, paper and draw stay empty. If her "
+    "work is right, say so in one short sentence instead.",
+    1: "[app note] Whiteboard ladder, step 1 (show hers): she couldn't spot it. Start say with "
+    '"Okay, let me help you out." Redraw HER work on the board exactly as she drew it, '
+    "mistake included: an automaton as [[dfa yours ...]] (or nfa) with her states, arrows and "
+    "accepting states; any other diagram (a network, a tree) through draw, with her own labels "
+    "and values. Then [[highlight yours EL]] the states or edges that matter, and walk ONE "
+    "input that breaks it through her copy: [[trace t yours INPUT student]], then one "
+    "[[step t]] per symbol, each with one short spoken sentence naming the state that symbol "
+    "reaches. For a diagram, put a short [[note]] on the wrong part and walk through it in "
+    "short sentences instead of a trace. End with one question asking her to fix it. Nothing "
+    "on her paper, and not the correct version yet.",
+    2: "[app note] Whiteboard ladder, step 2 (show the correct one): she is still stuck after "
+    "seeing her own work. Draw the correct machine on the board as fix (or the correct diagram "
+    "through draw), [[highlight fix EL]] what changed, and walk an input it now handles "
+    "correctly through it: [[trace t fix INPUT]], then one [[step t]] per symbol, each with one "
+    "short spoken sentence. Say in one line what changed, then ask her to fix her own work to "
+    "match. Nothing on her paper.",
+}
+# She answered the ladder's question with a try of her own ("is it q3?").
+ATTEMPT = (
+    "[app note] She answered your question with an attempt. If it is right, confirm it in a few "
+    "words and ask her to fix it; draw nothing. If it is wrong or partial, do this instead: "
+)
+# Per-action guidance for the thinker on a turn off the ladder: what she asked for, explicitly.
 RUNGS = {
-    ("trace", "paper"): "[app note] Playbook rung c (show): copy her machine exactly as drawn to "
-    "the board as yours, then [[trace t yours INPUT student]] on the counterexample, with one "
+    ("trace", "paper"): "[app note] Ladder step 1 (show hers): copy her machine exactly as drawn "
+    "to the board as yours, then [[trace t yours INPUT student]] on the counterexample, with one "
     "[[step t]] per sentence after the first.",
     ("trace", "board"): "[app note] Trace on the board: [[trace t MACHINE INPUT]] on the machine "
     "already there, with one [[step t]] per sentence after the first.",
-    ("mark_paper", "paper"): "[app note] Playbook rung b (point): freeze, then circle or callout "
-    "the exact state or edge on her paper, with a few words.",
+    ("mark_paper", "paper"): "[app note] She asked for marks on her paper: freeze, then circle or "
+    "callout the exact state or edge on her paper, with a few words.",
     ("mark_image", "paper"): "[app note] Mark her image (the one captioned [image]), not her "
     "paper or the board: image_marks with each target in words; the Pointer finds its numbered "
     "candidate and the app shows the image. She asked for this mark: never withhold it. Mark "
@@ -1017,11 +1098,11 @@ RUNGS = {
     "can't see it.",
 }
 
-# Rung d: she watched her machine traced and is still lost. Show the fix beside it.
+# She watched her machine traced and is still lost: the correct one, beside it.
 CONTRAST = (
-    "[app note] Playbook rung d (contrast): you already traced her machine; do not trace it "
-    "again. Draw the minimal fix on the board as fix, then [[trace t fix INPUT]] the target "
-    "string on it, one [[step t]] per sentence, and say in one line what changed."
+    "[app note] Ladder step 2 (show the correct one): you already traced her machine; do not "
+    "trace it again. Draw the minimal fix on the board as fix, then [[trace t fix INPUT]] the "
+    "target string on it, one [[step t]] per sentence, and say in one line what changed."
 )
 
 
@@ -1084,17 +1165,109 @@ def lift_say_tags(brief):
     )
 
 
+# Pacing: where a tag lands in what Ada says. A trace and its input, a highlight and its state.
+TRACE_TAG = re.compile(r"\[\[\s*(?:trace\s+\S+\s+\S+|ptrace)\s+([^\s\]]+)")
+POINT_TAG = re.compile(r"\[\[\s*(?:highlight|unhighlight|pulse)\s+\S+\s+([^\s\]]+)\s*\]\]")
+VERDICT_TAG = re.compile(r"\[\[\s*verdict\b")
+# The sentence that starts a walk: "Let's run zero one zero", "Watch this", "따라가 봐요".
+WALK = re.compile(
+    r"\b(?:run|runs|running|trace|tracing|walk|follow|feed|try|watch|step through|"
+    r"start(?:s|ing)? (?:at|from|in)|recorr\w*|sig\w+|prueb\w*)\b|따라|넣어|추적|실행",
+    re.I,
+)
+# Digits as Ada says them (en, es, ko), and the letters of state names.
+DIGIT_WORDS = {
+    "0": ("zero", "cero", "영", "공"),
+    "1": ("one", "uno", "일"),
+    "2": ("two", "dos", "이"),
+    "3": ("three", "tres", "삼"),
+    "4": ("four", "cuatro", "사"),
+    "5": ("five", "cinco", "오"),
+    "6": ("six", "seis", "육"),
+    "7": ("seven", "siete", "칠"),
+    "8": ("eight", "ocho", "팔"),
+    "9": ("nine", "nueve", "구"),
+}
+DIGIT_OF = {word: digit for digit, words in DIGIT_WORDS.items() for word in words}
+LETTER_SOUNDS = {"q": ("q", "큐", "cu")}
+
+
+def _says_state(sentence: str, state: str) -> bool:
+    """Whether the sentence names a state: "q3", "q 3", "q three", "큐 삼"."""
+    found = re.fullmatch(r"([A-Za-z]+)(\d+)", state)
+    if found is None:
+        return bool(re.search(rf"(?<!\w){re.escape(state)}(?![0-9A-Za-z])", sentence, re.I))
+    letters, number = found.groups()
+    numbers = (number, *DIGIT_WORDS.get(number, ()))
+    return any(
+        re.search(rf"(?<!\w){re.escape(sound)}\s*{re.escape(n)}(?![0-9A-Za-z])", sentence, re.I)
+        for sound in LETTER_SOUNDS.get(letters.lower(), (letters,))
+        for n in numbers
+    )
+
+
+def _says_input(sentence: str, word: str) -> bool:
+    """Whether the sentence names the input: "010", "0 1 0", "zero one zero"."""
+    if len(word) < 2:
+        return False
+    digits = "".join(
+        token if token.isdigit() else DIGIT_OF.get(token, "|")
+        for token in re.findall(r"\w+", sentence.lower())
+    )
+    return word in digits
+
+
+def _walk_start(sentences: list[str], trace: str, steps: int) -> int:
+    """The sentence the trace starts on: the first that names its input or starts a walk, else
+    the one that leaves a sentence for each step before a closing question."""
+    found = TRACE_TAG.match(trace)
+    word = found.group(1) if found else ""
+    for i, sentence in enumerate(sentences):
+        if _says_input(sentence, word) or WALK.search(sentence):
+            return i
+    last = len(sentences) - 1
+    if len(sentences) > steps + 1 and sentences[-1].rstrip().endswith("?"):
+        last -= 1
+    return max(0, last - steps)
+
+
 def compose(brief) -> str:
-    """Tags lead, except trace steps: one lands before each sentence after the first, so a
-    trace advances as Ada speaks it."""
+    """Tags land where Ada narrates them. Drawings lead; a [[trace]] lands before the sentence
+    that starts the walk (it names the input, or says run, trace, walk…), then one [[step]]
+    before each sentence after it, so the trace advances as she speaks; a highlight lands before
+    the first sentence that names its state, or with the walk; a verdict comes with the last
+    step. Steps beyond the last sentence follow it."""
     tags = brief.board + brief.paper + list(getattr(brief, "image", []))
+    sentences = [s for s in re.split(r"(?<=[.!?])\s+", brief.say.strip()) if s] or [""]
+    trace = next((t for t in tags if TRACE_TAG.match(t)), None)
     steps = [t for t in tags if STEP.match(t)]
-    text = "".join(t for t in tags if not STEP.match(t))
-    for i, sentence in enumerate(re.split(r"(?<=[.!?])\s+", brief.say.strip())):
-        if i and steps:
-            text += steps.pop(0)
-        text += sentence + " "
-    return text.rstrip() + "".join(steps)
+    points = [t for t in tags if POINT_TAG.match(t)]
+    verdicts = [t for t in tags if trace and VERDICT_TAG.match(t)]
+    moved = {id(t) for t in [*steps, *points, *verdicts]} | ({id(trace)} if trace else set())
+    lead = [t for t in tags if id(t) not in moved]
+    walk = _walk_start(sentences, trace, len(steps)) if trace else 0
+    marks = [[] for _ in sentences]
+    moves = [[] for _ in sentences]
+    after = []
+    if trace:
+        moves[walk].append(trace)
+    last = moves[walk]
+    for k, step in enumerate(steps):
+        i = walk + 1 + k
+        last = moves[i] if i < len(sentences) else after
+        last.append(step)
+    last.extend(verdicts)
+    for point in points:
+        states = POINT_TAG.match(point).group(1).split(">")
+        named = [i for i, s in enumerate(sentences) if all(_says_state(s, st) for st in states)]
+        named = named or [
+            i for i, s in enumerate(sentences) if any(_says_state(s, st) for st in states)
+        ]
+        marks[named[0] if named else walk].append(point)
+    text = "".join(lead)
+    for i, sentence in enumerate(sentences):
+        text += "".join(marks[i]) + "".join(moves[i]) + sentence + " "
+    return text.rstrip() + "".join(after)
 
 
 # Said when a promised drawing didn't reach the board.

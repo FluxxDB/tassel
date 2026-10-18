@@ -10,6 +10,8 @@ from loguru import logger
 from openai import AsyncOpenAI, InternalServerError, RateLimitError
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from tassel.voice.ladder import checking, failed
+
 # Cerebras sometimes answers 429 for a few seconds; the same Qwen model on these hosts measured
 # 250–450 ms to first token (2026-10-18), so a busy Cerebras never silences Ada.
 QWEN_PRIMARY_PROVIDER = {"only": ["cerebras"], "allow_fallbacks": False}
@@ -159,6 +161,19 @@ RESTORE = re.compile(
 )
 
 
+# Something with a picture, and a request to explain how it works: drawn, not only told.
+VISUAL = re.compile(
+    r"\b(?:dfa|nfa|automat\w*|state machine|machine|transitions?|network|subnet\w*|"
+    r"topolog\w*|router|diagram|graph|tree|flowchart|circuit)s?\b",
+    re.I,
+)
+EXPLAIN_HOW = re.compile(
+    r"\b(?:explain|how (?:does|do|would|can|is)|why (?:does|is|do|would)|walk me through|"
+    r"show me how|what happens)\b",
+    re.I,
+)
+
+
 def _draw_request(text):
     return bool(DRAW.search(SELF_WORK.sub(" ", text)))
 
@@ -282,7 +297,13 @@ def guard(text, decision, *, image=False):
     ):
         # Short definitional questions are the fast talker's: instant, no brief needed.
         update.update(route="talker", action="explain")
-    return decision.model_copy(update=update) if update else decision
+    final = decision.model_copy(update=update) if update else decision
+    if final.route == "talker" and VISUAL.search(text) and EXPLAIN_HOW.search(text):
+        # Explaining something visual is drawn on the board, step by step: the thinker's turn
+        # (the talker never draws).
+        action = "explain" if final.action == "none" else final.action
+        final = final.model_copy(update={"route": "thinker", "action": action})
+    return final
 
 
 GREETING = re.compile(
@@ -319,35 +340,117 @@ def certain(text):
     return None
 
 
-def escalate(text, decision, *, confusions, drew_last=False):
-    """The playbook's ladder, enforced: still confused after one explanation means drawing.
-    First point at her paper; if that was already done, trace the counterexample."""
-    if confusions <= 0 or not CONFUSED.search(text):
+# A short attempt at Ada's ladder question: a state, an input, a fix ("q3 should accept").
+ATTEMPT = re.compile(
+    r"\bq\s*\d+\b|\bq (?:zero|one|two|three|four|five)\b|\b[01]{2,}\b|"
+    r"\b(?:should|needs?|missing|instead|change|add|remove|accept\w*|reject\w*|is it|maybe|"
+    r"because|wrong)\b",
+    re.I,
+)
+ACK = re.compile(
+    r"^\W*(?:ok(?:ay)?|got it|i see|thanks|thank you|cool|great|yes|yeah|sure|alright|"
+    r"makes sense)\W*$",
+    re.I,
+)
+TRACE_WORD = re.compile(r"\btrace\b", re.I)
+# On an open ladder: "just show me the answer", "what's the fix": the correct one now (step 2).
+GIVE_UP = re.compile(
+    r"\b(?:(?:show|give|tell) me (?:the )?(?:answer|solution|fix|correct (?:one|version))|"
+    r"what'?s the (?:answer|fix|solution))\b",
+    re.I,
+)
+
+
+def _asks(text) -> bool:
+    """Her words ask for something of their own: a mark or drawing, a construction, the answer,
+    an erase or undo, or a trace. Such a turn is a new request, not a ladder answer."""
+    return bool(
+        _draw_request(text)
+        or ERASE.search(text)
+        or RESTORE.search(text)
+        or CONSTRUCT.search(HELP.sub(" ", text))
+        or TRACE_WORD.search(text)
+    )
+
+
+def _attempt(text) -> bool:
+    words = len(text.split())
+    return bool(
+        words <= 25
+        and ATTEMPT.search(text)
+        and not ACK.search(text)
+        and not GREETING.search(text)
+        and not re.match(r"^\W*(?:why|how|what)\b", text, re.I)
+    )
+
+
+def _rung(problem, step, decision):
+    """The decision for a ladder rung: step 0 diagnoses where her work is, steps 1 and 2 draw on
+    the board (her page stays beside it for a paper problem: the thinker copies from it)."""
+    if problem == "board":
+        update = dict(refers_to="board", needs_vision=False)
+        update["focus"] = "split" if decision.focus == "split" else "board"
+    else:
+        update = dict(refers_to="paper", needs_vision=True)
+        if step == 0:
+            update["focus"] = decision.focus if decision.focus in ("paper", "split") else "paper"
+        else:
+            update["focus"] = "split"
+    update.update(route="thinker", action="explain" if step == 0 else "draw_board")
+    return decision.model_copy(update=update)
+
+
+def escalate(text, decision, *, ladder=None, answered=True):
+    """The whiteboard ladder (voice/ladder.py), enforced. A check of her work opens it at step 0;
+    after Ada's question, "no", "I can't see it" or a wrong attempt climbs it one step (the
+    answer outright, step 2); a new request closes it. With no ladder open, still confused after
+    an explanation means drawing: her paper's machine as step 1, anything else on the board.
+    `answered`: Ada has spoken in this conversation. Sets ``ladder.turn`` for the coordinator."""
+    if ladder is None:
         return decision
+    ladder.turn, ladder.attempt = None, False
+    lost = answered and bool(CONFUSED.search(text))
     if decision.refers_to == "image":
         # Her own image: point at it; there is no copy of it to trace.
-        return decision.model_copy(update=dict(route="thinker", action="mark_image"))
-    on_board = decision.refers_to == "board" or decision.focus == "board"
-    if confusions + drew_last <= 1:
-        if on_board:
-            update = dict(route="thinker", action="draw_board")
-        else:
-            update = dict(
+        if lost:
+            return decision.model_copy(update=dict(route="thinker", action="mark_image"))
+        return decision
+    asks = _asks(text)
+    if checking(text) and not asks:
+        # Her own work ("my DFA") is on her paper, even checked "on your whiteboard": that asks
+        # to see it on the board, so the ladder starts at step 1. "Check my network on the
+        # board" is her work on the board.
+        mine = bool(SELF_WORK.search(text) or PAPER.search(text))
+        problem = "board" if decision.refers_to == "board" and not mine else "paper"
+        step = 1 if problem == "paper" and ON_BOARD.search(text) else 0
+        ladder.begin(problem, step=step)
+        return _rung(problem, step, decision)
+    if ladder.open and answered and GIVE_UP.search(text):
+        ladder.climb(to=2)
+        return _rung(ladder.problem, ladder.turn, decision)
+    if asks:
+        if decision.route == "thinker":
+            ladder.reset()  # Something new: a new problem.
+        return decision
+    if ladder.open and answered and (failed(text) or CONFUSED.search(text)):
+        ladder.climb()
+        return _rung(ladder.problem, ladder.turn, decision)
+    if ladder.open and answered and _attempt(text):
+        ladder.climb(attempt=True)
+        return _rung(ladder.problem, ladder.turn, decision)
+    if lost and not ladder.open:
+        if decision.refers_to == "paper" or decision.focus == "paper":
+            ladder.begin("paper", step=1)
+            return _rung("paper", 1, decision)
+        return decision.model_copy(
+            update=dict(
                 route="thinker",
-                action="mark_paper",
-                focus="paper",
-                refers_to="paper",
-                needs_vision=True,
+                action="draw_board",
+                focus="split" if decision.focus == "split" else "board",
+                needs_vision=False,
             )
-    elif on_board:
-        update = dict(
-            route="thinker", action="trace", focus="board", refers_to="board", needs_vision=False
         )
-    else:
-        update = dict(
-            route="thinker", action="trace", focus="split", refers_to="paper", needs_vision=True
-        )
-    return decision.model_copy(update=update)
+    return decision
 
 
 def report_usage(on_usage, model, response):

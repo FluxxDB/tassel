@@ -211,8 +211,9 @@ def test_the_prompt_example_traces_her_paper_machine_on_the_board():
     prompt = thinker_system_prompt(GuidanceBrief.model_json_schema())
     assert "on the board as yours" in prompt and "even when she names her paper" in prompt
     example = next(e for e in THINKER_EXAMPLES if "[[trace t yours" in str(e["brief"]["board"]))
-    assert "my paper" in example["student"]
+    # The ladder's step 1 (her "no" after Ada's question): her machine copied to the board and
+    # traced there, even when her words name her paper.
     c = TutorCoordinator(None, BoardContext())
-    c.text, c.decision = example["student"], PAPER_TRACE
+    c.text, c.decision, c.rung = "I can't see it on my paper.", PAPER_TRACE, (1, False)
     checked = c.validate_tags(GuidanceBrief.model_validate(example["brief"]))
     assert checked.board == example["brief"]["board"]
