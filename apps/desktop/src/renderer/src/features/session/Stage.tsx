@@ -7,6 +7,7 @@
 import type { Source } from '@tassel/shared/api';
 import { type ReactNode, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { BoardCameraControls } from '../../board/BoardCameraControls';
 import { BoardPanel } from '../../board/BoardPanel';
 import { PaperMarksLayer } from '../../board/marks/PaperMarksLayer';
 import { SnapshotTag } from '../../board/marks/SnapshotTag';
@@ -83,6 +84,8 @@ export function Stage({ source, onUnpinned }: StageProps) {
         {/* The leftmost panel carries the pin indicator: the board only when it's alone. */}
         <TopLine pinIndicator={!paperShown} onUnpinned={onUnpinned}>
           <Tag className="bg-ink text-paper">{t('session.board.tag')}</Tag>
+          {/* The student's −/+/Fit, beside the tag: clear of the captions and the tiles. */}
+          <BoardCameraControls />
         </TopLine>
       </Panel>
       {mode === 'board' && cameraOn && stream && (

@@ -375,8 +375,11 @@ test('keeps the camera, captions, dock and tile apart on the board at 1024×680'
     captions: await boxOf(page, 'captions'),
     dock: await boxOf(page, 'dock'),
     tile: await boxOf(page, 'tutor-tile'),
+    // The board's −/+/Fit, in its top line beside the tag.
+    controls: await page.getByRole('group', { name: 'Board camera controls' }).boundingBox(),
   };
   if (!boxes.pip) throw new Error("the desk camera isn't on screen");
+  if (!boxes.controls) throw new Error("the board's camera controls aren't on screen");
   const all = Object.entries(boxes) as [string, Box][];
   for (const [i, [a, boxA]] of all.entries()) {
     for (const [b, boxB] of all.slice(i + 1)) {

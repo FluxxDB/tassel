@@ -140,7 +140,11 @@ describe('BoardPanel', () => {
 
   it('offers labeled zoom and Fit controls once its engine is ready', async () => {
     const fresh = await freshPanel();
-    await renderPanel(fresh);
+    // The stage shows them in the board's top line (Stage.tsx), apart from the panel.
+    const { BoardCameraControls } = await import(
+      '../../../src/renderer/src/board/BoardCameraControls'
+    );
+    await renderPanel(fresh, BoardCameraControls);
     expect(screen.queryByRole('group', { name: 'Board camera controls' })).toBeNull();
     act(() => fresh.stage.getState().requestMode('split'));
     const zoomIn = await screen.findByRole('button', { name: 'Zoom in' });

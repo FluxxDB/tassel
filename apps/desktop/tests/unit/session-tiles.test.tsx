@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { ApiClient } from '@tassel/shared/api';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Stage } from '../../src/renderer/src/features/session/Stage';
@@ -141,6 +141,29 @@ describe("Ada's tile", () => {
     const tile = screen.getByTestId('tutor-tile');
     expect(tile).toHaveClass('shadow-[0_0_0_2px_var(--color-iris)]');
     expect(tile).not.toHaveClass('tutor-speaking-pulse');
+  });
+});
+
+describe("the board's camera controls", () => {
+  it("sit in the board's top line, right after its tag, clear of the captions and tiles", async () => {
+    const { useBoardCamera } = await import('../../src/renderer/src/board/BoardCameraControls');
+    await renderStage();
+    act(() => stage().requestMode('board'));
+    expect(screen.queryByRole('group', { name: 'Board camera controls' })).toBeNull();
+    const camera = { zoom: vi.fn(), fit: vi.fn(), adaAction: vi.fn() };
+    act(() => useBoardCamera.setState({ camera }));
+    const controls = screen.getByRole('group', { name: 'Board camera controls' });
+    const board = screen.getByRole('region', { name: "Ada's board" });
+    expect(board).toContainElement(controls);
+    expect(controls.previousElementSibling).toHaveTextContent("Ada's board");
+    // The top line lets clicks through; the controls take them.
+    expect(controls).toHaveClass('pointer-events-auto');
+    fireEvent.click(within(controls).getByRole('button', { name: 'Zoom in' }));
+    expect(camera.zoom).toHaveBeenLastCalledWith('in');
+    fireEvent.click(within(controls).getByRole('button', { name: 'Fit' }));
+    expect(camera.fit).toHaveBeenCalledOnce();
+    act(() => useBoardCamera.setState({ camera: undefined }));
+    expect(screen.queryByRole('group', { name: 'Board camera controls' })).toBeNull();
   });
 });
 

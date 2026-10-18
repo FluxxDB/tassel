@@ -15,9 +15,9 @@ import {
   useRef,
   useState,
 } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useFloatingTiles } from '../components/FloatingTile';
 import { useStageStore } from '../features/session/stage-store';
+import { useBoardCamera } from './BoardCameraControls';
 import { BoardDescription } from './BoardDescription';
 import { type BoardState, useBoardStore } from './board-store';
 import type { BoardEngine, StageGeometry, StageRect } from './engine';
@@ -29,8 +29,6 @@ const TldrawCanvas = lazy(() =>
 
 export function BoardPanel(): JSX.Element {
   const lang = useSessionLang();
-  const { t } = useTranslation();
-  const [navigation, setNavigation] = useState<BoardEngine['camera']>();
   const shown = useStageStore((state) => state.mode !== 'paper');
   const drawn = useBoardStore((state) => state.scene.items.length > 0);
   const layout = useBoardStore((state) => layoutOf(state.layoutSources));
@@ -50,9 +48,11 @@ export function BoardPanel(): JSX.Element {
   const onEngine = useCallback((next: BoardEngine | null) => {
     detach.current?.();
     engine.current = next;
-    setNavigation(next?.camera);
+    // The student's camera controls live in the stage's top line (BoardCameraControls).
+    useBoardCamera.setState({ camera: next?.camera });
     detach.current = next ? useBoardStore.getState().attach(next) : null;
   }, []);
+  useEffect(() => () => useBoardCamera.setState({ camera: undefined }), []);
 
   // What the stage lays over the board, measured when the camera fits (P5-R9): this panel, the
   // session's main area, which places the captions, and whether captions are on.
@@ -106,29 +106,6 @@ export function BoardPanel(): JSX.Element {
             <TldrawCanvas lang={lang} onEngine={onEngine} stage={stage} />
           </Suspense>
         </CanvasBoundary>
-      )}
-      {navigation && (
-        <fieldset
-          aria-label={t('board.camera.label', { lng: lang })}
-          className="absolute bottom-3.5 left-3.5 z-10 flex gap-1 rounded-lg border border-hairline bg-paper p-1 text-ink"
-        >
-          {(['out', 'in', 'fit'] as const).map((action) => (
-            <button
-              key={action}
-              type="button"
-              aria-label={t(`board.camera.${action}`, { lng: lang })}
-              title={t(`board.camera.${action}`, { lng: lang })}
-              className="h-8 min-w-8 rounded px-2 text-sm hover:bg-bone focus-visible:outline-2 focus-visible:outline-iris-ink"
-              onClick={() => (action === 'fit' ? navigation.fit() : navigation.zoom(action))}
-            >
-              {action === 'in'
-                ? '+'
-                : action === 'out'
-                  ? '−'
-                  : t('board.camera.fit', { lng: lang })}
-            </button>
-          ))}
-        </fieldset>
       )}
       <BoardDescription />
     </div>
