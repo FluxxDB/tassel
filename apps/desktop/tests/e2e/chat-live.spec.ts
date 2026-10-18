@@ -319,8 +319,9 @@ test('typed lines, an image, a text-only reply and an action row, saved for the 
       .toMatchObject({ source: 'typed', interrupted: false });
     await expect(lines.filter({ hasText: FALLBACK })).toHaveCount(2);
     const after = (await wireOf(page)).slice(before);
+    // RTVI still reports the LLM's text (bot-llm-*); nothing is spoken: no TTS, no bot-output.
     const spoken = after.filter(
-      (m) => m.dir === 'in' && /^bot-(tts|output|started-speaking|llm)/.test(m.type),
+      (m) => m.dir === 'in' && /^bot-(tts-|output|started-speaking|stopped-speaking)/.test(m.type),
     );
     expect(spoken.map((m) => m.type)).toEqual([]);
     await settle(page);
