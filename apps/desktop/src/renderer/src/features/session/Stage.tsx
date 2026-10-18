@@ -1,5 +1,6 @@
-// The stage: her paper, Ada's board, or both side by side at exactly 1:1, with Ada's tile in the
-// top right corner. A change of view reflows the panels over 240 ms with an exponential
+// The stage: her paper, Ada's board, or both side by side at exactly 1:1, with Ada's tile floating
+// in its top right corner and, while the board has the stage to itself, her desk camera small in
+// its bottom right one (both move and resize, FloatingTile). A change of view reflows the panels over 240 ms with an exponential
 // ease-out while their contents cross-fade: the same for Ada's requests and the Board control,
 // instant under reduced motion, and never on first mount. P5 mounts Ada's board in the board
 // panel and her paper marks over the paper's body; both stay mounted while their panel hides.
@@ -13,11 +14,22 @@ import { Mic, Pin, Screen } from '../../components/icons';
 import { cn } from '../../lib/cn';
 import { PaperPanel } from '../../paper/PaperPanel';
 import { PaperTopLineExtras } from '../../paper/PaperTopLineExtras';
+import { usePaperStore } from '../../paper/paper-store';
 import { usePaperTag } from '../../paper/use-paper-capture';
+import { CameraPip } from './CameraPip';
 import { type StageMode, useStageStore } from './stage-store';
 import { TutorTile } from './TutorTile';
 
 // Only the panels' share of the width, their gap and their opacity move.
+/** The floating tiles' inset from the stage's edges: the panels' TopLine inset too. */
+const TILE_INSET = 14;
+/**
+ * The floating tiles' bottom corners stay clear of the captions: their band ends 14px above the
+ * stage's bottom (main's 118 less the stage's 104) and is at most 84px tall (Captions.tsx), and
+ * 12px more keeps a gap.
+ */
+const CAPTIONS_CLEARANCE = 14 + 84 + 12;
+
 const REFLOW =
   'motion-safe:transition-[flex-grow,margin-left,opacity] motion-safe:duration-[240ms] motion-safe:ease-[cubic-bezier(0.16,1,0.3,1)]';
 
@@ -39,6 +51,9 @@ export function Stage({ source, onUnpinned }: StageProps) {
   const boardShown = mode !== 'paper';
   const paper = source === 'paper';
   const tag = paper ? paperTag : t(`session.placeholder.${source}.tag`);
+  // Her camera's picture in picture: any paper source's stream, only while the board is alone.
+  const stream = usePaperStore((state) => state.stream);
+  const cameraOn = useStageStore((state) => state.cameraOn);
   return (
     <div data-testid="stage" className="absolute top-2 right-4 bottom-[104px] left-4 flex">
       <Panel shown={paperShown} label={tag}>
@@ -70,7 +85,10 @@ export function Stage({ source, onUnpinned }: StageProps) {
           <Tag className="bg-ink text-paper">{t('session.board.tag')}</Tag>
         </TopLine>
       </Panel>
-      <TutorTile />
+      {mode === 'board' && cameraOn && stream && (
+        <CameraPip stream={stream} inset={TILE_INSET} bottomClearance={CAPTIONS_CLEARANCE} />
+      )}
+      <TutorTile inset={TILE_INSET} bottomClearance={CAPTIONS_CLEARANCE} />
     </div>
   );
 }

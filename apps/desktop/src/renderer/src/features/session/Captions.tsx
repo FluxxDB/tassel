@@ -1,8 +1,10 @@
 // Captions as subtitles: an ink panel above the dock, the previous line small and muted, the
-// current one large, each with its speaker. It grows upward from a fixed bottom edge, so a new
+// current one large, each with its speaker. Compact: never more than two of Ada's lines tall, the
+// newest at the bottom and what no longer fits fading out at the top, so the band stays clear of
+// the floating tiles above it (Stage.tsx). It grows upward from a fixed bottom edge, so a new
 // line never moves the dock. Nothing shows until the first line; C and the dock button hide and
 // show it.
-import { type ReactNode, useRef } from 'react';
+import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/cn';
 import { type CaptionLine, useStageStore } from './stage-store';
@@ -25,6 +27,14 @@ export function Captions({ notice }: { notice?: ReactNode }) {
         (lines.current.line?.interim && lines.current.line.speaker === current?.speaker ? 0 : 1),
     };
   }
+  // Whether the lines overflow their two-line box, so its top edge fades what's cut off there.
+  const box = useRef<HTMLDivElement>(null);
+  const [overflowing, setOverflowing] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measured as the lines change.
+  useLayoutEffect(() => {
+    const el = box.current;
+    setOverflowing(el ? el.scrollHeight > el.clientHeight + 1 : false);
+  }, [previous, current, on]);
   return (
     <div className="pointer-events-none absolute bottom-[118px] left-1/2 z-20 flex w-[min(880px,calc(100%-144px))] -translate-x-1/2 flex-col gap-2">
       {notice}
@@ -38,25 +48,35 @@ export function Captions({ notice }: { notice?: ReactNode }) {
             current ? 'pointer-events-auto opacity-100' : 'opacity-0',
           )}
         >
-          {previous && (
-            <Line
-              line={previous}
-              className="mb-1.5 text-[15px] leading-[19px] text-caption-muted"
-            />
-          )}
-          {/* Only the current line is announced, politely. */}
-          <div aria-live="polite">
-            {current && (
+          {/* Two of Ada's 27px lines at most: 54px, so the panel is 84px tall at most. */}
+          <div
+            ref={box}
+            data-testid="caption-lines"
+            className={cn(
+              'flex max-h-[54px] flex-col justify-end overflow-hidden',
+              overflowing && '[mask-image:linear-gradient(to_bottom,transparent,#000_12px)]',
+            )}
+          >
+            {previous && (
               <Line
-                key={lines.current.count}
-                line={current}
-                // The incoming line fades in, within 150 ms.
-                className={cn(
-                  'text-[21px] leading-[1.35] font-[450]',
-                  !current.interim && 'motion-safe:animate-[caption-in_150ms_ease-out]',
-                )}
+                line={previous}
+                className="mb-1.5 shrink-0 text-[15px] leading-[19px] text-caption-muted"
               />
             )}
+            {/* Only the current line is announced, politely. */}
+            <div aria-live="polite" className="shrink-0">
+              {current && (
+                <Line
+                  key={lines.current.count}
+                  line={current}
+                  // The incoming line fades in, within 150 ms.
+                  className={cn(
+                    'text-[21px] leading-[27px] font-[450]',
+                    !current.interim && 'motion-safe:animate-[caption-in_150ms_ease-out]',
+                  )}
+                />
+              )}
+            </div>
           </div>
         </div>
       )}

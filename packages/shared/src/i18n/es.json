@@ -135,6 +135,15 @@
       "title": "¿Terminar esta sesión?",
       "confirm": "Terminar sesión",
       "cancel": "Seguir"
+    },
+    "tile": {
+      "ada": "Recuadro de Ada",
+      "hint": "Arrástralo a donde quieras. Las flechas lo llevan a otra esquina, y Mayús con las flechas cambia su tamaño."
+    },
+    "pip": {
+      "label": "Tu mesa",
+      "live": "En vivo",
+      "hint": "Haz doble clic o pulsa Intro para ver tu papel junto a la pizarra."
     }
   },
   "paper": {

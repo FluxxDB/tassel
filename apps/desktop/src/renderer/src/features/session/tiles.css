@@ -1,0 +1,19 @@
+/*
+ * Ada's speaking ring breathes: 2px of iris out to 6px as it fades, and back, every 1.6 s. Under
+ * reduced motion it never runs, and her tile keeps its still 2px ring (TutorTile.tsx).
+ */
+@keyframes tutor-speaking {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px var(--color-iris);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-iris) 35%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tutor-speaking-pulse {
+    animation: tutor-speaking 1.6s ease-in-out infinite;
+  }
+}

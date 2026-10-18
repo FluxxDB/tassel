@@ -135,6 +135,15 @@
       "title": "End this session?",
       "confirm": "End session",
       "cancel": "Keep going"
+    },
+    "tile": {
+      "ada": "Ada's tile",
+      "hint": "Drag it anywhere. The arrow keys move it to another corner, and Shift with the arrow keys resizes it."
+    },
+    "pip": {
+      "label": "Your desk",
+      "live": "Live",
+      "hint": "Double-click it, or press Enter, to show your paper beside the board."
     }
   },
   "paper": {
