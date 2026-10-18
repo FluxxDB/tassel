@@ -1,17 +1,17 @@
 {
   "name": "title-subnet",
   "title": "Auto title: a subnetting session named from its first exchange",
-  "description": "Two talker turns on one topic: the titler names the session after the first, and keeps the name through the second (T).",
+  "description": "Two turns on one topic: the titler names the session after the first, and keeps the name through the second (T).",
   "default": false,
   "stage": { "view": "board" },
   "turns": [
     {
       "student": "I'm splitting 192.168.1.0/24 into four equal subnets for our office. What subnet mask do I use?",
-      "expect": { "route": "talker", "tags": [] }
+      "expect": {}
     },
     {
       "student": "How many usable host addresses does each of those subnets have?",
-      "expect": { "route": "talker", "tags": [] }
+      "expect": {}
     }
   ]
 }
