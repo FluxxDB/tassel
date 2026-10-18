@@ -30,7 +30,43 @@
     { "kind": "stage", "view": "split" },
     { "kind": "language", "lang": "ko" },
     { "kind": "vad", "speaking": true },
-    { "kind": "route", "lang": "en", "stt": "flux", "llm": "openai", "tts": "elevenlabs" }
+    { "kind": "route", "lang": "en", "stt": "flux", "llm": "openai", "tts": "elevenlabs" },
+    {
+      "kind": "beat",
+      "beat": {
+        "version": 1,
+        "id": "demo-1",
+        "turn": "1234abcd",
+        "segment": "42",
+        "lang": "en",
+        "text": "Look here.",
+        "durationSec": null,
+        "shapeSet": "rhubarb9",
+        "mouthCues": [],
+        "words": [
+          {
+            "text": "Look",
+            "start": null,
+            "end": null
+          },
+          {
+            "text": "here.",
+            "start": null,
+            "end": null
+          }
+        ],
+        "markers": [
+          {
+            "id": "demo-1.1",
+            "word": 0,
+            "action": {
+              "kind": "stage",
+              "view": "split"
+            }
+          }
+        ]
+      }
+    }
   ],
   "client": [
     { "kind": "ptt", "enabled": true, "held": true },

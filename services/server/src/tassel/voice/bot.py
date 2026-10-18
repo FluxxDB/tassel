@@ -2,22 +2,26 @@
 
 import asyncio
 import base64
+from collections import deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from uuid import UUID
 
 from loguru import logger
 from pipecat.frames.frames import (
+    AggregatedTextFrame,
     CancelFrame,
     DataFrame,
     EndFrame,
     FunctionCallResultProperties,
+    InterruptionFrame,
     LLMContextFrame,
     LLMFullResponseEndFrame,
     LLMMessagesAppendFrame,
     LLMRunFrame,
     LLMUpdateSettingsFrame,
     StartFrame,
+    TTSTextFrame,
     UserStartedSpeakingFrame,
     VADUserStartedSpeakingFrame,
 )
@@ -35,6 +39,8 @@ from pipecat.workers.runner import WorkerRunner
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from tassel.beats.markup import BoardContext
+from tassel.beats.processor import BeatTagProcessor
 from tassel.models import Lang, SessionPatch
 from tassel.storage import sessions_repo
 from tassel.voice.events import ServerEvents, VadForwarder
@@ -87,6 +93,8 @@ class BotContext:
     sessions: async_sessionmaker[AsyncSession]
     # The latest stored page of her paper for a student turn (vision-lite), or None without one.
     turn_image: TurnImage | None = None
+    # Ada's board for this bot: her automata, mark numbers and the frozen page (P4, P5).
+    board: BoardContext = field(default_factory=BoardContext)
 
 
 @dataclass
@@ -240,6 +248,8 @@ class _RouteMonitor(FrameProcessor):
         self.bot = None
         self.on_language = None
         self.last_provider = None
+        self._history = deque()
+        self._history_offset = 0
 
     async def process_frame(self, frame, direction):
         await super().process_frame(frame, direction)
@@ -247,6 +257,32 @@ class _RouteMonitor(FrameProcessor):
             await self.on_language(frame.lang)
             frame.done.set()
             return
+        if isinstance(frame, InterruptionFrame):
+            self._history.clear()
+            self._history_offset = 0
+        elif isinstance(frame, AggregatedTextFrame) and not isinstance(frame, TTSTextFrame):
+            if frame.raw_text:
+                self._history.append(frame.raw_text)
+        elif isinstance(frame, TTSTextFrame) and frame.raw_text and self._history:
+            # Pipecat trims whitespace from raw slices, sometimes in the middle
+            # of a tag. Recover each slice from the original sentence so the
+            # assistant aggregator neither inserts nor loses spaces inside tags.
+            raw = self._history[0]
+            start = self._history_offset
+            end = start
+            count = sum(not c.isspace() for c in frame.raw_text)
+            while end < len(raw) and count:
+                count -= not raw[end].isspace()
+                end += 1
+            while end < len(raw) and raw[end].isspace():
+                end += 1
+            frame.raw_text = raw[start:end]
+            frame.includes_inter_frame_spaces = True
+            self._history_offset = end
+            if end == len(raw):
+                frame.raw_text += " "
+                self._history.popleft()
+                self._history_offset = 0
         if isinstance(frame, LLMFullResponseEndFrame):
             bot = self.bot
             if self.last_provider != bot.active_provider:
@@ -339,18 +375,23 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     )
     turn_context = _TurnContext(ctx.session_id, ctx.turn_image)
     monitor = _RouteMonitor()
+    events = ServerEvents()
+    # One board per bot, shared with the page-image seam, so [[freeze]] and paper marks resolve
+    # against the exact page Ada saw.
+    beats = BeatTagProcessor(events=events, lang=lambda: ctx.lang, board=ctx.board)
     worker = PipelineWorker(
-        Pipeline([input, stt, user, turn_context, llm, tts, monitor, output, assistant]),
+        Pipeline([input, stt, user, turn_context, llm, beats, tts, monitor, output, assistant]),
         params=PipelineParams(
             enable_metrics=True, enable_usage_metrics=True, report_only_initial_ttfb=True
         ),
         idle_timeout_secs=1800,
     )
+    events.worker = worker
     bot = Bot(
         worker,
         context,
         tuning,
-        ServerEvents(worker),
+        events,
         route,
         kind,
         ctx.session_id,

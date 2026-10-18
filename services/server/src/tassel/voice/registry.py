@@ -17,6 +17,7 @@ from pipecat.transports.smallwebrtc.request_handler import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from tassel.beats.markup import BoardContext
 from tassel.storage.tables import TutoringSession
 from tassel.voice.api import IcePatch, OfferAnswer, OfferBody
 from tassel.voice.bot import BotContext, TurnImage, run_bot
@@ -49,10 +50,10 @@ class VoiceRegistry:
         sessions: async_sessionmaker[AsyncSession],
         memory: ConversationMemory | None = None,
         start_bot: Callable[[SmallWebRTCConnection, BotContext], Awaitable[None]] = run_bot,
-        turn_images: Callable[[], TurnImage] | None = None,
+        turn_images: Callable[[BoardContext], TurnImage] | None = None,
     ):
         self.settings, self.sessions = settings, sessions
-        # Makes each bot its page-image seam (vision-lite), with its own board context.
+        # Makes each bot its page-image seam (vision-lite) on that bot's board context.
         self.turn_images = turn_images
         self.memory = memory if memory is not None else ConversationMemory()
         self._start_bot = start_bot
@@ -60,8 +61,8 @@ class VoiceRegistry:
         self._locks: WeakValueDictionary[UUID, asyncio.Lock] = WeakValueDictionary()
         self._closing = False
 
-    def turn_image_for_bot(self) -> TurnImage | None:
-        return self.turn_images() if self.turn_images else None
+    def turn_image_for_bot(self, board: BoardContext) -> TurnImage | None:
+        return self.turn_images(board) if self.turn_images else None
 
     def _lock(self, learner_id):
         lock = self._locks.get(learner_id)
@@ -146,6 +147,7 @@ class VoiceRegistry:
                 if body.pc_id is not None:
                     unexpected_connection = connection
                     return
+                board = BoardContext()
                 ctx = BotContext(
                     learner_id=learner_id,
                     session_id=session.id,
@@ -155,7 +157,8 @@ class VoiceRegistry:
                     settings=self.settings,
                     memory=self.memory,
                     sessions=self.sessions,
-                    turn_image=self.turn_image_for_bot(),
+                    turn_image=self.turn_image_for_bot(board),
+                    board=board,
                 )
                 task = asyncio.create_task(
                     self._run(connection, ctx, handler), name=f"voice-{session.id}"

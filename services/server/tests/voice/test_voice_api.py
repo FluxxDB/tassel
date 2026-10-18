@@ -119,7 +119,7 @@ async def test_offer_answers_and_starts_a_bot(db_url):
             assert ctx.session_id == UUID(row["id"]) and ctx.lang == "en" and ctx.titled is False
             assert ctx.request.sensitivity == "normal" and ctx.request.ptt is False
             # The glue: the bot gets the session's page-image seam.
-            assert ctx.turn_image is not None
+            assert ctx.turn_image is not None and ctx.board is not None
             assert app.state.voice.live_bot(ctx.learner_id).pc_ids == {answer["pc_id"]}
 
 
@@ -332,7 +332,9 @@ async def test_each_bot_gets_the_page_image_seam_on_the_apps_store_and_db(app, c
     """The glue: bots read the latest stored page through vision-lite's turn_image_for."""
     import uuid
 
-    turn_image = app.state.voice.turn_image_for_bot()
+    from tassel.beats.markup import BoardContext
+
+    turn_image = app.state.voice.turn_image_for_bot(BoardContext())
     assert turn_image is not None
     # No frames for this session: no image, never an error.
     assert await turn_image(uuid.uuid4()) is None

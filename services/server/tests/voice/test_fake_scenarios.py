@@ -18,7 +18,12 @@ FIXTURES = json.loads(
 
 
 def test_every_scenario_loads():
-    assert {p.stem for p in SCENARIOS_DIR.glob("*.json")} == {"dfa-opening", "barge-in", "ptt"}
+    assert {p.stem for p in SCENARIOS_DIR.glob("*.json")} == {
+        "dfa-opening",
+        "dfa-board",
+        "barge-in",
+        "ptt",
+    }
     for path in SCENARIOS_DIR.glob("*.json"):
         scenario = load_scenario(path.stem)
         assert scenario.name == path.stem

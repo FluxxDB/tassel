@@ -2,6 +2,7 @@
 // messages. services/server/src/tassel/voice/messages.py mirrors it, and ./fixtures.json holds
 // the examples both sides' tests check, with the scripted student lines the fakes speak.
 // Wire keys are snake_case, like the REST API's.
+import { type BeatDoc, parseBeatDoc } from '../beats';
 import type { Lang } from '../i18n';
 
 /**
@@ -40,6 +41,7 @@ export type TurnMetricsEvent = { kind: 'turn-metrics'; metrics: TurnMetrics };
 export type BackchannelEvent = { kind: 'backchannel'; text: string };
 
 export type ServerEvent =
+  | { kind: 'beat'; beat: BeatDoc }
   | RouteEvent
   | TurnMetricsEvent
   | BackchannelEvent
@@ -177,6 +179,10 @@ function readTurnMetrics(m: unknown): TurnMetrics | null {
 const SERVER_EVENT_READERS: {
   [K in ServerEvent['kind']]: (e: Fields) => Extract<ServerEvent, { kind: K }> | null;
 } = {
+  beat: (e) => {
+    const { doc: beat } = parseBeatDoc(e.beat);
+    return beat ? { kind: 'beat', beat } : null;
+  },
   route: (e) =>
     isLang(e.lang) && isSttKind(e.stt) && isLlmKind(e.llm) && isTtsKind(e.tts)
       ? { kind: 'route', lang: e.lang, stt: e.stt, llm: e.llm, tts: e.tts }

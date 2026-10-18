@@ -10,10 +10,11 @@ from tassel.voice.messages import VadEvent, envelope
 
 
 class ServerEvents:
-    def __init__(self, worker: PipelineWorker):
+    def __init__(self, worker: PipelineWorker | None = None):
         self.worker = worker
 
     async def send(self, event: BaseModel) -> None:
+        assert self.worker is not None, "ServerEvents must be bound before the pipeline starts"
         await self.worker.rtvi.send_server_message(envelope(event))
 
 
