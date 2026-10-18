@@ -27,7 +27,7 @@ test.skip(
 // The dfa-board scenario (services/server/src/tassel/voice/fakes/scenarios/dfa-board.json).
 const GREETING = "Hi, I'm Ada. What are we working on today?";
 const DRAW_ASK = 'Can you show me the answer?';
-const DRAW_BRIDGE = "Sure, I'll draw one that works on the board.";
+// The scripted director routes this turn to the thinker, so its brief is what she says.
 const DRAW_BRIEF = "Here's one that works.";
 const FALLBACK = "Tell me more about what you're trying.";
 const WITH_IMAGE = 'Here is my paper so far.';
@@ -230,32 +230,34 @@ test('typed lines, an image, a text-only reply and an action row, saved for the 
         timeout: 15_000,
       })
       .toMatchObject({ role: 'student', source: 'typed', text: DRAW_ASK, final: true });
-    await expect(sidebar).toContainText(DRAW_BRIDGE, { timeout: 15_000 });
+    await expect(sidebar).toContainText(DRAW_BRIEF, { timeout: 15_000 });
     await expect
       .poll(
         async () =>
           (await messageEvents(page)).find(
-            (e) => e.role === 'tutor' && e.text.includes(DRAW_BRIDGE) && e.final,
+            (e) => e.role === 'tutor' && e.text.includes(DRAW_BRIEF) && e.final,
           ),
-        { timeout: 15_000 },
+        { timeout: 20_000 },
       )
       .toMatchObject({ source: 'typed', interrupted: false });
 
-    // 2. Ada draws: the action row says what she drew on the board, and the board is up.
+    // 2. Ada draws: a view row (the board opened) and a draw row (`fix`), and the board is up.
     await expect(page.getByRole('region', { name: "Ada's board" })).toBeVisible({
       timeout: 15_000,
     });
-    await expect(sidebar).toContainText(DRAW_BRIEF, { timeout: 15_000 });
     const actionRow = lines.filter({ has: page.locator('[data-role="action"]') });
     await expect(actionRow.first()).toBeVisible({ timeout: 15_000 });
     await expect
-      .poll(async () => (await messageEvents(page)).filter((e) => e.role === 'action').at(-1), {
-        timeout: 15_000,
-      })
+      .poll(
+        async () =>
+          (await messageEvents(page)).find((e) => e.role === 'action' && e.action?.kind === 'draw'),
+        { timeout: 15_000 },
+      )
       .toMatchObject({
         source: null,
         text: '',
-        action: { kind: 'draw', side: 'board', attachment_id: null },
+        final: true,
+        action: { kind: 'draw', side: 'board', item: 'fix', attachment_id: null },
       });
     await expect(tile).toContainText('Listening', { timeout: 20_000 });
     await settle(page);

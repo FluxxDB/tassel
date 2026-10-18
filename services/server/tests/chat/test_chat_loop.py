@@ -28,14 +28,9 @@ from tassel.voice.settings import VoiceSettings
 
 pytestmark = pytest.mark.asyncio
 
-CHAT_FIELD = next(
-    (
-        f.name
-        for f in dataclasses.fields(BotContext)
-        if f.type is ChatStore or "ChatStore" in str(f.type)
-    ),
-    None,
-)
+# The bot's chat storage: BotContext.chat (claude/chat-server), typed Any to keep bot.py free of
+# the chat package's import.
+CHAT_FIELD = next((f.name for f in dataclasses.fields(BotContext) if f.name == "chat"), None)
 # A function-level skip, so pytest still collects the test (a module-level skip collects nothing,
 # which pytest reports as exit 5 and test:changed as a failure).
 needs_bot_wiring = pytest.mark.skipif(
@@ -45,6 +40,7 @@ needs_bot_wiring = pytest.mark.skipif(
 
 SCRIPT = load_scenario("dfa-board")
 EN = SCRIPT.langs["en"]
+BRIEF = "Here's one that works."
 NEW_SESSION = {"type": "homework", "language": "en", "source": "talk"}
 
 
@@ -182,7 +178,8 @@ async def test_typed_turn_with_an_image_voice_off_and_the_history_after(client, 
             heard = out.audio_count()
 
             # A typed line with the image, voice on: the student echo carries the client_id and
-            # the image's size; Ada's reply is `typed`, and she draws, which adds an action row.
+            # the image's size; Ada's reply is `typed` (the thinker's brief: the scripted
+            # director routes this turn past the talker), and she draws, which adds action rows.
             client_id = await student_message(bot, EN.student[0], [attachment["id"]])
             await until(lambda: any(m["client_id"] == client_id for m in out.messages()))
             echo = next(m for m in out.messages() if m["client_id"] == client_id)
@@ -191,17 +188,20 @@ async def test_typed_turn_with_an_image_voice_off_and_the_history_after(client, 
             assert echo["attachments"] == [attachment]
             await until(
                 lambda: any(
-                    m["final"] and m["role"] == "tutor" and EN.turns[0].say in m["text"]
+                    m["final"] and m["role"] == "tutor" and BRIEF in m["text"]
                     for m in out.messages()
                 ),
                 timeout=20,
             )
-            reply = next(m for m in out.messages() if m["final"] and EN.turns[0].say in m["text"])
+            reply = next(m for m in out.messages() if m["final"] and BRIEF in m["text"])
             assert reply["source"] == "typed" and reply["interrupted"] is False
-            await until(lambda: any(m["role"] == "action" for m in out.messages()), timeout=20)
-            row = next(m for m in out.messages() if m["role"] == "action")
+            drew = lambda: [  # noqa: E731
+                m for m in out.messages() if m["role"] == "action" and m["action"]["kind"] == "draw"
+            ]
+            await until(lambda: drew(), timeout=20)
+            row = drew()[0]
             assert row["source"] is None and row["text"] == "" and row["attachments"] == []
-            assert row["action"]["kind"] == "draw" and row["action"]["side"] == "board"
+            assert row["action"]["side"] == "board" and row["action"]["item"] == "fix"
             assert row["action"]["attachment_id"] is None
             await until(lambda: out.audio_count() > heard)
 
@@ -226,7 +226,10 @@ async def test_typed_turn_with_an_image_voice_off_and_the_history_after(client, 
             assert out.audio_count() == heard
             text_only = [m for m in out.messages()[before:] if m["role"] == "tutor"]
             assert text_only and all(m["source"] == "typed" for m in text_only)
-            finals = [m for m in out.messages() if m["final"]]
+            # The saved order is the order lines first appeared: a tutor line takes its place at
+            # its first partial, before the action rows its sentences fire.
+            final_ids = {m["id"] for m in out.messages() if m["final"]}
+            appeared = [i for i in dict.fromkeys(m["id"] for m in out.messages()) if i in final_ids]
         # Let the last writes land before reading the history.
         await asyncio.sleep(0.2)
     finally:
@@ -236,7 +239,7 @@ async def test_typed_turn_with_an_image_voice_off_and_the_history_after(client, 
     assert r.status_code == 200
     saved = r.json()["messages"]
     # Finals only, oldest first, each as its event carried it.
-    assert [m["id"] for m in saved] == [m["id"] for m in finals]
+    assert [m["id"] for m in saved] == appeared
     assert saved[0]["role"] == "tutor" and saved[0]["source"] == "voice"
     with_image = next(m for m in saved if m["role"] == "student")
     assert with_image["attachments"] == [attachment]
