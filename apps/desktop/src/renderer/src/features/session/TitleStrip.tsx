@@ -1,5 +1,5 @@
 // The session's 52px strip: the wordmark, the title and its chips centered in the free space,
-// and on the right the source, the timer and the session's language. In a live voice session the
+// and on the right the source, the timer, the session's language and the chat sidebar's toggle. In a live voice session the
 // language opens the language menu, and a title Ada gives the session types on (spec §5.1).
 import type { Session, Source } from '@tassel/shared/api';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -11,6 +11,7 @@ import { Wordmark } from '../../components/Wordmark';
 import { cn } from '../../lib/cn';
 import { usePaperStore } from '../../paper/paper-store';
 import { usePaperLive } from '../../paper/use-paper-capture';
+import { ChatToggle } from '../chat/ChatToggle';
 import { LanguageMenu } from '../voice/LanguageMenu';
 import { useLiveVoice } from '../voice/live-voice';
 import { useElapsed } from './use-elapsed';
@@ -94,6 +95,8 @@ export function TitleStrip({ session, failed, startedAt }: TitleStripProps) {
             <span className="sr-only">{t(`newSession.language.${session.language}`)}</span>
           </Chip>
         )}
+        {/* Rightmost, above where the chat sidebar opens. */}
+        <ChatToggle />
       </div>
     </AppFrame>
   );

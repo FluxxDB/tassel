@@ -1,6 +1,7 @@
 // The server's frames API, typed by its OpenAPI schema: upload a frame, list a session's frames,
 // and fetch one's JPEG.
 import { type ApiClient, ApiError, type components } from '@tassel/shared/api';
+import { useLatestFrame } from '../latest-frame';
 import type { FrameMetaJson } from './frame-meta';
 
 export type FrameOut = components['schemas']['FrameOut'];
@@ -68,7 +69,10 @@ export async function uploadFrame(
       return form;
     },
   });
-  return asFrameOut(dataOf(response));
+  const frame = asFrameOut(dataOf(response));
+  // The chat's "Snap my paper" attaches the latest one.
+  useLatestFrame.getState().record(sessionId, frame.id);
+  return frame;
 }
 
 /** The session's frames, newest first; the server's default limit is 50, its maximum 200. */

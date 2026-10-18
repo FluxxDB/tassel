@@ -290,6 +290,8 @@ describe('SessionScreen', () => {
     const { user } = await renderSession();
     await screen.findByRole('heading', { level: 1 });
     await user.keyboard('b');
+    // From the title, past the title strip's chat toggle, to the stage's Unpin.
+    await user.tab();
     await user.tab();
     expect(screen.getByRole('button', { name: 'Unpin' })).toHaveFocus();
     await user.keyboard('{Enter}');

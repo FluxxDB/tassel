@@ -45,6 +45,11 @@ export interface FloatingTileProps {
   /** From the stage's bottom edge, for the bottom corners: the captions band and a gap. */
   bottomClearance?: number;
   /**
+   * How much of the stage's right side something lies over (the chat sidebar, in a narrow
+   * window), in px: the right corners sit `inset` clear of it instead of the stage's edge.
+   */
+  coverRight?: number;
+  /**
    * The rows in the stage whose controls it never rests over (the panels' top lines): a top
    * corner under one of them sits `CLEAR_GAP` below it instead. Rows in an inert (hidden) panel
    * don't count.
@@ -163,6 +168,7 @@ export function FloatingTile({
   maxWidth,
   inset = 16,
   bottomClearance = inset,
+  coverRight = 0,
   clearOf,
   onActivate,
   className,
@@ -245,7 +251,7 @@ export function FloatingTile({
   const area = {
     left: inset,
     top: inset,
-    right: bounds.w - inset,
+    right: bounds.w - inset - coverRight,
     bottom: bounds.h - bottomClearance,
   };
   /** The top of a top corner's tile at `left`, `w` wide: below the controls it would cover. */

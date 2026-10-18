@@ -1,7 +1,8 @@
 // The live session screen, "One stage, her work first": the title strip, the stage (her paper,
-// Ada's board, or both), Ada's tile, the captions and the dock. End session, confirmed through
-// a sheet, is the only way back to the library (R18).
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+// Ada's board, or both), Ada's tile, the captions and the dock, with the chat sidebar on the
+// right, which the stage shrinks beside (or, in a narrow window, which lies over its right side).
+// End session, confirmed through a sheet, is the only way back to the library (R18).
+import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AppConfig } from '../../../../shared/bridge';
 import type { VoiceConfig } from '../../../../shared/voice-bridge';
@@ -17,6 +18,10 @@ import { ScreenPicker } from '../../screen/ScreenControls';
 import { useScreen } from '../../screen/store';
 import type { TutorClient } from '../../tutor/types';
 import { useTutorSession } from '../../tutor/use-tutor-session';
+import { ChatSidebar } from '../chat/ChatSidebar';
+import { useChatCover } from '../chat/chat-layout';
+import { useSessionChat } from '../chat/use-chat';
+import { useLiveVoice } from '../voice/live-voice';
 import { VoiceNotices } from '../voice/MicNotice';
 import { VoiceSession } from '../voice/VoiceSession';
 import { Captions } from './Captions';
@@ -92,6 +97,11 @@ export function SessionScreen({ sessionId, createTutor, app, voiceConfig }: Sess
   const cameraOn = useStageStore((state) => state.cameraOn);
   usePaperCapture({ sessionId, sessionSource: session?.source ?? null, cameraOn });
   useSessionShortcuts();
+  useSessionChat(api, sessionId, app?.chatSidebar === 'closed');
+  // Typed messages go to the tutor this screen runs: the voice session's, or the injected one.
+  const liveClient = useLiveVoice((state) => state.client);
+  const chatClient = app ? liveClient : tutor === NO_TUTOR ? null : tutor;
+  const cover = useChatCover((state) => state.cover);
 
   const end = () => {
     setConfirmingEnd(false);
@@ -103,23 +113,30 @@ export function SessionScreen({ sessionId, createTutor, app, voiceConfig }: Sess
     <div className="screen-presentation flex h-full flex-col" data-presentation={presentation}>
       <ScreenPicker />
       <TitleStrip session={session} failed={failed} startedAt={startedAt} />
-      <main className="relative min-h-0 flex-1">
-        {/* Until the session loads, the stage shows her paper, as a paper session would. */}
-        <Stage
-          source={session?.source ?? 'paper'}
-          onUnpinned={() => boardControl.current?.focus()}
-        />
-        {session && app && voiceConfig && (
-          <VoiceSession
-            sessionId={sessionId}
-            lang={session.language}
-            app={app}
-            config={voiceConfig}
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        <main
+          className="relative min-h-0 min-w-0 flex-1"
+          // What the overlaying chat sidebar covers, which the captions and the dock centre beside.
+          style={cover ? ({ '--chat-cover': `${cover}px` } as CSSProperties) : undefined}
+        >
+          {/* Until the session loads, the stage shows her paper, as a paper session would. */}
+          <Stage
+            source={session?.source ?? 'paper'}
+            onUnpinned={() => boardControl.current?.focus()}
           />
-        )}
-        <Captions notice={app && voiceConfig ? <VoiceNotices /> : undefined} />
-        <Dock onEnd={() => setConfirmingEnd(true)} boardRef={boardControl} />
-      </main>
+          {session && app && voiceConfig && (
+            <VoiceSession
+              sessionId={sessionId}
+              lang={session.language}
+              app={app}
+              config={voiceConfig}
+            />
+          )}
+          <Captions notice={app && voiceConfig ? <VoiceNotices /> : undefined} />
+          <Dock onEnd={() => setConfirmingEnd(true)} boardRef={boardControl} />
+        </main>
+        <ChatSidebar sessionId={sessionId} lang={session?.language} client={chatClient} />
+      </div>
       <Sheet open={confirmingEnd} onOpenChange={setConfirmingEnd} title={t('session.end.title')}>
         {/* Keep going comes first, so it has focus when the sheet opens. */}
         <div className="flex justify-end gap-3">

@@ -144,6 +144,68 @@
       "label": "내 책상",
       "live": "실시간",
       "hint": "더블 클릭하거나 Enter를 누르면 칠판 옆에 종이가 함께 보여요."
+    },
+    "chat": {
+      "title": "대화",
+      "toggle": "채팅",
+      "hide": "채팅 숨기기",
+      "empty": "Ada에게 말하거나 여기에 입력하세요. 함께 나눈 말이 여기에 보여요.",
+      "spoken": "말로 함",
+      "cutOff": "중단됨",
+      "action": {
+        "draw": {
+          "board": "보드에 그렸어요",
+          "paper": "종이에 그렸어요",
+          "image": "이미지에 그렸어요"
+        },
+        "clear": {
+          "board": "보드를 지웠어요",
+          "paper": "종이의 표시를 지웠어요",
+          "image": "이미지의 표시를 지웠어요"
+        },
+        "mark": {
+          "board": "보드에 표시했어요",
+          "paper": "종이에 표시했어요",
+          "image": "이미지에 표시했어요"
+        },
+        "view": {
+          "board": "보드로 바꿨어요",
+          "paper": "종이로 바꿨어요",
+          "image": "이미지로 바꿨어요"
+        },
+        "undo": "되돌렸어요",
+        "redo": "다시 했어요"
+      },
+      "show": {
+        "board": "보드 보기",
+        "paper": "종이 보기",
+        "image": "이미지 보기"
+      },
+      "composer": {
+        "label": "Ada에게 보낼 메시지",
+        "placeholder": "Ada에게 메시지 보내기",
+        "attach": "이미지 첨부",
+        "snap": "내 종이 찍기",
+        "voiceOn": "Ada가 말로 답해요",
+        "voiceOff": "글로만 답해요",
+        "voiceOnHint": "Ada가 메시지에 말로 답해요. 글로만 답하도록 바꿔요.",
+        "voiceOffHint": "Ada가 메시지에 글로만 답해요. 말로 답하도록 바꿔요.",
+        "send": "메시지 보내기",
+        "removeImage": "이미지 {n} 빼기",
+        "count": "{max}자 중 {count}자",
+        "limit": "메시지 하나에 이미지는 {max}개까지예요",
+        "unreadable": "이미지를 읽을 수 없어요. PNG나 JPEG로 해 보세요.",
+        "snapFailed": "종이를 찍지 못했어요. 잠시 후 다시 해 보세요.",
+        "drop": "이미지를 놓으면 보내요"
+      },
+      "image": "이미지 {n}",
+      "sending": "보내는 중",
+      "failed": "보내지 못함",
+      "retry": "다시 시도",
+      "viewer": {
+        "title": "내 이미지",
+        "close": "닫기"
+      }
     }
   },
   "paper": {

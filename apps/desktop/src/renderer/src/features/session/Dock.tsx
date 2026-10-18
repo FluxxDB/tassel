@@ -64,7 +64,7 @@ export function Dock({ onEnd, boardRef }: DockProps) {
     <fieldset
       aria-label={t('session.dock.label')}
       data-testid="dock"
-      className="absolute bottom-[22px] left-1/2 z-20 m-0 flex min-w-0 -translate-x-1/2 items-center gap-1.5 rounded-pill border-0 bg-paper p-2 shadow-[0_0_0_1px_var(--color-hairline)]"
+      className="absolute bottom-[22px] left-[calc((100%-var(--chat-cover,0px))/2)] z-20 m-0 flex min-w-0 -translate-x-1/2 items-center gap-1.5 rounded-pill border-0 bg-paper p-2 shadow-[0_0_0_1px_var(--color-hairline)]"
     >
       <IconButton
         label={micLabel}
