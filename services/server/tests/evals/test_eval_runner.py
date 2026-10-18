@@ -187,3 +187,36 @@ async def test_pointer_effort_rewrites_only_the_reasoning():
     assert seen[-1]["reasoning_effort"] == "low"
     await patched(model="qwen", extra_body={"provider": {}, "reasoning": {"enabled": False}})
     assert seen[-1]["extra_body"]["reasoning"] == {"effort": "low"}
+
+
+@pytest.mark.asyncio
+async def test_a_reply_gap_waits_before_each_later_turn(monkeypatch):
+    """A real student listens to Ada before answering; `--reply-gap` gives the thought-ahead
+    ladder step that time in the eval too."""
+    from tassel.evals import runner
+
+    slept = []
+
+    async def sleep(seconds):
+        slept.append(seconds)
+
+    monkeypatch.setattr(runner.asyncio, "sleep", sleep)
+    opened = []
+    await run_scenarios(
+        [scenario("a", "one", "two", "three")],
+        opener(10, opened),
+        estimate=lambda turn, index, page=None: 0,
+        reply_gap_s=12,
+    )
+    assert slept == [12, 12]
+    slept.clear()
+    await run_scenarios(
+        [scenario("a", "one", "two")], opener(10, []), estimate=lambda t, i, page=None: 0
+    )
+    assert slept == []
+
+
+def test_the_command_line_takes_a_reply_gap():
+    args = live.parse_args(["ladder", "--reply-gap", "15"])
+    assert args.reply_gap == 15
+    assert live.parse_args(["ladder"]).reply_gap == 0

@@ -63,6 +63,12 @@ def parse_args(argv):
     parser.add_argument(
         "--pointer-effort", choices=EFFORTS, help="the Pointer's reasoning effort (app: none)"
     )
+    parser.add_argument(
+        "--reply-gap",
+        type=float,
+        default=0,
+        help="seconds she waits before each later turn, as while Ada speaks (default 0)",
+    )
     parser.add_argument("--out", type=Path, help="report directory")
     parser.add_argument("--verbose", action="store_true", help="the pipeline's logs on stderr")
     return parser.parse_args(argv)
@@ -92,6 +98,7 @@ def describe(settings: VoiceSettings, args, mode: str) -> dict:
         "tts": "fake (tone)",
         "stt": "none (typed turns)",
         "budget": args.budget,
+        "reply_gap_s": args.reply_gap,
     }
 
 
@@ -231,7 +238,13 @@ def main(argv=None, *, load_settings=VoiceSettings.load, out=sys.stdout) -> int:
         return PipelineSession(scenario, settings, pointer_effort=args.pointer_effort)
 
     run = asyncio.run(
-        run_scenarios(scenarios, open_session, budget=args.budget, on_turn=_progress(out))
+        run_scenarios(
+            scenarios,
+            open_session,
+            budget=args.budget,
+            on_turn=_progress(out),
+            reply_gap_s=args.reply_gap,
+        )
     )
     run.settings = described
     from tassel.evals.report import write_report
