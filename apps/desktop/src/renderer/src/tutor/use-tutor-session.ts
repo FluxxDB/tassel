@@ -1,17 +1,14 @@
 // Connects the session screen to its tutor once the session has loaded: Ada's states, captions
-// and view requests go to the stage store. Her title names an untitled session: it shows in the
-// title strip at once (R4). The live tutor's titles are already saved by the server (P2), so they
-// patch the local session only; the scripted tutor's persist from here, so the library shows them
-// afterwards (R16). A session that already has a title keeps it (spec §5.1). Her board, paper and
-// stage actions go to the dispatcher, now or, in a beat, as the beat player hears her words (P5).
-import { patchSession } from '@tassel/shared/api';
+// and view requests go to the stage store. Her title shows in the title strip at once (R4). The
+// app never saves a title: the server writes the live tutor's (P2-R4), and the scripted tutor's
+// are display-only, naming only an untitled session (spec §5.1). Her board, paper and stage
+// actions go to the dispatcher, now or, in a beat, as the beat player hears her words (P5).
 import { useEffect } from 'react';
 import { beatPlayer } from '../board/beats/player';
 import { dispatchActions } from '../board/dispatch';
 import { useCurrentSession } from '../features/session/current-session';
 import { useStageStore } from '../features/session/stage-store';
 import { useVoiceDebug } from '../features/voice/voice-debug';
-import { useApi } from '../lib/api';
 import type { TutorClient } from './types';
 
 /**
@@ -23,7 +20,6 @@ export function useTutorSession(
   client: TutorClient | null,
   ready: boolean,
 ): void {
-  const api = useApi();
   const { nameIfUntitled, patchLocal } = useCurrentSession();
 
   useEffect(() => {
@@ -45,13 +41,9 @@ export function useTutorSession(
           break;
         case 'title': {
           const name = { title: event.title, subject: event.subject };
-          if (client.voice) {
-            // The server wrote it (title_source 'ai'), and never over the student's own title.
-            patchLocal(name);
-            break;
-          }
-          // R16: a failed save leaves the title on screen.
-          if (nameIfUntitled(name)) patchSession(api, sessionId, name).catch(() => {});
+          // The server wrote the live tutor's (title_source 'ai'), never over the student's own.
+          if (client.voice) patchLocal(name);
+          else nameIfUntitled(name);
           break;
         }
         case 'actions':
@@ -92,5 +84,5 @@ export function useTutorSession(
       // The next session starts with no beats of this one's pending.
       beatPlayer.reset();
     };
-  }, [api, client, nameIfUntitled, patchLocal, ready, sessionId]);
+  }, [client, nameIfUntitled, patchLocal, ready, sessionId]);
 }

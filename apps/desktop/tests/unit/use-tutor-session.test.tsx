@@ -191,19 +191,14 @@ describe('the session screen with its tutor', () => {
       within(strip).getByRole('heading', { level: 1, name: 'Strings that start with 010' }),
     ).toBeInTheDocument();
     expect(within(strip).getByText('Automata · DFA')).toBeInTheDocument();
-    // R16: the title persists, so the library shows it afterwards.
-    await waitFor(() => expect(PATCH).toHaveBeenCalledTimes(1));
-    expect(PATCH).toHaveBeenCalledWith('/v1/sessions/{session_id}', {
-      params: { path: { session_id: SESSION.id } },
-      body: { title: 'Strings that start with 010', subject: 'Automata · DFA' },
-    });
     // Her title replaced the placeholder; a later one doesn't replace hers.
     emit({ type: 'title', title: 'Something else', subject: null });
     expect(within(strip).getByRole('heading', { level: 1 })).toHaveTextContent(
       'Strings that start with 010',
     );
+    // P2-R4: the app saves no title; the server writes the live tutor's.
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(PATCH).toHaveBeenCalledTimes(1);
+    expect(PATCH).not.toHaveBeenCalled();
   });
 
   it("leaves a titled session's own title, and saves nothing (spec §5.1)", async () => {
@@ -250,19 +245,7 @@ describe('the session screen with its tutor', () => {
     expect(listening()).toBe(0);
   });
 
-  it('keeps the title on screen when saving it fails, without an unhandled rejection', async () => {
-    const { client, emit } = scriptedTutor();
-    const { PATCH } = await renderScreen(client);
-    await screen.findByRole('heading', { level: 1, name: 'Untitled Session' });
-    PATCH.mockRejectedValueOnce(new TypeError('Failed to fetch'));
-    emit({ type: 'title', title: 'Strings that start with 010', subject: null });
-    await waitFor(() => expect(PATCH).toHaveBeenCalled());
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Strings that start with 010' }),
-    ).toBeInTheDocument();
-  });
-
-  it("the live tutor's titles patch locally only: the server saved them (P2)", async () => {
+  it("the live tutor's titles patch locally only, the server saved them (P2-R4)", async () => {
     const { client: scripted, emit } = scriptedTutor();
     const client: TutorClient = {
       ...scripted,
