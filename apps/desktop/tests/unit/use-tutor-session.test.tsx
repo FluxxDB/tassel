@@ -165,6 +165,17 @@ describe('useTutorSession', () => {
     expect(stage()).toMatchObject({ mode: 'paper', pinned: 'paper', requested: 'board' });
   });
 
+  it("her spoken view request pins the view, and Ada's later requests wait behind it", () => {
+    const { client, emit } = scriptedTutor();
+    renderTutor(client);
+    emit({ type: 'stage', mode: 'paper', pinned: true });
+    expect(stage()).toMatchObject({ mode: 'paper', pinned: 'paper' });
+    emit({ type: 'stage', mode: 'split' });
+    expect(stage()).toMatchObject({ mode: 'paper', pinned: 'paper', requested: 'split' });
+    emit({ type: 'stage', mode: 'board', pinned: true });
+    expect(stage()).toMatchObject({ mode: 'board', pinned: 'board' });
+  });
+
   it('captions flow into the store', () => {
     const { client, emit } = scriptedTutor();
     renderTutor(client);

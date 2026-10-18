@@ -128,7 +128,11 @@ export function mapRtvi(
           events.push({ type: 'board-snapshot' });
           break;
         case 'stage':
-          events.push({ type: 'stage', mode: event.view });
+          events.push({
+            type: 'stage',
+            mode: event.view,
+            ...(event.pinned && { pinned: true as const }),
+          });
           break;
         case 'actions':
           events.push({ type: 'actions', actions: event.actions });

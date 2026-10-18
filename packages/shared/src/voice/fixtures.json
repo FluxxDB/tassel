@@ -30,6 +30,7 @@
     { "kind": "backchannel", "text": "네" },
     { "kind": "title", "title": "Strings that start with 010", "subject": "Automata · DFA" },
     { "kind": "stage", "view": "split" },
+    { "kind": "stage", "view": "paper", "pinned": true },
     { "kind": "language", "lang": "ko" },
     { "kind": "vad", "speaking": true },
     { "kind": "paper-frame" },

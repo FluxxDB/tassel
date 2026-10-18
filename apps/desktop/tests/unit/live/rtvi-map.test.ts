@@ -158,6 +158,12 @@ describe('mapRtvi', () => {
     ]);
     expect(effects).toEqual([{ type: 'duck', on: false }]);
   });
+  it('a pinned stage event, her own spoken view request, stays pinned', () => {
+    const { events } = run([
+      { kind: 'server', data: { tassel: { kind: 'stage', view: 'paper', pinned: true } } },
+    ]);
+    expect(events).toEqual([{ type: 'stage', mode: 'paper', pinned: true }]);
+  });
   it("the server's paper-frame request asks the app for her paper as it is now", () => {
     const { events } = run([{ kind: 'server', data: { tassel: { kind: 'paper-frame' } } }]);
     expect(events).toEqual([{ type: 'paper-request' }]);

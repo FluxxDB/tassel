@@ -48,7 +48,8 @@ export type ServerEvent =
   | TurnMetricsEvent
   | BackchannelEvent
   | { kind: 'title'; title: string; subject: string | null }
-  | { kind: 'stage'; view: 'paper' | 'board' | 'split' }
+  /** `pinned`: the student's own spoken view request, which the app pins (Ada's leave it out). */
+  | { kind: 'stage'; view: 'paper' | 'board' | 'split'; pinned?: true }
   | { kind: 'language'; lang: Lang }
   | { kind: 'vad'; speaking: boolean }
   /** Her turn began: the app uploads her paper as it is now (trigger "turn"). */
@@ -206,7 +207,10 @@ const SERVER_EVENT_READERS: {
     isString(e.title) && isStringOrNull(e.subject)
       ? { kind: 'title', title: e.title, subject: e.subject }
       : null,
-  stage: (e) => (isView(e.view) ? { kind: 'stage', view: e.view } : null),
+  stage: (e) =>
+    isView(e.view)
+      ? { kind: 'stage', view: e.view, ...(e.pinned === true && { pinned: true as const }) }
+      : null,
   language: (e) => (isLang(e.lang) ? { kind: 'language', lang: e.lang } : null),
   vad: (e) => (isBoolean(e.speaking) ? { kind: 'vad', speaking: e.speaking } : null),
   'paper-frame': () => ({ kind: 'paper-frame' }),

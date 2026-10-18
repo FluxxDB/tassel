@@ -13,7 +13,7 @@ to whole milliseconds.
 import math
 from typing import Annotated, Final, Literal, TypedDict
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, model_serializer
 
 from tassel.beats.models import BeatAction, BeatDoc
 from tassel.models import Lang
@@ -81,6 +81,16 @@ class ActionsEvent(_Message):
 class StageEvent(_Message):
     kind: Literal["stage"] = "stage"
     view: Literal["paper", "board", "split"]
+    # True for the student's own spoken view request, which the app pins; Ada's requests leave it
+    # out, so they read as they always have.
+    pinned: bool = False
+
+    @model_serializer(mode="wrap")
+    def _pinned_only_when_true(self, handler):
+        data = handler(self)
+        if not self.pinned:
+            data.pop("pinned", None)
+        return data
 
 
 class LanguageEvent(_Message):

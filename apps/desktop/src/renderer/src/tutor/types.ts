@@ -24,7 +24,8 @@ export type VoiceDebugEvent =
 export type TutorEvent =
   | { type: 'state'; state: TutorState }
   | { type: 'caption'; speaker: 'student' | 'tutor'; text: string; lang: Lang; final: boolean }
-  | { type: 'stage'; mode: StageMode }
+  /** `pinned`: the student asked for this view herself, so it's pinned like the Board control. */
+  | { type: 'stage'; mode: StageMode; pinned?: true }
   | { type: 'title'; title: string; subject: string | null }
   /** Ada's board, paper and stage actions, to apply now (P5). */
   | { type: 'actions'; actions: BeatAction[] }

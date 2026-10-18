@@ -54,7 +54,14 @@ from tassel.board.snapshots import BoardSnapshots
 from tassel.models import Lang, SessionPatch
 from tassel.storage import sessions_repo
 from tassel.vision.turn_image import NO_VIEW, TurnPage
-from tassel.voice.director import CONFUSED, Director, escalate, make_director
+from tassel.voice.director import (
+    CONFUSED,
+    Decision,
+    Director,
+    escalate,
+    make_director,
+    view_request,
+)
 from tassel.voice.events import ServerEvents, VadForwarder
 from tassel.voice.fakes.llm import FakeLLMService
 from tassel.voice.fakes.scenario import load_scenario, scripted_turn
@@ -188,6 +195,13 @@ class _RoutedService(Pipeline):
         await super().process_frame(frame, direction)
 
 
+VIEW_NAMES = {
+    "paper": "her paper full screen",
+    "board": "the board full screen",
+    "split": "her paper and the board side by side",
+}
+
+
 class _TurnContext(FrameProcessor):
     def __init__(self, session_id: UUID | None = None, turn_image: TurnImage | None = None):
         super().__init__()
@@ -200,6 +214,8 @@ class _TurnContext(FrameProcessor):
         self.seen_revision = 0
         self.confusions = 0
         self.on_focus = None
+        # Her spoken view requests: the app pins them (build_bot sets this).
+        self.on_view = None
         self.decision = None
         self.coordinator = None
         self._last_user = None
@@ -297,41 +313,61 @@ class _TurnContext(FrameProcessor):
                         if isinstance(content, list):
                             content = " ".join(b.get("text", "") for b in content)
                         history.append({"role": message["role"], "content": content})
-                self.decision = await self.director.decide(
-                    student_text,
-                    history[:-1],
-                    focus=self.focus,
-                    board_items=self._board_items(),
-                    frozen=self.frozen,
-                    page_changed=(
-                        self.pending_image is not None or self.page_revision != self.seen_revision
-                    ),
-                )
-                # The playbook's ladder: still confused after an explanation means drawing.
-                answered = any(m.get("role") == "assistant" for m in messages)
-                self.confusions = (
-                    self.confusions + 1 if answered and CONFUSED.search(student_text) else 0
-                )
-                last = (
-                    self.coordinator.notes[-1]
-                    if self.coordinator and self.coordinator.notes
-                    else None
-                )
-                escalated = escalate(
-                    student_text,
-                    self.decision,
-                    confusions=self.confusions,
-                    drew_last=bool(last and (last.board or last.paper)),
-                )
-                if escalated != self.decision:
+                # Her own view request ("back to the camera") is the app's to act on, at once,
+                # like the dock's Board control: it pins the view, and the director sits out.
+                view = view_request(student_text)
+                if view is not None:
+                    if self.on_view:
+                        await self.on_view(view)
                     if self.director.log:
-                        self.director.log(
-                            "escalate", confusions=self.confusions, decision=escalated.model_dump()
-                        )
-                    self.decision = escalated
-                self.focus = self.decision.focus
-                if self.on_focus and self.focus != "none":
-                    await self.on_focus(self.focus)
+                        self.director.log("view_request", view=view)
+                    self.decision = Decision(
+                        focus="none",
+                        needs_vision=False,
+                        route="talker",
+                        action="none",
+                        refers_to="conversation",
+                    )
+                    self.focus = view
+                else:
+                    self.decision = await self.director.decide(
+                        student_text,
+                        history[:-1],
+                        focus=self.focus,
+                        board_items=self._board_items(),
+                        frozen=self.frozen,
+                        page_changed=(
+                            self.pending_image is not None
+                            or self.page_revision != self.seen_revision
+                        ),
+                    )
+                    # The playbook's ladder: still confused after an explanation means drawing.
+                    answered = any(m.get("role") == "assistant" for m in messages)
+                    self.confusions = (
+                        self.confusions + 1 if answered and CONFUSED.search(student_text) else 0
+                    )
+                    last = (
+                        self.coordinator.notes[-1]
+                        if self.coordinator and self.coordinator.notes
+                        else None
+                    )
+                    escalated = escalate(
+                        student_text,
+                        self.decision,
+                        confusions=self.confusions,
+                        drew_last=bool(last and (last.board or last.paper)),
+                    )
+                    if escalated != self.decision:
+                        if self.director.log:
+                            self.director.log(
+                                "escalate",
+                                confusions=self.confusions,
+                                decision=escalated.model_dump(),
+                            )
+                        self.decision = escalated
+                    self.focus = self.decision.focus
+                    if self.on_focus and self.focus != "none":
+                        await self.on_focus(self.focus)
                 messages[:] = [
                     m
                     for m in messages
@@ -352,6 +388,14 @@ class _TurnContext(FrameProcessor):
                         "Do not choose views.",
                     }
                 )
+                if view is not None:
+                    messages.append(
+                        {
+                            "role": "system",
+                            "content": f"[app note] The app now shows her {VIEW_NAMES[view]}, as "
+                            "she asked. Acknowledge it in a few words; don't describe the switch.",
+                        }
+                    )
                 if not self.decision.needs_vision:
                     self.pending_image = None
                 if (
@@ -636,6 +680,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         ),
     )
     turn_context = _TurnContext(ctx.session_id, ctx.turn_image)
+
     async def refresh_memory():
         if isinstance(llm, FakeLLMService):
             return
@@ -705,9 +750,15 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     )
 
     async def follow_focus(view):
-        await events.send(StageEvent(view=view))
+        # Ada only ever opens the split view; full screen is the student's (owner, 2026-10-18).
+        if view in ("board", "split"):
+            await events.send(StageEvent(view="split"))
+
+    async def pin_view(view):
+        await events.send(StageEvent(view=view, pinned=True))
 
     turn_context.on_focus = follow_focus
+    turn_context.on_view = pin_view
     beats = BeatTagProcessor(
         events=events,
         lang=lambda: ctx.lang,
@@ -822,8 +873,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
 
     async def show_stage(params):
         if turn_context.decision is None:
-            event = StageEvent(view=params.arguments["view"])
-            await bot.events.send(event)
+            await follow_focus(params.arguments["view"])
         spoken = re.sub(r"\[\[.*?(?:\]\]|$)", "", response_text, flags=re.S).strip().rstrip("[")
         await params.result_callback(
             {"ok": True}, properties=FunctionCallResultProperties(run_llm=not bool(spoken.strip()))

@@ -522,7 +522,7 @@ async def test_stage_only_reply_continues_but_spoken_reply_does_not(prefix, monk
                     self._script.turns = [
                         ScriptTurn(
                             say=prefix,
-                            tools=[ScriptTool(name="show_stage", arguments={"view": "paper"})],
+                            tools=[ScriptTool(name="show_stage", arguments={"view": "split"})],
                         )
                     ]
                 elif self.calls >= 3:
@@ -538,7 +538,8 @@ async def test_stage_only_reply_continues_but_spoken_reply_does_not(prefix, monk
     async with running(context()) as (bot, out):
         await until(lambda: SCRIPT.langs["en"].greeting in out.text())
         await say(bot, "What's on my paper?")
-        await until(lambda: {"kind": "stage", "view": "paper"} in out.events())
+        # Her stage-only reply (no words) is answered by a second model call.
+        await until(lambda: bot.llm.calls >= 2)
         if prefix == "Look at your paper":
             await until(lambda: prefix in out.text())
             await asyncio.sleep(0.2)

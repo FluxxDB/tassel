@@ -60,8 +60,9 @@ export function useTutorSession(
           else stage.showInterim(event.speaker, event.text, event.lang);
           break;
         case 'stage':
-          // Waits, remembered, while she has a view pinned.
-          stage.requestMode(event.mode);
+          // Her own spoken view request pins it; Ada's waits, remembered, while one is pinned.
+          if (event.pinned) stage.pin(event.mode);
+          else stage.requestMode(event.mode);
           break;
         case 'title': {
           const name = { title: event.title, subject: event.subject };
