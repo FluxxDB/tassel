@@ -68,8 +68,11 @@ class StageExpect(_Strict):
 class BoardExpect(_Strict):
     automata: Count | None = None
     diagrams: Count | None = None
+    # Items, or their parts as ITEM.PART (a zone, node or state).
     has: list[str] = Field(default_factory=list)
     lacks: list[str] = Field(default_factory=list)
+    # Zone, node or diagram names on the board after the turn.
+    labels: list[str] = Field(default_factory=list)
     nodes: Count | None = None
     groups: Count | None = None
     icons: dict[str, Count] = Field(default_factory=dict)

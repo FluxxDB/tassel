@@ -228,12 +228,17 @@ function ActionRow({
   onOpenImage(image: Viewed): void;
 }) {
   const { t } = useTranslation();
-  const tag = useItemTag(action.item);
-  const label =
-    text ||
-    (action.kind === 'undo' || action.kind === 'redo'
-      ? t(`session.chat.action.${action.kind}`)
-      : t(`session.chat.action.${action.kind}.${action.side}`));
+  // A part of an item ("net.guest"): the server names it in `text`, "Removed Guest 10.0.9.0/24".
+  const [item, part] = (action.item ?? '').split('.', 2);
+  const tag = useItemTag(part ? item || null : action.item);
+  const label = part
+    ? t(action.kind === 'clear' ? 'session.chat.action.removed' : 'session.chat.action.renamed', {
+        name: text || part,
+      })
+    : text ||
+      (action.kind === 'undo' || action.kind === 'redo'
+        ? t(`session.chat.action.${action.kind}`)
+        : t(`session.chat.action.${action.kind}.${action.side}`));
   const Icon = action.kind === 'undo' || action.kind === 'redo' ? Undo : ACTION_ICONS[action.side];
   const show = () => {
     const stage = useStageStore.getState();

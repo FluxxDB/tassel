@@ -133,9 +133,24 @@ def _board_problems(expect, obs: Observation, earlier: list[Observation]) -> lis
     for icon, wanted in expect.icons.items():
         if not _within(icons[icon], wanted):
             problems.append(f"{icon} icons {icons[icon]}, wanted {_describe(wanted)}")
+    # An item, or one of its parts as ITEM.PART: a zone, a node or a state.
     items = set(automata) | set(diagrams)
+    items |= {
+        f"{item}.{part['id']}"
+        for item, spec in diagrams.items()
+        for part in [*spec.get("groups", []), *spec.get("nodes", [])]
+    }
+    items |= {
+        f"{item}.{s['id']}" for item, spec in automata.items() for s in spec.get("states", [])
+    }
     problems += [f"missing item {item}" for item in expect.has if item not in items]
     problems += [f"item {item} still there" for item in expect.lacks if item in items]
+    labels = {
+        part.get("label")
+        for spec in diagrams.values()
+        for part in [*spec.get("groups", []), *spec.get("nodes", [])]
+    } | {spec.get("title") for spec in diagrams.values()}
+    problems += [f"no label {label!r}" for label in expect.labels if label not in labels]
     if expect.same_as_turn is not None:
         if expect.same_as_turn > len(earlier):
             problems.append(f"turn {expect.same_as_turn} didn't run")

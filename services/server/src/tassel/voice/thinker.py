@@ -29,12 +29,22 @@ from tassel.voice.action_checker import TargetLanguage, check_tags, talker_allow
 from tassel.voice.director import ERASE, RESTORE, report_usage, rules
 from tassel.voice.erase import (
     CLAIMS_REMOVAL,
+    CLAIMS_RENAME,
+    CONFIRM,
     COULD_NOT_ERASE,
     ERASED,
+    ERASING,
+    RENAME,
+    RENAME_TAG,
+    RENAMED,
+    ask,
     clears_kept,
     kept_items,
+    narrower,
     pick,
+    pick_rename,
     removes,
+    share,
 )
 from tassel.voice.history import windowed
 from tassel.voice.illustrator import Illustrator
@@ -285,6 +295,10 @@ class TutorCoordinator:
         # Her latest image for this turn (``chat.student_image.StudentImage``), once fetched.
         self.student_image = None
         self._student_image = None
+        # A removal of more than half the board waits for her yes: (tags, her words), and the
+        # one she just confirmed, which this turn carries out without a brief.
+        self.pending_removal: tuple[list[str], str] | None = None
+        self._confirmed: tuple[list[str], str] | None = None
 
     def log(self, event, **data):
         if self.transcript:
@@ -361,6 +375,8 @@ class TutorCoordinator:
         sees it numbered, and its marks go on it."""
         await self.cancel()
         self.rung = self.ladder.take()
+        pending, self.pending_removal = self.pending_removal, None
+        self._confirmed = pending if pending and CONFIRM.match(text) else None
         self.context, self.text = context, text
         self.attachments = list(attachments or [])
         self._student_image, self.student_image = student_image, None
@@ -433,6 +449,12 @@ class TutorCoordinator:
     async def _run(self, generation):
         started = time.monotonic()
         try:
+            if self._confirmed is not None:
+                brief = self._confirmed_brief()
+                if brief is not None:
+                    self.notes = [*self.notes[-3:], brief]
+                    self.log("thinker_brief", brief=brief.model_dump())
+                    return brief
             if self._page is not None:
                 await self._attach_page()
                 if generation != self.generation:
@@ -509,10 +531,12 @@ class TutorCoordinator:
                 brief = brief.model_copy(update={"draw": None})
             if (
                 decision.action == "draw_board"
-                and ERASE.search(self.text)
+                and (ERASE.search(self.text) or ERASING.search(self.text))
                 and not RESTORE.search(self.text)
             ):
                 brief = self._honest_erase(brief, decision)
+            if decision.action == "draw_board" and RENAME.search(self.text):
+                brief = self._honest_rename(brief, decision)
             if self._illustrator_takes_over(brief, decision):
                 # The brief said it would draw but carried nothing to draw (live test: "I'll add
                 # two PCs in each zone", then nothing): the Illustrator draws her request itself.
@@ -552,8 +576,14 @@ class TutorCoordinator:
             else:
                 board.append(tag)
         say = brief.say
+        picked = pick(self.text, self.board)
+        ours = [t for t in board if removes(t)]
+        if picked and ours and set(picked) != set(ours) and not narrower(ours, picked, self.board):
+            # Her words name exactly this: "the ten dot o dot o network" is that zone, never a
+            # [[clear]] of the board or of the whole diagram (c194768a).
+            self.log("erase_pick", tags=picked, replaced=ours)
+            board = [t for t in board if not removes(t)]
         if not any(removes(t) for t in board):
-            picked = pick(self.text, self.board)
             checked = (
                 check_tags(board + picked, decision, self.board, student_text=self.text)
                 if picked
@@ -568,7 +598,57 @@ class TutorCoordinator:
             board = [*board, *picked]
             if not CLAIMS_REMOVAL.search(say):
                 say = ERASED[self.lang()]
+        removal = [t for t in board if removes(t)]
+        if share(removal, self.board) > 0.5:
+            # More than half the board: she says yes first (owner, 2026-10-18).
+            self.pending_removal = (removal, self.text)
+            self.log("erase_ask", tags=removal)
+            return brief.model_copy(
+                update={
+                    "board": [t for t in board if not removes(t)],
+                    "say": ask(removal, self.board, self.lang()),
+                }
+            )
         return brief.model_copy(update={"board": board, "say": say})
+
+    def _honest_rename(self, brief, decision):
+        """ "Rename the sales zone to Sales floor" renames that zone in place: a brief with no
+        [[rename]] gets one picked from her words, and no Illustrator redraw."""
+        if any(RENAME_TAG.match(t) for t in brief.board):
+            return brief
+        picked = pick_rename(self.text, self.board)
+        if not picked:
+            return brief
+        checked = check_tags(brief.board + picked, decision, self.board, student_text=self.text)
+        if checked.repair or any(t in checked.rejected for t in picked):
+            return brief
+        self.log("rename_pick", tags=picked)
+        say = brief.say
+        if not CLAIMS_RENAME.search(say):
+            say = RENAMED[self.lang()].format(name=picked[0].rsplit('"', 2)[-2])
+        return brief.model_copy(update={"board": [*brief.board, *picked], "say": say, "draw": None})
+
+    def _confirmed_brief(self):
+        """Her yes to "Should I go ahead?": the removal she was asked about, checked against her
+        words when she asked for it, with no thinker call."""
+        (tags, asked), self._confirmed = self._confirmed, None
+        decision = self.decision or rules(asked)
+        checked = check_tags(tags, decision, self.board, student_text=asked)
+        if checked.repair or not checked.tags:
+            self.log("reject", source="erase", reason="confirmed removal no longer fits")
+            return None
+        self.log("erase_confirmed", tags=checked.tags)
+        return GuidanceBrief(
+            page="",
+            intent="Remove what she confirmed.",
+            diagnosis="",
+            plan=["Remove it."],
+            say=ERASED[self.lang()],
+            board=checked.tags,
+            paper=[],
+            confidence=1.0,
+            followups=[],
+        )
 
     async def _draw(self, intent, generation):
         started = time.monotonic()
@@ -903,7 +983,11 @@ class TutorCoordinator:
             return brief
         decision = self.decision or rules(self.text)
         if asked & DRAWING_VERBS:
-            if self._illustrator_takes_over(brief, decision) or ERASE.search(self.text):
+            if (
+                self._illustrator_takes_over(brief, decision)
+                or ERASE.search(self.text)
+                or ERASING.search(self.text)
+            ):
                 # The Illustrator draws her request itself (result says so if it can't), and an
                 # erase turn's honesty is _honest_erase's.
                 return brief
@@ -925,6 +1009,7 @@ class TutorCoordinator:
             and not brief.draw
             and not AUTOMATA.search(self.text)
             and not ERASE.search(self.text)
+            and not ERASING.search(self.text)
         )
 
     def validate_tags(self, brief):

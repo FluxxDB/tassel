@@ -2,7 +2,6 @@
 
 import asyncio
 import base64
-import json
 import re
 import time
 from collections import deque
@@ -51,6 +50,7 @@ from tassel.beats.markup import BoardContext
 from tassel.beats.models import BeatAction
 from tassel.beats.processor import BeatTagProcessor
 from tassel.board.history import BoardHistory, replay
+from tassel.board.outline import outline, outline_items, summary
 from tassel.board.snapshots import BoardSnapshots
 from tassel.chat.log import ChatLog
 from tassel.chat.store import ChatStore
@@ -68,6 +68,7 @@ from tassel.voice.director import (
     make_director,
     view_request,
 )
+from tassel.voice.erase import CONFIRM, pick_rename
 from tassel.voice.events import ServerEvents, VadForwarder
 from tassel.voice.fakes.llm import FakeLLMService
 from tassel.voice.fakes.scenario import load_scenario, scripted_turn
@@ -304,16 +305,13 @@ class _TurnContext(FrameProcessor):
         self.student_images: LatestImage | None = None
 
     def _board_items(self):
-        items = dict(self.board_history.board_items) if self.board_history else {}
-        items.update(
-            {
-                k: v.model_dump(mode="json")
-                for k, v in {**self.board.specs, **self.board.diagrams}.items()
-            }
-        )
+        """The director's view of the board: each item's outline line, and what [[undo]] and
+        [[redo]] would change ("add them back" after an undo is a redo)."""
+        items = outline_items(self.board)
+        if undo := self.board.undo_items():
+            items["[[undo]] would restore"] = ", ".join(undo)
         if redo := self.board.redo_items():
-            # "Add them back" after an undo: [[redo]] restores these.
-            items["[[redo]] would restore"] = redo
+            items["[[redo]] would restore"] = ", ".join(redo)
         return items
 
     async def speech_started(self) -> None:
@@ -475,6 +473,19 @@ class _TurnContext(FrameProcessor):
                                 decision=escalated.model_dump(),
                             )
                         self.decision = escalated
+                    if self.coordinator is not None and (
+                        (self.coordinator.pending_removal and CONFIRM.match(student_text))
+                        or pick_rename(student_text, self.board)
+                    ):
+                        # Her yes to "Should I go ahead?" carries out the removal she asked for;
+                        # "rename the guest zone to …" renames it. Both are board edits.
+                        self.decision = Decision(
+                            focus="board",
+                            needs_vision=False,
+                            route="thinker",
+                            action="draw_board",
+                            refers_to="board",
+                        )
                     self.focus = self.decision.focus
                     if self.screen and self.screen.epoch != screen_epoch:
                         return
@@ -504,8 +515,13 @@ class _TurnContext(FrameProcessor):
                         "role": "system",
                         "content": "[director] "
                         + self.decision.model_dump_json()
-                        + " Board items: "
-                        + json.dumps(self._board_items())
+                        + (
+                            # The thinker and board turns read the whole outline; others, one line.
+                            "\n" + outline(self.board) + "\n"
+                            if self.decision.route == "thinker"
+                            or "board" in (self.decision.focus, self.decision.refers_to)
+                            else " Board: " + summary(self.board) + "."
+                        )
                         + " Follow this decision. Do not reconfirm clear intent. "
                         "Do not choose views.",
                     }

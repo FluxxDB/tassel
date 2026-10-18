@@ -27,7 +27,9 @@ NET = {
 
 def board():
     ctx = BoardContext()
-    replay(ctx, [BEAT_ACTION.validate_python({"kind": "board.diagram", "item": "net", "spec": NET})])
+    replay(
+        ctx, [BEAT_ACTION.validate_python({"kind": "board.diagram", "item": "net", "spec": NET})]
+    )
     stream = MarkupStream(ctx)
     stream.feed('[[dfa d title="Ends in 1" start=q0 accept=q1 q0-0-q0 q0-1-q1 q1-0,1-q1]] ')
     stream.feed('[[note n1 "accepts here" near=d:q1]] Done.')
@@ -77,13 +79,26 @@ def test_replay_restores_notes_traces_and_titles():
                     "kind": "board.automaton",
                     "item": "d",
                     "title": "T",
-                    "spec": {"kind": "dfa", "states": [{"id": "a"}], "start": "a",
-                             "transitions": []},
+                    "spec": {
+                        "kind": "dfa",
+                        "states": [{"id": "a"}],
+                        "start": "a",
+                        "transitions": [],
+                    },
                 },
                 {"kind": "board.note", "item": "n1", "text": "hi"},
-                {"kind": "board.trace", "item": "t", "on": "d", "input": "0",
-                 "spec": {"kind": "dfa", "states": [{"id": "a"}], "start": "a",
-                          "transitions": []}},
+                {
+                    "kind": "board.trace",
+                    "item": "t",
+                    "on": "d",
+                    "input": "0",
+                    "spec": {
+                        "kind": "dfa",
+                        "states": [{"id": "a"}],
+                        "start": "a",
+                        "transitions": [],
+                    },
+                },
             ]
         ],
     )

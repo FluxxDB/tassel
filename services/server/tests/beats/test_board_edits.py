@@ -28,7 +28,7 @@ NET = DiagramSpec.model_validate(
         ],
     }
 )
-DFA = "[[dfa d title=\"Ends in 1\" start=q0 accept=q1 q0-0-q0 q0-1-q1 q1-0-q2 q1-1-q1 q2-0,1-q2]]"
+DFA = '[[dfa d title="Ends in 1" start=q0 accept=q1 q0-0-q0 q0-1-q1 q1-0-q2 q1-1-q1 q2-0,1-q2]]'
 
 
 def board():
@@ -86,7 +86,7 @@ def test_removing_every_node_clears_the_item():
 
 def test_removing_a_state_drops_its_moves_and_keeps_the_title():
     ctx = BoardContext()
-    run(ctx, "[[nfa n title=\"Guess\" start=a accept=c a-0-b b-1-c a-1-c]]")
+    run(ctx, '[[nfa n title="Guess" start=a accept=c a-0-b b-1-c a-1-c]]')
     [action] = actions(run(ctx, "[[remove n.b]]"))
     assert action.kind == "board.automaton" and action.title == "Guess"
     assert [s.id for s in ctx.specs["n"].states] == ["a", "c"]

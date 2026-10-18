@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from tassel.beats.markup import Sentence
-from tassel.chat.actions import rows_for, view_row
+from tassel.chat.actions import named_rows, view_row
 from tassel.voice.messages import ChatMessageEvent, MessageAction, MessageAttachment, StageEvent
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ class ChatLog:
         # How Ada's next lines answer: "typed" after a typed message, "voice" after speech.
         self._source: Source = "voice"
         # Action rows waiting for their sentence to be heard, by its text frame's id.
-        self._waiting: dict[int, list[MessageAction]] = {}
+        self._waiting: dict[int, list[tuple[MessageAction, str]]] = {}
         # Which side the app shows (and which of her images), as far as the chat knows: a
         # view row only for a change.
         self._side: tuple[str, str | None] | None = None
@@ -152,7 +152,7 @@ class ChatLog:
         """A sentence of hers, before it's spoken: its action rows wait for its words, or show
         now when it has none (a wordless beat fires as the app loads it)."""
         try:
-            rows = rows_for(sentence)
+            rows = named_rows(sentence)
         except Exception as error:  # noqa: BLE001
             logger.warning("Couldn't read a sentence's actions: %s", type(error).__name__)
             return
@@ -163,8 +163,9 @@ class ChatLog:
         else:
             self._waiting.setdefault(frame_id, []).extend(rows)
 
-    async def _rows(self, rows: Iterable[MessageAction]) -> None:
-        for row in rows:
+    async def _rows(self, rows: Iterable[MessageAction | tuple[MessageAction, str]]) -> None:
+        for entry in rows:
+            row, text = entry if isinstance(entry, tuple) else (entry, "")
             if row.kind == "view":
                 shown = (row.side, row.attachment_id)
                 if shown == self._side:
@@ -176,7 +177,7 @@ class ChatLog:
                     client_id=None,
                     role="action",
                     source=None,
-                    text="",
+                    text=text,
                     final=True,
                     interrupted=False,
                     attachments=[],
