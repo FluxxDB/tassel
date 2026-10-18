@@ -81,7 +81,7 @@ async def test_the_live_paper_trace_is_shown_on_the_board_and_narrated_step_by_s
     text, note = await reply(REQUEST, live_brief(), PAPER_TRACE)
     assert note.board == LIVE_TAGS
     assert text.startswith(YOURS + TRACE)
-    assert text.count("[[step t]]") == 4
+    assert text.count("[[step t]]") == 2  # one per symbol of "10"
     assert "One takes you to the middle state." in text
     # One step lands before each sentence after the first, so the trace advances as she speaks.
     assert "[[step t]]One takes you to the middle state." in text
@@ -117,7 +117,7 @@ async def test_a_board_trace_on_a_board_turn_is_unchanged():
     text, note = await reply("Trace 10 on the board.", live_brief(), BOARD_TRACE)
     assert note.board == LIVE_TAGS
     assert text.startswith(YOURS + TRACE)
-    assert text.count("[[step t]]") == 4 and "middle state" in text
+    assert text.count("[[step t]]") == 2  # one per symbol of "10" and "middle state" in text
 
 
 @pytest.mark.asyncio
