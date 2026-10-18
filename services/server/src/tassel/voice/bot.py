@@ -513,6 +513,15 @@ class _TurnContext(FrameProcessor):
                     )
                     self.focus = view
                 else:
+                    # The whiteboard ladder: her problem's stored step routes this turn ("no"
+                    # after Ada's question climbs it; voice/ladder.py), and such a turn skips
+                    # the director's model.
+                    answered = any(m.get("role") == "assistant" for m in messages)
+                    ladder = (
+                        self.coordinator.ladder
+                        if self.coordinator is not None and self.coordinator.thinker is not None
+                        else None
+                    )
                     self.decision = await self.director.decide(
                         student_text,
                         history[:-1],
@@ -524,14 +533,8 @@ class _TurnContext(FrameProcessor):
                             or self.page_revision != self.seen_revision
                         ),
                         image=sent_image,
-                    )
-                    # The whiteboard ladder: her problem's stored step routes this turn ("no"
-                    # after Ada's question climbs it; voice/ladder.py).
-                    answered = any(m.get("role") == "assistant" for m in messages)
-                    ladder = (
-                        self.coordinator.ladder
-                        if self.coordinator is not None and self.coordinator.thinker is not None
-                        else None
+                        ladder=ladder,
+                        answered=answered,
                     )
                     escalated = escalate(
                         student_text, self.decision, ladder=ladder, answered=answered

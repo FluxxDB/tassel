@@ -7,6 +7,7 @@ import re
 import time
 from copy import deepcopy
 from functools import partial
+from uuid import uuid4
 
 import cv2
 import numpy as np
@@ -55,6 +56,7 @@ from tassel.voice.history import windowed
 from tassel.voice.illustrator import Illustrator, recent_turns
 from tassel.voice.ladder import Ladder
 from tassel.voice.pointer import MarkIntent, Pointer, image_mark_tags, mark_tags
+from tassel.voice.prefetch import Ahead, next_request, next_step
 from tassel.voice.prompts import thinker_system_prompt
 from tassel.voice.requirements import automaton_checklist
 from tassel.voice.settings import VoiceSettings
@@ -103,6 +105,8 @@ class Thinker:
         self.client = client or AsyncOpenAI(
             api_key=settings.openai_api_key.get_secret_value(), max_retries=0, timeout=20
         )
+        # One session's requests share a prefix; the key keeps them on one cache.
+        self.cache_key = f"tassel-thinker-{uuid4().hex}"
 
     async def think(self, messages: list[dict], effort=None) -> GuidanceBrief:
         effort = effort or self.settings.thinker_effort
@@ -127,6 +131,7 @@ class Thinker:
                     messages=request,
                     response_format={"type": "json_object"},
                     max_completion_tokens=BRIEF_TOKENS if effort == "none" else DRAWN_BRIEF_TOKENS,
+                    prompt_cache_key=self.cache_key,
                 )
             except (APIConnectionError, TimeoutError) as error:
                 reason = type(error).__name__
@@ -198,6 +203,9 @@ FROM_PAGE = re.compile(
 AUTOMATA = re.compile(r"\b(?:dfa|nfa|automat\w*|state machine|accept\w*|regex|language)\b", re.I)
 NOTE_PREFIX = "[tutor notes]"
 THINKER_WINDOW = 12
+# Older exchanges leave the thinker's window three at a time, so its start, and the cached prefix
+# of the request, holds for three turns (voice/history.py).
+THINKER_WINDOW_STEP = 6
 MARK_ID = re.compile(r"\bm\d+\b")
 # A structured value: digits joined by dots, slashes, colons or hyphens (an IP, a CIDR, a date).
 # What a page read and the learner memory can disagree about; plain numbers and states are not.
@@ -329,6 +337,10 @@ class TutorCoordinator:
         # The whiteboard ladder for her current problem, and this turn's rung (step, attempt).
         self.ladder = Ladder()
         self.rung: tuple[int | None, bool] = (None, False)
+        # The next rung's thinker call, made while Ada speaks (voice/prefetch.py), and the
+        # turn count it is checked against.
+        self.ahead: Ahead | None = None
+        self.turns = 0
         self._page = None
         self._board_page = None
         self.attachments = []
@@ -365,6 +377,7 @@ class TutorCoordinator:
 
     def forget_notes(self):
         """An explicit reset ends the old task, including its pending follow-up guidance."""
+        self._drop_ahead("reset")
         self.notes.clear()
         self.ink = None
         self.expires = 0
@@ -423,6 +436,9 @@ class TutorCoordinator:
         (``chat.student_image.StudentImage``) or None, for a turn about her image: the thinker
         sees it numbered, and its marks go on it."""
         await self.cancel()
+        self.turns += 1
+        if self.ahead is not None and self.turns > self.ahead.turn + 1:
+            self._drop_ahead("turn")
         self.rung = self.ladder.take()
         pending, self.pending_removal = self.pending_removal, None
         self._confirmed = pending if pending and CONFIRM.match(text) else None
@@ -448,8 +464,10 @@ class TutorCoordinator:
         if not self.notes:
             self.ink = current
         self._notes_context()
-        # The thinker sees the last 6 exchanges; the notes carry what came before.
-        self.messages = windowed(deepcopy(context.get_messages()), THINKER_WINDOW)
+        # The thinker sees the last 3-6 exchanges; the notes carry what came before.
+        self.messages = windowed(
+            deepcopy(context.get_messages()), THINKER_WINDOW, step=THINKER_WINDOW_STEP
+        )
         if (
             decision.route == "thinker"
             if decision
@@ -543,7 +561,7 @@ class TutorCoordinator:
                 # 20261018-133513: "no outgoing arrow from q2"); marks take a little thought.
                 settings = getattr(self.thinker, "settings", None)
                 effort = getattr(settings, "thinker_draw_effort", "low")
-            brief = await self._brief(generation, self.messages, effort)
+            brief = await self._brief(generation, self.messages, effort, ahead=self._take_ahead())
             if brief is None:
                 return None
             said = [n.say for n in self.notes[-3:]]
@@ -611,6 +629,7 @@ class TutorCoordinator:
             self.ladder.record(*self.rung, brief)
             self.log("thinker_brief", brief=brief.model_dump())
             self._notes_context()
+            self._think_ahead(brief)
             return brief
         except asyncio.CancelledError:
             raise
@@ -966,6 +985,85 @@ class TutorCoordinator:
         brief = lift_say_tags(await self.thinker.think(messages, effort=effort))
         return self._page_over_memory(brief)
 
+    def _think_ahead(self, brief):
+        """After step 0 or 1 on her paper, the next rung's thinker call starts now, while Ada
+        speaks (voice/prefetch.py)."""
+        settings = getattr(self.thinker, "settings", None)
+        step = next_step(*self.rung, self.ladder.problem)
+        if (
+            step is None
+            or not getattr(settings, "ladder_prefetch", False)
+            or self.ladder.step != self.rung[0]
+            or self.page_image is None
+            or self.context is None
+            or not brief.say
+        ):
+            return
+        page = [
+            {"type": "text", "text": self.page_caption},
+            {"type": "image_url", "image_url": {"url": _image_url(self.page_image)}},
+        ]
+        messages = next_request(
+            self.context.get_messages(),
+            say=brief.say,
+            step=step,
+            note=LADDER[step],
+            page=page,
+            window=THINKER_WINDOW,
+            window_step=THINKER_WINDOW_STEP,
+            notes_prefix=NOTE_PREFIX,
+            drop_prefixes=(BRIDGE_PREFIX,),
+        )
+        self._drop_ahead("replaced")
+        task = asyncio.create_task(
+            self._think(messages, getattr(settings, "thinker_draw_effort", "low"))
+        )
+        task.add_done_callback(lambda t: t.cancelled() or t.exception())
+        self.ahead = Ahead(step, self.turns, ink_signature(self.page_image), task)
+        self.log("prefetch", step=step)
+
+    def _take_ahead(self):
+        """The thought-ahead brief's task when this turn climbed to its rung, right after, on
+        the same page; otherwise it is dropped."""
+        ahead, self.ahead = self.ahead, None
+        if ahead is None:
+            return None
+        why = ahead.fits(*self.rung, self.turns, ink_signature(self.page_image))
+        if why is not None:
+            ahead.task.cancel()
+            self.log("prefetch_dropped", step=ahead.step, reason=why)
+            return None
+        return ahead
+
+    async def _ahead_brief(self, ahead):
+        started = time.monotonic()
+        try:
+            brief = await asyncio.shield(ahead.task)
+        except asyncio.CancelledError:
+            if asyncio.current_task().cancelling():
+                ahead.task.cancel()
+                raise
+            brief = None
+        except Exception:
+            brief = None
+        waited = (time.monotonic() - started) * 1000
+        if brief is None:
+            self.log("prefetch_dropped", step=ahead.step, reason="failed", waited_ms=waited)
+        else:
+            self.log("prefetch_used", step=ahead.step, waited_ms=waited)
+        return brief
+
+    def _drop_ahead(self, reason):
+        ahead, self.ahead = self.ahead, None
+        if ahead is not None:
+            ahead.task.cancel()
+            self.log("prefetch_dropped", step=ahead.step, reason=reason)
+
+    async def ahead_settled(self):
+        """Tests: the thought-ahead call, finished."""
+        if self.ahead is not None:
+            await asyncio.gather(self.ahead.task, return_exceptions=True)
+
     async def _double_read(self, brief, messages, effort, generation):
         """A low-confidence read of her handwriting is checked against a second read of the
         marked page; when the two disagree on a value, the thinker looks again with both reads
@@ -1029,9 +1127,11 @@ class TutorCoordinator:
         self.log("automaton_checklist", **wanted.model_dump(exclude_none=True))
         return wanted
 
-    async def _brief(self, generation, messages, effort):
+    async def _brief(self, generation, messages, effort, *, ahead=None):
         self._unfit = []
-        brief = await self._think(messages, effort)
+        brief = await self._ahead_brief(ahead) if ahead is not None else None
+        if brief is None:
+            brief = await self._think(messages, effort)
         if generation != self.generation:
             return None
         brief = await self._double_read(brief, messages, effort, generation)
@@ -1280,6 +1380,7 @@ class TutorCoordinator:
         return brief
 
     async def close(self):
+        self._drop_ahead("closed")
         await self.cancel()
         if self.thinker is not None:
             await self.thinker.close()

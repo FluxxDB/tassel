@@ -2,6 +2,7 @@
 hard prompt-token budget read from the session's usage meter. The run stops cleanly before a turn
 once the budget is spent, or when that turn's estimate would overrun it."""
 
+import asyncio
 import traceback
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
@@ -84,7 +85,10 @@ async def run_scenarios(
     budget: int = DEFAULT_BUDGET,
     estimate=estimate_turn,
     on_turn: Callable[[ScenarioRecord, TurnRecord], None] | None = None,
+    reply_gap_s: float = 0,
 ) -> RunRecord:
+    """`reply_gap_s`: how long she listens before each later turn, as a real student does while
+    Ada speaks (the ladder thinks its next step ahead in that time)."""
     run = RunRecord(budget=budget)
     spent_before = 0  # Prompt tokens of the scenarios already closed.
 
@@ -107,6 +111,8 @@ async def run_scenarios(
                     if spent >= budget or spent + cost > budget:
                         stop_here(scenario, index)
                         break
+                    if index and reply_gap_s:
+                        await asyncio.sleep(reply_gap_s)
                     before = session.usage()
                     observation = await session.turn(turn, index)
                     after = session.usage()

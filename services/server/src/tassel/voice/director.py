@@ -400,6 +400,23 @@ def _rung(problem, step, decision):
     return decision.model_copy(update=update)
 
 
+def ladder_decides(text, ladder, *, answered) -> bool:
+    """The ladder routes this turn whatever the director says (``escalate``'s branches that
+    replace the decision): a check of her own work opens it; on an open ladder, after Ada spoke,
+    "show me the answer", "no", "I don't get it" or an attempt climbs it. Such a turn needs no
+    model call (0.3-0.8 s that ``escalate`` threw away)."""
+    if ladder is None:
+        return False
+    asks = _asks(text)
+    if checking(text) and not asks and (SELF_WORK.search(text) or PAPER.search(text)):
+        return True
+    if not (ladder.open and answered):
+        return False
+    if GIVE_UP.search(text):
+        return True
+    return not asks and bool(failed(text) or CONFUSED.search(text) or _attempt(text))
+
+
 def escalate(text, decision, *, ladder=None, answered=True):
     """The whiteboard ladder (voice/ladder.py), enforced. A check of her work opens it at step 0;
     after Ada's question, "no", "I can't see it" or a wrong attempt climbs it one step (the
@@ -500,8 +517,11 @@ class Director:
         frozen=False,
         page_changed=False,
         image=False,
+        ladder=None,
+        answered=False,
     ):
-        """`image`: this message carries an image she sent."""
+        """`image`: this message carries an image she sent. `ladder` and `answered`: a turn the
+        whiteboard ladder decides (``ladder_decides``) skips the model."""
         started = time.monotonic()
         source = "rules"
         decision = rules(text, focus=focus, page_changed=page_changed, image=image)
@@ -511,6 +531,8 @@ class Director:
             decision, source = scripted, "script"
         elif sure is not None:
             decision, source = sure, "rules-certain"
+        elif not image and ladder_decides(text, ladder, answered=answered):
+            source = "ladder"
         elif self.client is not None:
             try:
                 async with asyncio.timeout(self.budget_s):
