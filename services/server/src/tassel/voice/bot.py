@@ -359,7 +359,7 @@ class _TurnContext(FrameProcessor):
                     and self.coordinator is not None
                     and self.coordinator.thinker is not None
                 ):
-                    # The talker bridges at once; the thinker waits for the page.
+                    # The thinker waits for the page; the talker doesn't run at all.
                     _drop_images(messages)
                     await self.coordinator.prepare(
                         frame.context,
@@ -368,7 +368,7 @@ class _TurnContext(FrameProcessor):
                         page=self._thinker_page if self.decision.needs_vision else None,
                         board_page=self._thinker_board_page,
                     )
-                    await self.push_frame(frame, direction)
+                    await self._thinker_reply(direction)
                     return
                 page = await self._turn_page() if self.decision.needs_vision else None
                 if page is not None and page.image is not None:
@@ -411,10 +411,18 @@ class _TurnContext(FrameProcessor):
                         frame.context, student_text, ink_image, decision=self.decision
                     )
                     if self.decision.route == "thinker" and self.coordinator.thinker is not None:
-                        # The thinker has its own copy with the page; the talker only bridges,
-                        # and Qwen with a page attached took 5–7 s to say anything.
+                        # The thinker has its own copy with the page.
                         _drop_images(messages)
+                        await self._thinker_reply(direction)
+                        return
         await self.push_frame(frame, direction)
+
+    async def _thinker_reply(self, direction):
+        """A thinker turn has one reply, the thinker's: no talker call, so no "hang on, let me…"
+        bridge before it (owner, 2026-10-18). ThinkerOutput fills this empty response with the
+        brief when it ends, and the app shows Ada thinking until then."""
+        await self.push_frame(LLMFullResponseStartFrame(), direction)
+        await self.push_frame(LLMFullResponseEndFrame(), direction)
 
     async def _thinker_board_page(self):
         if self.board_snapshots is None or self.request_board_snapshot is None:

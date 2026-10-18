@@ -101,7 +101,7 @@ def test_two_tier_persona_uses_notes_and_follows_director_without_reconfirmation
     assert "director chooses the route" in prompt
     assert "do not repeatedly reconfirm meaning" in prompt
     assert "tutor notes" in prompt and "do not re-ask" in prompt
-    assert "bridge" in prompt
+    assert "bridge" not in prompt
     assert "[[consult]]" not in system_prompt("en")
 
 

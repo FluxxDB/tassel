@@ -331,6 +331,12 @@ async def test_thinker_turn_bridge_carries_no_image_but_the_thinker_does():
     await gate.coordinator.result()
     # Both fragments reached the director: a board drawing on the thinker.
     assert (gate.decision.route, gate.decision.action) == ("thinker", "draw_board")
+    # The talker never runs on a thinker turn: an empty reply the thinker's brief fills.
+    from pipecat.frames.frames import LLMFullResponseEndFrame, LLMFullResponseStartFrame
+
+    pushed = [call.args[0] for call in gate.push_frame.call_args_list]
+    assert not any(isinstance(f, LLMContextFrame) for f in pushed)
+    assert [type(f) for f in pushed[-2:]] == [LLMFullResponseStartFrame, LLMFullResponseEndFrame]
     assert "image_url" not in str(context.get_messages())
     await gate.coordinator.close()
 

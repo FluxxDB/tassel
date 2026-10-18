@@ -196,12 +196,17 @@ def test_bad_tags_dropped_and_my_paper_never_draws_on_board():
 
 
 @pytest.mark.asyncio
-async def test_bot_wires_fake_talker_and_thinker(monkeypatch, tmp_path):
+async def test_a_thinker_turn_speaks_only_the_brief_and_never_runs_the_talker(
+    monkeypatch, tmp_path
+):
+    """One reply per turn: no "Hang on, let me…" bridge from the talker before the brief."""
     from test_bot_pipeline import context, running, say, until
 
     import tassel.voice.bot as bot_module
     from tassel.voice.fakes.llm import FakeLLMService
     from tassel.voice.fakes.scenario import load_scenario
+
+    talker_turns = []
 
     class Talker(FakeLLMService):
         async def process_frame(self, frame, direction):
@@ -210,8 +215,9 @@ async def test_bot_wires_fake_talker_and_thinker(monkeypatch, tmp_path):
             if isinstance(frame, LLMContextFrame):
                 if not any(m.get("role") == "user" for m in frame.context.get_messages()):
                     return
+                talker_turns.append(frame)
                 await self.push_frame(LLMFullResponseStartFrame())
-                await self.push_frame(LLMTextFrame("[[consult]]Let me look at your arrows. "))
+                await self.push_frame(LLMTextFrame("Hang on, let me look at your arrows. "))
                 await self.push_frame(LLMFullResponseEndFrame())
             else:
                 await super().process_frame(frame, direction)
@@ -229,12 +235,12 @@ async def test_bot_wires_fake_talker_and_thinker(monkeypatch, tmp_path):
     )
     async with running(ctx) as (bot, output):
         await say(bot, "Check this")
-        await until(lambda: "arrows" in output.text())
-        assert "final one" not in output.text()
+        await asyncio.sleep(0.3)
+        assert output.text() == ""
         gate.set()
         await until(lambda: "final one" in output.text())
-        assert "Let me look" in output.text()
-        assert "consult" not in output.text()
+        assert "Hang on" not in output.text()
+        assert talker_turns == []
         assert fake.calls == 1
         import json
 
@@ -247,9 +253,28 @@ async def test_bot_wires_fake_talker_and_thinker(monkeypatch, tmp_path):
             "ada_spoken",
             "thinker_brief",
             "thinker_duration",
-            "first_token",
             "first_audio",
         }
+
+
+@pytest.mark.asyncio
+async def test_bracketed_meta_text_is_never_spoken():
+    """Qwen once said "[assistant turn omitted]" aloud, copying the app's bracketed notes."""
+    coordinator = TutorCoordinator(None, BoardContext())
+    frames, _ = await run_test(
+        ThinkerOutput(coordinator),
+        frames_to_send=[
+            LLMFullResponseStartFrame(),
+            LLMTextFrame("[assistant turn "),
+            LLMTextFrame("omitted] Yes, these fit. [[reveal fix start q0]]Next."),
+            LLMFullResponseEndFrame(),
+        ],
+    )
+    words = "".join(f.text for f in frames if isinstance(f, LLMTextFrame))
+    assert "omitted" not in words and "[assistant" not in words
+    assert words.strip().startswith("Yes, these fit.")
+    assert "[[reveal fix start q0]]" in words
+    await coordinator.close()
 
 
 def test_spoken_guidance_cannot_bypass_tag_validation():

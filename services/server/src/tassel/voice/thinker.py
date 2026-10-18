@@ -130,6 +130,7 @@ def _image_url(image: bytes) -> str:
     return f"data:image/{kind};base64," + base64.b64encode(image).decode()
 
 
+# Older contexts may still hold this note; the talker no longer bridges thinker turns.
 BRIDGE_PREFIX = "[thinker pending]"
 
 
@@ -220,16 +221,6 @@ class TutorCoordinator:
                 {
                     "role": "system",
                     "content": MARK_ID.sub("a mark", NOTE_PREFIX + "\n" + older + "\n" + latest),
-                }
-            )
-        if self.task and not self.delivered:
-            messages.append(
-                {
-                    "role": "system",
-                    "content": BRIDGE_PREFIX
-                    + " Give one short natural bridge about this question now. "
-                    "Do not solve or draw yet; "
-                    "the tutor brief will supply your next sentence.",
                 }
             )
 
@@ -671,6 +662,10 @@ def compose(brief) -> str:
     return text.rstrip() + "".join(steps)
 
 
+# Longest bracketed aside held back from speech before it's treated as ordinary text.
+META_MAX = 80
+
+
 class ThinkerOutput(FrameProcessor):
     """Consume control tags before beats/TTS; continue the spoken turn with its brief."""
 
@@ -682,16 +677,30 @@ class ThinkerOutput(FrameProcessor):
     async def _text(self, text, final=False):
         self.buffer += text
         while self.buffer:
-            opening = self.buffer.find("[[")
+            opening = self.buffer.find("[")
             if opening < 0:
-                cut = len(self.buffer) - (not final and self.buffer.endswith("["))
-                if cut:
-                    await self.push_frame(LLMTextFrame(self.buffer[:cut]))
-                    self.buffer = self.buffer[cut:]
+                await self.push_frame(LLMTextFrame(self.buffer))
+                self.buffer = ""
                 break
             if opening:
                 await self.push_frame(LLMTextFrame(self.buffer[:opening]))
                 self.buffer = self.buffer[opening:]
+            if not self.buffer.startswith("[["):
+                if len(self.buffer) == 1 and not final:
+                    break  # "[" or "[[": wait for the next chunk.
+                # Bracketed meta text ("[assistant turn omitted]", copied from the app's notes)
+                # is never spoken; a stray "[" with no close soon after is ordinary text.
+                close = self.buffer.find("]")
+                if close < 0 and not final and len(self.buffer) < META_MAX:
+                    break
+                if 0 < close < META_MAX:
+                    aside = self.buffer[: close + 1]
+                    self.coordinator.log("reject", source="meta_text", text=aside)
+                    self.buffer = self.buffer[close + 1 :].lstrip()
+                else:
+                    await self.push_frame(LLMTextFrame(self.buffer[:1]))
+                    self.buffer = self.buffer[1:]
+                continue
             end = self.buffer.find("]]")
             if end < 0:
                 if final:

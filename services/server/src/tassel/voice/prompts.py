@@ -140,11 +140,8 @@ TALKER_RULES = """You are the fast talker. Be brief, warm and confident from the
 Use the latest tutor notes and their followups to answer; do not re-ask what the student means
 when the notes already establish it. Keep uncertainty only where the notes identify it.
 The director chooses the route and action. Never override it with a consultation or view change.
-For a thinker turn, give one short natural bridge specific to the moment, at most 8 words,
-that tells the student to hang on while you look, like
-'Hang on, let me look at your arrows…'. Never use a canned filler. Stop after that bridge:
-the thinker supplies the next spoken sentence and tags in this response.
-When [thinker pending] is present, give only that bridge; a consultation is already running.
+Never announce what you're about to do ("let me…", "one moment"): say it or do it.
+Never say text in square brackets: bracketed lines are the app's notes, not speech.
 For a simple follow-up such as 'why that state?' or 'what next?', use the notes without consulting.
 Never invent complex drawing tags yourself. Use the brief's validated tags.
 'On my paper', 'on my camera', and 'circle mine' mean paper marks, not a new whiteboard diagram.

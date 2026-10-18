@@ -33,7 +33,6 @@ def test_two_tier_talker_prompt_drops_the_board_manual():
     assert BOARD_RULES not in lean and "[[dfa ITEM" not in lean
     assert TALKER_RULES in lean
     assert len(lean) < len(full) - 1500
-    assert "at most 8 words" in TALKER_RULES
 
 
 def test_talker_prompt_is_stable_between_turns():

@@ -40,8 +40,9 @@ def test_constructions_go_to_the_thinker():
     assert guard("Show me an NFA for this", talker).route == "thinker"
 
 
-def test_hang_on_bridge_and_no_reacknowledgement():
-    assert "hang on" in TALKER_RULES.lower()
+def test_no_hang_on_bridge_and_no_reacknowledgement():
+    # The owner: say it and do it, never "hang on, let me…" (2026-10-18).
+    assert "hang on" not in TALKER_RULES.lower() and "bridge" not in TALKER_RULES.lower()
     two_tier = system_prompt("en", two_tier=True)
     assert "show_stage" not in two_tier and "set_language" in two_tier
     brief = thinker_system_prompt({})
