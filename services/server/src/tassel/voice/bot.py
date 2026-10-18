@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import re
 from collections import deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -18,8 +19,10 @@ from pipecat.frames.frames import (
     InterruptionFrame,
     LLMContextFrame,
     LLMFullResponseEndFrame,
+    LLMFullResponseStartFrame,
     LLMMessagesAppendFrame,
     LLMRunFrame,
+    LLMTextFrame,
     LLMUpdateSettingsFrame,
     StartFrame,
     TTSTextFrame,
@@ -477,11 +480,23 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     turn_context.on_language = apply_language
     monitor.on_language = language_ready
 
+    response_text = ""
+
+    @llm.event_handler("on_before_push_frame")
+    async def track_response_text(service, frame):
+        # This synchronous push hook runs before tools, even when downstream TTS lags.
+        nonlocal response_text
+        if isinstance(frame, (LLMFullResponseStartFrame, InterruptionFrame)):
+            response_text = ""
+        elif isinstance(frame, LLMTextFrame):
+            response_text += frame.text
+
     async def show_stage(params):
         event = StageEvent(view=params.arguments["view"])
         await bot.events.send(event)
+        spoken = re.sub(r"\[\[.*?(?:\]\]|$)", "", response_text, flags=re.S).strip().rstrip("[")
         await params.result_callback(
-            {"ok": True}, properties=FunctionCallResultProperties(run_llm=False)
+            {"ok": True}, properties=FunctionCallResultProperties(run_llm=not bool(spoken.strip()))
         )
 
     async def set_language(params):

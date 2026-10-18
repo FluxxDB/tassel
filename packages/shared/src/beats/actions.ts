@@ -242,7 +242,7 @@ function normRect(value: unknown): NormRect {
   return { x: finite(f.x), y: finite(f.y), w: size(f.w), h: size(f.h) };
 }
 
-function spec(value: unknown): AutomatonSpec {
+function spec(value: unknown, board = false): AutomatonSpec {
   const f = fields(value, ['kind', 'states', 'start', 'transitions']);
   const parsed: AutomatonSpec = {
     kind: oneOf(['dfa', 'nfa'] as const)(f.kind),
@@ -256,6 +256,23 @@ function spec(value: unknown): AutomatonSpec {
       return { from: string(move.from), to: string(move.to), symbols: symbols(move.symbols) };
     }),
   };
+  if (board && parsed.kind === 'dfa') {
+    const seen = new Map<string, string>();
+    parsed.transitions = parsed.transitions.flatMap((move) => {
+      const kept = move.symbols.filter((symbol) => {
+        const key = JSON.stringify([move.from, symbol]);
+        if (seen.has(key) && seen.get(key) !== move.to) {
+          console.info(
+            `Board tag trimmed: dropped ${move.from}-${symbol}-${move.to}; kept ${seen.get(key)}`,
+          );
+          return false;
+        }
+        seen.set(key, move.to);
+        return true;
+      });
+      return kept.length ? [{ ...move, symbols: kept }] : [];
+    });
+  }
   return checkAutomaton(parsed).length === 0 ? parsed : invalid();
 }
 
@@ -402,7 +419,7 @@ function readAction(data: unknown): BeatAction {
       return compact({
         kind,
         item: id(f.item),
-        spec: spec(f.spec),
+        spec: spec(f.spec, true),
         title: optional(f.title, text),
         reveal: optional(f.reveal, oneOf(['all', 'none'] as const)),
       });

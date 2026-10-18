@@ -452,3 +452,46 @@ async def test_board_tags_never_reach_tts(monkeypatch):
         assert progress
         assert all(str(f.segment_id) in segments for f in progress)
         assert all("[[" not in f.accumulated_text for f in progress)
+
+
+@pytest.mark.parametrize("prefix", ["", "[[stage paper]]", "Look at your paper"])
+async def test_stage_only_reply_continues_but_spoken_reply_does_not(prefix, monkeypatch):
+    from pipecat.frames.frames import LLMContextFrame
+
+    from tassel.voice.fakes.llm import FakeLLMService
+    from tassel.voice.fakes.scenario import ScriptTool, ScriptTurn
+
+    class StageLLM(FakeLLMService):
+        calls = 0
+
+        async def process_frame(self, frame, direction):
+            if isinstance(frame, LLMContextFrame):
+                self.calls += 1
+                if self.calls == 2:
+                    self._script.turns = [
+                        ScriptTurn(
+                            say=prefix,
+                            tools=[ScriptTool(name="show_stage", arguments={"view": "paper"})],
+                        )
+                    ]
+                elif self.calls >= 3:
+                    self._script.turns = [ScriptTurn(say="I see your automaton.")]
+            await super().process_frame(frame, direction)
+
+    monkeypatch.setattr(
+        "tassel.voice.bot.make_llm",
+        lambda route, settings, scenario: StageLLM(
+            scenario=scenario.model_copy(deep=True), lang=route.lang, ttfb_ms=0, chunk_words=1
+        ),
+    )
+    async with running(context()) as (bot, out):
+        await until(lambda: SCRIPT.langs["en"].greeting in out.text())
+        await say(bot, "What's on my paper?")
+        await until(lambda: {"kind": "stage", "view": "paper"} in out.events())
+        if prefix == "Look at your paper":
+            await until(lambda: prefix in out.text())
+            await asyncio.sleep(0.2)
+            assert bot.llm.calls == 2
+        else:
+            await until(lambda: "I see your automaton." in out.text())
+            assert bot.llm.calls == 3

@@ -361,7 +361,6 @@ class TestParseCommand:
             "freeze yesterday",
             "focus fix extra",
             "dfa fix q0-0-q1",
-            "dfa fix start=q0 q0-0-q1 q0-0-q2",
             "dfa fix start=q0 q0-eps-q1",
             "dfa fix start=_q _q-0-_q",
             "dfa x.y start=q0 q0-0-q0",
@@ -449,3 +448,25 @@ class TestTolerantTags:
 
     def test_a_dfa_without_start_is_still_refused(self):
         assert parse_command("dfa d accept=q1 q0-0->q1", BoardContext(specs={})) is None
+
+
+def test_owner_live_dfa_keeps_first_move_and_no_accept_states():
+    fixture = json.loads(
+        (Path(__file__).parents[4] / "packages/shared/src/beats/live-dfa-fixture.json").read_text()
+    )
+    [sentence] = read(fixture["tag"])
+    assert len(sentence.anchors) == 1
+    action = dump(sentence.anchors[0][1])
+    assert action["spec"]["transitions"] == fixture["expectedTransitions"]
+    assert action["spec"]["states"] == [{"id": f"q{i}"} for i in range(5)]
+    assert action["reveal"] == "none"
+    assert dump(BEAT_ACTION.validate_python(fixture["action"])) == action
+
+
+def test_conflicting_move_keeps_its_nonconflicting_symbols():
+    action = parse_command("dfa d start=q0 q0-0-q1 q0-0,1-q2", BoardContext())
+    assert action is not None
+    assert dump(action)["spec"]["transitions"] == [
+        {"from": "q0", "to": "q1", "symbols": ["0"]},
+        {"from": "q0", "to": "q2", "symbols": ["1"]},
+    ]

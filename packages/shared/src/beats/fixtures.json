@@ -558,31 +558,6 @@
       }
     },
     {
-      "why": "two moves on one symbol",
-      "data": {
-        "kind": "board.automaton",
-        "item": "wrong",
-        "spec": {
-          "kind": "dfa",
-          "states": [
-            { "id": "q0" },
-            { "id": "q1" },
-            { "id": "q2" },
-            { "id": "q3", "accept": true }
-          ],
-          "start": "q0",
-          "transitions": [
-            { "from": "q0", "to": "q0", "symbols": ["1"] },
-            { "from": "q0", "to": "q1", "symbols": ["0"] },
-            { "from": "q1", "to": "q2", "symbols": ["1"] },
-            { "from": "q2", "to": "q3", "symbols": ["0"] },
-            { "from": "q3", "to": "q3", "symbols": ["0", "1"] },
-            { "from": "q0", "to": "q2", "symbols": ["1"] }
-          ]
-        }
-      }
-    },
-    {
       "why": "ε in a DFA",
       "data": {
         "kind": "board.trace",

@@ -67,6 +67,10 @@ one or more symbols always; in an edge tag it is [[edge ITEM FROM TO SYMS]], lik
 [[pstep]] advances the paper trace.
 [[live]] returns to live paper.
 [[freeze [latest|frame=ID]]] freezes the paper image.
+Freeze only right before marking the paper (circle, number, check, strike),
+never when only describing.
+Remember: a DFA has exactly one move per state per symbol; always give accept=.
+Use accept= with no states when none accept.
 Board EL is start, a state such as q0, or an edge such as q0>q1.
 Paper EL targets the numbered marks in the turn image: m1, m2, and so on.
 Never invent a numbered mark that is not in the image.

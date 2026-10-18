@@ -118,3 +118,23 @@ async def test_rejected_tags_are_logged_with_their_reason_and_never_spoken():
     rejected = [line for line in lines if "Board tag" in line]
     assert any("unknown command" in line and "frobnicate" in line for line in rejected)
     assert any("q0->q1" in line and "no symbol" in line for line in rejected)
+
+
+async def test_conflicting_dfa_is_drawn_and_logged_as_trimmed():
+    from loguru import logger
+
+    lines = []
+    sink = logger.add(lambda message: lines.append(message), level="INFO")
+    try:
+        log = await capture(response("[[dfa d start=q0 q0-0-q1 q0-0-q2]]Look here."))
+    finally:
+        logger.remove(sink)
+    assert any(
+        m.action.kind == "board.automaton"
+        for e in log
+        if hasattr(e, "beat")
+        for m in e.beat.markers
+    )
+    assert any(
+        "Board tag trimmed:" in str(line) and line.record["level"].name == "INFO" for line in lines
+    )

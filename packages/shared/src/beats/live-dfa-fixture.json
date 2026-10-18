@@ -1,0 +1,128 @@
+{
+  "tag": "[[dfa ref hidden start=q0 q0-0-q1 q1-1-q2 q2-0-q3 q3-1-q4 q4-0,1-q4 q0-1-q0 q1-0-q0 q2-1-q2 q3-0-q0 q3-1-q0]]",
+  "action": {
+    "kind": "board.automaton",
+    "item": "ref",
+    "reveal": "none",
+    "spec": {
+      "kind": "dfa",
+      "states": [
+        {
+          "id": "q0"
+        },
+        {
+          "id": "q1"
+        },
+        {
+          "id": "q2"
+        },
+        {
+          "id": "q3"
+        },
+        {
+          "id": "q4"
+        }
+      ],
+      "start": "q0",
+      "transitions": [
+        {
+          "from": "q0",
+          "to": "q1",
+          "symbols": ["0"]
+        },
+        {
+          "from": "q1",
+          "to": "q2",
+          "symbols": ["1"]
+        },
+        {
+          "from": "q2",
+          "to": "q3",
+          "symbols": ["0"]
+        },
+        {
+          "from": "q3",
+          "to": "q4",
+          "symbols": ["1"]
+        },
+        {
+          "from": "q4",
+          "to": "q4",
+          "symbols": ["0", "1"]
+        },
+        {
+          "from": "q0",
+          "to": "q0",
+          "symbols": ["1"]
+        },
+        {
+          "from": "q1",
+          "to": "q0",
+          "symbols": ["0"]
+        },
+        {
+          "from": "q2",
+          "to": "q2",
+          "symbols": ["1"]
+        },
+        {
+          "from": "q3",
+          "to": "q0",
+          "symbols": ["0"]
+        },
+        {
+          "from": "q3",
+          "to": "q0",
+          "symbols": ["1"]
+        }
+      ]
+    }
+  },
+  "expectedTransitions": [
+    {
+      "from": "q0",
+      "to": "q1",
+      "symbols": ["0"]
+    },
+    {
+      "from": "q1",
+      "to": "q2",
+      "symbols": ["1"]
+    },
+    {
+      "from": "q2",
+      "to": "q3",
+      "symbols": ["0"]
+    },
+    {
+      "from": "q3",
+      "to": "q4",
+      "symbols": ["1"]
+    },
+    {
+      "from": "q4",
+      "to": "q4",
+      "symbols": ["0", "1"]
+    },
+    {
+      "from": "q0",
+      "to": "q0",
+      "symbols": ["1"]
+    },
+    {
+      "from": "q1",
+      "to": "q0",
+      "symbols": ["0"]
+    },
+    {
+      "from": "q2",
+      "to": "q2",
+      "symbols": ["1"]
+    },
+    {
+      "from": "q3",
+      "to": "q0",
+      "symbols": ["0"]
+    }
+  ]
+}

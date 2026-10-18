@@ -21,6 +21,7 @@ from collections.abc import Callable
 from itertools import pairwise
 from typing import Annotated, Any, Literal, Self
 
+from loguru import logger
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -291,10 +292,40 @@ def _quoted(text: str) -> str:
 # Ada's board
 
 
+class BoardAutomatonSpec(AutomatonSpec):
+    """Drawable model output: preserve the first DFA move on each symbol."""
+
+    @model_validator(mode="after")
+    def _checked(self) -> Self:
+        if self.kind == "dfa":
+            seen: dict[tuple[str, str], str] = {}
+            moves = []
+            for move in self.transitions:
+                symbols = []
+                for symbol in move.symbols:
+                    key = (move.from_, symbol)
+                    if key in seen and seen[key] != move.to:
+                        logger.info(
+                            "Board tag trimmed: dropped {}-{}-{}; kept {}",
+                            move.from_,
+                            symbol,
+                            move.to,
+                            seen[key],
+                        )
+                    else:
+                        seen[key] = move.to
+                        symbols.append(symbol)
+                # Preserve originally empty edges so strict validation still rejects them.
+                if symbols or not move.symbols:
+                    moves.append(move.model_copy(update={"symbols": symbols}))
+            object.__setattr__(self, "transitions", moves)
+        return super()._checked()
+
+
 class BoardAutomaton(Wire):
     kind: Literal["board.automaton"]
     item: Id
-    spec: AutomatonSpec
+    spec: BoardAutomatonSpec
     title: Text | None = None
     reveal: Literal["all", "none"] | None = None
 

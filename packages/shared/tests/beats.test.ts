@@ -320,3 +320,39 @@ describe('cues and words', () => {
     expect(normalizeWord("dogs'")).toBe('dogs');
   });
 });
+
+it('draws the owner live DFA with first moves and no accepting states', async () => {
+  const { default: live } = await import('../src/beats/live-dfa-fixture.json');
+  const parsed = parseAction(live.action);
+  expect(parsed).toEqual({
+    ...live.action,
+    spec: {
+      ...live.action.spec,
+      transitions: live.expectedTransitions,
+    },
+  });
+  expect(
+    parseBeatDoc(beat({ markers: [{ id: 'live', word: 0, action: live.action }] })).doc?.markers[0]
+      .action,
+  ).toEqual(parsed);
+});
+
+it('keeps nonconflicting symbols on a trimmed board edge', () => {
+  const parsed = parseAction({
+    kind: 'board.automaton',
+    item: 'd',
+    spec: {
+      kind: 'dfa',
+      start: 'q0',
+      states: ['q0', 'q1', 'q2'].map((id) => ({ id })),
+      transitions: [
+        { from: 'q0', to: 'q1', symbols: ['0'] },
+        { from: 'q0', to: 'q2', symbols: ['0', '1'] },
+      ],
+    },
+  });
+  expect(parsed?.kind === 'board.automaton' && parsed.spec.transitions).toEqual([
+    { from: 'q0', to: 'q1', symbols: ['0'] },
+    { from: 'q0', to: 'q2', symbols: ['1'] },
+  ]);
+});
