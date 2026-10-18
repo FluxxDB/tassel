@@ -1321,6 +1321,8 @@ export interface components {
             epoch: number;
             /** Ok */
             ok: boolean;
+            /** Reason */
+            reason?: ("screen-session-changed" | "screen-frame-changed" | "invalid-edit" | "invalid-board-action" | "invalid-board-structure" | "invalid-marks") | null;
             /** Request Id */
             request_id: string;
             /** Source */

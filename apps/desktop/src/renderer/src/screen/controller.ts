@@ -45,6 +45,8 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
     let previousMarks: ScreenMark[] = [];
     let cameraWasOn = false;
     let lastFrameId = '';
+    // Explicit pause/resume invalidates pending artwork; ordinary screen motion does not.
+    let artworkMinRevision = 0;
     let resetPending = false;
     let presentationVersion = 0;
     let preparing = false;
@@ -463,6 +465,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         cameraWasOn = useStageStore.getState().cameraOn;
         useStageStore.setState({ cameraOn: false });
         session.start(`${selected.id}:${crypto.randomUUID()}`);
+        artworkMinRevision = 0;
         set({ selected, stream, status: 'sharing', marks: [], placements: {}, draw: false });
         stream.getVideoTracks()[0]?.addEventListener('ended', () => void stop(), { once: true });
         await reset();
@@ -491,6 +494,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
       pause: async () => {
         const paused = get().status === 'paused';
         session.invalidate();
+        artworkMinRevision = session.identity().revision;
         lastFrameId = '';
         uploadAbort?.abort();
         set({ status: paused ? 'sharing' : 'paused', draw: false, notice: '' });
@@ -557,6 +561,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
       if (!value || typeof value !== 'object') return;
       const message = value as ScreenIdentity & {
         frame_id?: string;
+        positioning?: 'snapshot';
         marks?: ScreenMark[];
         request_id?: string;
         edit?: unknown;
@@ -565,7 +570,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
           region: { x: number; y: number; w: number; h: number; color?: ScreenMark['color'] };
         };
       };
-      const reply = async (ok: boolean) => {
+      const reply = async (ok: boolean, reason?: string) => {
         if (!message.request_id || fake) return;
         try {
           await syncInventory();
@@ -577,6 +582,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
               epoch: message.epoch,
               request_id: message.request_id,
               ok,
+              reason,
             }),
           });
         } catch {
@@ -589,7 +595,21 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         identity.source !== message.source ||
         identity.epoch !== message.epoch
       ) {
-        await reply(false);
+        await reply(false, 'screen-session-changed');
+        return;
+      }
+      if (
+        !message.edit &&
+        (get().status !== 'sharing' ||
+          (message.positioning === 'snapshot'
+            ? !Number.isSafeInteger(message.revision) ||
+              message.revision < artworkMinRevision ||
+              message.revision > identity.revision ||
+              typeof message.frame_id !== 'string' ||
+              !message.frame_id
+            : !session.accepts(message) || message.frame_id !== lastFrameId))
+      ) {
+        await reply(false, 'screen-frame-changed');
         return;
       }
       if (message.edit) {
@@ -600,7 +620,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
           message.edit,
         );
         if (!result) {
-          await reply(false);
+          await reply(false, 'invalid-edit');
           return;
         }
         for (const item of result.removed) state.apply({ kind: 'board.clear', item });
@@ -613,11 +633,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         const action = parseAction(message.board.action),
           region = message.board.region;
         if (
-          get().status !== 'sharing' ||
-          !session.accepts(message) ||
-          message.frame_id !== lastFrameId ||
-          !action ||
-          !action.kind.startsWith('board.') ||
+          !action?.kind.startsWith('board.') ||
           !('item' in action) ||
           typeof action.item !== 'string' ||
           (!Object.hasOwn(get().placements, action.item) &&
@@ -632,13 +648,13 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
           region.y + region.h > 1.000001 ||
           (region.color && !SCREEN_COLORS.includes(region.color))
         ) {
-          await reply(false);
+          await reply(false, 'invalid-board-action');
           return;
         }
         const state = useBoardStore.getState();
         const checked = reduceBoard(state.scene, action as Parameters<typeof state.apply>[0]);
         if (checked.problem) {
-          await reply(false);
+          await reply(false, 'invalid-board-structure');
           return;
         }
         set({ placements: { ...get().placements, [action.item]: region } });
@@ -646,13 +662,8 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         await reply(true);
         return;
       }
-      if (
-        get().status !== 'sharing' ||
-        !session.accepts(message) ||
-        message.frame_id !== lastFrameId ||
-        !Array.isArray(message.marks)
-      ) {
-        await reply(false);
+      if (!Array.isArray(message.marks)) {
+        await reply(false, 'invalid-marks');
         return;
       }
       // Validate the whole batch before adding any stroke or acknowledging success.
@@ -667,10 +678,10 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
           session.marks.reduce((n, mark) => n + mark.points.length, 0) >
           32768
       ) {
-        await reply(false);
+        await reply(false, 'invalid-marks');
         return;
       }
-      for (const mark of message.marks) session.add({ ...mark, author: 'tutor' }, message);
+      for (const mark of message.marks) session.add({ ...mark, author: 'tutor' }, identity);
       console.info('[screen-timing]', {
         frameId: message.frame_id,
         stage: 'marks-received',

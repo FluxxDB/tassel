@@ -709,3 +709,190 @@ async def test_configured_name_is_used_for_greeting_and_changes_without_reconnec
             bot, "client-message", {"t": "tassel", "d": {"kind": "tutor-name", "name": "Nova"}}
         )
         await until(lambda: isinstance(bot.llm, FakeLLMService) and bot.llm.tutor_name == "Nova")
+
+
+@pytest.mark.parametrize(
+    "accepted,reason,encoded",
+    [
+        (True, None, False),
+        (True, None, True),
+        (False, None, False),
+        (False, "screen-frame-changed", False),
+    ],
+)
+async def test_screen_board_tool_delivers_checked_action_and_explains_unconfirmed_delivery(
+    monkeypatch, tmp_path, accepted, reason, encoded
+):
+    import json
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from tassel.screen.session import ScreenFrame, ScreenSession
+
+    screen = ScreenSession()
+    screen.control(source="synthetic-display", epoch=1, active=True)
+    screen.put(ScreenFrame("frame", screen.source, 1, 0, datetime.now(UTC), b"synthetic-jpeg"))
+    ctx = context(
+        screen=screen,
+        settings=VoiceSettings(providers="fake", fake_tts="tone", transcript_dir=tmp_path),
+    )
+    async with running(ctx) as (bot, _out):
+        bot._turn_context.screen_frame_id = "frame"
+        sent = []
+
+        async def acknowledge(payload):
+            message = payload["tassel"]
+            sent.append(message)
+            pending = screen.pending[message["request_id"]]
+            if reason:
+                pending.set_exception(ValueError(f"Desktop rejected drawing: {reason}"))
+            else:
+                pending.set_result(accepted)
+
+        monkeypatch.setattr(bot.worker.rtvi, "send_server_message", acknowledge)
+        callback = AsyncMock()
+        arguments = {
+            "frame_id": "frame",
+            "action": {
+                "kind": "board.automaton",
+                "item": "dfa1",
+                "spec": {
+                    "kind": "dfa",
+                    "states": [{"id": "q0", "accept": True}],
+                    "start": "q0",
+                    "transitions": [{"from": "q0", "to": "q0", "symbols": ["0", "1"]}],
+                },
+            },
+            "region": {"x": 0.2, "y": 0.2, "w": 0.5, "h": 0.5},
+        }
+        expected_action = arguments["action"]
+        if encoded:
+            arguments["action"] = json.dumps(expected_action)
+        await bot.llm._functions["draw_screen_board"].handler(
+            SimpleNamespace(
+                function_name="draw_screen_board", arguments=arguments, result_callback=callback
+            )
+        )
+        result = callback.call_args.args[0]
+        assert result["ok"] is accepted
+        assert sent[0]["board"]["action"] == expected_action
+        assert ("dfa1" in screen.board_items) is accepted
+        if reason:
+            assert reason in result["reason"]
+        elif not accepted:
+            assert "does not mean your input was invalid" in result["reason"]
+        events = [
+            json.loads(line)
+            for line in (tmp_path / f"{ctx.session_id}.jsonl").read_text().splitlines()
+        ]
+        diagnostic = next(event for event in events if event["event"] == "screen_tool_result")
+        assert diagnostic["tool"] == "draw_screen_board"
+        assert diagnostic["result"] == result
+
+
+@pytest.mark.parametrize(
+    "kind", ["illustration", "board", "stale", "new_frame", "scroll", "paused"]
+)
+async def test_screen_artwork_uses_astra_and_waits_for_desktop_ack(monkeypatch, kind):
+    import json
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from tassel.screen.session import ScreenFrame, ScreenSession
+    from tassel.voice.illustrator import Illustrator
+    from tassel.voice.tools import SCREEN_TOOLS
+
+    names = {tool.name for tool in SCREEN_TOOLS.standard_tools}
+    assert "draw_screen_artwork" in names
+    assert not {"draw_screen_board", "draw_screen_illustration"} & names
+    screen = ScreenSession()
+    screen.control(source="synthetic", epoch=1, active=True)
+    screen.put(ScreenFrame("frame", "synthetic", 1, 0, datetime.now(UTC), b"synthetic-jpeg"))
+    ctx = context(screen=screen)
+    strokes = [
+        {
+            "kind": "freehand",
+            "points": [{"x": 0.1, "y": 0.4}, {"x": 0.2, "y": 0.2}, {"x": 0.3, "y": 0.4}],
+        },
+        {"kind": "rectangle", "points": [{"x": 0.12, "y": 0.4}, {"x": 0.28, "y": 0.6}]},
+        {"kind": "text", "points": [{"x": 0.1, "y": 0.65}], "text": "House"},
+    ]
+    drawing = {"strokes": strokes}
+    if kind == "board":
+        drawing = {
+            "action": {
+                "kind": "board.automaton",
+                "item": "dfa1",
+                "spec": {
+                    "kind": "dfa",
+                    "states": [{"id": "q0", "accept": True}],
+                    "start": "q0",
+                    "transitions": [{"from": "q0", "to": "q0", "symbols": ["0", "1"]}],
+                },
+            },
+            "region": {"x": 0.2, "y": 0.2, "w": 0.5, "h": 0.5},
+        }
+
+    async def generate(**request):
+        if kind == "stale":
+            screen.control(source="synthetic", epoch=2, active=True)
+        elif kind == "paused":
+            screen.activity_version += 1
+        elif kind in ("new_frame", "scroll"):
+            screen.put(
+                ScreenFrame(
+                    "new-frame",
+                    "synthetic",
+                    1,
+                    int(kind == "scroll"),
+                    datetime.now(UTC),
+                    b"new-jpeg",
+                )
+            )
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps(drawing)))]
+        )
+
+    create = AsyncMock(side_effect=generate)
+    client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create)), close=AsyncMock()
+    )
+    async with running(ctx) as (bot, _out):
+        bot._turn_context.screen_frame_id = "frame"
+        bot._turn_context.screen_frame = screen.frame
+        bot._turn_context.coordinator.illustrator = Illustrator(ctx.settings, client=client)
+        sent = []
+
+        async def send(payload):
+            sent.append(payload["tassel"])
+
+        monkeypatch.setattr(bot.worker.rtvi, "send_server_message", send)
+        callback = AsyncMock()
+        task = asyncio.create_task(
+            bot.llm._functions["draw_screen_artwork"].handler(
+                SimpleNamespace(
+                    function_name="draw_screen_artwork",
+                    arguments={"frame_id": "frame", "request": "Draw a house"},
+                    result_callback=callback,
+                )
+            )
+        )
+        if kind not in ("stale", "paused"):
+            await until(lambda: bool(sent))
+            callback.assert_not_called()
+            screen.pending[sent[0]["request_id"]].set_result(True)
+        await task
+        assert create.call_args.kwargs["model"] == "gpt-6-astra"
+        assert callback.call_args.args[0]["ok"] is (kind not in ("stale", "paused"))
+        if kind in ("stale", "paused"):
+            assert not sent
+        elif kind == "board":
+            assert screen.board_items["dfa1"]["kind"] == "board.automaton"
+        else:
+            assert [mark["kind"] for mark in sent[0]["marks"]] == ["freehand", "rectangle", "text"]
+            assert all(mark["color"] == "violet" for mark in sent[0]["marks"])
+            assert sent[0]["frame_id"] == "frame"
+            assert sent[0]["revision"] == 0
+            assert sent[0]["positioning"] == "snapshot"

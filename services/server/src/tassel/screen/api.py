@@ -109,6 +109,17 @@ class ScreenResult(BaseModel):
     epoch: int = Field(ge=1)
     request_id: str = Field(min_length=1, max_length=80)
     ok: bool
+    reason: (
+        Literal[
+            "screen-session-changed",
+            "screen-frame-changed",
+            "invalid-edit",
+            "invalid-board-action",
+            "invalid-board-structure",
+            "invalid-marks",
+        ]
+        | None
+    ) = None
 
 
 async def owned(request, learner, db, session_id):
@@ -148,6 +159,7 @@ async def activity(
         ):
             raise HTTPException(409, "Obsolete screen activity")
         # Pausing capture is independent of cancelling a spoken response.
+        screen.activity_version += 1
         screen.active = body.active
         screen.revision = body.revision
         screen.frame = None
@@ -232,5 +244,8 @@ async def result(
         raise HTTPException(409, "Obsolete screen result")
     pending = screen.pending.get(body.request_id)
     if pending is not None and not pending.done():
-        pending.set_result(body.ok)
+        if not body.ok and body.reason:
+            pending.set_exception(ValueError(f"Desktop rejected drawing: {body.reason}"))
+        else:
+            pending.set_result(body.ok)
     return ScreenAck(epoch=screen.epoch, active=screen.active)

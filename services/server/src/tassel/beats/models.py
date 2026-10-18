@@ -188,13 +188,36 @@ def _version(value: object) -> int:
     return 1
 
 
-Str = Annotated[str, PlainValidator(_string)]
-Id = Annotated[str, PlainValidator(_matching(_ID, "id"))]
+Str = Annotated[str, PlainValidator(_string, json_schema_input_type=str)]
+Id = Annotated[
+    str,
+    PlainValidator(
+        _matching(_ID, "id"),
+        json_schema_input_type=Annotated[str, Field(pattern="^[A-Za-z0-9_-]{1,64}$")],
+    ),
+]
 """An item or mark id: /^[A-Za-z0-9_-]{1,64}$/."""
-StateId = Annotated[str, PlainValidator(_matching(_STATE_ID, "state id"))]
-ElementRef = Annotated[str, PlainValidator(_element)]
-Symbol = Annotated[str, PlainValidator(_symbol)]
-Text = Annotated[str, PlainValidator(_sized(1, TEXT_MAX))]
+StateId = Annotated[
+    str,
+    PlainValidator(
+        _matching(_STATE_ID, "state id"),
+        json_schema_input_type=Annotated[str, Field(pattern="^[A-Za-z0-9][A-Za-z0-9_]{0,15}$")],
+    ),
+]
+ElementRef = Annotated[str, PlainValidator(_element, json_schema_input_type=str)]
+Symbol = Annotated[
+    str,
+    PlainValidator(
+        _symbol, json_schema_input_type=Annotated[str, Field(min_length=1, max_length=4)]
+    ),
+]
+Text = Annotated[
+    str,
+    PlainValidator(
+        _sized(1, TEXT_MAX),
+        json_schema_input_type=Annotated[str, Field(min_length=1, max_length=TEXT_MAX)],
+    ),
+]
 TraceInput = Annotated[str, PlainValidator(_sized(0, INPUT_MAX))]
 DocId = Annotated[str, PlainValidator(_sized(1, ID_MAX))]
 """A beat's id, turn, segment, or a marker's or frame's id: any 1–64 characters."""
@@ -343,7 +366,13 @@ DIAGRAM_ICONS = (
     "circle",
 )
 DIAGRAM_MAX_NODES, DIAGRAM_MAX_GROUPS, DIAGRAM_MAX_EDGES, DIAGRAM_LABEL_MAX = 24, 6, 40, 40
-Label = Annotated[str, PlainValidator(_sized(1, DIAGRAM_LABEL_MAX))]
+Label = Annotated[
+    str,
+    PlainValidator(
+        _sized(1, DIAGRAM_LABEL_MAX),
+        json_schema_input_type=Annotated[str, Field(min_length=1, max_length=DIAGRAM_LABEL_MAX)],
+    ),
+]
 
 
 class DiagramGroup(Wire):

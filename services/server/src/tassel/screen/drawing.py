@@ -1,6 +1,7 @@
 """Screen drawing validation and acknowledgement, sharing the whiteboard's action schema."""
 
 import asyncio
+import json
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -35,7 +36,41 @@ def grounded_points(kind, box):
     return [ScreenPoint(x=box.x, y=box.y), ScreenPoint(x=box.x + box.w, y=box.y + box.h)]
 
 
+def screen_arguments(arguments):
+    """Decode complete JSON containers emitted as strings by some tool providers.
+
+    Never repair truncated geometry; the ordinary checked models still validate
+    every decoded field before anything is sent to the desktop.
+    """
+    arguments = dict(arguments)
+    for field, expected in (
+        ("action", dict),
+        ("region", dict),
+        ("strokes", list),
+        ("points", list),
+        ("ids", list),
+    ):
+        value = arguments.get(field)
+        if not isinstance(value, str):
+            continue
+        if len(value) > 200_000:
+            raise ValueError(f"{field} is too large")
+        try:
+            value = json.loads(value)
+        except (ValueError, RecursionError):
+            raise ValueError(
+                f"{field} must be complete JSON. Send a smaller complete batch; "
+                "do not repeat the truncated arguments."
+            ) from None
+        if not isinstance(value, expected):
+            name = "array" if expected is list else "object"
+            raise ValueError(f"{field} must be a JSON {name}")
+        arguments[field] = value
+    return arguments
+
+
 def checked_board(arguments):
+    arguments = screen_arguments(arguments)
     action = BEAT_ACTION.validate_python(arguments["action"])
     if action.kind not in ("board.automaton", "board.diagram", "board.note"):
         raise ValueError("Expected a whiteboard action")
@@ -50,6 +85,7 @@ def checked_board(arguments):
 
 
 def checked_edit(arguments, objects):
+    arguments = screen_arguments(arguments)
     operation = arguments.get("operation")
     if operation == "list":
         return {"operation": "list"}
@@ -85,10 +121,13 @@ def checked_edit(arguments, objects):
     raise ValueError("Invalid edit")
 
 
-async def deliver(screen, send, payload):
+async def deliver(screen, send, payload, *, frame=None):
     """An applied owner acknowledgement is required before the tutor reports success."""
     request_id = str(uuid4())
-    epoch, source = screen.epoch, screen.source
+    epoch, source = (frame.epoch, frame.source) if frame else (screen.epoch, screen.source)
+    activity_version = screen.activity_version
+    if frame and not screen.matches(source, epoch):
+        return False
     future = asyncio.get_running_loop().create_future()
     screen.pending[request_id] = future
     try:
@@ -98,7 +137,7 @@ async def deliver(screen, send, payload):
                     "kind": "screen-marks",
                     "source": source,
                     "epoch": epoch,
-                    "revision": screen.revision,
+                    "revision": frame.revision if frame else screen.revision,
                     "request_id": request_id,
                     **payload,
                 }
@@ -106,7 +145,12 @@ async def deliver(screen, send, payload):
         )
         async with asyncio.timeout(8):
             ok = await future
-        return bool(ok and epoch == screen.epoch and source == screen.source)
+        return bool(
+            ok
+            and epoch == screen.epoch
+            and source == screen.source
+            and activity_version == screen.activity_version
+        )
     except TimeoutError:
         return False
     finally:

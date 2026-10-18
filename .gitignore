@@ -41,3 +41,11 @@ docs/research/spikes/p3-tcc/.out/
 
 # Machine-local tools, shared startup paths and saved app profiles
 /.local/
+
+# Next.js (apps/web)
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# Generated JPEG duplicate; the editable sources and PNG banner remain tracked.
+/output/banner/tassel-banner.jpg

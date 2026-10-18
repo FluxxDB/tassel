@@ -145,15 +145,15 @@ def test_pointer_requires_one_point_and_circle_requires_area():
         )
 
 
-def test_screen_tool_defines_image_coordinates_and_shape_geometry():
+def test_screen_target_tool_delegates_geometry_and_keeps_new_artwork_on_astra():
     from tassel.voice.tools import DRAW_SCREEN
 
     schema = DRAW_SCREEN.to_default_dict()
-    points = schema["parameters"]["properties"]["points"]["description"]
-    assert "opposite corners" in points
-    assert "underline" in points and "below" in points
-    assert "pointer" in points and "one" in points
-    assert "width" in schema["description"] and "height" in schema["description"]
+    properties = schema["parameters"]["properties"]
+    assert "target" in schema["parameters"]["required"]
+    assert "points" not in properties
+    assert set(properties["kind"]["enum"]) == {"pointer", "circle", "underline", "rectangle"}
+    assert "draw_screen_artwork" in schema["description"]
 
 
 @pytest.mark.parametrize(
@@ -223,3 +223,29 @@ async def test_objects_and_results_require_current_owned_screen(monkeypatch):
         assert not future.done()
         assert (await client.post(base + "/result", json=result)).status_code == 200
         assert await future
+        rejected = asyncio.get_running_loop().create_future()
+        screen.pending["rejected"] = rejected
+        assert (
+            await client.post(
+                base + "/result",
+                json={
+                    **result,
+                    "request_id": "rejected",
+                    "ok": False,
+                    "reason": "screen-frame-changed",
+                },
+            )
+        ).status_code == 200
+        with pytest.raises(ValueError, match="screen-frame-changed"):
+            await rejected
+
+
+def test_screen_result_accepts_only_bounded_rejection_reasons():
+    from pydantic import ValidationError
+
+    from tassel.screen.api import ScreenResult
+
+    body = {"source": "display", "epoch": 1, "request_id": "draw", "ok": False}
+    assert ScreenResult(**body, reason="screen-frame-changed").reason == "screen-frame-changed"
+    with pytest.raises(ValidationError):
+        ScreenResult(**body, reason="arbitrary instructions")

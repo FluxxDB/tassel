@@ -314,7 +314,16 @@ export function registerScreenOverlay(
     try {
       await prepare();
       if (!selected || owner.isDestroyed() || version !== transitionVersion || !hud) return;
-      const destination = hud.getBounds();
+      // Every collapse returns to the standard dock, independent of prior dragging.
+      const area = screen.getDisplayMatching(selected.bounds).workArea;
+      const width = Math.min(720, area.width - 32);
+      const height = area.width < 600 ? 220 : 166;
+      const destination = {
+        width,
+        height,
+        x: Math.round(area.x + (area.width - width) / 2),
+        y: area.y + area.height - height - 24,
+      };
       ownerBounds = owner.getBounds();
       const minimum = owner.getMinimumSize();
       ownerMinimum = [minimum[0] ?? 0, minimum[1] ?? 0];

@@ -18,11 +18,14 @@ the native canvas never paints a screenshot over the real desktop.
 - `draw_screen` grounds a named existing target with the existing pointer client
   against the current delivered image. It rejects ambiguous targets and changed
   frames. The talker does not need to guess coordinates before grounding.
-- `draw_screen_board` accepts the existing checked automaton, diagram and note
-  actions plus a screen placement. It uses the regular whiteboard figures and
-  bindings, rather than generating an imitation of them.
-- `draw_screen_illustration` draws a batch of actual paths, shapes, arrows and
-  text. Screen drawing requests do not enter the graph-only illustrator route.
+- `draw_screen_artwork` sends a plain-language request and the full captured image
+  to the shared Astra illustrator. It generates either checked board actions with
+  placement or general freehand paths, shapes, arrows and written text. The talker
+  cannot bypass this generator by submitting new artwork through `draw_screen`.
+- Regular structured diagrams and automaton constructions also use `gpt-6-astra`.
+  Legacy fast-illustrator profile settings do not override shared drawing routing.
+- The low-level `draw_screen_board` and `draw_screen_illustration` handlers remain
+  available for calls already in flight; they are no longer advertised to the tutor.
 - Purple is the default, including DFA labels. Explicit colors apply to paths,
   writing and structured board items. Board text follows the session language.
 
@@ -35,11 +38,12 @@ native overlay. Existing structured item specifications stay in screen context.
 
 `edit_screen` lists, removes, moves, recolors or clears existing objects. Edits do
 not need a fresh screenshot and remain available while capture is paused or an
-image request fails. New drawings still require a current delivered frame. Tool
+image request fails. New drawings use the screenshot delivered for their request. Tool
 success waits for an acknowledgement that the session owner applied the command;
 reset invalidates pending acknowledgements. Batches validate before mutation.
 
-Scrolling invalidates pending drawing coordinates without clearing existing ink.
+Scrolling invalidates pending target annotations without clearing existing ink. Independent
+artwork finishes against its request snapshot even when later captures or viewport changes arrive.
 Capture does not hide ink. Optimistic student strokes stay visible until the
 owner confirms them or acknowledges rejection; unrelated caption updates do not
 remove them. Native focus and mouse interception change when drawing mode changes,
@@ -81,3 +85,60 @@ encoding measured about 1–2 seconds; fake upload measured zero milliseconds.
 These measurements do not measure a real network or provider, and latency tuning
 is intentionally outside this change. Live visual-target accuracy and physical
 multi-monitor/DPI behavior still need an owner-run check on the real desktop.
+
+## Rejected drawing troubleshooting
+
+The whiteboard tool schemas explicitly advertise string types and item ID, label
+and text limits. Pydantic plain validators previously erased these types from
+JSON Schema even though runtime validation still required them. The structured
+screen drawing tool also includes a valid DFA invocation example.
+
+Desktop acknowledgements distinguish changed sessions/frames from invalid edits,
+board actions, board structures and mark batches. These bounded reason codes reach
+the tool callback. Unconfirmed delivery is described separately from invalid input.
+Opt-in development transcripts record `screen_tool_result` with tool name, argument
+field names, frame ID, action kind and the result, without image bytes or paths.
+Stale geometry remains rejected; these diagnostics do not relax positioning checks.
+
+## Astra generation and the missing-drawing regression
+
+The supplied live trace showed complete board actions encoded as JSON strings,
+followed by fallback stroke arrays cut off at the conversation's 400-token cap.
+Complete container strings are decoded before normal validation; truncated JSON is
+rejected without guessing missing geometry. Screen tool calls have a separate
+minimum output allowance. New artwork now uses short plain-language tool arguments,
+with the shared Astra illustrator generating validated geometry from the screenshot.
+Drawing generation allows 8192 completion tokens and a bounded 30-second deadline.
+The request snapshot is retained during generation. Source/session and explicit pause/reset
+cancellation are checked before delivery; completion claims still require desktop acknowledgement. Screen generation logs its model and
+elapsed time. Rendering guidance stays out of spoken explanations.
+
+Regression checks cover native and JSON-encoded arguments, truncation, request token
+budgets, Astra routing for regular diagrams and DFAs, screenshot-aware mixed shapes,
+acknowledgement gating and stale-frame rejection. The synthetic Electron flow also
+renders freehand, rectangle and text artwork at multiple display aspect ratios.
+
+
+## Request snapshots and movable overlay
+
+New artwork retains the turn's screenshot in ephemeral memory, with its original source,
+epoch and viewport revision. New captures and scrolling do not discard it. Placement remains
+at the normalized screen position chosen from that snapshot; it does not track page scrolling.
+Target annotations keep strict viewport/frame checks. Reset, source changes, stop and pause
+still reject obsolete artwork, including results arriving after sharing resumes. Existing
+objects remain editable without a screenshot. The tutor must invoke a tool to retry and must
+wait for desktop acknowledgement before claiming completion.
+
+The HUD bar is a native drag region, with buttons and caption scrolling excluded. Its reverse
+transition starts at its current dragged position and retains the existing animation timings.
+Every collapse from the regular window targets the standard centered position above the
+selected display's work-area bottom, regardless of where the HUD was dragged previously.
+
+
+Validation for request snapshots: 54 targeted server tests and 14 desktop unit tests passed.
+The synthetic Electron overlay flow passed with drag-region checks, moved HUD restoration,
+and standard-position recollapse. Desktop main/renderer/test typechecks, changed-file lint,
+and the desktop production build passed. New regression cases cover capture replacement,
+scrolling during generation, reset and pause cancellation, and post-resume rejection of
+pre-pause artwork. These checks use synthetic images/providers; real-provider drawing
+quality and the subjective smoothness of physical window animation remain live checks.

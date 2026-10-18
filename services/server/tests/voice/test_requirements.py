@@ -328,7 +328,7 @@ async def test_a_failed_checklist_still_draws_and_logs_why():
 
     class Broken(Client):
         async def create(self, **request):
-            if request["response_format"]["json_schema"]["name"] == "checklist":
+            if request["response_format"].get("json_schema", {}).get("name") == "checklist":
                 raise ValueError("bad checklist")
             return await super().create(**request)
 

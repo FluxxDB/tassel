@@ -256,3 +256,9 @@ html[data-overlay] #root {
 .overlay-controls > button {
   white-space: nowrap;
 }
+
+/* Keep native dragging on the bar while controls and caption scrolling stay interactive. */
+.overlay-bar button,
+.overlay-caption p {
+  -webkit-app-region: no-drag;
+}

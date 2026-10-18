@@ -87,10 +87,11 @@ class VoiceSettings(BaseSettings):
     prices: dict[str, dict[str, float]] = Field(default_factory=dict)
 
     two_tier: bool | None = None
-    # Measured live on the owner's page: luna 4.6 s, astra 7.4 s, same diagnosis and mark.
+    # Shared drawing generation (regular board and transparent screen overlay).
+    whiteboard_model: Literal["gpt-6-astra"] = "gpt-6-astra"
+    whiteboard_timeout_s: float = Field(30.0, gt=0)
+    # Retained for legacy adapter/profile compatibility; shared drawing uses the settings above.
     illustrator_model: str = "gpt-6-luna"
-    # Live on the owner's network turns (2026-10-18): Qwen on Cerebras drew the same valid
-    # diagram in 0.8-1.3 s where luna took 4.0-4.5 s.
     illustrator_provider: Literal["openai", "openrouter"] = "openrouter"
     illustrator_timeout_s: float = 15.0
     pointer_model: str = "gpt-6-luna"
@@ -122,7 +123,11 @@ class VoiceSettings(BaseSettings):
     # The owner's pick (2026-10-17 by ear): Matilda on Multilingual v2, faster. Over the
     # streaming WebSocket it starts in ~0.5–0.7 s (HTTP was ~1.9 s).
     tts_model: Literal[
-        "eleven_flash_v2_5", "eleven_turbo_v2_5", "eleven_multilingual_v2", "eleven_v3"
+        "eleven_flash_v2_5",
+        "eleven_turbo_v2_5",
+        "eleven_multilingual_v2",
+        "eleven_v3",
+        "eleven_v4_turbo",
     ] = "eleven_multilingual_v2"
     tts_style: float = Field(0.15, ge=0, le=1)
     tts_speaker_boost: bool = True

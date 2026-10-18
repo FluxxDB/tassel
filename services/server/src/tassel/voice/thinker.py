@@ -109,8 +109,10 @@ class Thinker:
         self.cache_key = f"tassel-thinker-{uuid4().hex}"
 
     async def think(self, messages: list[dict], effort=None) -> GuidanceBrief:
+        drawing = effort is not None
+        model = self.settings.whiteboard_model if drawing else self.settings.thinker_model
         effort = effort or self.settings.thinker_effort
-        if self.settings.thinker_model.startswith("gpt-6-astra") and effort == "none":
+        if model.startswith("gpt-6-astra") and effort == "none":
             effort = "low"  # astra refuses "none"
         request = [
             {
@@ -126,11 +128,18 @@ class Thinker:
         while True:
             try:
                 response = await self.client.chat.completions.create(
-                    model=self.settings.thinker_model,
+                    model=model,
+                    timeout=self.settings.whiteboard_timeout_s if drawing else 20,
                     reasoning_effort=effort,
                     messages=request,
                     response_format={"type": "json_object"},
-                    max_completion_tokens=BRIEF_TOKENS if effort == "none" else DRAWN_BRIEF_TOKENS,
+                    max_completion_tokens=(
+                        8192
+                        if drawing
+                        else BRIEF_TOKENS
+                        if effort == "none"
+                        else DRAWN_BRIEF_TOKENS
+                    ),
                     prompt_cache_key=self.cache_key,
                 )
             except (APIConnectionError, TimeoutError) as error:
@@ -156,7 +165,7 @@ class Thinker:
                         ]
                 request.append({"role": "system", "content": NO_VIEW})
                 continue
-            report_usage(self.on_usage, "thinker:" + self.settings.thinker_model, response)
+            report_usage(self.on_usage, "thinker:" + model, response)
             content = response.choices[0].message.content or ""
             try:
                 return GuidanceBrief.model_validate_json(content)

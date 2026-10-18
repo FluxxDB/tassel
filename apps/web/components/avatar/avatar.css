@@ -1,0 +1,72 @@
+/* The speaking mouth from the desktop app's avatar.css. */
+.avatar-mouth {
+  display: none;
+}
+svg[data-speaking="true"] .avatar-mouth-rest {
+  display: none;
+}
+svg[data-speaking="true"] .avatar-mouth-small {
+  display: block;
+}
+@media (prefers-reduced-motion: no-preference) {
+  svg[data-speaking="true"] .avatar-mouth {
+    display: block;
+    opacity: 0;
+    animation-duration: 1.37s;
+    animation-timing-function: steps(1, end);
+    animation-iteration-count: infinite;
+  }
+  svg[data-speaking="true"] .avatar-mouth-small {
+    animation-name: avatar-mouth-small;
+  }
+  svg[data-speaking="true"] .avatar-mouth-open {
+    animation-name: avatar-mouth-open;
+  }
+  svg[data-speaking="true"] .avatar-mouth-closed {
+    animation-name: avatar-mouth-closed;
+  }
+  @keyframes avatar-mouth-small {
+    0%,
+    19%,
+    36%,
+    65%,
+    92%,
+    100% {
+      opacity: 0;
+    }
+    7%,
+    28%,
+    58%,
+    84% {
+      opacity: 1;
+    }
+  }
+  @keyframes avatar-mouth-open {
+    0%,
+    47%,
+    72%,
+    100% {
+      opacity: 0;
+    }
+    36%,
+    65%,
+    92% {
+      opacity: 1;
+    }
+  }
+  @keyframes avatar-mouth-closed {
+    0%,
+    19%,
+    47%,
+    72%,
+    100% {
+      opacity: 1;
+    }
+    7%,
+    28%,
+    58%,
+    84% {
+      opacity: 0;
+    }
+  }
+}

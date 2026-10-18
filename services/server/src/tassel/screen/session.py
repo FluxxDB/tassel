@@ -23,6 +23,7 @@ class ScreenSession:
         self.epoch = 0
         self.revision = 0
         self.active = False
+        self.activity_version = 0
         self.frame: ScreenFrame | None = None
         self.objects: list[dict] = []
         self.object_version = 0

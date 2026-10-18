@@ -27,6 +27,7 @@ from pipecat.services.tts_service import TTSService
 from pipecat.transcriptions.language import Language
 
 from tassel.vision.turn_image import NO_VIEW
+from tassel.voice.dialogue_tts import ElevenLabsDialogueTTSService
 from tassel.voice.director import QWEN_BACKUP_PROVIDER
 from tassel.voice.fakes.llm import FakeLLMService
 from tassel.voice.fakes.scenario import FakeScenario, load_scenario
@@ -67,9 +68,7 @@ def _without_images(context: LLMContext) -> LLMContext:
     ):
         tools = ToolsSchema(
             standard_tools=[
-                t
-                for t in tools.standard_tools
-                if t.name not in {"draw_screen", "draw_screen_illustration", "draw_screen_board"}
+                t for t in tools.standard_tools if not t.name.startswith("draw_screen")
             ],
             custom_tools=tools.custom_tools,
         )
@@ -77,6 +76,7 @@ def _without_images(context: LLMContext) -> LLMContext:
             "draw_screen",
             "draw_screen_illustration",
             "draw_screen_board",
+            "draw_screen_artwork",
         }:
             choice = "auto"
     return LLMContext(messages, tools=tools, tool_choice=choice)
@@ -261,6 +261,7 @@ class LiveLLMService(OpenRouterLLMService):
             requested != "openai" and router_key and router_key.get_secret_value().strip()
         )
         self.active_provider = "openrouter" if use_router else "openai"
+        self._talk_max_tokens = s.llm_max_tokens
         self._openai_model = s.openai_model
         self._openai_extra = (
             {"reasoning_effort": s.openai_reasoning_effort}
@@ -313,6 +314,17 @@ class LiveLLMService(OpenRouterLLMService):
                     convert_developer_to_user=not self.supports_developer_role,
                 )
                 request = self.build_chat_completion_params(params)
+                # Speech's short response cap must not truncate drawing JSON.
+                if any(
+                    tool.get("function", {}).get("name", "").startswith("draw_screen")
+                    for tool in (request.get("tools") or [])
+                ):
+                    cap = (
+                        "max_completion_tokens"
+                        if self.active_provider == "openai"
+                        else "max_tokens"
+                    )
+                    request[cap] = max(self._talk_max_tokens, 4096)
                 request["messages"] = leading_system_only(
                     windowed(list(request["messages"]), TALKER_WINDOW, step=TALKER_WINDOW_STEP)
                 )
@@ -419,6 +431,12 @@ def make_tts(route: VoiceRoute, s: VoiceSettings) -> TTSService:
     if _mode("tts", s) == "fake":
         return FakeTTSService(lang=route.lang, engine=pick_engine(s.fake_tts))
     voice = getattr(s, f"voice_{route.lang}")
+    if s.tts_model == "eleven_v4_turbo":
+        return ElevenLabsDialogueTTSService(
+            api_key=s.elevenlabs_api_key.get_secret_value(),
+            voice=voice,
+            language=route.tts_language,
+        )
     if s.tts_model == "eleven_v3":
         ws = elevenlabs_settings(route, voice, s)
         return _HttpTTS(

@@ -2274,6 +2274,25 @@
             "title": "Ok",
             "type": "boolean"
           },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "screen-session-changed",
+                  "screen-frame-changed",
+                  "invalid-edit",
+                  "invalid-board-action",
+                  "invalid-board-structure",
+                  "invalid-marks"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
           "request_id": {
             "maxLength": 80,
             "minLength": 1,
