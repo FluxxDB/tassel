@@ -128,6 +128,15 @@ def replay(board: BoardContext, actions: Sequence[BeatAction]) -> None:
     for action in actions:
         if action.kind == "board.automaton":
             board.specs[action.item] = action.spec.model_copy(deep=True)
+            if action.title:
+                board.titles[action.item] = action.title
+            else:
+                board.titles.pop(action.item, None)
+        elif action.kind == "board.note":
+            near = action.near
+            board.notes[action.item] = (action.text, near and near.item, near and near.el)
+        elif action.kind == "board.trace":
+            board.traces[action.item] = (action.on or "", action.input)
         elif action.kind == "board.diagram":
             board.diagrams[action.item] = action.spec.model_copy(deep=True)
         elif action.kind in ("board.addState", "board.addTransition"):
@@ -161,8 +170,11 @@ def replay(board: BoardContext, actions: Sequence[BeatAction]) -> None:
             except ValidationError:
                 logger.warning("Ignoring an invalid persisted board mutation")
         elif action.kind == "board.clear":
-            for items in (board.specs, board.diagrams, board.pending_diagrams):
+            kinds = (board.specs, board.diagrams, board.pending_diagrams, board.titles)
+            for items in (*kinds, board.notes, board.traces):
                 if action.item is None:
                     items.clear()
                 else:
                     items.pop(action.item, None)
+            if action.item is not None:
+                board.notes = {k: v for k, v in board.notes.items() if v[1] != action.item}
