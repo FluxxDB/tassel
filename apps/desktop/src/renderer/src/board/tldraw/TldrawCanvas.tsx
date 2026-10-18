@@ -84,6 +84,8 @@ export function TldrawCanvas({
         overlayUtils={OVERLAY_UTILS}
         getShapeVisibility={hideUnrevealed}
         onMount={(editor) => {
+          editor.updateInstanceState({ isReadonly: true });
+          editor.setCurrentTool('hand');
           // M, B and C are the session's (R18); tldraw's single letters would take B and C.
           editor.user.updateUserPreferences({ areKeyboardShortcutsEnabled: false });
           // A pasted link would fetch its preview, and a file has nowhere to go.

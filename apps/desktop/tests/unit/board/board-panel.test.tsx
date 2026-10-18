@@ -4,7 +4,7 @@
 // that says when its module loads and offers an engine that records what it draws.
 import type { ApiClient } from '@tassel/shared/api';
 import type { BoardAction } from '@tassel/shared/beats';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ComponentType } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -21,6 +21,7 @@ const canvas = vi.hoisted(() => ({
     render: vi.fn(),
     play: vi.fn(async () => {}),
     focus: vi.fn(),
+    camera: { zoom: vi.fn(), fit: vi.fn(), adaAction: vi.fn() },
     onStudentEdit: vi.fn(() => () => {}),
     dispose: vi.fn(),
   },
@@ -135,6 +136,20 @@ describe('BoardPanel', () => {
     expect(screen.getByTestId('tldraw')).toBeInTheDocument();
     act(() => fresh.stage.getState().pin('board'));
     expect(screen.getAllByTestId('tldraw')).toHaveLength(1);
+  });
+
+  it('offers labeled zoom and Fit controls once its engine is ready', async () => {
+    const fresh = await freshPanel();
+    await renderPanel(fresh);
+    expect(screen.queryByRole('group', { name: 'Board camera controls' })).toBeNull();
+    act(() => fresh.stage.getState().requestMode('split'));
+    const zoomIn = await screen.findByRole('button', { name: 'Zoom in' });
+    fireEvent.click(zoomIn);
+    expect(canvas.engine.camera.zoom).toHaveBeenLastCalledWith('in');
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }));
+    expect(canvas.engine.camera.zoom).toHaveBeenLastCalledWith('out');
+    fireEvent.click(screen.getByRole('button', { name: 'Fit' }));
+    expect(canvas.engine.camera.fit).toHaveBeenCalledOnce();
   });
 
   it('the canvas mounts once Ada draws, even with the board hidden (P5-R8)', async () => {

@@ -66,6 +66,34 @@ afterEach(() => {
 });
 
 describe('the board store', () => {
+  it('notifies the camera after rendering actions, including effects and repeated focus', () => {
+    const events: string[] = [];
+    const engine: BoardEngine = {
+      ...fakeEngine(),
+      render: () => {
+        events.push('render');
+      },
+      camera: {
+        zoom() {},
+        fit() {},
+        adaAction: () => {
+          events.push('action');
+        },
+      },
+    };
+    attach(engine);
+    events.length = 0;
+    applyBoardAction(DRAW);
+    expect(events).toEqual(['render', 'action']);
+    events.length = 0;
+    applyBoardAction(PULSE);
+    expect(events).toEqual(['action']);
+    applyBoardAction({ kind: 'board.focus', item: 'fix' });
+    events.length = 0;
+    applyBoardAction({ kind: 'board.focus', item: 'fix' });
+    expect(events.at(-1)).toBe('action');
+  });
+
   it('a scene that arrives before an engine renders when one attaches', async () => {
     applyBoardAction(DRAW);
     expect(layouts.calls.map((call) => call.spec)).toEqual([CORRECT]);

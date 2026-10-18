@@ -21,6 +21,8 @@ import { prefersReducedMotion } from '../motion';
 import { type BoardText, type Box, placeItems } from '../scene/placement';
 import type { BoardEffect, BoardScene } from '../scene/types';
 import { fitCamera, onSettledResize } from './camera';
+import { createCameraControl } from './camera-control';
+import { bindCameraGestures } from './camera-gestures';
 import {
   adaShapeId,
   type Desired,
@@ -94,17 +96,27 @@ export function createTldrawEngine(
     return true;
   };
 
+  const control = createCameraControl(
+    () => {
+      if (drawn) frame(drawn.scene.focus, fitted !== null);
+    },
+    () => editor.stopCameraAnimation(),
+  );
+  const stopGestures = bindCameraGestures(editor, control, reduced);
+
   /** Fits Ada's focus again when it, or the box it fits, has changed. */
   const followFocus = () => {
     if (!drawn) return;
     const item = drawn.scene.focus;
     const boxes = placeItems(drawn.scene, drawn.layouts, text());
     const bounds = item === null ? union(Object.values(boxes)) : boxes[item];
-    if (bounds && JSON.stringify([item, bounds]) !== fitted) frame(item, fitted !== null);
+    if (bounds && JSON.stringify([item, bounds]) !== fitted) {
+      control.refit(() => frame(item, fitted !== null));
+    }
   };
 
   const stopWatching = onSettledResize(opts.container ?? editor.getContainer(), () => {
-    if (drawn) frame(drawn.scene.focus, true);
+    control.refit();
   });
 
   const render = (scene: BoardScene, layouts: Readonly<Record<string, AutomatonLayout>>) => {
@@ -117,6 +129,16 @@ export function createTldrawEngine(
 
   return {
     render,
+    camera: {
+      adaAction: control.adaAction,
+      fit: () => control.fit(() => frame(null, true)),
+      zoom(direction) {
+        control.studentMove();
+        const options = reduced() ? undefined : { animation: { duration: 160 } };
+        if (direction === 'in') editor.zoomIn(undefined, options);
+        else editor.zoomOut(undefined, options);
+      },
+    },
     setLang(next) {
       if (next === lang) return;
       lang = next;
@@ -145,7 +167,7 @@ export function createTldrawEngine(
       if (edges.length > 0) await effects.play({ type: 'glide', edges });
     },
     focus(item, { animate }) {
-      frame(item, animate);
+      control.refit(() => frame(item, animate));
     },
     onStudentEdit(listener) {
       // Task 6 reports her edits; until then there are none to report.
@@ -156,6 +178,7 @@ export function createTldrawEngine(
     },
     dispose() {
       stopWatching();
+      stopGestures();
       effects.stop();
       measure.dispose();
       listeners.clear();
@@ -174,30 +197,37 @@ function apply(editor: Editor, plan: SyncPlan): void {
     0;
   if (nothing) return;
   editor.store.mergeRemoteChanges(() => {
-    editor.run(
-      () => {
-        // A changed binding is replaced under its own id, so the old one goes first.
-        const unbind = plan.unbind.filter((id) => editor.getBinding(id as TLBindingId));
-        if (unbind.length > 0) editor.deleteBindings(unbind as TLBindingId[]);
-        const remove = plan.remove.filter((id) => editor.getShape(id as TLShapeId));
-        if (remove.length > 0) editor.deleteShapes(remove as TLShapeId[]);
-        // What the student erased stays erased: its updates and bindings are skipped.
-        const exists = (id: string) => editor.getShape(id as TLShapeId) !== undefined;
-        const create = plan.create.filter((shape) => !exists(shape.id));
-        const shapes = create.filter((shape) => shape.type !== 'arrow');
-        if (shapes.length > 0) editor.createShapes(shapes.map(shapePartial));
-        const arrows = create.filter((shape) => shape.type === 'arrow');
-        if (arrows.length > 0) editor.createShapes(placeArrows(editor, arrows, plan.bind));
-        const update = [
-          ...plan.update.filter((change) => exists(change.id)),
-          ...plan.create.filter((shape) => exists(shape.id) && !create.includes(shape)),
-        ];
-        if (update.length > 0) editor.updateShapes(update.map(shapePartial));
-        const bind = plan.bind.filter((binding) => exists(binding.arrow) && exists(binding.to));
-        if (bind.length > 0) editor.createBindings(bind.map(bindingCreate));
-      },
-      { history: 'ignore', ignoreShapeLock: true },
-    );
+    // Read-only applies to student input; Ada alone may write during this synchronous batch.
+    const readonly = editor.getIsReadonly();
+    editor.updateInstanceState({ isReadonly: false });
+    try {
+      editor.run(
+        () => {
+          // A changed binding is replaced under its own id, so the old one goes first.
+          const unbind = plan.unbind.filter((id) => editor.getBinding(id as TLBindingId));
+          if (unbind.length > 0) editor.deleteBindings(unbind as TLBindingId[]);
+          const remove = plan.remove.filter((id) => editor.getShape(id as TLShapeId));
+          if (remove.length > 0) editor.deleteShapes(remove as TLShapeId[]);
+          // What the student erased stays erased: its updates and bindings are skipped.
+          const exists = (id: string) => editor.getShape(id as TLShapeId) !== undefined;
+          const create = plan.create.filter((shape) => !exists(shape.id));
+          const shapes = create.filter((shape) => shape.type !== 'arrow');
+          if (shapes.length > 0) editor.createShapes(shapes.map(shapePartial));
+          const arrows = create.filter((shape) => shape.type === 'arrow');
+          if (arrows.length > 0) editor.createShapes(placeArrows(editor, arrows, plan.bind));
+          const update = [
+            ...plan.update.filter((change) => exists(change.id)),
+            ...plan.create.filter((shape) => exists(shape.id) && !create.includes(shape)),
+          ];
+          if (update.length > 0) editor.updateShapes(update.map(shapePartial));
+          const bind = plan.bind.filter((binding) => exists(binding.arrow) && exists(binding.to));
+          if (bind.length > 0) editor.createBindings(bind.map(bindingCreate));
+        },
+        { history: 'ignore', ignoreShapeLock: true },
+      );
+    } finally {
+      editor.updateInstanceState({ isReadonly: readonly });
+    }
   });
 }
 

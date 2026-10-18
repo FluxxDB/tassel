@@ -14,6 +14,7 @@ import {
   defaultShapeUtils,
   Editor,
   getArrowInfo,
+  HandTool,
   StateNode,
   type TLArrowShape,
   type TLShapeId,
@@ -102,7 +103,7 @@ function board(stage: StageGeometry | null = null, reducedMotion = true) {
     shapeUtils,
     bindingUtils,
     overlayUtils: OVERLAY_UTILS,
-    tools: [Idle],
+    tools: [Idle, HandTool],
     initialState: 'idle',
     store: createTLStore({ shapeUtils, bindingUtils }),
     getContainer: () => container,
@@ -292,3 +293,123 @@ describe('the tldraw engine', () => {
     expect(q3 && editor.pageToViewport({ x: q3.x, y: q3.y }).y).toBeGreaterThan(tile.y + tile.h);
   });
 });
+
+describe('student camera integration', () => {
+  it('holds a zoom through passive fits but refits on Ada even with unchanged bounds', () => {
+    const { editor, engine } = board(SPLIT_1440);
+    const scene = sceneAfter(draw(CORRECT));
+    const layouts = { fix: fallbackLayout(CORRECT) };
+    engine.render(scene, layouts);
+    const fitted = { ...editor.getCamera() };
+    engine.camera?.zoom('in');
+    const zoomed = { ...editor.getCamera() };
+    expect(zoomed.z).toBeGreaterThan(fitted.z);
+    engine.focus(null, { animate: true });
+    engine.render(scene, layouts);
+    expect(editor.getCamera()).toEqual(zoomed);
+    engine.camera?.adaAction();
+    expect(editor.getCamera()).toEqual(fitted);
+  });
+
+  it('defers Ada during native hand dragging, then fits the latest scene on release', async () => {
+    const { editor, engine } = board(SPLIT_1440);
+    editor.setCurrentTool('hand');
+    engine.render(sceneAfter(draw(CORRECT)), { fix: fallbackLayout(CORRECT) });
+    const fitted = { ...editor.getCamera() };
+    const pointer = {
+      type: 'pointer' as const,
+      target: 'canvas' as const,
+      pointerId: 1,
+      button: 0,
+      isPen: false,
+      shiftKey: false,
+      altKey: false,
+      ctrlKey: false,
+      metaKey: false,
+      accelKey: false,
+    };
+    editor.dispatch({ ...pointer, name: 'pointer_down', point: { x: 200, y: 200 } });
+    editor.dispatch({ ...pointer, name: 'pointer_move', point: { x: 300, y: 260 } });
+    editor.emit('tick', 16);
+    const panned = { ...editor.getCamera() };
+    expect(panned.x).not.toBe(fitted.x);
+    engine.camera?.adaAction();
+    expect(editor.getCamera()).toEqual(panned);
+    editor.dispatch({ ...pointer, name: 'pointer_up', point: { x: 300, y: 260 } });
+    editor.emit('tick', 16);
+    await Promise.resolve();
+    expect(editor.getCamera()).toEqual(fitted);
+  });
+
+  it('lets Ada draw in readonly mode while blocking student shape writes', () => {
+    const { editor, engine } = board(SPLIT_1440);
+    editor.updateInstanceState({ isReadonly: true });
+    engine.render(sceneAfter(draw(CORRECT)), { fix: fallbackLayout(CORRECT) });
+    const shape = editor.getShape(id('state:q1'));
+    expect(shape).toBeDefined();
+    editor.updateShapes([{ id: id('state:q1'), type: 'tassel-state', x: 999 }]);
+    editor.deleteShapes([id('state:q1')]);
+    expect(editor.getShape(id('state:q1'))).toEqual(shape);
+    expect(editor.getIsReadonly()).toBe(true);
+  });
+});
+
+it('releases a pointer lifted during pinch, even when tldraw swallows its pointer_up', async () => {
+  const { editor, engine } = board(SPLIT_1440);
+  editor.setCurrentTool('hand');
+  engine.render(sceneAfter(draw(CORRECT)), { fix: fallbackLayout(CORRECT) });
+  const fitted = { ...editor.getCamera() };
+  const keys = { shiftKey: false, altKey: false, ctrlKey: false, metaKey: false, accelKey: false };
+  const pointer = {
+    ...keys,
+    type: 'pointer' as const,
+    target: 'canvas' as const,
+    pointerId: 1,
+    button: 0,
+    isPen: false,
+    point: { x: 200, y: 200 },
+  };
+  editor.dispatch({ ...pointer, name: 'pointer_down' });
+  const pinch = {
+    ...keys,
+    type: 'pinch' as const,
+    point: { x: 200, y: 200, z: 1 },
+    delta: { x: 0, y: 0 },
+  };
+  editor.dispatch({ ...pinch, name: 'pinch_start' });
+  editor.emit('tick', 16);
+  editor.setCamera({ x: 999, y: 999, z: 2 });
+  engine.camera?.adaAction();
+  editor.dispatch({ ...pointer, name: 'pointer_up' });
+  editor.dispatch({ ...pinch, name: 'pinch_end' });
+  editor.emit('tick', 16);
+  await Promise.resolve();
+  expect(editor.getCamera()).toEqual(fitted);
+});
+
+it.each(['metaKey', 'ctrlKey'] as const)(
+  'zooms with %s wheel and defers Ada until the wheel settles',
+  async (modifier) => {
+    const { editor, engine } = board(SPLIT_1440);
+    engine.render(sceneAfter(draw(CORRECT)), { fix: fallbackLayout(CORRECT) });
+    const fitted = { ...editor.getCamera() };
+    editor.dispatch({
+      type: 'wheel',
+      name: 'wheel',
+      point: { x: 200, y: 200 },
+      delta: { x: 0, y: 30, z: 0.1 },
+      shiftKey: false,
+      altKey: false,
+      ctrlKey: false,
+      metaKey: false,
+      accelKey: false,
+      [modifier]: true,
+    });
+    editor.emit('tick', 16);
+    expect(editor.getCamera().z).toBeGreaterThan(fitted.z);
+    engine.camera?.adaAction();
+    expect(editor.getCamera().z).toBeGreaterThan(fitted.z);
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    expect(editor.getCamera()).toEqual(fitted);
+  },
+);
