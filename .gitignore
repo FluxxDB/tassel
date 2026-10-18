@@ -46,3 +46,6 @@ docs/research/spikes/p3-tcc/.out/
 .next/
 next-env.d.ts
 *.tsbuildinfo
+
+# Generated JPEG duplicate; the editable sources and PNG banner remain tracked.
+/output/banner/tassel-banner.jpg

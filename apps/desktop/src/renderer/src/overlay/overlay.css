@@ -11,7 +11,6 @@ html[data-overlay] #root {
   color: var(--color-ink);
 }
 .overlay-bar {
-  -webkit-app-region: drag;
   width: 100%;
   border: 1px solid var(--color-hairline);
   border-radius: 24px;
