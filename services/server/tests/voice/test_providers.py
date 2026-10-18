@@ -266,3 +266,43 @@ async def test_factory_persona_survives_pipecat_tool_sync():
     prompt = requests[0]["messages"][0]["content"]
     assert "Reply only in Korean" in prompt
     assert "polite 해요체" in prompt
+
+
+@pytest.mark.asyncio
+async def test_qwen_on_cerebras_is_the_default_and_gets_the_page_image():
+    """The owner's model: Qwen 3.8 on Cerebras through OpenRouter takes images (main's live
+    check), so a turn with her page goes to it, image and all. OpenAI is only the fallback."""
+    calls = []
+
+    def respond(request):
+        calls.append((request.url.host, json.loads(request.content)))
+        return sse()
+
+    llm = make_llm(
+        route_for("en"), VoiceSettings(openrouter_api_key="or", openai_api_key="oa"), None
+    )
+    await llm._client.close()
+    await llm._fallback_client.close()
+    for name, host in (("_client", "router.test"), ("_fallback_client", "openai.test")):
+        setattr(
+            llm,
+            name,
+            AsyncOpenAI(
+                api_key="k",
+                base_url=f"https://{host}",
+                max_retries=0,
+                http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+            ),
+        )
+    page = {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,cGFnZQ=="}}
+    messages = [
+        {"role": "system", "content": "Tutor"},
+        {"role": "user", "content": [{"type": "text", "text": "What did I draw?"}, page]},
+    ]
+    await run_test(llm, frames_to_send=[LLMContextFrame(LLMContext(messages))])
+    assert [host for host, _ in calls] == ["router.test"]
+    body = calls[0][1]
+    assert body["model"] == "qwen/qwen3.8-27b"
+    assert body["provider"] == OPENROUTER_PROVIDER
+    assert page in body["messages"][-1]["content"]
+    assert llm.active_provider == "openrouter"
