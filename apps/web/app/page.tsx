@@ -55,7 +55,7 @@ export default function Home() {
               Live AI tutor for Mac
             </p>
             <h1 className="mt-6 text-balance text-[40px] leading-[1.08] font-w520 tracking-[-0.035em] sm:text-[56px]">
-              A tutor that sees your work and draws on it.
+              A tutor that sees your work and draws with you.
             </h1>
             <p className="mt-5 max-w-xl text-pretty text-[17px] leading-relaxed text-slate-plum sm:text-lg">
               Tassel watches the paper or screen in front of you, talks it through out loud, and

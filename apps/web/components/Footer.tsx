@@ -14,7 +14,7 @@ export function Footer() {
         <div className="flex flex-col gap-3">
           <Wordmark />
           <p className="max-w-xs text-sm text-smoke-text">
-            A live AI tutor that sees your work and draws on it.
+            A live AI tutor that sees your work and draws with you.
           </p>
         </div>
         <nav aria-label="Footer">
