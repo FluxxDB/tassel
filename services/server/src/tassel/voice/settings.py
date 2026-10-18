@@ -101,6 +101,9 @@ class VoiceSettings(BaseSettings):
     # 2.6–2.9 s. Board constructions still think at "low" (thinker_draw_effort).
     thinker_effort: Literal["none", "low", "medium", "high", "xhigh", "max"] = "none"
     thinker_draw_effort: Literal["none", "low", "medium", "high", "xhigh", "max"] = "low"
+    # The longest a thinker turn waits for its brief before Ada says she couldn't finish
+    # (paper-marks turn 3 waited 90 s in silence).
+    thinker_reply_timeout_s: float = Field(30.0, gt=0)
 
     @property
     def two_tier_enabled(self) -> bool:

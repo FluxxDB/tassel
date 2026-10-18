@@ -180,8 +180,11 @@ class TutorCoordinator:
         illustrator=None,
         pointer=None,
         on_brief=None,
+        reply_timeout_s=30.0,
     ):
         self.thinker, self.board, self.transcript = thinker, board, transcript
+        # The longest she waits for a thinker reply before Ada says she couldn't finish.
+        self.reply_timeout_s = reply_timeout_s
         self.on_brief = on_brief
         self.illustrator = illustrator
         self.pointer = pointer
@@ -703,6 +706,8 @@ class TutorCoordinator:
             else:
                 # Never leave "I'll draw it" standing when nothing was drawn.
                 brief = brief.model_copy(update={"say": f"{brief.say} {NOT_DRAWN[self.lang()]}"})
+        if brief:
+            brief = fill_silence(brief, self.lang())
         if brief and self.on_brief:
             await self.on_brief(brief, self.decision or rules(self.text))
         self._notes_context()
@@ -776,6 +781,38 @@ NOT_DRAWN = {
     "ko": "그 그림을 칠판에 그리지 못했어요. 다른 말로 다시 말해 주시겠어요?",
 }
 
+# Said when the thinker's reply failed or didn't come in time.
+NOT_FINISHED = {
+    "en": "I couldn't finish checking that. Could you ask me again?",
+    "es": "No pude terminar de revisarlo. ¿Puedes preguntarme otra vez?",
+    "ko": "확인을 끝내지 못했어요. 다시 물어봐 주시겠어요?",
+}
+# Said for a reply that drew or marked something but had no words of its own.
+LOOK = {
+    "paper": {"en": "Take a look at your paper.", "es": "Mira tu hoja.", "ko": "종이를 보세요."},
+    "board": {"en": "Take a look at the board.", "es": "Mira la pizarra.", "ko": "칠판을 보세요."},
+}
+
+
+def spoken_words(text: str) -> str:
+    """What of `text` is speech: everything but its [[tags]]."""
+    return " ".join(SAY_TAG.sub(" ", text).split())
+
+
+def fill_silence(brief, lang):
+    """A reply always has words (paper-marks turn 3): tags alone mean no audio, and the TTS holds
+    the response's end until its audio ends, so the turn would never end."""
+    if spoken_words(brief.say):
+        return brief
+    if brief.paper:
+        say = LOOK["paper"][lang]
+    elif brief.board:
+        say = LOOK["board"][lang]
+    else:
+        say = NOT_FINISHED[lang]
+    return brief.model_copy(update={"say": say})
+
+
 # Longest bracketed aside held back from speech before it's treated as ordinary text.
 META_MAX = 80
 
@@ -787,17 +824,32 @@ class ThinkerOutput(FrameProcessor):
         super().__init__()
         self.coordinator = coordinator
         self.buffer = ""
+        self._reset()
+
+    def _reset(self):
+        # This response so far: did it say any words, and where did it draw?
+        self.heard = False
+        self.marked = None
+
+    async def _say(self, text):
+        if spoken_words(text):
+            self.heard = True
+        tags = SAY_TAG.findall(text)
+        if tags:
+            paper = any(PAPER_VERB.match(t) for t in tags)
+            self.marked = "paper" if paper or self.marked == "paper" else "board"
+        await self.push_frame(LLMTextFrame(text))
 
     async def _text(self, text, final=False):
         self.buffer += text
         while self.buffer:
             opening = self.buffer.find("[")
             if opening < 0:
-                await self.push_frame(LLMTextFrame(self.buffer))
+                await self._say(self.buffer)
                 self.buffer = ""
                 break
             if opening:
-                await self.push_frame(LLMTextFrame(self.buffer[:opening]))
+                await self._say(self.buffer[:opening])
                 self.buffer = self.buffer[opening:]
             if not self.buffer.startswith("[["):
                 if len(self.buffer) == 1 and not final:
@@ -812,7 +864,7 @@ class ThinkerOutput(FrameProcessor):
                     self.coordinator.log("reject", source="meta_text", text=aside)
                     self.buffer = self.buffer[close + 1 :].lstrip()
                 else:
-                    await self.push_frame(LLMTextFrame(self.buffer[:1]))
+                    await self._say(self.buffer[:1])
                     self.buffer = self.buffer[1:]
                 continue
             end = self.buffer.find("]]")
@@ -853,11 +905,9 @@ class ThinkerOutput(FrameProcessor):
                             else [],
                         )
                         await self.coordinator.on_brief(drawing, decision)
-                        await self.push_frame(
-                            LLMTextFrame(compose(drawing) + (" " if drawing.say.strip() else ""))
-                        )
+                        await self._say(compose(drawing) + (" " if drawing.say.strip() else ""))
                         continue
-                await self.push_frame(LLMTextFrame(tag))
+                await self._say(tag)
 
     async def process_frame(self, frame, direction):
         await super().process_frame(frame, direction)
@@ -867,6 +917,7 @@ class ThinkerOutput(FrameProcessor):
                 await self.coordinator.cancel()
             elif isinstance(frame, LLMFullResponseStartFrame):
                 self.buffer = ""
+                self._reset()
             elif isinstance(frame, LLMTextFrame):
                 await self._text(frame.text)
                 return
@@ -875,9 +926,17 @@ class ThinkerOutput(FrameProcessor):
                 await self.push_frame(FlushSpeechFrame())
                 generation = self.coordinator.generation
                 pending = self.coordinator.task is not None and not self.coordinator.delivered
-                brief = await self.coordinator.result()
+                timed_out = False
+                try:
+                    async with asyncio.timeout(self.coordinator.reply_timeout_s):
+                        brief = await self.coordinator.result()
+                except TimeoutError:
+                    # A thinker that never answers never silences her: the honest line, now.
+                    self.coordinator.log("reject", source="thinker", reason="reply timeout")
+                    await self.coordinator.cancel()
+                    brief, timed_out = None, True
                 if brief:
-                    await self.push_frame(LLMTextFrame(compose(brief)))
+                    await self._say(compose(brief))
                     if self.coordinator.illustrator_task and not self.coordinator.diagram_delivered:
                         await self.push_frame(FlushSpeechFrame())
                         tag = await self.coordinator.diagram_result()
@@ -892,17 +951,16 @@ class ThinkerOutput(FrameProcessor):
                                 await self.coordinator.on_brief(
                                     late, self.coordinator.decision or rules(self.coordinator.text)
                                 )
-                            await self.push_frame(LLMTextFrame(compose(late)))
+                            await self._say(compose(late))
                         else:
                             # Never leave "I'll draw it" standing when nothing was drawn.
-                            await self.push_frame(LLMTextFrame(NOT_DRAWN[self.coordinator.lang()]))
-                elif pending and generation == self.coordinator.generation:
-                    failure = {
-                        "en": "I couldn't finish checking that. Could you ask me again?",
-                        "es": "No pude terminar de revisarlo. ¿Puedes preguntarme otra vez?",
-                        "ko": "확인을 끝내지 못했어요. 다시 물어봐 주시겠어요?",
-                    }[self.coordinator.lang()]
-                    await self.push_frame(LLMTextFrame(failure))
+                            await self._say(NOT_DRAWN[self.coordinator.lang()])
+                elif timed_out or (pending and generation == self.coordinator.generation):
+                    await self._say(NOT_FINISHED[self.coordinator.lang()])
+                if self.marked and not self.heard:
+                    # Tags alone are no audio, and the TTS holds this end until audio ends: the
+                    # turn would never end (paper-marks turn 3, 90 s of silence).
+                    await self._say(LOOK[self.marked][self.coordinator.lang()])
         await self.push_frame(frame, direction)
 
     async def cleanup(self):
