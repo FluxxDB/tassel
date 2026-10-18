@@ -28,11 +28,26 @@ export function PaperTopLineExtras(): JSX.Element | null {
   // Frames that keep failing for reasons that pass (no network, the server, the token): she
   // should know Ada isn't seeing her latest work. A refused frame or a deleted session isn't that.
   const failing = lastError === 'offline' || lastError === 'server' || lastError === 'auth';
+  const kind = usePaperStore((state) => state.kind);
   const canSwitch = devices.length > 1;
-  if (!canSwitch && !failing) return null;
+  if (!canSwitch && !failing && !(kind === 'webcam' && devices.length > 0)) return null;
   return (
     <>
-      {canSwitch && (
+      {kind === 'webcam' && devices.length > 0 && (
+        <select
+          aria-label={t('paper.webcam.camera')}
+          className={`${PILL} max-w-[240px] truncate`}
+          value={deviceId ?? devices[0]?.id}
+          onChange={(event) => chooseDevice(event.target.value)}
+        >
+          {devices.map((device) => (
+            <option key={device.id} value={device.id}>
+              {device.name}
+            </option>
+          ))}
+        </select>
+      )}
+      {canSwitch && kind !== 'webcam' && (
         <button
           type="button"
           onClick={() => {

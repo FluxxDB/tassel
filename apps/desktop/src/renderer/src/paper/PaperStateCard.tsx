@@ -45,7 +45,9 @@ function useActions(status: CardStatus): Action[] {
   const retry = usePaperStore((state) => state.retry);
   const switchSource = usePaperStore((state) => state.useInstead);
   const toggleCamera = useStageStore((state) => state.toggleCamera);
+  const kind = usePaperStore((state) => state.kind);
   const retryAction: Action = { label: t('common.retry'), run: retry };
+  if (kind === 'webcam' && (status === 'unavailable' || status === 'denied')) return [retryAction];
   switch (status) {
     case 'starting':
       return [];
@@ -88,16 +90,18 @@ export function PaperStateCard({ status }: { status: CardStatus }) {
   const { t } = useTranslation();
   const { glyph: Glyph, body } = LOOK[status];
   const actions = useActions(status);
+  const kind = usePaperStore((state) => state.kind);
+  const webcamError = kind === 'webcam' && (status === 'denied' || status === 'unavailable');
   return (
     <div className="absolute inset-0 grid place-items-center">
       <div role="status" className="flex w-[320px] flex-col items-center text-center">
         <Glyph className="mb-4 size-8 shrink-0 text-smoke-text" />
         <h2 className="text-[17px] leading-[22px] font-w520 text-balance text-ink ko:leading-[1.6]">
-          {t(`paper.state.${status}.title`)}
+          {t(webcamError ? `paper.webcam.${status}.title` : `paper.state.${status}.title`)}
         </h2>
         {body && (
           <p className="mt-2 text-[14px] leading-5 text-pretty text-smoke-text ko:leading-[1.6]">
-            {t(`paper.state.${status}.body`)}
+            {t(webcamError ? `paper.webcam.${status}.body` : `paper.state.${status}.body`)}
           </p>
         )}
         {actions.length > 0 && (

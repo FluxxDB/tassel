@@ -32,6 +32,7 @@ export interface NewSessionSheetProps {
   platform?: Platform;
   /** Whether this run plays the fake clip as her paper (R11); defaults to the paper config's. */
   paperFakeClip?: boolean;
+  paperWebcam?: boolean;
 }
 
 export function NewSessionSheet({
@@ -39,6 +40,7 @@ export function NewSessionSheet({
   onOpenChange,
   platform = window.tassel.platform,
   paperFakeClip = getPaperConfig().fakeClip,
+  paperWebcam = getPaperConfig().source === 'webcam',
 }: NewSessionSheetProps) {
   const { t } = useTranslation();
   return (
@@ -48,6 +50,7 @@ export function NewSessionSheet({
         open={open}
         platform={platform}
         paperFakeClip={paperFakeClip}
+        paperWebcam={paperWebcam}
         onCancel={() => onOpenChange(false)}
         onStarted={() => onOpenChange(false)}
       />
@@ -59,12 +62,14 @@ function NewSessionForm({
   open,
   platform,
   paperFakeClip,
+  paperWebcam,
   onCancel,
   onStarted,
 }: {
   open: boolean;
   platform: Platform;
   paperFakeClip: boolean;
+  paperWebcam: boolean;
   onCancel(): void;
   onStarted(): void;
 }) {
@@ -144,8 +149,11 @@ function NewSessionForm({
             label={t('newSession.groups.source')}
             options={SOURCES.map((value) => ({
               value,
-              label: t(`newSession.source.${value}`),
-              disabled: value === 'paper' && paperUnavailable(platform, paperFakeClip),
+              label:
+                value === 'paper' && paperWebcam
+                  ? t('paper.webcam.choice')
+                  : t(`newSession.source.${value}`),
+              disabled: value === 'paper' && paperUnavailable(platform, paperFakeClip, paperWebcam),
             }))}
             value={source}
             onChange={setSource}
@@ -153,7 +161,7 @@ function NewSessionForm({
           />
           {windows && (
             <p id={noticeId} className="mt-2 text-[13px] text-smoke-text text-pretty">
-              {t('platform.windowsNoDeskView')}
+              {t(paperWebcam ? 'paper.webcam.hint' : 'platform.windowsNoDeskView')}
             </p>
           )}
         </Choice>

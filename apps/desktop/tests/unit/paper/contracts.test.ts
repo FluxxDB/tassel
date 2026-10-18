@@ -37,7 +37,7 @@ describe('paper contracts', () => {
 
   it('keeps the shapes later tasks consume', () => {
     expectTypeOf<PaperSourceKind>().toEqualTypeOf<
-      'deskview-helper' | 'window-capture' | 'fake-clip' | 'screen'
+      'deskview-helper' | 'window-capture' | 'fake-clip' | 'screen' | 'webcam'
     >();
     expectTypeOf<ContractSourceKind>().toEqualTypeOf<PaperSourceKind>();
     expectTypeOf<CameraAccess>().toEqualTypeOf<

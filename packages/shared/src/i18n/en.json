@@ -194,6 +194,22 @@
       "toggle": "Heatmap",
       "stats": "{kind} · {changed} changed · quiet {quiet}/{stable} · {sent} sent",
       "noOpenCv": "OpenCV didn't load: using the central crop"
+    },
+    "webcam": {
+      "choice": "Paper · Camera",
+      "hint": "Use a webcam or a connected phone camera to show your paper.",
+      "camera": "Paper camera",
+      "tag": "Your paper · Camera",
+      "source": "Camera",
+      "live": "Camera · Live",
+      "denied": {
+        "title": "Camera access is blocked",
+        "body": "Allow desktop apps to access your camera in Windows Settings → Privacy & security → Camera, then retry."
+      },
+      "unavailable": {
+        "title": "Camera unavailable",
+        "body": "Connect your camera or start your phone camera app, close other apps using it, then retry."
+      }
     }
   },
   "platform": {

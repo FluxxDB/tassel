@@ -462,7 +462,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "deskview-helper" | "window-capture" | "fake-clip" | "screen";
+            source: "deskview-helper" | "window-capture" | "fake-clip" | "screen" | "webcam";
             /**
              * Trigger
              * @default detector
@@ -515,7 +515,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "deskview-helper" | "window-capture" | "fake-clip" | "screen";
+            source: "deskview-helper" | "window-capture" | "fake-clip" | "screen" | "webcam";
             /**
              * Trigger
              * @enum {string}

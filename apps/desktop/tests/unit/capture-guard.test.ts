@@ -10,6 +10,14 @@ const exists = (path: string) => path === CLIP;
 const guarded = (env: Record<string, string | undefined>) => () => assertFakeCapture(env, exists);
 
 describe('assertFakeCapture', () => {
+  it('allows webcam tests only with fake capture and an existing synthetic clip', () => {
+    const base = { TASSEL_PAPER_SOURCE: 'webcam', TASSEL_REQUIRE_FAKE_CAPTURE: '1' };
+    expect(guarded(base)).toThrow(/TASSEL_FAKE_CLIP/);
+    expect(guarded({ ...base, TASSEL_FAKE_CLIP: CLIP })).not.toThrow();
+    expect(guarded({ ...base, TASSEL_FAKE_CLIP: CLIP, TASSEL_REQUIRE_FAKE_CAPTURE: '0' })).toThrow(
+      /TASSEL_REQUIRE_FAKE_CAPTURE/,
+    );
+  });
   it('refuses an unset or auto source', () => {
     expect(guarded({ TASSEL_REQUIRE_FAKE_CAPTURE: '1' })).toThrow(/TASSEL_PAPER_SOURCE/);
     expect(guarded({ TASSEL_REQUIRE_FAKE_CAPTURE: '1', TASSEL_PAPER_SOURCE: '' })).toThrow(

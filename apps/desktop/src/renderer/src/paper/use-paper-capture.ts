@@ -56,6 +56,7 @@ const WATCHDOG_MS = 3_000;
 const WATCHDOG_TICK_MS = 500;
 /** The kinds the watchdog covers. A static screen may rightly send no frames. */
 const WATCHED: ReadonlySet<PaperSourceKind> = new Set([
+  'webcam',
   'deskview-helper',
   'fake-clip',
   'window-capture',
@@ -375,6 +376,7 @@ export function usePaperCapture(args: {
 export function usePaperTag(): string {
   const { t } = useTranslation();
   const kind = usePaperStore((state) => state.kind);
+  if (kind === 'webcam') return t('paper.webcam.tag');
   if (kind === 'window-capture') return t('paper.tag.window');
   if (kind === 'screen') return t('session.placeholder.screen.tag');
   // The helper, the fake clip (which stands in for Desk View), and no kind yet.

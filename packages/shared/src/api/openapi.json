@@ -594,7 +594,8 @@
               "deskview-helper",
               "window-capture",
               "fake-clip",
-              "screen"
+              "screen",
+              "webcam"
             ],
             "title": "Source",
             "type": "string"
@@ -711,7 +712,8 @@
               "deskview-helper",
               "window-capture",
               "fake-clip",
-              "screen"
+              "screen",
+              "webcam"
             ],
             "title": "Source",
             "type": "string"

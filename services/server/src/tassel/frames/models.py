@@ -16,7 +16,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validato
 FrameReason = Literal["ink", "page"]
 # What made the app send it: its change detector, or the server asking for a turn's page.
 FrameTrigger = Literal["detector", "turn"]
-PaperSourceKind = Literal["deskview-helper", "window-capture", "fake-clip", "screen"]
+PaperSourceKind = Literal["deskview-helper", "window-capture", "fake-clip", "screen", "webcam"]
 
 GRID_MAX = 200  # cells per side of the page grid
 MASK_CELLS_MAX = 40_000  # GRID_MAX squared
