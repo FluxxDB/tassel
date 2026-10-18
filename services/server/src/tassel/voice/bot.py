@@ -4,6 +4,7 @@ import asyncio
 import base64
 import json
 import re
+import time
 from collections import deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -46,7 +47,10 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from tassel.beats.markup import BoardContext
+from tassel.beats.models import BeatAction
 from tassel.beats.processor import BeatTagProcessor
+from tassel.board.history import BoardHistory, replay
+from tassel.board.snapshots import BoardSnapshots
 from tassel.models import Lang, SessionPatch
 from tassel.storage import sessions_repo
 from tassel.vision.turn_image import NO_VIEW, TurnPage
@@ -59,7 +63,9 @@ from tassel.voice.memory import ConversationMemory
 from tassel.voice.messages import (
     CLIENT_EVENTS,
     ENVELOPE,
+    ActionsEvent,
     BackchannelEvent,
+    BoardSnapshotEvent,
     ClientMetricsEvent,
     LanguageEvent,
     OfferRequestData,
@@ -109,6 +115,9 @@ class BotContext:
     turn_image: TurnImage | None = None
     # Ada's board for this bot: her automata, mark numbers and the frozen page (P4, P5).
     board: BoardContext = field(default_factory=BoardContext)
+    board_snapshots: BoardSnapshots | None = None
+    board_actions: list[BeatAction] = field(default_factory=list)
+    board_history: BoardHistory | None = None
 
 
 @dataclass
@@ -202,6 +211,20 @@ class _TurnContext(FrameProcessor):
         self._since: datetime | None = None
         # Sends the app the paper-frame request; the bot binds it to its server events.
         self.request_frame: Callable[[], Awaitable[None]] | None = None
+        self.request_board_snapshot: Callable[[], Awaitable[None]] | None = None
+        self.board_snapshots: BoardSnapshots | None = None
+        self.transcript = None
+        self.board_history: BoardHistory | None = None
+
+    def _board_items(self):
+        items = dict(self.board_history.board_items) if self.board_history else {}
+        items.update(
+            {
+                k: v.model_dump(mode="json")
+                for k, v in {**self.board.specs, **self.board.diagrams}.items()
+            }
+        )
+        return items
 
     async def speech_started(self) -> None:
         """Capture waits for the final transcript and the director's vision decision."""
@@ -278,7 +301,7 @@ class _TurnContext(FrameProcessor):
                     student_text,
                     history[:-1],
                     focus=self.focus,
-                    board_items={k: v.model_dump(mode="json") for k, v in self.board.specs.items()},
+                    board_items=self._board_items(),
                     frozen=self.frozen,
                     page_changed=(
                         self.pending_image is not None or self.page_revision != self.seen_revision
@@ -324,9 +347,7 @@ class _TurnContext(FrameProcessor):
                         "content": "[director] "
                         + self.decision.model_dump_json()
                         + " Board items: "
-                        + json.dumps(
-                            {k: v.model_dump(mode="json") for k, v in self.board.specs.items()}
-                        )
+                        + json.dumps(self._board_items())
                         + " Follow this decision. Do not reconfirm clear intent. "
                         "Do not choose views.",
                     }
@@ -335,14 +356,17 @@ class _TurnContext(FrameProcessor):
                     self.pending_image = None
                 if (
                     self.decision.route == "thinker"
-                    and self.decision.needs_vision
                     and self.coordinator is not None
                     and self.coordinator.thinker is not None
                 ):
                     # The talker bridges at once; the thinker waits for the page.
                     _drop_images(messages)
                     await self.coordinator.prepare(
-                        frame.context, student_text, decision=self.decision, page=self._thinker_page
+                        frame.context,
+                        student_text,
+                        decision=self.decision,
+                        page=self._thinker_page if self.decision.needs_vision else None,
+                        board_page=self._thinker_board_page,
                     )
                     await self.push_frame(frame, direction)
                     return
@@ -391,6 +415,27 @@ class _TurnContext(FrameProcessor):
                         # and Qwen with a page attached took 5–7 s to say anything.
                         _drop_images(messages)
         await self.push_frame(frame, direction)
+
+    async def _thinker_board_page(self):
+        if self.board_snapshots is None or self.request_board_snapshot is None:
+            return None
+        started = time.monotonic()
+        image = None
+        try:
+            async with asyncio.timeout(1.5):
+                await self.request_board_snapshot()
+                image = await self.board_snapshots.wait(self._session_id, started)
+        except Exception:  # A missing app snapshot must never fail the thinker turn.
+            pass
+        if self.transcript:
+            self.transcript.record(
+                "board_snapshot",
+                {
+                    "bytes": len(image) if image else 0,
+                    "wait_ms": round((time.monotonic() - started) * 1000),
+                },
+            )
+        return image
 
     async def _thinker_page(self):
         """The page for a thinker turn. A turn that gets no view asks the app for a fresh frame
@@ -632,7 +677,11 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
             ("tassel.voice", "pipecat.pipeline.worker", "pipecat.processors.frame_processor")
         ),
     )
+    replay(ctx.board, ctx.board_actions)
     turn_context.board = ctx.board
+    turn_context.board_history = ctx.board_history
+    turn_context.board_snapshots = ctx.board_snapshots
+    turn_context.transcript = transcript
     turn_context.focus = "paper" if ctx.turn_image else "none"
     # Fake providers follow the scenario's scripted decisions and briefs where it has them.
     fake_llm = resolve_mode("llm", ctx.settings) == "fake"
@@ -652,7 +701,11 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
 
     turn_context.on_focus = follow_focus
     beats = BeatTagProcessor(
-        events=events, lang=lambda: ctx.lang, board=ctx.board, transcript=transcript
+        events=events,
+        lang=lambda: ctx.lang,
+        board=ctx.board,
+        transcript=transcript,
+        on_actions=ctx.board_history.record if ctx.board_history else None,
     )
     thinker = make_thinker(ctx.settings)
     if thinker is None and fake_llm:
@@ -703,6 +756,10 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     async def request_frame():
         await events.send(PaperFrameEvent())
 
+    async def request_board_snapshot():
+        await events.send(BoardSnapshotEvent())
+
+    turn_context.request_board_snapshot = request_board_snapshot
     turn_context.request_frame = request_frame
     worker.add_observer(transcript)
     worker.add_observer(VadForwarder(worker))
@@ -789,9 +846,17 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     llm.register_function("show_stage", show_stage)
     llm.register_function("set_language", set_language, cancel_on_interruption=False)
 
+    board_restored = False
+
     @worker.rtvi.event_handler("on_client_ready")
     async def ready(rtvi):
+        nonlocal board_restored
         await bot.send_route()
+        if not board_restored:
+            board_restored = True
+            if ctx.board_actions:
+                await events.send(ActionsEvent(actions=ctx.board_actions))
+                transcript.record("board_restored", {"count": len(ctx.board_actions)})
         monitor.last_provider = bot.active_provider
         if not saved:
             await worker.queue_frame(LLMRunFrame())
@@ -834,7 +899,10 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
 
 async def run_bot(connection, ctx: BotContext) -> None:
     bot = None
+    history = BoardHistory(ctx.sessions, ctx.learner_id, ctx.session_id)
+    ctx.board_history = history
     try:
+        ctx.board_actions = await history.load()
         transport = SmallWebRTCTransport(
             webrtc_connection=connection,
             params=TransportParams(audio_in_enabled=True, audio_out_enabled=True),
@@ -849,10 +917,15 @@ async def run_bot(connection, ctx: BotContext) -> None:
         await runner.add_workers(bot.worker)
         await runner.run()
     finally:
-        if bot is not None:
-            ctx.memory.remember(ctx.session_id, bot.context.get_messages(), ctx.lang)
-            if getattr(bot, "log_sink", None) is not None:
-                logger.remove(bot.log_sink)
-            if getattr(bot, "transcript", None) is not None:
-                bot.transcript.record_cost()
-        await connection.disconnect()
+        try:
+            if bot is not None:
+                ctx.memory.remember(ctx.session_id, bot.context.get_messages(), ctx.lang)
+                if getattr(bot, "log_sink", None) is not None:
+                    logger.remove(bot.log_sink)
+                if getattr(bot, "transcript", None) is not None:
+                    bot.transcript.record_cost()
+        finally:
+            try:
+                await history.close()
+            finally:
+                await connection.disconnect()

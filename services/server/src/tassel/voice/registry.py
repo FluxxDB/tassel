@@ -18,6 +18,7 @@ from pipecat.transports.smallwebrtc.request_handler import (
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from tassel.beats.markup import BoardContext
+from tassel.board.snapshots import BoardSnapshots
 from tassel.storage.tables import TutoringSession
 from tassel.voice.api import IcePatch, OfferAnswer, OfferBody
 from tassel.voice.bot import BotContext, TurnImage, run_bot
@@ -51,10 +52,12 @@ class VoiceRegistry:
         memory: ConversationMemory | None = None,
         start_bot: Callable[[SmallWebRTCConnection, BotContext], Awaitable[None]] = run_bot,
         turn_images: Callable[[BoardContext], TurnImage] | None = None,
+        board_snapshots: BoardSnapshots | None = None,
     ):
         self.settings, self.sessions = settings, sessions
         # Makes each bot its page-image seam (vision-lite) on that bot's board context.
         self.turn_images = turn_images
+        self.board_snapshots = board_snapshots
         self.memory = memory if memory is not None else ConversationMemory()
         self._start_bot = start_bot
         self._bots: dict[UUID, LiveBot] = {}
@@ -159,6 +162,7 @@ class VoiceRegistry:
                     sessions=self.sessions,
                     turn_image=self.turn_image_for_bot(board),
                     board=board,
+                    board_snapshots=self.board_snapshots,
                 )
                 task = asyncio.create_task(
                     self._run(connection, ctx, handler), name=f"voice-{session.id}"

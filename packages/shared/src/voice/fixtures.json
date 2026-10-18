@@ -10,6 +10,8 @@
     "ice_servers": "/v1/voice/ice-servers"
   },
   "server": [
+    { "kind": "board-snapshot" },
+    { "kind": "actions", "actions": [{ "kind": "board.clear" }] },
     { "kind": "route", "lang": "en", "stt": "flux", "llm": "openrouter", "tts": "elevenlabs" },
     {
       "kind": "turn-metrics",

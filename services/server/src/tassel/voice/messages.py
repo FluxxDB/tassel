@@ -15,7 +15,7 @@ from typing import Annotated, Final, Literal, TypedDict
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter
 
-from tassel.beats.models import BeatDoc
+from tassel.beats.models import BeatAction, BeatDoc
 from tassel.models import Lang
 
 ENVELOPE: Final = "tassel"
@@ -67,6 +67,15 @@ class TitleEvent(_Message):
 class BeatEvent(_Message):
     kind: Literal["beat"] = "beat"
     beat: BeatDoc
+
+
+class BoardSnapshotEvent(_Message):
+    kind: Literal["board-snapshot"] = "board-snapshot"
+
+
+class ActionsEvent(_Message):
+    kind: Literal["actions"] = "actions"
+    actions: list[BeatAction]
 
 
 class StageEvent(_Message):
@@ -169,7 +178,9 @@ ServerEvent = Annotated[
     | LanguageEvent
     | VadEvent
     | BeatEvent
-    | PaperFrameEvent,
+    | PaperFrameEvent
+    | BoardSnapshotEvent
+    | ActionsEvent,
     Field(discriminator="kind"),
 ]
 ClientEvent = Annotated[

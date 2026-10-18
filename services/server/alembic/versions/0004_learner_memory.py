@@ -1,9 +1,13 @@
-"""Lightweight learner memory and idempotent session extraction."""
+"""Lightweight learner memory and idempotent session extraction.
+
+Revision ID: learner_memory_01 (first "0004"; renamed when claude/live's 0004 board actions
+landed beside it, since two revisions can't share an ID)
+"""
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0004"
+revision = "learner_memory_01"
 down_revision = "0003"
 branch_labels = None
 depends_on = None

@@ -127,6 +127,9 @@ export function mapRtvi(
         case 'stage':
           events.push({ type: 'stage', mode: event.view });
           break;
+        case 'actions':
+          events.push({ type: 'actions', actions: event.actions });
+          break;
         case 'beat':
           events.push({ type: 'beat', beat: event.beat });
           break;

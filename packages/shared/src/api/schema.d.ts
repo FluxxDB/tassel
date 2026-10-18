@@ -116,6 +116,23 @@ export interface paths {
         patch: operations["patch_session_v1_sessions__session_id__patch"];
         trace?: never;
     };
+    "/v1/sessions/{session_id}/board/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Snapshot */
+        post: operations["upload_snapshot_v1_sessions__session_id__board_snapshot_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sessions/{session_id}/frames": {
         parameters: {
             query?: never;
@@ -293,6 +310,11 @@ export interface components {
             /** Image Png */
             image_png: string | null;
             reading: components["schemas"]["DfaReading"];
+        };
+        /** BoardSnapshotUpload */
+        BoardSnapshotUpload: {
+            /** Image Png */
+            image_png: string;
         };
         /** Body_upload_frame_v1_sessions__session_id__frames_post */
         Body_upload_frame_v1_sessions__session_id__frames_post: {
@@ -1254,6 +1276,39 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SessionOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_snapshot_v1_sessions__session_id__board_snapshot_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BoardSnapshotUpload"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

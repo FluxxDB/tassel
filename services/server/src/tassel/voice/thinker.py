@@ -174,6 +174,7 @@ class TutorCoordinator:
         self.delivered = False
         self.decision = None
         self._page = None
+        self._board_page = None
 
     def log(self, event, **data):
         if self.transcript:
@@ -233,15 +234,24 @@ class TutorCoordinator:
             )
 
     async def prepare(
-        self, context, text: str, image: bytes | None = None, *, decision=None, page=None
+        self,
+        context,
+        text: str,
+        image: bytes | None = None,
+        *,
+        decision=None,
+        page=None,
+        board_page=None,
     ):
         """page: an async callable returning (image, caption[, ink]) or None, awaited by the
-        thinker so the talker's bridge never waits for the camera."""
+        thinker so the talker's bridge never waits for the camera. board_page returns PNG
+        bytes or None and is fetched only for board-focused thinker turns."""
         await self.cancel()
         self.context, self.text = context, text
         self.decision = decision
         self.delivered = False
         self._page = page
+        self._board_page = board_page
         self.page_image = image
         self.page_caption = ""
         current = ink_signature(image)
@@ -285,6 +295,14 @@ class TutorCoordinator:
         try:
             if self._page is not None:
                 await self._attach_page()
+                if generation != self.generation:
+                    return None
+            if (
+                self._board_page is not None
+                and self.decision is not None
+                and (self.decision.refers_to == "board" or self.decision.focus == "board")
+            ):
+                await self._attach_board_page()
                 if generation != self.generation:
                     return None
             effort = None
@@ -424,6 +442,31 @@ class TutorCoordinator:
             ]
         else:
             user["content"] = [{"type": "text", "text": text}, {"type": "text", "text": NO_VIEW}]
+
+    async def _attach_board_page(self):
+        page, self._board_page = self._board_page, None
+        try:
+            image = await page()
+        except TimeoutError:
+            return
+        if image is None:
+            return
+        user = next((m for m in reversed(self.messages) if m.get("role") == "user"), None)
+        if user is None:
+            return
+        content = user["content"]
+        if isinstance(content, str):
+            content = [{"type": "text", "text": content}]
+        user["content"] = [
+            *content,
+            {
+                "type": "text",
+                "text": "[board] The shared whiteboard right now, including anything the student "
+                "drew or moved. Ada's own items are listed in the board items; anything else "
+                "is the student's.",
+            },
+            {"type": "image_url", "image_url": {"url": _image_url(image)}},
+        ]
 
     async def _point(self, brief, decision, generation):
         if not brief.marks or not (

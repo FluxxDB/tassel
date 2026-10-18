@@ -85,6 +85,20 @@
         "title": "BoardEditIn",
         "type": "object"
       },
+      "BoardSnapshotUpload": {
+        "additionalProperties": false,
+        "properties": {
+          "image_png": {
+            "title": "Image Png",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image_png"
+        ],
+        "title": "BoardSnapshotUpload",
+        "type": "object"
+      },
       "Body_upload_frame_v1_sessions__session_id__frames_post": {
         "properties": {
           "crop": {
@@ -2369,6 +2383,57 @@
         "summary": "Patch Session",
         "tags": [
           "sessions"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/board/snapshot": {
+      "post": {
+        "operationId": "upload_snapshot_v1_sessions__session_id__board_snapshot_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoardSnapshotUpload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Upload Snapshot",
+        "tags": [
+          "board"
         ]
       }
     },

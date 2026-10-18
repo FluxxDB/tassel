@@ -298,6 +298,10 @@ async def test_run_bot_disconnects_after_build_failure(monkeypatch):
     from tassel.voice.bot import run_bot
 
     connection = Mock(disconnect=AsyncMock())
+    monkeypatch.setattr(
+        "tassel.voice.bot.BoardHistory",
+        Mock(return_value=Mock(load=AsyncMock(return_value=[]), close=AsyncMock())),
+    )
     monkeypatch.setattr("tassel.voice.bot.SmallWebRTCTransport", Mock())
     monkeypatch.setattr(
         "tassel.voice.bot.build_bot", Mock(side_effect=ValueError("invalid config"))
@@ -542,3 +546,23 @@ async def test_stage_only_reply_continues_but_spoken_reply_does_not(prefix, monk
         else:
             await until(lambda: "I see your automaton." in out.text())
             assert bot.llm.calls == 3
+
+
+async def test_saved_board_restores_once_after_client_ready():
+    from tassel.beats.markup import BoardContext, MarkupStream
+
+    board = BoardContext()
+    stream = MarkupStream(board)
+    sentences = stream.feed("[[dfa saved start=q0 q0-0-q1]]") + stream.flush()
+    actions = [action for sentence in sentences for _, action in sentence.anchors]
+    ctx = context(board_actions=actions)
+    async with running(ctx) as (bot, out):
+        await until(lambda: SCRIPT.langs["en"].greeting in out.text())
+        restored = [event for event in out.events() if event["kind"] == "actions"]
+        assert restored == [
+            {"kind": "actions", "actions": [a.model_dump(mode="json") for a in actions]}
+        ]
+        assert "saved" in bot._turn_context.board.specs
+        await message(bot, "client-ready", {"version": "2.1.0"})
+        await asyncio.sleep(0.1)
+        assert len([e for e in out.events() if e["kind"] == "actions"]) == 1

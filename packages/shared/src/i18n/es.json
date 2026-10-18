@@ -236,7 +236,16 @@
       "transition": "De {from} a {to} con {symbols}",
       "step": "Paso {n}: lee {symbol}, de {from} a {to}",
       "stuck": "Paso {n}: lee {symbol}, sin transición desde {from}: rechaza",
-      "note": "Nota: {text}"
+      "note": "Nota: {text}",
+      "diagram": "Diagrama: {title}",
+      "group": "{name}: {list}",
+      "groupEmpty": "{name}: vacío",
+      "node": "{label}: {kind}",
+      "nodeSub": "{label}: {kind}, {sublabel}",
+      "link": "{from} conectado a {to}",
+      "linkLabeled": "{from} conectado a {to}, {label}",
+      "arrow": "De {from} a {to}",
+      "arrowLabeled": "De {from} a {to}, {label}"
     },
     "trace": {
       "title": "Traza · entrada {input}",
@@ -263,6 +272,19 @@
       "in": "Zoom in",
       "out": "Zoom out",
       "fit": "Fit"
+    },
+    "icon": {
+      "router": "router",
+      "switch": "switch",
+      "pc": "PC",
+      "laptop": "portátil",
+      "server": "servidor",
+      "cloud": "nube",
+      "firewall": "cortafuegos",
+      "phone": "teléfono",
+      "database": "base de datos",
+      "box": "caja",
+      "circle": "círculo"
     }
   },
   "marks": {

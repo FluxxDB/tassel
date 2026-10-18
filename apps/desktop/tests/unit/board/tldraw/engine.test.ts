@@ -22,8 +22,12 @@ import {
 } from 'tldraw';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { StageGeometry } from '../../../../src/renderer/src/board/engine';
-import { fallbackLayout } from '../../../../src/renderer/src/board/layout/fallback';
+import {
+  fallbackDiagramLayout,
+  fallbackLayout,
+} from '../../../../src/renderer/src/board/layout/fallback';
 import type { AutomatonLayout, LoopSide } from '../../../../src/renderer/src/board/layout/types';
+import { diagramSizes } from '../../../../src/renderer/src/board/scene/diagram';
 import { EMPTY_SCENE, reduceBoard } from '../../../../src/renderer/src/board/scene/reduce';
 import type { BoardScene } from '../../../../src/renderer/src/board/scene/types';
 import { adaShapeId } from '../../../../src/renderer/src/board/tldraw/desired';
@@ -41,7 +45,7 @@ import {
   cameraFor,
   fitBoard,
 } from '../../../../src/renderer/src/board/tldraw/fit';
-import { CORRECT, WRONG } from '../fixtures';
+import { CORRECT, NETWORK, WRONG } from '../fixtures';
 
 // What tldraw needs of a browser that jsdom lacks; hoisted, so it's there before tldraw loads.
 vi.hoisted(() => {
@@ -141,6 +145,8 @@ const draw = (spec: AutomatonSpec, reveal: 'all' | 'none' = 'all'): BoardAction 
   reveal,
 });
 const id = (el: string) => adaShapeId('fix', el) as TLShapeId;
+/** A titled diagram's layout sits under its title row. */
+const TITLE_TOP = 28;
 
 describe('the tldraw engine', () => {
   it("draws Ada's board as remote changes, outside the undo history", () => {
@@ -267,6 +273,60 @@ describe('the tldraw engine', () => {
     const { x, y } = fallbackLayout(CORRECT).states.qd;
     expect(ring.props).toMatchObject({ kind: 'ring', x, y, r: 36, alpha: 1 });
     expect(editor.store.serialize('document')).toEqual(before);
+    void played;
+  });
+
+  it('draws a diagram: frames behind cards, edges bound to cards, no head when undirected', () => {
+    const { editor, engine } = board(null, false);
+    const sizes = diagramSizes(NETWORK, (text) => ({ w: [...text].length * 8, h: 16 }));
+    const layout = fallbackDiagramLayout(NETWORK, sizes);
+    const net = (el: string) => adaShapeId('net', el) as TLShapeId;
+    engine.render(sceneAfter({ kind: 'board.diagram', item: 'net', spec: NETWORK }), {
+      net: layout,
+    });
+    const shapes = editor.getCurrentPageShapes();
+    expect(shapes.filter((shape) => shape.type === 'tassel-group')).toHaveLength(3);
+    expect(shapes.filter((shape) => shape.type === 'tassel-node')).toHaveLength(10);
+    expect(shapes.filter((shape) => shape.type === 'arrow')).toHaveLength(9);
+    expect(editor.getBindingsToShape(net('node:core'), 'arrow')).toHaveLength(3);
+    expect(editor.getBindingsToShape(net('group:zoneA'), 'arrow')).toHaveLength(0);
+    // Each zone's frame lies under its nodes.
+    const sorted = editor.getCurrentPageShapesSorted().map((shape) => shape.id);
+    expect(sorted.indexOf(net('group:zoneA'))).toBeLessThan(sorted.indexOf(net('node:rA')));
+    const link = editor.getShape(net('edge:core>rA')) as TLArrowShape;
+    expect(link.props).toMatchObject({
+      arrowheadEnd: 'none',
+      arrowheadStart: 'none',
+      dash: 'solid',
+    });
+    expect((editor.getShape(net('edge:rB>pcB2')) as TLArrowShape).props.dash).toBe('dashed');
+    // The edge runs card to card, ending at the cards' borders, not their centers.
+    const info = getArrowInfo(editor, link);
+    const core = editor.getShapePageBounds(net('node:core'));
+    expect(info?.isValid).toBe(true);
+    expect(core && info && info.start.point.x + link.x).toBeGreaterThan((core?.maxX ?? 0) - 1);
+    // A frame hits at its border only: a point inside it, clear of its nodes, isn't on it.
+    const frame = layout.groups.zoneA;
+    const inside = { x: frame.x + frame.w - 6, y: TITLE_TOP + frame.y + frame.h - 6 };
+    expect(editor.getShapeAtPoint(inside)?.id).not.toBe(net('group:zoneA'));
+    expect(editor.getShapeAtPoint({ x: frame.x, y: TITLE_TOP + frame.y + 60 })?.id).toBe(
+      net('group:zoneA'),
+    );
+  });
+
+  it('pulses a diagram node with a ring around its card', async () => {
+    const { editor, engine } = board(null, false);
+    const sizes = diagramSizes(NETWORK, (text) => ({ w: [...text].length * 8, h: 16 }));
+    engine.render(sceneAfter({ kind: 'board.diagram', item: 'net', spec: NETWORK }), {
+      net: fallbackDiagramLayout(NETWORK, sizes),
+    });
+    const played = engine.play({ type: 'pulse', item: 'net', el: 'node:core' });
+    const [ring] = editor.overlays.getActiveOverlayEntries()[0].overlays;
+    const bounds = editor.getShapePageBounds(adaShapeId('net', 'node:core') as TLShapeId);
+    expect(ring.props).toMatchObject({ kind: 'ring', x: bounds?.center.x, y: bounds?.center.y });
+    expect((ring.props as { r: number }).r).toBeGreaterThan(
+      Math.hypot(bounds?.w ?? 0, bounds?.h ?? 0) / 2,
+    );
     void played;
   });
 

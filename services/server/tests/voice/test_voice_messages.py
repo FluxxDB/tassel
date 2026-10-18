@@ -88,6 +88,9 @@ def test_envelope():
     "event",
     [
         pytest.param({"kind": "nope"}, id="unknown kind"),
+        pytest.param({"kind": "board-snapshot", "image": "x"}, id="snapshot has no payload"),
+        pytest.param({"kind": "actions"}, id="actions missing"),
+        pytest.param({"kind": "actions", "actions": [{"kind": "unknown"}]}, id="invalid action"),
         pytest.param({"kind": "beat", "beat": None}, id="null beat"),
         pytest.param({"kind": "beat", "beat": {"version": 1}}, id="invalid beat"),
         pytest.param({"view": "split"}, id="no kind"),
