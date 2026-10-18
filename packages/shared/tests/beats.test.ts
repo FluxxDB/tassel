@@ -77,6 +77,9 @@ describe('parseAction', () => {
         'paper.clear',
         'paper.live',
         'stage',
+        'image.show',
+        'image.mark',
+        'image.clear',
       ]),
     );
   });

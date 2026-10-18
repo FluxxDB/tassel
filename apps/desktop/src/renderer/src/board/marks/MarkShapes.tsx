@@ -46,8 +46,9 @@ const FADE: CSSProperties = {
 type Size = { w: number; h: number };
 
 export interface MarkShapesProps {
-  marks: PaperMark[];
-  snapshot: Snapshot;
+  marks: readonly PaperMark[];
+  /** What the marks sit on: her frozen paper, or the student's image (its own projection). */
+  snapshot: Pick<Snapshot, 'elements' | 'project'>;
   fit: Fit;
   /** The layer's size in panel px. */
   panel: Size;
