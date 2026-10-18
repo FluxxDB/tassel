@@ -154,6 +154,63 @@ describe('fitBoard', () => {
   });
 });
 
+describe('the whole board while a trace runs', () => {
+  /**
+   * The demo DFA with a trace card under it: the card (480 × 300 for four steps) ITEM_GAP (64)
+   * below the DFA, so the camera frames 494.72 × 697.8 board px.
+   */
+  const WITH_TRACE: Rect = { x: 0, y: 0, w: 494.72, h: 333.8 + 64 + 300 };
+  /** The DFA's own box inside it: the top of the column. */
+  const DFA_PART = (fit: BoardFit): Rect => ({
+    x: fit.x,
+    y: fit.y,
+    w: CORRECT_BOX.w * fit.zoom,
+    h: CORRECT_BOX.h * fit.zoom,
+  });
+  const panelOf = ({ panel }: StageGeometry): Rect => ({ x: 0, y: 0, w: panel.w, h: panel.h });
+
+  it('at 1440 split, fits left of her tile, clear of everything, labels readable', () => {
+    const fit = fitted(WITH_TRACE, AT_1440);
+    expect(fit.stage).toBe('clear');
+    expect(fit.zoom).toBeGreaterThanOrEqual(FIT.minZoom);
+    const box = placed(WITH_TRACE, fit);
+    const { tiles, topLine, captions } = boardObstructions(AT_1440);
+    expect(tiles.some((tile) => overlaps(box, tile))).toBe(false);
+    expect(overlaps(box, topLine)).toBe(false);
+    expect(captions && overlaps(box, captions)).toBe(false);
+    expect(inside(box, panelOf(AT_1440))).toBe(true);
+  });
+
+  it('at 1024 split, gives up the captions band and then the clear fit, never the DFA', () => {
+    const fit = fitted(WITH_TRACE, AT_1024);
+    // Too tall to show readably beside the tile: the plain fit of the whole panel.
+    expect(fit.stage).toBe('plain');
+    const box = placed(WITH_TRACE, fit);
+    expect(inside(box, panelOf(AT_1024))).toBe(true);
+    expect(inside(DFA_PART(fit), panelOf(AT_1024))).toBe(true);
+  });
+
+  it('at 1024 with the chat sidebar over the board, keeps the whole board inside the panel', () => {
+    // The board alone on the stage (992 × 516), the sidebar's 360 px over the window's right.
+    const stage = boardOnly(1024, 680);
+    const sidebar = { x: 1024 - 360, y: 52, w: 360, h: 628 };
+    const ada = { x: 1024 - 360 - 14 - 212, y: 74, w: 212, h: 176 };
+    const withSidebar: StageGeometry = {
+      ...stage,
+      main: { ...stage.main, w: stage.main.w - 360 },
+      tiles: [ada, sidebar],
+    };
+    const fit = fitted(WITH_TRACE, withSidebar);
+    const box = placed(WITH_TRACE, fit);
+    expect(inside(box, panelOf(withSidebar))).toBe(true);
+    expect(inside(DFA_PART(fit), panelOf(withSidebar))).toBe(true);
+    if (fit.stage !== 'plain') {
+      const { tiles } = boardObstructions(withSidebar);
+      expect(tiles.some((tile) => overlaps(box, tile))).toBe(false);
+    }
+  });
+});
+
 describe('floating tiles', () => {
   // The session's tiles as they report themselves, in window px (FloatingTile).
   const BOARD = boardOnly(1440, 900);

@@ -182,7 +182,10 @@ export function reduceBoard(scene: BoardScene, action: BoardAction): BoardResult
         on,
         verdict: null,
       };
-      return changed(scene, { items: put(items, trace), focus: trace.id }, problem);
+      // The camera frames the whole board while she traces (focus null: everything placed), so
+      // the automaton the token moves on, the tape and her notes all stay in view; framing the
+      // card alone would cut the automaton off. The steps change nothing here, so they keep it.
+      return changed(scene, { items: put(items, trace), focus: null }, problem);
     }
 
     case 'board.traceStep': {

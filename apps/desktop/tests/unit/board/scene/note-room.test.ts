@@ -3,7 +3,10 @@
 // an item with no room to its right goes below it, or left of it when something is below.
 import type { BoardAction, DiagramSpec } from '@tassel/shared/beats';
 import { describe, expect, it } from 'vitest';
-import { fallbackDiagramLayout } from '../../../../src/renderer/src/board/layout/fallback';
+import {
+  fallbackDiagramLayout,
+  fallbackLayout,
+} from '../../../../src/renderer/src/board/layout/fallback';
 import type { DiagramLayout } from '../../../../src/renderer/src/board/layout/types';
 import { diagramSizes } from '../../../../src/renderer/src/board/scene/diagram';
 import {
@@ -19,7 +22,7 @@ import {
 } from '../../../../src/renderer/src/board/scene/placement';
 import { EMPTY_SCENE, reduceBoard } from '../../../../src/renderer/src/board/scene/reduce';
 import type { BoardScene } from '../../../../src/renderer/src/board/scene/types';
-import { FLOW, NETWORK } from '../fixtures';
+import { CORRECT, FLOW, NETWORK } from '../fixtures';
 
 const measure: MeasureText = (text) => ({ w: [...text].length * 8, h: 16 });
 const text: BoardText = { measure, t: (key) => key };
@@ -83,6 +86,22 @@ describe('focusBox', () => {
     const boxes = placeItems(board, { net: laid(NETWORK) }, text);
     expect(focusBox(board, boxes, null)).toEqual(union(boxes.net, boxes.hosts));
     expect(focusBox(board, {}, 'net')).toBeUndefined();
+  });
+
+  it('frames the automaton, its notes and the tape while a trace runs, never the card alone', () => {
+    const board = scene(
+      { kind: 'board.automaton', item: 'fix', spec: CORRECT },
+      { kind: 'board.note', item: 'why', text: 'qd is the dead state.', near: { item: 'fix', el: 'state:qd' } },
+      { kind: 'board.trace', item: 'run', spec: CORRECT, input: '0100', on: 'fix' },
+      { kind: 'board.traceStep', item: 'run' },
+    );
+    const boxes = placeItems(board, { fix: fallbackLayout(CORRECT) }, text);
+    expect(board.focus).toBeNull();
+    const framed = focusBox(board, boxes, board.focus);
+    expect(framed).toEqual(union(boxes.fix, boxes.why, boxes.run));
+    // The card is below the automaton, so framing it alone would cut the automaton off.
+    expect(boxes.run.y).toBeGreaterThanOrEqual(boxes.fix.y + boxes.fix.h);
+    expect(framed).not.toEqual(focusBox(board, boxes, 'run'));
   });
 });
 
