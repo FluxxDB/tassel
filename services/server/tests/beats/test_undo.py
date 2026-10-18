@@ -54,6 +54,25 @@ def test_undo_walks_back_turn_by_turn_and_then_does_nothing():
     assert turn(ctx, "[[undo]]") == []
 
 
+def test_redo_puts_back_what_undo_took_and_a_new_drawing_ends_it():
+    # Live test 2de450e6: "Add the PCs back, please" after an undo had nothing to go on.
+    ctx = BoardContext()
+    turn(ctx, A)
+    turn(ctx, B)
+    turn(ctx, "[[undo]]")
+    assert ctx.redo_items() == ["b"]
+    [back] = turn(ctx, "[[redo]]")
+    assert isinstance(back, BoardAutomaton) and back.item == "b"
+    assert set(ctx.specs) == {"a", "b"}
+    assert turn(ctx, "[[redo]]") == []
+    # And it can be undone again.
+    assert turn(ctx, "[[undo]]") == [BoardClear(kind="board.clear", item="b")]
+    # A new drawing turn ends the redo.
+    turn(ctx, A2)
+    assert ctx.redo_items() == []
+    assert turn(ctx, "[[redo]]") == []
+
+
 def test_a_turn_that_draws_nothing_is_no_step_in_the_history():
     ctx = BoardContext()
     turn(ctx, A)

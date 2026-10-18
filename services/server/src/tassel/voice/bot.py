@@ -256,6 +256,9 @@ class _TurnContext(FrameProcessor):
                 for k, v in {**self.board.specs, **self.board.diagrams}.items()
             }
         )
+        if redo := self.board.redo_items():
+            # "Add them back" after an undo: [[redo]] restores these.
+            items["[[redo]] would restore"] = redo
         return items
 
     async def speech_started(self) -> None:

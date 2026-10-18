@@ -368,7 +368,10 @@ class TutorCoordinator:
                 # The brief said it would draw but carried nothing to draw (live test: "I'll add
                 # two PCs in each zone", then nothing): the Illustrator draws her request itself.
                 self.log("draw_fallback", text=self.text)
-                brief = brief.model_copy(update={"draw": self.text})
+                # Her words and the brief's own plan: "add the PCs back" alone told the
+                # Illustrator nothing about which PCs (2de450e6).
+                intent = f"{brief.say} (She asked: {self.text})" if brief.say else self.text
+                brief = brief.model_copy(update={"draw": intent})
             if brief.draw and (
                 decision.action == "draw_board"
                 or (decision.action in ("explain", "trace") and decision.refers_to == "board")
@@ -399,6 +402,10 @@ class TutorCoordinator:
             if result is None or generation != self.generation:
                 return None
             item, spec = result
+            if self.board.diagrams.get(item) == spec:
+                # The same diagram again changes nothing: not "Here it is." (2de450e6).
+                self.log("reject", source="illustrator", reason="unchanged")
+                return None
             self.board.pending_diagrams[item] = spec
             self.log(
                 "illustrator_brief",

@@ -88,6 +88,10 @@ defined automaton MACHINE, like [[trace t yours 010 student]] (no word "ON").
 [[focus [ITEM]]] focuses an item, or all items.
 [[clear [ITEM]]] clears an item, or the board: a bare [[clear]] only when she asks for everything.
 [[undo]] takes back your last drawing turn: what it added goes, what it changed comes back.
+[[redo]] puts back what your last [[undo]] took ("put it back" after an undo);
+after a clear, use [[undo]].
+Network diagrams, flowcharts and trees change only through the brief's draw field: the
+Illustrator edits the same item. [[add]], [[edge]] and [[node]]-style tags are for automata only.
 [[stage paper|board|split]] changes the shared view with the next words.
 [[circle EL]] circles a paper mark.
 [[wash EL]] softly shades a paper mark.
@@ -235,7 +239,9 @@ def thinker_system_prompt(schema: dict) -> str:
     import json
 
     return (
-        "You are Ada's background thinker, never a speaking assistant. Return only a JSON "
+        "You are Ada's background thinker, never a speaking assistant. "
+        "Never promise a later action (\"I'll look again\", \"let me check\"): do it now with "
+        "tags, or say plainly what you can't do. Return only a JSON "
         "guidance brief matching this schema:\n" + json.dumps(schema) + "\n"
         "Be brief: the student is waiting. page at most 30 words, diagnosis one sentence, "
         "plan at most 2 steps, followups at most 2 short lines, say one or two short "

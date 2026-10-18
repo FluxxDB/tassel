@@ -89,6 +89,11 @@ class BoardContext:
         default_factory=list
     )
     _turn_start: tuple[dict[str, AutomatonSpec], dict[str, DiagramSpec]] | None = None
+    # What [[undo]] took away, newest last, for [[redo]]; a new drawing turn clears it.
+    redo_stack: list[tuple[dict[str, AutomatonSpec], dict[str, DiagramSpec]]] = field(
+        default_factory=list
+    )
+    _stepped: bool = False
 
     def _state(self) -> tuple[dict[str, AutomatonSpec], dict[str, DiagramSpec]]:
         return deepcopy(self.specs), deepcopy(self.diagrams)
@@ -96,19 +101,46 @@ class BoardContext:
     def begin_turn(self) -> None:
         """One of her replies begins: remember the board as it is."""
         self._turn_start = self._state()
+        self._stepped = False
 
     def end_turn(self) -> None:
-        """Her reply ended: a reply that changed the board is a step [[undo]] can take back."""
+        """Her reply ended: a reply that changed the board is a step [[undo]] can take back, and
+        a new drawing (not an undo or redo) ends what [[redo]] could put back."""
         start, self._turn_start = self._turn_start, None
         if start is not None and start != (self.specs, self.diagrams):
             self.history = [*self.history[-(UNDO_DEPTH - 1) :], start]
+            if not self._stepped:
+                self.redo_stack.clear()
 
     def undo(self) -> list[BeatAction]:
         """The actions that put back the board as it was before her last drawing turn: what it
         added is cleared, what it changed or cleared is drawn again whole."""
         if not self.history:
             return []
-        specs, diagrams = self.history.pop()
+        self.redo_stack.append(self._state())
+        return self._restore(self.history.pop())
+
+    def redo(self) -> list[BeatAction]:
+        """The actions that put back what her last [[undo]] took away."""
+        if not self.redo_stack:
+            return []
+        self.history = [*self.history[-(UNDO_DEPTH - 1) :], self._state()]
+        return self._restore(self.redo_stack.pop())
+
+    def redo_items(self) -> list[str]:
+        """The items [[redo]] would change, for the thinker's Board items."""
+        if not self.redo_stack:
+            return []
+        specs, diagrams = self.redo_stack[-1]
+        return sorted(
+            item
+            for item in {*specs, *diagrams, *self.specs, *self.diagrams}
+            if specs.get(item) != self.specs.get(item)
+            or diagrams.get(item) != self.diagrams.get(item)
+        )
+
+    def _restore(self, state) -> list[BeatAction]:
+        specs, diagrams = state
         actions: list[BeatAction] = [
             _make(BoardClear, item=item)
             for item in [*self.specs, *self.diagrams]
@@ -121,8 +153,9 @@ class BoardContext:
             if self.diagrams.get(item) != diagram:
                 actions.append(_make(BoardDiagram, item=item, spec=diagram, reveal="all"))
         self.specs, self.diagrams = deepcopy(specs), deepcopy(diagrams)
+        self._stepped = True
         if self._turn_start is not None:
-            # The undo isn't a step of its own: what else this reply draws is.
+            # The step isn't one of its own: what else this reply draws is.
             self._turn_start = self._state()
         return actions
 
@@ -193,9 +226,10 @@ class MarkupStream:
             if closing >= 0:
                 raw = self._pending[: closing + 2]
                 self._pending = self._pending[closing + 2 :]
-                if raw[2:-2].strip().lower() == "undo":
-                    # One tag, as many actions as the last drawing turn changed items.
-                    for action in self._ctx.undo():
+                step = raw[2:-2].strip().lower()
+                if step in ("undo", "redo"):
+                    # One tag, as many actions as the step changes items.
+                    for action in self._ctx.undo() if step == "undo" else self._ctx.redo():
                         self._add(_Tag(raw, action, None))
                 else:
                     self._add(self._tag(raw))

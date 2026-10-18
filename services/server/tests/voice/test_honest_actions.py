@@ -61,7 +61,9 @@ async def test_a_draw_turn_with_nothing_to_draw_asks_the_illustrator():
     )
     await c.prepare(LLMContext([{"role": "user", "content": request}]), request, decision=DRAW)
     words = await spoken(c)
-    assert illustrator.intents == [request]
+    # Her words, with the brief's own plan: the Illustrator knows what to change.
+    [intent] = illustrator.intents
+    assert request in intent and "I'll add two PCs in each zone." in intent
     # Nothing came back to draw, so she says so instead of implying it's there.
     assert "couldn't" in words.lower()
     await c.close()
@@ -117,3 +119,42 @@ async def test_tutor_notes_never_carry_her_last_words_or_tags():
     assert said not in notes[0] and "[[" not in notes[0]
     assert "already done" in notes[0].lower() and "board" in notes[0].lower()
     await c.close()
+
+
+@pytest.mark.asyncio
+async def test_an_unchanged_redraw_is_not_a_drawing():
+    """Live test 2de450e6: "add the PCs back" came back as the same diagram, and Ada said
+    "Here it is." The same spec again is "couldn't draw"."""
+    from test_illustrator import SPEC
+
+    from tassel.beats.models import DiagramSpec
+
+    board = BoardContext()
+
+    class Same:
+        async def draw(self, intent, board_copy, lang):
+            return "net", DiagramSpec.model_validate(SPEC)
+
+        async def close(self):
+            pass
+
+    board.diagrams["net"] = DiagramSpec.model_validate(SPEC)
+    c = TutorCoordinator(
+        Thinker(brief().model_copy(update={"say": "I'll add the PCs back."})),
+        board,
+        illustrator=Same(),
+    )
+    request = "Add the PCs back, please."
+    await c.prepare(LLMContext([{"role": "user", "content": request}]), request, decision=DRAW)
+    words = await spoken(c)
+    assert "couldn't" in words.lower() and "Here it is" not in words
+    await c.close()
+
+
+def test_the_thinker_never_promises_and_edits_diagrams_through_draw():
+    from tassel.voice.prompts import BOARD_RULES, thinker_system_prompt
+
+    prompt = thinker_system_prompt({})
+    assert "Never promise" in prompt
+    assert "only through the brief's draw field" in BOARD_RULES
+    assert "[[redo]]" in BOARD_RULES
