@@ -10,6 +10,7 @@ import copy
 import json
 import time
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 from uuid import uuid4
 
 from loguru import logger
@@ -74,15 +75,28 @@ class _Recorder(FrameProcessor):
 
 
 class _NoMemory:
-    """No learner memory: the eval's learner is new, and no database is needed."""
+    """No learner memory: the eval's learner is new, and no database is needed. With a memory
+    document (tassel.evals.isolation: the preferences extracted from an earlier session), the
+    learner memory reads as that document and nothing else."""
 
-    async def get(self, *args, **kwargs):
+    def __init__(self, memory: str | None = None):
+        self.memory = memory
+
+    async def get(self, model, *args, **kwargs):
+        if self.memory is not None and getattr(model, "__tablename__", "") == "learner_memory":
+            return SimpleNamespace(enabled=True, content=self.memory, revision=1)
         return None
 
 
-@asynccontextmanager
-async def _no_db():
-    yield _NoMemory()
+def _seeded_db(memory: str | None):
+    @asynccontextmanager
+    async def sessions():
+        yield _NoMemory(memory)
+
+    return sessions
+
+
+_no_db = _seeded_db(None)
 
 
 class _FixtureChat:
@@ -173,9 +187,11 @@ class PipelineSession:
         quiet_s: float = 1.0,
         turn_timeout_s: float = 90.0,
         start_timeout_s: float = 20.0,
+        memory: str | None = None,
     ):
         self.scenario, self.settings = scenario, settings
         self.pointer_effort = pointer_effort
+        self.memory = memory
         self.quiet_s, self.turn_timeout_s, self.start_timeout_s = (
             quiet_s,
             turn_timeout_s,
@@ -208,7 +224,7 @@ class PipelineSession:
             request=OfferRequestData(scenario=scenario.fake_script),
             settings=self.settings,
             memory=memory,
-            sessions=_no_db,
+            sessions=_seeded_db(self.memory),
             turn_image=self._turn_image if scenario.has_pages else None,
             board=self.board,
             board_actions=seed_actions(scenario),
