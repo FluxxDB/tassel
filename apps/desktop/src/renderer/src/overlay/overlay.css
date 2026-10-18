@@ -11,6 +11,7 @@ html[data-overlay] #root {
   color: var(--color-ink);
 }
 .overlay-bar {
+  -webkit-app-region: drag;
   width: 100%;
   border: 1px solid var(--color-hairline);
   border-radius: 24px;
@@ -241,4 +242,10 @@ html[data-overlay] #root {
 }
 .overlay-controls > button {
   white-space: nowrap;
+}
+
+/* Keep native dragging on the bar while controls and caption scrolling stay interactive. */
+.overlay-bar button,
+.overlay-caption p {
+  -webkit-app-region: no-drag;
 }

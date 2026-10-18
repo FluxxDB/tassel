@@ -159,6 +159,7 @@ async def activity(
         ):
             raise HTTPException(409, "Obsolete screen activity")
         # Pausing capture is independent of cancelling a spoken response.
+        screen.activity_version += 1
         screen.active = body.active
         screen.revision = body.revision
         screen.frame = None

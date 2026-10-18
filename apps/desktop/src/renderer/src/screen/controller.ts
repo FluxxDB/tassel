@@ -44,6 +44,8 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
     let previousMarks: ScreenMark[] = [];
     let cameraWasOn = false;
     let lastFrameId = '';
+    // Explicit pause/resume invalidates pending artwork; ordinary screen motion does not.
+    let artworkMinRevision = 0;
     let resetPending = false;
     let presentationVersion = 0;
     let preparing = false;
@@ -455,6 +457,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         cameraWasOn = useStageStore.getState().cameraOn;
         useStageStore.setState({ cameraOn: false });
         session.start(`${selected.id}:${crypto.randomUUID()}`);
+        artworkMinRevision = 0;
         set({ selected, stream, status: 'sharing', marks: [], placements: {}, draw: false });
         stream.getVideoTracks()[0]?.addEventListener('ended', () => void stop(), { once: true });
         await reset();
@@ -483,6 +486,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
       pause: async () => {
         const paused = get().status === 'paused';
         session.invalidate();
+        artworkMinRevision = session.identity().revision;
         lastFrameId = '';
         uploadAbort?.abort();
         set({ status: paused ? 'sharing' : 'paused', draw: false, notice: '' });
@@ -549,6 +553,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
       if (!value || typeof value !== 'object') return;
       const message = value as ScreenIdentity & {
         frame_id?: string;
+        positioning?: 'snapshot';
         marks?: ScreenMark[];
         request_id?: string;
         edit?: unknown;
@@ -588,8 +593,13 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
       if (
         !message.edit &&
         (get().status !== 'sharing' ||
-          !session.accepts(message) ||
-          message.frame_id !== lastFrameId)
+          (message.positioning === 'snapshot'
+            ? !Number.isSafeInteger(message.revision) ||
+              message.revision < artworkMinRevision ||
+              message.revision > identity.revision ||
+              typeof message.frame_id !== 'string' ||
+              !message.frame_id
+            : !session.accepts(message) || message.frame_id !== lastFrameId))
       ) {
         await reply(false, 'screen-frame-changed');
         return;
@@ -663,7 +673,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         await reply(false, 'invalid-marks');
         return;
       }
-      for (const mark of message.marks) session.add({ ...mark, author: 'tutor' }, message);
+      for (const mark of message.marks) session.add({ ...mark, author: 'tutor' }, identity);
       console.info('[screen-timing]', {
         frameId: message.frame_id,
         stage: 'marks-received',

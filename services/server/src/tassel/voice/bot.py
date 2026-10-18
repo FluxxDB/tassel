@@ -244,6 +244,8 @@ class _TurnContext(FrameProcessor):
         self.pending_image = None
         self.screen: ScreenSession | None = None
         self.screen_frame_id: str | None = None
+        self.screen_frame = None
+        self.screen_activity_version = 0
         self.on_screen_turn = None
         self.default_tools = None
         self.director = Director()
@@ -303,6 +305,7 @@ class _TurnContext(FrameProcessor):
         means no image, never a failed turn."""
         if self.screen and self.screen.source and self.screen.source != "paper":
             self.screen_frame_id = None
+            self.screen_frame = None
             screen = self.screen
             since = datetime.now(UTC)
             if screen.active:
@@ -331,6 +334,8 @@ class _TurnContext(FrameProcessor):
             self.board.paper_elements = None
             self.board.paper_spec = None
             self.screen_frame_id = frame.id
+            self.screen_frame = frame
+            self.screen_activity_version = screen.activity_version
             width, height = jpeg_dimensions(frame.image)
             return TurnPage(
                 frame.image,
@@ -397,6 +402,7 @@ class _TurnContext(FrameProcessor):
                 and not is_note(user["content"])
             ):
                 self.screen_frame_id = None
+                self.screen_frame = None
                 previous_user, self._last_user = self._last_user, user
                 # Flux can split one question into two turns ("What's wrong with my DFA?" then
                 # "on your whiteboard."); new fragments reach the director together. Already
@@ -876,7 +882,11 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
                 "Keep tool and rendering instructions out of speech; explain the student's task. "
                 "Use edit_screen to list/remove/clear/move/recolor persistent "
                 "objects without requiring "
-                "their visibility this turn. Perform the tool call first, then wait for ok=true "
+                "their visibility this turn. New artwork uses this request's saved screenshot; "
+                "later screen changes do not "
+                "cancel it. A retry requires another tool call, never just a spoken promise. "
+                "Do not invent frame glitches or claim the screen is stable. "
+                "Perform the tool call first, then wait for ok=true "
                 "before saying the drawing/edit is visible or finished. On failure, be clear "
                 "that it has not appeared; do not describe a proposed drawing as displayed."
             )
@@ -1244,9 +1254,15 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
             request = params.arguments.get("request")
             if not isinstance(request, str) or not request.strip() or len(request) > 2000:
                 raise ValueError("Supply the drawing request in plain language")
-            if not current_screen(frame_id):
+            frame = turn_context.screen_frame
+            activity_version = turn_context.screen_activity_version
+            if (
+                not frame
+                or frame.id != frame_id
+                or not screen.matches(frame.source, frame.epoch)
+                or activity_version != screen.activity_version
+            ):
                 raise ValueError("A current delivered screen frame is required")
-            frame = screen.frame
             coordinator = turn_context.coordinator
             if coordinator.illustrator is None:
                 coordinator.illustrator = Illustrator(ctx.settings, log=coordinator.log)
@@ -1262,16 +1278,20 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
                     "duration_ms": round((time.monotonic() - started) * 1000),
                 },
             )
-            if not current_screen(frame_id) or screen.frame is not frame:
-                raise ValueError(
-                    "The screen changed while the drawing was generated; nothing was applied"
-                )
+            if (
+                not screen.matches(frame.source, frame.epoch)
+                or activity_version != screen.activity_version
+            ):
+                raise ValueError("Drawing cancelled because screen sharing was paused or reset")
             if "marks" in drawing:
                 drawing["marks"] = [
                     {**mark, "id": str(uuid4()), "author": "tutor"} for mark in drawing["marks"]
                 ]
             ok = await deliver(
-                screen, worker.rtvi.send_server_message, {"frame_id": frame_id, **drawing}
+                screen,
+                worker.rtvi.send_server_message,
+                {"frame_id": frame_id, "positioning": "snapshot", **drawing},
+                frame=frame,
             )
             if ok and "board" in drawing:
                 action = drawing["board"]["action"]
@@ -1305,6 +1325,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
 
         async def reset_screen():
             turn_context.screen_frame_id = None
+            turn_context.screen_frame = None
             turn_context.pending_image = None
             turn_context.board.paper_frame = None
             turn_context.board.paper_elements = None

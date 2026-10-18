@@ -210,6 +210,26 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
     const dir = join(__dirname, '../../test-results/screens');
     mkdirSync(dir, { recursive: true });
     await hud.screenshot({ path: join(dir, 'screen-overlay.png') });
+    expect(
+      await hud
+        .locator('.overlay-bar')
+        .evaluate((el) => getComputedStyle(el).getPropertyValue('-webkit-app-region')),
+    ).toBe('drag');
+    expect(
+      await hud
+        .locator('.overlay-controls button')
+        .first()
+        .evaluate((el) => getComputedStyle(el).getPropertyValue('-webkit-app-region')),
+    ).toBe('no-drag');
+    const home = await app.evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows().find((w) =>
+        w.webContents.getURL().endsWith('#overlay-hud'),
+      );
+      if (!window) throw new Error('No HUD');
+      const bounds = window.getBounds();
+      window.setPosition(bounds.x + 60, bounds.y - 90);
+      return bounds;
+    });
     await hud.getByRole('button', { name: 'Open Tassel', exact: true }).click();
     await expect
       .poll(() =>
@@ -225,6 +245,15 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
       .getByRole('button', { name: 'Minimize to overlay', exact: true })
       .click();
     await expect(hud.getByTestId('screen-overlay')).toBeVisible();
+    await expect
+      .poll(() =>
+        app.evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows()
+            .find((w) => w.webContents.getURL().endsWith('#overlay-hud'))
+            ?.getBounds(),
+        ),
+      )
+      .toEqual(home);
     // Exercise tutor geometry in the real shared whiteboard canvas, including non-square and portrait displays.
     for (const [width, height] of [
       [1280, 720],

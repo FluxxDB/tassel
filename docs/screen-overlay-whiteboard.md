@@ -38,11 +38,12 @@ native overlay. Existing structured item specifications stay in screen context.
 
 `edit_screen` lists, removes, moves, recolors or clears existing objects. Edits do
 not need a fresh screenshot and remain available while capture is paused or an
-image request fails. New drawings still require a current delivered frame. Tool
+image request fails. New drawings use the screenshot delivered for their request. Tool
 success waits for an acknowledgement that the session owner applied the command;
 reset invalidates pending acknowledgements. Batches validate before mutation.
 
-Scrolling invalidates pending drawing coordinates without clearing existing ink.
+Scrolling invalidates pending target annotations without clearing existing ink. Independent
+artwork finishes against its request snapshot even when later captures or viewport changes arrive.
 Capture does not hide ink. Optimistic student strokes stay visible until the
 owner confirms them or acknowledges rejection; unrelated caption updates do not
 remove them. Native focus and mouse interception change when drawing mode changes,
@@ -108,11 +109,36 @@ rejected without guessing missing geometry. Screen tool calls have a separate
 minimum output allowance. New artwork now uses short plain-language tool arguments,
 with the shared Astra illustrator generating validated geometry from the screenshot.
 Drawing generation allows 8192 completion tokens and a bounded 30-second deadline.
-The current frame is checked again after generation, before delivery; completion
-claims still require desktop acknowledgement. Screen generation logs its model and
+The request snapshot is retained during generation. Source/session and explicit pause/reset
+cancellation are checked before delivery; completion claims still require desktop acknowledgement. Screen generation logs its model and
 elapsed time. Rendering guidance stays out of spoken explanations.
 
 Regression checks cover native and JSON-encoded arguments, truncation, request token
 budgets, Astra routing for regular diagrams and DFAs, screenshot-aware mixed shapes,
 acknowledgement gating and stale-frame rejection. The synthetic Electron flow also
 renders freehand, rectangle and text artwork at multiple display aspect ratios.
+
+
+## Request snapshots and movable overlay
+
+New artwork retains the turn's screenshot in ephemeral memory, with its original source,
+epoch and viewport revision. New captures and scrolling do not discard it. Placement remains
+at the normalized screen position chosen from that snapshot; it does not track page scrolling.
+Target annotations keep strict viewport/frame checks. Reset, source changes, stop and pause
+still reject obsolete artwork, including results arriving after sharing resumes. Existing
+objects remain editable without a screenshot. The tutor must invoke a tool to retry and must
+wait for desktop acknowledgement before claiming completion.
+
+The HUD bar is a native drag region, with buttons and caption scrolling excluded. Its reverse
+transition starts at its current dragged position and retains the existing animation timings.
+Every collapse from the regular window targets the standard centered position above the
+selected display's work-area bottom, regardless of where the HUD was dragged previously.
+
+
+Validation for request snapshots: 54 targeted server tests and 14 desktop unit tests passed.
+The synthetic Electron overlay flow passed with drag-region checks, moved HUD restoration,
+and standard-position recollapse. Desktop main/renderer/test typechecks, changed-file lint,
+and the desktop production build passed. New regression cases cover capture replacement,
+scrolling during generation, reset and pause cancellation, and post-resume rejection of
+pre-pause artwork. These checks use synthetic images/providers; real-provider drawing
+quality and the subjective smoothness of physical window animation remain live checks.

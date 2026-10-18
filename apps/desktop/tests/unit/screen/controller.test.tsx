@@ -262,6 +262,40 @@ it('uploads a JPEG for a server-requested screen turn through the live HTTP path
       request_id: 'dfa',
       ok: true,
     });
+    // A later capture must not discard artwork generated from the request's snapshot.
+    await act(async () => {
+      await requestScreenTurn();
+    });
+    await act(async () =>
+      acceptScreenMarks({
+        ...identity,
+        frame_id: query.get('frame_id'),
+        positioning: 'snapshot',
+        request_id: 'snapshot-circle',
+        marks: [{ ...circle, id: 'snapshot-circle' }],
+      }),
+    );
+    expect(useScreen.getState().marks.map((mark) => mark.id)).toContain('snapshot-circle');
+    await act(async () =>
+      acceptScreenMarks({
+        ...identity,
+        request_id: 'remove-snapshot',
+        edit: { operation: 'remove', ids: ['snapshot-circle'] },
+      }),
+    );
+    await act(async () => screenActions()?.pause());
+    await act(async () => screenActions()?.pause());
+    // Resuming does not revive jobs that predate the pause.
+    await act(async () =>
+      acceptScreenMarks({
+        ...identity,
+        frame_id: query.get('frame_id'),
+        positioning: 'snapshot',
+        request_id: 'cancelled-snapshot',
+        marks: [{ ...circle, id: 'cancelled-snapshot' }],
+      }),
+    );
+    expect(useScreen.getState().marks.map((mark) => mark.id)).not.toContain('cancelled-snapshot');
     await act(async () => screenActions()?.pause());
     // Removal requires neither a current frame nor a current viewport revision.
     await act(async () =>

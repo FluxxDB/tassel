@@ -731,7 +731,9 @@ async def test_screen_board_tool_delivers_checked_action_and_explains_unconfirme
         assert diagnostic["result"] == result
 
 
-@pytest.mark.parametrize("kind", ["illustration", "board", "stale"])
+@pytest.mark.parametrize(
+    "kind", ["illustration", "board", "stale", "new_frame", "scroll", "paused"]
+)
 async def test_screen_artwork_uses_astra_and_waits_for_desktop_ack(monkeypatch, kind):
     import json
     from datetime import UTC, datetime
@@ -775,7 +777,20 @@ async def test_screen_artwork_uses_astra_and_waits_for_desktop_ack(monkeypatch, 
 
     async def generate(**request):
         if kind == "stale":
-            screen.frame = None
+            screen.control(source="synthetic", epoch=2, active=True)
+        elif kind == "paused":
+            screen.activity_version += 1
+        elif kind in ("new_frame", "scroll"):
+            screen.put(
+                ScreenFrame(
+                    "new-frame",
+                    "synthetic",
+                    1,
+                    int(kind == "scroll"),
+                    datetime.now(UTC),
+                    b"new-jpeg",
+                )
+            )
         return SimpleNamespace(
             choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps(drawing)))]
         )
@@ -786,6 +801,7 @@ async def test_screen_artwork_uses_astra_and_waits_for_desktop_ack(monkeypatch, 
     )
     async with running(ctx) as (bot, _out):
         bot._turn_context.screen_frame_id = "frame"
+        bot._turn_context.screen_frame = screen.frame
         bot._turn_context.coordinator.illustrator = Illustrator(ctx.settings, client=client)
         sent = []
 
@@ -803,17 +819,20 @@ async def test_screen_artwork_uses_astra_and_waits_for_desktop_ack(monkeypatch, 
                 )
             )
         )
-        if kind != "stale":
+        if kind not in ("stale", "paused"):
             await until(lambda: bool(sent))
             callback.assert_not_called()
             screen.pending[sent[0]["request_id"]].set_result(True)
         await task
         assert create.call_args.kwargs["model"] == "gpt-6-astra"
-        assert callback.call_args.args[0]["ok"] is (kind != "stale")
-        if kind == "stale":
+        assert callback.call_args.args[0]["ok"] is (kind not in ("stale", "paused"))
+        if kind in ("stale", "paused"):
             assert not sent
         elif kind == "board":
             assert screen.board_items["dfa1"]["kind"] == "board.automaton"
         else:
             assert [mark["kind"] for mark in sent[0]["marks"]] == ["freehand", "rectangle", "text"]
             assert all(mark["color"] == "violet" for mark in sent[0]["marks"])
+            assert sent[0]["frame_id"] == "frame"
+            assert sent[0]["revision"] == 0
+            assert sent[0]["positioning"] == "snapshot"

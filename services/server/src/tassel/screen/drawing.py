@@ -121,10 +121,13 @@ def checked_edit(arguments, objects):
     raise ValueError("Invalid edit")
 
 
-async def deliver(screen, send, payload):
+async def deliver(screen, send, payload, *, frame=None):
     """An applied owner acknowledgement is required before the tutor reports success."""
     request_id = str(uuid4())
-    epoch, source = screen.epoch, screen.source
+    epoch, source = (frame.epoch, frame.source) if frame else (screen.epoch, screen.source)
+    activity_version = screen.activity_version
+    if frame and not screen.matches(source, epoch):
+        return False
     future = asyncio.get_running_loop().create_future()
     screen.pending[request_id] = future
     try:
@@ -134,7 +137,7 @@ async def deliver(screen, send, payload):
                     "kind": "screen-marks",
                     "source": source,
                     "epoch": epoch,
-                    "revision": screen.revision,
+                    "revision": frame.revision if frame else screen.revision,
                     "request_id": request_id,
                     **payload,
                 }
@@ -142,7 +145,12 @@ async def deliver(screen, send, payload):
         )
         async with asyncio.timeout(8):
             ok = await future
-        return bool(ok and epoch == screen.epoch and source == screen.source)
+        return bool(
+            ok
+            and epoch == screen.epoch
+            and source == screen.source
+            and activity_version == screen.activity_version
+        )
     except TimeoutError:
         return False
     finally:
