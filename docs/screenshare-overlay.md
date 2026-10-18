@@ -71,3 +71,22 @@ Real Electron acceptance now verifies tutor ellipse and underline positions in l
 and portrait viewports. This confirms the renderer's normalized projection, independently
 of model localization. Synthetic tests cannot establish how accurately the live model
 locates a particular question on the owner's display; that still needs a live retest.
+
+## Stale-request review (2026-10-18)
+
+An interrupted response can leave consecutive user messages without an assistant message
+between them. Request assembly previously concatenated all of them, including requests
+already processed. It now stops at the last processed user message, initializes that boundary
+from reconnect history, and explicitly identifies the current request to the speaking model.
+Fresh adjacent transcript fragments still join, and historical messages remain available.
+
+Screen reset also clears interrupted-task tutor notes and replaces its prior reset instruction
+instead of accumulating copies. Regressions reproduce the Hypershot request being prepended
+to a later unrelated question, verify reconnect behavior, and exercise note cleanup through
+the voice pipeline.
+
+Validation for this review: 563 voice/screen server tests passed, one skipped; nine desktop
+screen unit tests passed under bundled Node 24; desktop build and typechecks passed; the
+synthetic-screen Electron acceptance test passed. Test-area registration, Ruff, Biome for
+the changed acceptance spec, and diff whitespace checks passed. The server suite emitted
+SDK deprecation warnings and an aioice shutdown task exception after its passing tests.

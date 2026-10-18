@@ -358,12 +358,13 @@ class _TurnContext(FrameProcessor):
                 and not is_note(user["content"])
             ):
                 self.screen_frame_id = None
-                self._last_user = user
+                previous_user, self._last_user = self._last_user, user
                 # Flux can split one question into two turns ("What's wrong with my DFA?" then
-                # "on your whiteboard."); unanswered fragments reach the director together.
+                # "on your whiteboard."); new fragments reach the director together. Already
+                # processed requests stay history even if interruption left no assistant reply.
                 fragments = []
                 for message in reversed(messages):
-                    if message.get("role") == "assistant":
+                    if message is previous_user or message.get("role") == "assistant":
                         break
                     content = message.get("content")
                     if message.get("role") == "user" and isinstance(content, str):
@@ -462,7 +463,11 @@ class _TurnContext(FrameProcessor):
                         + self.decision.model_dump_json()
                         + " Board items: "
                         + json.dumps(self._board_items())
-                        + " Follow this decision. Do not reconfirm clear intent. "
+                        + " Current student request: "
+                        + json.dumps(student_text, ensure_ascii=False)
+                        + ". Answer this request; earlier unanswered requests are history, "
+                        "not tasks to resume unless the student asks. "
+                        "Follow this decision. Do not reconfirm clear intent. "
                         "Do not choose views.",
                     }
                 )
@@ -784,6 +789,10 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         ),
     )
     turn_context = _TurnContext(ctx.session_id, ctx.turn_image)
+    # Recalled requests are history, including any interrupted before an assistant reply.
+    turn_context._last_user = next(
+        (m for m in reversed(context.get_messages()) if m.get("role") == "user"), None
+    )
     turn_context.screen = ctx.screen
     turn_context.default_tools = tools if tools_ok else None
 
@@ -1094,7 +1103,18 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
             turn_context.board.paper_spec = None
             if turn_context.coordinator:
                 await turn_context.coordinator.cancel()
-            _drop_images(context.get_messages())
+                turn_context.coordinator.forget_notes()
+            messages = context.get_messages()
+            messages[:] = [
+                m
+                for m in messages
+                if not (
+                    m.get("role") == "system"
+                    and isinstance(m.get("content"), str)
+                    and m["content"].startswith("[screen reset]")
+                )
+            ]
+            _drop_images(messages)
             context.get_messages().append(
                 {
                     "role": "system",

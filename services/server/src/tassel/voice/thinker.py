@@ -225,6 +225,14 @@ class TutorCoordinator:
             await asyncio.gather(*tasks, return_exceptions=True)
         self.diagram_delivered = False
 
+    def forget_notes(self):
+        """An explicit reset ends the old task, including its pending follow-up guidance."""
+        self.notes.clear()
+        self.ink = None
+        self.expires = 0
+        self.page_image, self.page_caption = None, ""
+        self._notes_context()
+
     def _notes_context(self):
         if self.context is None:
             return
