@@ -24,7 +24,7 @@
     "loading": "Cargando sesiones…",
     "empty": {
       "title": "Todavía no hay sesiones",
-      "body": "Empieza una sesión y resuelve un problema con Ada. Tus sesiones aparecerán aquí."
+      "body": "Empieza una sesión y resuelve un problema con {tutorName}. Tus sesiones aparecerán aquí."
     },
     "noResults": {
       "title": "Ninguna sesión coincide con \"{query}\"",
@@ -69,7 +69,7 @@
   },
   "session": {
     "untitled": "Sesión sin título",
-    "tutorName": "Ada",
+    "tutorName": "{tutorName}",
     "you": "Tú",
     "loadError": "No se pudo cargar esta sesión",
     "timer": "Tiempo transcurrido: {elapsed}",
@@ -118,11 +118,11 @@
       }
     },
     "board": {
-      "tag": "La pizarra de Ada"
+      "tag": "La pizarra de {tutorName}"
     },
     "pin": {
       "label": "Fijado · {view}",
-      "adaAsks": "Ada pide: {view}",
+      "adaAsks": "{tutorName} pide: {view}",
       "unpin": "Soltar"
     },
     "dock": {
@@ -133,7 +133,7 @@
       "share": "Compartir pantalla",
       "shareLater": "Compartir pantalla llegará más adelante",
       "board": "Pizarra",
-      "boardFollow": "Pizarra: siguiendo a Ada",
+      "boardFollow": "Pizarra: siguiendo a {tutorName}",
       "boardPinned": "Pizarra: {view}, fijada",
       "captions": "Subtítulos",
       "end": "Terminar sesión",
@@ -145,7 +145,7 @@
       "cancel": "Seguir"
     },
     "tile": {
-      "ada": "Recuadro de Ada",
+      "ada": "Recuadro de {tutorName}",
       "hint": "Arrástralo a donde quieras. Las flechas lo llevan a otra esquina, y Mayús con las flechas cambia su tamaño."
     },
     "pip": {
@@ -226,7 +226,7 @@
       },
       "off": {
         "title": "La cámara está apagada",
-        "body": "Enciéndela cuando quieras que Ada vea tu papel.",
+        "body": "Enciéndela cuando quieras que {tutorName} vea tu papel.",
         "action": "Encender la cámara"
       },
       "denied": {
@@ -258,7 +258,7 @@
       "switch": "Cambiar de cámara"
     },
     "upload": {
-      "failing": "Ada todavía no ve tu trabajo más reciente. Reconectando…"
+      "failing": "{tutorName} todavía no ve tu trabajo más reciente. Reconectando…"
     },
     "debug": {
       "toggle": "Mapa de calor",
@@ -299,7 +299,7 @@
       "eraser": "Borrador"
     },
     "description": {
-      "label": "Lo que hay en la pizarra de Ada",
+      "label": "Lo que hay en la pizarra de {tutorName}",
       "states": "Estados: {list}",
       "start": "Inicio: {state}",
       "accepting": "De aceptación: {list}",
@@ -366,7 +366,7 @@
     "failed": "No se pudo cargar la instantánea",
     "alt": "Una instantánea de tu papel",
     "description": {
-      "label": "Las marcas de Ada en tu papel",
+      "label": "Las marcas de {tutorName} en tu papel",
       "step": "Paso {n}: {target}",
       "circle": "Marcado: {target}",
       "note": "Nota: {text}",
@@ -389,8 +389,8 @@
       "unreachable": "Cannot reach the voice server. Check your connection and try again.",
       "reconnecting": "Reconnecting…",
       "retry": "Retry",
-      "connecting": "Conectando con Ada",
-      "failed": "No se pudo conectar con Ada."
+      "connecting": "Conectando con {tutorName}",
+      "failed": "No se pudo conectar con {tutorName}."
     },
     "settings": {
       "title": "Audio",
@@ -400,7 +400,7 @@
       "output": "Altavoz",
       "systemDefault": "Predeterminado del sistema",
       "presenter": "Modo presentación",
-      "presenterHint": "La voz de Ada también se reproduce en una segunda salida, como los altavoces de la sala. Se activa Pulsar para hablar porque esos altavoces producen eco.",
+      "presenterHint": "La voz de {tutorName} también se reproduce en una segunda salida, como los altavoces de la sala. Se activa Pulsar para hablar porque esos altavoces producen eco.",
       "presenterOutput": "Salida de la sala",
       "chooseOutput": "Elige una salida para la sala",
       "noRoomOutput": "Conecta otro altavoz para usar el modo presentación.",
@@ -412,7 +412,7 @@
         "normal": "Normal",
         "high": "Al instante"
       },
-      "sensitivityHint": "Las respuestas breves como «ajá» no interrumpen a Ada, salvo en Al instante."
+      "sensitivityHint": "Las respuestas breves como «ajá» no interrumpen a {tutorName}, salvo en Al instante."
     },
     "device": {
       "input": "Micrófono {n}",
@@ -423,7 +423,7 @@
     },
     "mic": {
       "holdSpace": "Mantén pulsado Espacio para hablar",
-      "denied": "Tassel no puede usar tu micrófono. Puedes seguir escribiéndole a Ada.",
+      "denied": "Tassel no puede usar tu micrófono. Puedes seguir escribiéndole a {tutorName}.",
       "unavailable": "Tu micrófono no está disponible. Puede que otra app lo esté usando.",
       "openSettings": "Abrir ajustes",
       "dismiss": "Cerrar"
@@ -569,16 +569,16 @@
   "screen": {
     "choose": "Share a display",
     "noDisplays": "No displays available. Try again.",
-    "ready": "Open your assignment and share a display with Ada.",
+    "ready": "Pantalla sin compartir · En espera",
     "sharing": "Screen shared",
     "paused": "Screen sharing paused",
     "pause": "Pause",
     "resume": "Resume",
     "stop": "Stop sharing",
     "reset": "Reset annotations",
-    "resetHint": "Clear annotations and interrupt Ada (Ctrl/Cmd+Shift+Backspace)",
+    "resetHint": "Clear annotations and interrupt {tutorName} (Ctrl/Cmd+Shift+Backspace)",
     "restore": "Open Tassel",
-    "collapse": "Collapse to bar",
+    "collapse": "Minimizar a la barra",
     "draw": "Draw",
     "drawHint": "Draw on your screen · Escape to finish",
     "undo": "Undo ink",
@@ -589,8 +589,10 @@
     "failed": "Screen sharing needs attention. Restore Tassel and retry.",
     "micOn": "Mic on",
     "micOff": "Mic off",
-    "resetDone": "Annotations reset · Ada is listening",
-    "board": "Open board"
+    "resetDone": "Annotations reset · {tutorName} is listening",
+    "board": "Open board",
+    "visibleIdle": "{tutorName} puede ver tu pantalla · En espera",
+    "pausedIdle": "Pantalla en pausa · En espera"
   },
   "personalization": {
     "title": "Tu tutor ideal",

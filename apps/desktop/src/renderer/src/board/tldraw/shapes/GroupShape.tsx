@@ -4,6 +4,7 @@
 import { type JSX, useContext } from 'react';
 import { BaseBoxShapeUtil, HTMLContainer, type RecordProps, Rectangle2d, T } from 'tldraw';
 import { BoardLang } from '../board-lang';
+import { screenShapeStyle } from '../screen';
 import { GroupFigure } from './figures';
 import type { GroupShape } from './types';
 
@@ -53,7 +54,7 @@ export class GroupShapeUtil extends BaseBoxShapeUtil<GroupShape> {
 
   override component(shape: GroupShape): JSX.Element {
     return (
-      <HTMLContainer>
+      <HTMLContainer style={screenShapeStyle(shape)}>
         <Group shape={shape} />
       </HTMLContainer>
     );
@@ -68,5 +69,12 @@ export class GroupShapeUtil extends BaseBoxShapeUtil<GroupShape> {
 
 function Group({ shape }: { shape: GroupShape }): JSX.Element {
   const lang = useContext(BoardLang);
-  return <GroupFigure {...shape.props} lang={lang} />;
+  return (
+    <GroupFigure
+      {...shape.props}
+      w={shape.props.w / Number(shape.meta.screenScale ?? 1)}
+      h={shape.props.h / Number(shape.meta.screenScale ?? 1)}
+      lang={lang}
+    />
+  );
 }

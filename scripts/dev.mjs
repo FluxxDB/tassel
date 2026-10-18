@@ -39,7 +39,8 @@ try {
   process.exit(1);
 }
 const healthUrl = `${backend.serverUrl}/v1/health`;
-const SERVER_STARTUP_MS = 30_000;
+// Fresh Windows environments can spend over 30 s importing provider SDKs.
+const SERVER_STARTUP_MS = 180_000;
 const STOP_TIMEOUT_MS = 10_000;
 const isWindows = process.platform === 'win32';
 
@@ -216,18 +217,27 @@ async function main() {
 
   // Docker: the container's log, which ends when the container stops. Host: uv passes SIGTERM on
   // to the server, which shuts down cleanly.
+  console.log('[dev] Loading the server; first startup can take a few minutes…');
   const server = start('server', backend.server.command, backend.server.args, {
     cwd: backend.server.cwd,
     env: backend.server.env,
     stopSignal: 'SIGTERM',
   });
-  const deadline = Date.now() + SERVER_STARTUP_MS;
+  const started = Date.now();
+  const deadline = started + SERVER_STARTUP_MS;
+  let nextProgress = started + 10_000;
   while (!(await isHealthy())) {
     if (stopping || server.exitCode !== null) return;
     if (Date.now() > deadline) {
       console.error(`[dev] ${healthUrl} didn't answer within ${SERVER_STARTUP_MS / 1_000} s.`);
       stop(1);
       return;
+    }
+    if (Date.now() >= nextProgress) {
+      console.log(
+        `[dev] Still loading the server (${Math.round((Date.now() - started) / 1_000)} s)…`,
+      );
+      nextProgress = Date.now() + 10_000;
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }

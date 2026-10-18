@@ -308,6 +308,14 @@ class TutorCoordinator:
             await asyncio.gather(*tasks, return_exceptions=True)
         self.diagram_delivered = False
 
+    def forget_notes(self):
+        """An explicit reset ends the old task, including its pending follow-up guidance."""
+        self.notes.clear()
+        self.ink = None
+        self.expires = 0
+        self.page_image, self.page_caption = None, ""
+        self._notes_context()
+
     def _notes_context(self):
         if self.context is None:
             return
@@ -706,7 +714,7 @@ class TutorCoordinator:
             {
                 "type": "text",
                 "text": "[board] The shared whiteboard right now, including anything the student "
-                "drew or moved. Ada's own items are listed in the board items; anything else "
+                "drew or moved. The tutor's own items are listed in the board items; anything else "
                 "is the student's.",
             },
             {"type": "image_url", "image_url": {"url": _image_url(image)}},

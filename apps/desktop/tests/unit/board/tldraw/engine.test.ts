@@ -8,6 +8,7 @@ import { resources } from '@tassel/shared/i18n';
 import i18next from 'i18next';
 import ICU from 'i18next-icu';
 import {
+  Box,
   createTLStore,
   defaultAddFontsFromNode,
   defaultBindingUtils,
@@ -98,7 +99,7 @@ afterEach(() => {
 });
 
 /** A tldraw editor as the board panel makes it, and Ada's engine on it. */
-function board(stage: StageGeometry | null = null, reducedMotion = true) {
+function board(stage: StageGeometry | null = null, reducedMotion = true, overlay = false) {
   const shapeUtils = [...defaultShapeUtils.filter((util) => util.type !== 'arrow'), ...SHAPE_UTILS];
   const bindingUtils = [...defaultBindingUtils];
   const container = document.createElement('div');
@@ -122,6 +123,7 @@ function board(stage: StageGeometry | null = null, reducedMotion = true) {
   });
   const engine = createTldrawEngine(editor, {
     lang: 'en',
+    overlay,
     t,
     reducedMotion: () => reducedMotion,
     stage: () => stage,
@@ -571,4 +573,104 @@ describe("the board's snapshot (the server's board-snapshot request)", () => {
     await engine.snapshot?.(1280);
     expect(toImage.mock.calls[0]?.[1]?.scale).toBe(2);
   });
+});
+
+describe('screen canvas', () => {
+  it('uses screen coordinates without fitting and preserves unchanged shapes', () => {
+    const { editor, engine } = board(null, true, true);
+    const marks = [
+      {
+        id: 'circle',
+        kind: 'circle' as const,
+        author: 'tutor' as const,
+        points: [
+          { x: 0.5, y: 0.25 },
+          { x: 0.75, y: 0.5 },
+        ],
+      },
+    ];
+    engine.screen?.(marks, { width: 1600, height: 900 });
+    const shape = editor.getShape('shape:screen.circle' as TLShapeId);
+    expect(shape).toMatchObject({
+      type: 'geo',
+      x: 800,
+      y: 225,
+      props: { w: 400, h: 225, color: 'violet', geo: 'ellipse' },
+    });
+    engine.screen?.(marks, { width: 1600, height: 900 });
+    expect(editor.getShape('shape:screen.circle' as TLShapeId)).toBe(shape);
+    expect(editor.getCamera()).toMatchObject({ x: 0, y: 0 });
+    expect(editor.getCameraOptions().isLocked).toBe(true);
+    engine.screen?.([], { width: 1600, height: 900 });
+    expect(editor.getShape('shape:screen.circle' as TLShapeId)).toBeUndefined();
+  });
+  it('renders actual paths, arrows and written text in an explicit color', () => {
+    const { editor, engine } = board(null, true, true);
+    engine.screen?.(
+      [
+        {
+          id: 'path',
+          kind: 'freehand',
+          author: 'tutor',
+          color: 'red',
+          points: [
+            { x: 0.1, y: 0.1 },
+            { x: 0.2, y: 0.3 },
+            { x: 0.4, y: 0.1 },
+          ],
+        },
+        { id: 'words', kind: 'text', author: 'tutor', points: [{ x: 0.1, y: 0.5 }], text: 'hello' },
+        {
+          id: 'arrow',
+          kind: 'arrow',
+          author: 'tutor',
+          points: [
+            { x: 0.1, y: 0.1 },
+            { x: 0.4, y: 0.4 },
+          ],
+        },
+      ],
+      { width: 1000, height: 500 },
+    );
+    expect(editor.getShape('shape:screen.path' as TLShapeId)).toMatchObject({
+      type: 'line',
+      props: { color: 'red' },
+    });
+    expect(editor.getShape('shape:screen.words' as TLShapeId)).toMatchObject({ type: 'text' });
+    expect(editor.getShape('shape:screen.arrow' as TLShapeId)).toMatchObject({ type: 'arrow' });
+  });
+});
+
+it('fits the existing DFA shapes and bindings into a fixed overlay region', () => {
+  const { editor, engine } = board(null, true, true);
+  const scene = sceneAfter(draw(CORRECT));
+  engine.screen?.(
+    [],
+    { width: 1600, height: 900 },
+    {
+      scene,
+      layouts: { fix: fallbackLayout(CORRECT) },
+      placements: { fix: { x: 0.4, y: 0.2, w: 0.5, h: 0.6 } },
+    },
+  );
+  const state = editor.getShape(id('state:q0'));
+  expect(state?.type).toBe('tassel-state');
+  expect(Number(state?.meta.screenScale)).toBeGreaterThan(0);
+  expect(editor.getShape(id('edge:q0>q1'))).toMatchObject({
+    props: { color: 'violet', labelColor: 'violet' },
+  });
+  const bounds = editor.getCurrentPageBounds();
+  expect(bounds?.x).toBeGreaterThanOrEqual(630);
+  expect(bounds?.maxX).toBeLessThanOrEqual(1450);
+  expect(editor.getCamera()).toMatchObject({ x: 0, y: 0 });
+});
+
+it('resynchronizes the screen camera when tldraw measures a resize after its parent', () => {
+  const { editor, engine } = board(null, true, true);
+  editor.updateViewportScreenBounds(new Box(0, 0, 1280, 720));
+  engine.screen?.([], { width: 1920, height: 1080 });
+  expect(editor.getCamera().z).toBeCloseTo(2 / 3, 3);
+  editor.updateViewportScreenBounds(new Box(0, 0, 1920, 1080));
+  expect(editor.getCamera().z).toBeCloseTo(1, 3);
+  expect(editor.getCamera().x).toBeCloseTo(0, 1);
 });

@@ -49,6 +49,7 @@ export interface NoteProps {
   h: number;
   text: string;
   variant: 'note' | 'title';
+  transparent?: boolean;
 }
 
 export interface NodeProps {
@@ -361,7 +362,7 @@ function TraceStep({
  * noteSize: NOTE_BOX's 10 × 16 padding, at most 320 wide). A title: the lab label over one of her
  * automata, on one line.
  */
-export function NoteFigure({ w, h, text, variant }: NoteProps): JSX.Element {
+export function NoteFigure({ w, h, text, variant, transparent }: NoteProps): JSX.Element {
   if (variant === 'title') {
     return (
       <div className={cn('mono')} style={{ ...LAB_LABEL_LINE, width: w }}>
@@ -378,8 +379,8 @@ export function NoteFigure({ w, h, text, variant }: NoteProps): JSX.Element {
         height: h,
         padding: '10px 16px',
         borderRadius: 20,
-        backgroundColor: INK,
-        color: PAPER,
+        backgroundColor: transparent ? 'transparent' : INK,
+        color: transparent ? INK : PAPER,
         // Her line breaks are hers: the board measures them too (measure.ts).
         whiteSpace: 'pre-wrap',
         overflowWrap: 'break-word',

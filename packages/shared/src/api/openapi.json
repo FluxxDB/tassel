@@ -1627,6 +1627,13 @@
             ],
             "title": "Sensitivity",
             "type": "string"
+          },
+          "tutor_name": {
+            "default": "Tutor",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Tutor Name",
+            "type": "string"
           }
         },
         "title": "OfferRequestData",
@@ -2017,6 +2024,40 @@
         "title": "ScreenAck",
         "type": "object"
       },
+      "ScreenActivity": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "epoch": {
+            "maximum": 9007199254740991.0,
+            "minimum": 1.0,
+            "title": "Epoch",
+            "type": "integer"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "source": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "epoch",
+          "active",
+          "revision"
+        ],
+        "title": "ScreenActivity",
+        "type": "object"
+      },
       "ScreenControl": {
         "additionalProperties": false,
         "properties": {
@@ -2043,6 +2084,160 @@
           "active"
         ],
         "title": "ScreenControl",
+        "type": "object"
+      },
+      "ScreenObject": {
+        "additionalProperties": false,
+        "properties": {
+          "author": {
+            "enum": [
+              "student",
+              "tutor"
+            ],
+            "title": "Author",
+            "type": "string"
+          },
+          "color": {
+            "maxLength": 20,
+            "title": "Color",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "maxLength": 30,
+            "minLength": 1,
+            "title": "Kind",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/ScreenPoint"
+            },
+            "maxItems": 2,
+            "minItems": 1,
+            "title": "Points",
+            "type": "array"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "author",
+          "points",
+          "color"
+        ],
+        "title": "ScreenObject",
+        "type": "object"
+      },
+      "ScreenObjects": {
+        "additionalProperties": false,
+        "properties": {
+          "epoch": {
+            "minimum": 1.0,
+            "title": "Epoch",
+            "type": "integer"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/ScreenObject"
+            },
+            "maxItems": 300,
+            "title": "Objects",
+            "type": "array"
+          },
+          "source": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source",
+          "epoch",
+          "version",
+          "objects"
+        ],
+        "title": "ScreenObjects",
+        "type": "object"
+      },
+      "ScreenPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "ScreenPoint",
+        "type": "object"
+      },
+      "ScreenResult": {
+        "additionalProperties": false,
+        "properties": {
+          "epoch": {
+            "minimum": 1.0,
+            "title": "Epoch",
+            "type": "integer"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "request_id": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "epoch",
+          "request_id",
+          "ok"
+        ],
+        "title": "ScreenResult",
         "type": "object"
       },
       "SessionCreate": {
@@ -3504,6 +3699,64 @@
         ]
       }
     },
+    "/v1/sessions/{session_id}/screen/activity": {
+      "post": {
+        "operationId": "activity_v1_sessions__session_id__screen_activity_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScreenActivity"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenAck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Activity",
+        "tags": [
+          "screen"
+        ]
+      }
+    },
     "/v1/sessions/{session_id}/screen/control": {
       "post": {
         "operationId": "control_v1_sessions__session_id__screen_control_post",
@@ -3647,6 +3900,122 @@
           }
         ],
         "summary": "Upload",
+        "tags": [
+          "screen"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/screen/objects": {
+      "post": {
+        "operationId": "objects_v1_sessions__session_id__screen_objects_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScreenObjects"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenAck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Objects",
+        "tags": [
+          "screen"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/screen/result": {
+      "post": {
+        "operationId": "result_v1_sessions__session_id__screen_result_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScreenResult"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenAck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Result",
         "tags": [
           "screen"
         ]

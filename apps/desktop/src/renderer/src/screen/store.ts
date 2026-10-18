@@ -1,5 +1,10 @@
 import { create } from 'zustand';
-import type { DisplayChoice, ScreenMark, ScreenPoint } from '../../../shared/screen-bridge';
+import type {
+  DisplayChoice,
+  ScreenBoard,
+  ScreenMark,
+  ScreenPoint,
+} from '../../../shared/screen-bridge';
 export interface ScreenState {
   status: 'off' | 'selecting' | 'sharing' | 'paused' | 'resetting' | 'error';
   presentation: 'expanded' | 'collapsing' | 'overlay' | 'restoring';
@@ -7,6 +12,7 @@ export interface ScreenState {
   selected: DisplayChoice | null;
   stream: MediaStream | null;
   marks: ScreenMark[];
+  placements: ScreenBoard['placements'];
   draw: boolean;
   notice: string;
 }
@@ -17,6 +23,7 @@ export const useScreen = create<ScreenState>(() => ({
   selected: null,
   stream: null,
   marks: [],
+  placements: {},
   draw: false,
   notice: '',
 }));

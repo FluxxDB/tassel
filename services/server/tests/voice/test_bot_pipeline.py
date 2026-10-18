@@ -586,3 +586,66 @@ async def test_screen_reset_propagates_interruption_without_starting_a_new_reply
         count = len(out.text())
         await asyncio.sleep(0.1)
         assert len(out.text()) == count
+
+
+async def test_screen_reset_discards_tutor_notes_from_the_interrupted_task():
+    from test_two_tier import brief
+
+    from tassel.screen.session import ScreenSession
+
+    screen = ScreenSession()
+    async with running(context(screen=screen)) as (bot, out):
+        await until(lambda: SCRIPT.langs["en"].greeting in out.text())
+        coordinator = bot._turn_context.coordinator
+        coordinator.context = bot.context
+        coordinator.notes = [brief()]
+        coordinator._notes_context()
+        assert any("[tutor notes]" in str(m) for m in bot.context.get_messages())
+        await screen.reset(source="display", epoch=1, active=True)
+        assert not coordinator.notes
+        assert not any("[tutor notes]" in str(m) for m in bot.context.get_messages())
+        await screen.reset(source="display", epoch=2, active=True)
+        assert sum("[screen reset]" in str(m) for m in bot.context.get_messages()) == 1
+
+
+async def test_reconnected_unanswered_request_is_history_not_a_new_fragment():
+    from unittest.mock import AsyncMock, patch
+
+    from pipecat.frames.frames import LLMContextFrame
+
+    from tassel.voice.director import Decision
+
+    ctx = context()
+    ctx.memory.remember(
+        ctx.session_id,
+        [{"role": "user", "content": "Find the Roblox game Hypershot"}],
+        "en",
+    )
+    async with running(ctx) as (bot, out):
+        gate = bot._turn_context
+        gate.director.decide = AsyncMock(
+            return_value=Decision(
+                focus="none",
+                needs_vision=False,
+                route="talker",
+                action="none",
+                refers_to="conversation",
+            )
+        )
+        bot.context.get_messages().append({"role": "user", "content": "Explain the next question"})
+        with patch.object(gate, "push_frame", AsyncMock()):
+            await gate.process_frame(LLMContextFrame(bot.context), FrameDirection.DOWNSTREAM)
+        assert gate.director.decide.call_args.args[0] == "Explain the next question"
+
+
+async def test_configured_name_is_used_for_greeting_and_changes_without_reconnecting():
+    from tassel.voice.fakes.llm import FakeLLMService
+    from tassel.voice.messages import OfferRequestData
+
+    async with running(context(request=OfferRequestData(tutor_name="Mira"))) as (bot, out):
+        await until(lambda: "Hi, I'm Mira." in out.text())
+        assert "Hi, I'm Ada." not in out.text()
+        await message(
+            bot, "client-message", {"t": "tassel", "d": {"kind": "tutor-name", "name": "Nova"}}
+        )
+        await until(lambda: isinstance(bot.llm, FakeLLMService) and bot.llm.tutor_name == "Nova")

@@ -24,7 +24,7 @@
     "loading": "Loading sessions…",
     "empty": {
       "title": "No sessions yet",
-      "body": "Start a session and work through a problem with Ada. Your sessions will show up here."
+      "body": "Start a session and work through a problem with {tutorName}. Your sessions will show up here."
     },
     "noResults": {
       "title": "No sessions match \"{query}\"",
@@ -69,7 +69,7 @@
   },
   "session": {
     "untitled": "Untitled Session",
-    "tutorName": "Ada",
+    "tutorName": "{tutorName}",
     "you": "You",
     "loadError": "Couldn't load this session",
     "timer": "Time elapsed: {elapsed}",
@@ -118,11 +118,11 @@
       }
     },
     "board": {
-      "tag": "Ada's board"
+      "tag": "{tutorName}'s board"
     },
     "pin": {
       "label": "Pinned · {view}",
-      "adaAsks": "Ada asks: {view}",
+      "adaAsks": "{tutorName} asks: {view}",
       "unpin": "Unpin"
     },
     "dock": {
@@ -133,7 +133,7 @@
       "share": "Share screen",
       "shareLater": "Screen sharing comes later",
       "board": "Board",
-      "boardFollow": "Board: following Ada",
+      "boardFollow": "Board: following {tutorName}",
       "boardPinned": "Board: {view}, pinned",
       "captions": "Captions",
       "end": "End session",
@@ -145,7 +145,7 @@
       "cancel": "Keep going"
     },
     "tile": {
-      "ada": "Ada's tile",
+      "ada": "{tutorName}'s tile",
       "hint": "Drag it anywhere. The arrow keys move it to another corner, and Shift with the arrow keys resizes it."
     },
     "pip": {
@@ -226,7 +226,7 @@
       },
       "off": {
         "title": "Camera is off",
-        "body": "Turn it on when you want Ada to see your paper.",
+        "body": "Turn it on when you want {tutorName} to see your paper.",
         "action": "Turn camera on"
       },
       "denied": {
@@ -258,7 +258,7 @@
       "switch": "Switch camera"
     },
     "upload": {
-      "failing": "Ada can't see your latest work yet. Reconnecting…"
+      "failing": "{tutorName} can't see your latest work yet. Reconnecting…"
     },
     "debug": {
       "toggle": "Heatmap",
@@ -299,7 +299,7 @@
       "eraser": "Eraser"
     },
     "description": {
-      "label": "What's on Ada's board",
+      "label": "What's on {tutorName}'s board",
       "states": "States: {list}",
       "start": "Start: {state}",
       "accepting": "Accepting: {list}",
@@ -366,7 +366,7 @@
     "failed": "Couldn't load the snapshot",
     "alt": "A snapshot of your paper",
     "description": {
-      "label": "Ada's marks on your paper",
+      "label": "{tutorName}'s marks on your paper",
       "step": "Step {n}: {target}",
       "circle": "Circled: {target}",
       "note": "Note: {text}",
@@ -389,8 +389,8 @@
       "unreachable": "Cannot reach the voice server. Check your connection and try again.",
       "reconnecting": "Reconnecting…",
       "retry": "Retry",
-      "connecting": "Connecting to Ada",
-      "failed": "Couldn't reach Ada."
+      "connecting": "Connecting to {tutorName}",
+      "failed": "Couldn't reach {tutorName}."
     },
     "settings": {
       "title": "Audio",
@@ -400,7 +400,7 @@
       "output": "Speaker",
       "systemDefault": "System default",
       "presenter": "Presenter mode",
-      "presenterHint": "Ada also plays on a second output, like room speakers. Push-to-talk turns on, because room speakers echo.",
+      "presenterHint": "{tutorName} also plays on a second output, like room speakers. Push-to-talk turns on, because room speakers echo.",
       "presenterOutput": "Room output",
       "chooseOutput": "Choose a room output",
       "noRoomOutput": "Connect a different speaker to use presenter mode.",
@@ -412,7 +412,7 @@
         "normal": "Normal",
         "high": "Instant"
       },
-      "sensitivityHint": "Short replies like “uh-huh” never interrupt Ada, except on Instant."
+      "sensitivityHint": "Short replies like “uh-huh” never interrupt {tutorName}, except on Instant."
     },
     "device": {
       "input": "Microphone {n}",
@@ -423,7 +423,7 @@
     },
     "mic": {
       "holdSpace": "Hold Space to talk",
-      "denied": "Tassel can't use your microphone. You can still type to Ada.",
+      "denied": "Tassel can't use your microphone. You can still type to {tutorName}.",
       "unavailable": "Your microphone isn't available. It may be in use by another app.",
       "openSettings": "Open settings",
       "dismiss": "Dismiss"
@@ -569,16 +569,16 @@
   "screen": {
     "choose": "Share a display",
     "noDisplays": "No displays available. Try again.",
-    "ready": "Open your assignment and share a display with Ada.",
+    "ready": "Screen not shared · Idle",
     "sharing": "Screen shared",
     "paused": "Screen sharing paused",
     "pause": "Pause",
     "resume": "Resume",
     "stop": "Stop sharing",
     "reset": "Reset annotations",
-    "resetHint": "Clear annotations and interrupt Ada (Ctrl/Cmd+Shift+Backspace)",
+    "resetHint": "Clear annotations and interrupt {tutorName} (Ctrl/Cmd+Shift+Backspace)",
     "restore": "Open Tassel",
-    "collapse": "Collapse to bar",
+    "collapse": "Minimize to overlay",
     "draw": "Draw",
     "drawHint": "Draw on your screen · Escape to finish",
     "undo": "Undo ink",
@@ -589,8 +589,10 @@
     "failed": "Screen sharing needs attention. Restore Tassel and retry.",
     "micOn": "Mic on",
     "micOff": "Mic off",
-    "resetDone": "Annotations reset · Ada is listening",
-    "board": "Open board"
+    "resetDone": "Annotations reset · {tutorName} is listening",
+    "board": "Open board",
+    "visibleIdle": "{tutorName} can see your screen · Idle",
+    "pausedIdle": "Screen sharing paused · Idle"
   },
   "personalization": {
     "title": "Your ideal tutor",

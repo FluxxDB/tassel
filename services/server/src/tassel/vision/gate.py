@@ -58,7 +58,7 @@ def gate_text(gi: GateInput) -> str:
         "Transcript, last 20 seconds, oldest first:",
     ]
     lines.extend(
-        f"{'Student' if line.speaker == 'student' else 'Ada'}: {line.text}"
+        f"{'Student' if line.speaker == 'student' else 'Tutor'}: {line.text}"
         for line in _recent_lines(gi, 20000)
     )
     return "\n".join(lines)

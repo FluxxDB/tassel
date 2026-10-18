@@ -61,7 +61,7 @@ async def test_board_snapshot_routing_preserves_paper_and_talker(focus, refers_t
             "type": "text",
             "text": (
                 "[board] The shared whiteboard right now, including anything the student drew "
-                "or moved. Ada's own items are listed in the board items; anything else "
+                "or moved. The tutor's own items are listed in the board items; anything else "
                 "is the student's."
             ),
         } in user["content"]

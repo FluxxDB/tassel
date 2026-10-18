@@ -1,7 +1,9 @@
 // One of Ada's notes on her board, or the title over one of her automata. The student can move
 // or erase it, not resize it: its box is the size its text was measured at.
+
 import type { JSX } from 'react';
 import { BaseBoxShapeUtil, HTMLContainer, type RecordProps, T } from 'tldraw';
+import { screenShapeStyle } from '../screen';
 import { NoteFigure } from './figures';
 import type { NoteShape } from './types';
 
@@ -40,8 +42,13 @@ export class NoteShapeUtil extends BaseBoxShapeUtil<NoteShape> {
 
   override component(shape: NoteShape): JSX.Element {
     return (
-      <HTMLContainer>
-        <NoteFigure {...shape.props} />
+      <HTMLContainer style={screenShapeStyle(shape)}>
+        <NoteFigure
+          {...shape.props}
+          transparent={shape.meta.screenScale !== undefined}
+          w={shape.props.w / Number(shape.meta.screenScale ?? 1)}
+          h={shape.props.h / Number(shape.meta.screenScale ?? 1)}
+        />
       </HTMLContainer>
     );
   }

@@ -54,8 +54,11 @@ html[data-overlay] #root {
   font-size: 15px;
   line-height: 20px;
   max-height: 40px;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   overflow-wrap: anywhere;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 .overlay-controls,
 .overlay-secondary {
@@ -126,17 +129,10 @@ html[data-overlay] #root {
   position: absolute;
   inset: 0;
 }
-.screen-ink {
-  color: var(--color-iris-ink);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  pointer-events: none;
-}
+.screen-ink,
 .screen-ink * {
-  vector-effect: non-scaling-stroke;
+  /* biome-ignore lint/complexity/noImportantStyles: The transparent engine must never intercept desktop or parent drawing input. */
+  pointer-events: none !important;
 }
 .screen-drawing.is-drawing {
   cursor: crosshair;
@@ -157,22 +153,65 @@ html[data-overlay] #root {
   height: 100%;
   transform-origin: 50% 100%;
 }
-.screen-presentation[data-presentation="collapsing"] {
-  animation: screen-collapse 280ms ease-out forwards;
+.screen-presentation[data-presentation="collapsing"],
+.screen-presentation[data-presentation="restoring"] {
+  border-radius: 24px;
+  overflow: hidden;
   pointer-events: none;
 }
-.screen-presentation[data-presentation="restoring"] {
-  animation: screen-collapse 280ms ease-out reverse;
+.screen-presentation[data-presentation="collapsing"]::after,
+.screen-presentation[data-presentation="restoring"]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: var(--color-bone);
+  border: 1px solid var(--color-hairline);
+  border-radius: 24px;
+  pointer-events: none;
+  animation: transition-cover 160ms ease-out both;
 }
-@keyframes screen-collapse {
-  to {
+@keyframes transition-cover {
+  from {
     opacity: 0;
-    transform: translateY(25%) scale(0.7, 0.2);
+  }
+  to {
+    opacity: 1;
+  }
+}
+.screen-presentation[data-presentation="restoring"]::after {
+  animation-direction: reverse;
+}
+.overlay-bar {
+  position: relative;
+  isolation: isolate;
+}
+.overlay-bar > :not(.overlay-arrival) {
+  position: relative;
+  z-index: 1;
+}
+.overlay-bar .overlay-arrival {
+  z-index: 0;
+  animation: overlay-arrival 700ms ease-out both;
+}
+@keyframes overlay-arrival {
+  0%,
+  100% {
+    opacity: 0;
+    background-position: 0% 30%;
+  }
+  35% {
+    opacity: 0.3;
+  }
+  100% {
+    background-position: 100% 70%;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .screen-presentation[data-presentation] {
+  .screen-presentation[data-presentation="collapsing"]::after,
+  .screen-presentation[data-presentation="restoring"]::after,
+  .overlay-bar .overlay-arrival {
     animation: none;
+    opacity: 0;
   }
 }
 @media (max-width: 580px) {

@@ -309,6 +309,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sessions/{session_id}/screen/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Activity */
+        post: operations["activity_v1_sessions__session_id__screen_activity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sessions/{session_id}/screen/control": {
         parameters: {
             query?: never;
@@ -337,6 +354,40 @@ export interface paths {
         put?: never;
         /** Upload */
         post: operations["upload_v1_sessions__session_id__screen_frame_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/screen/objects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Objects */
+        post: operations["objects_v1_sessions__session_id__screen_objects_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/screen/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Result */
+        post: operations["result_v1_sessions__session_id__screen_result_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1013,6 +1064,11 @@ export interface components {
              * @enum {string}
              */
             sensitivity: "low" | "normal" | "high";
+            /**
+             * Tutor Name
+             * @default Tutor
+             */
+            tutor_name: string;
         };
         /**
          * PageGeometry
@@ -1154,12 +1210,70 @@ export interface components {
             /** Epoch */
             epoch: number;
         };
+        /** ScreenActivity */
+        ScreenActivity: {
+            /** Active */
+            active: boolean;
+            /** Epoch */
+            epoch: number;
+            /** Revision */
+            revision: number;
+            /** Source */
+            source: string;
+        };
         /** ScreenControl */
         ScreenControl: {
             /** Active */
             active: boolean;
             /** Epoch */
             epoch: number;
+            /** Source */
+            source: string;
+        };
+        /** ScreenObject */
+        ScreenObject: {
+            /**
+             * Author
+             * @enum {string}
+             */
+            author: "student" | "tutor";
+            /** Color */
+            color: string;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Points */
+            points: components["schemas"]["ScreenPoint"][];
+            /** Text */
+            text?: string | null;
+        };
+        /** ScreenObjects */
+        ScreenObjects: {
+            /** Epoch */
+            epoch: number;
+            /** Objects */
+            objects: components["schemas"]["ScreenObject"][];
+            /** Source */
+            source: string;
+            /** Version */
+            version: number;
+        };
+        /** ScreenPoint */
+        ScreenPoint: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /** ScreenResult */
+        ScreenResult: {
+            /** Epoch */
+            epoch: number;
+            /** Ok */
+            ok: boolean;
+            /** Request Id */
+            request_id: string;
             /** Source */
             source: string;
         };
@@ -2110,6 +2224,41 @@ export interface operations {
             };
         };
     };
+    activity_v1_sessions__session_id__screen_activity_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScreenActivity"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenAck"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     control_v1_sessions__session_id__screen_control_post: {
         parameters: {
             query?: never;
@@ -2163,6 +2312,76 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenAck"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    objects_v1_sessions__session_id__screen_objects_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScreenObjects"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenAck"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    result_v1_sessions__session_id__screen_result_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScreenResult"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

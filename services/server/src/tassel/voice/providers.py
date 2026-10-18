@@ -15,6 +15,7 @@ from openai import (
     InternalServerError,
     RateLimitError,
 )
+from pipecat.adapters.schemas.tools_schema import ToolsSchema
 from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.services.deepgram.flux.stt import DeepgramFluxSTTService
 from pipecat.services.deepgram.stt import DeepgramSTTService
@@ -56,7 +57,26 @@ def _without_images(context: LLMContext) -> LLMContext:
                 if part.get("type") not in ("image_url", "image")
             ]
     messages.append({"role": "system", "content": IMAGE_FAILED})
-    return LLMContext(messages, tools=context.tools, tool_choice=context.tool_choice)
+    tools = context.tools
+    choice = context.tool_choice
+    if isinstance(tools, ToolsSchema) and any(
+        t.name == "draw_screen" for t in tools.standard_tools
+    ):
+        tools = ToolsSchema(
+            standard_tools=[
+                t
+                for t in tools.standard_tools
+                if t.name not in {"draw_screen", "draw_screen_illustration", "draw_screen_board"}
+            ],
+            custom_tools=tools.custom_tools,
+        )
+        if isinstance(choice, dict) and choice.get("function", {}).get("name") in {
+            "draw_screen",
+            "draw_screen_illustration",
+            "draw_screen_board",
+        }:
+            choice = "auto"
+    return LLMContext(messages, tools=tools, tool_choice=choice)
 
 
 def leading_system_only(messages: list) -> list:

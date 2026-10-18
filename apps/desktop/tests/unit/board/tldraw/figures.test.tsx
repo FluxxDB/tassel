@@ -212,3 +212,10 @@ describe('NoteFigure', () => {
     expect(title.style.color).toBe('var(--color-smoke-text)');
   });
 });
+
+it('writes overlay notes in colored ink on a transparent background', async () => {
+  await renderIn(<NoteFigure transparent w={252} h={68} text="Overlay writing" variant="note" />);
+  const note = screen.getByText('Overlay writing');
+  expect(note.style.backgroundColor).toBe('transparent');
+  expect(note.style.color).toBe('var(--color-ink)');
+});

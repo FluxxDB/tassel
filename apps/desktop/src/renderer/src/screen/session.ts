@@ -19,14 +19,16 @@ export class ScreenSession {
     return id.source === this.source && id.epoch === this.epoch && id.revision === this.revision;
   }
   add(mark: ScreenMark, identity: ScreenIdentity) {
-    if (this.accepts(identity)) {
-      this.marks = [...this.marks.slice(-199), mark];
-      while (this.marks.reduce((n, m) => n + m.points.length, 0) > 32768) this.marks.shift();
+    if (
+      this.accepts(identity) &&
+      this.marks.length < 200 &&
+      this.marks.reduce((n, m) => n + m.points.length, 0) + mark.points.length <= 32768
+    ) {
+      this.marks = [...this.marks, mark];
     }
   }
   invalidate() {
     ++this.revision;
-    this.marks = [];
   }
   async reset() {
     ++this.epoch;

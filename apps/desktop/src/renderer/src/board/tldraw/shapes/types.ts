@@ -7,7 +7,7 @@ declare module 'tldraw' {
   interface TLGlobalShapePropsMap {
     'tassel-state': StateProps;
     'tassel-trace': TraceProps;
-    'tassel-note': NoteProps;
+    'tassel-note': Omit<NoteProps, 'transparent'>;
     'tassel-node': NodeProps;
     'tassel-group': GroupProps;
   }

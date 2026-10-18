@@ -75,8 +75,8 @@ def test_the_board_examples_are_complete_and_every_tag_in_them_reads_cleanly():
     stream = MarkupStream(BoardContext(specs={}))
     sentences = []
     for line in examples.splitlines():
-        if line.startswith("Ada:"):
-            sentences += stream.feed(line.removeprefix("Ada:") + " ")
+        if line.startswith("Tutor:"):
+            sentences += stream.feed(line.removeprefix("Tutor:") + " ")
             sentences += stream.flush()
     tags = re.findall(r"\[\[([^\]]+)\]\]", examples)
     kinds = [action.kind for s in sentences for _, action in s.anchors]
@@ -131,3 +131,9 @@ def test_thinker_page_and_marks_come_from_this_turns_image_only():
     prompt = thinker_system_prompt(GuidanceBrief.model_json_schema())
     assert "page describes this turn's image only" in prompt
     assert "earlier sessions" in prompt and "the image wins" in prompt
+
+
+def test_configured_tutor_identity_replaces_the_default():
+    prompt = system_prompt("en", tutor_name="Mira")
+    assert "You are Mira" in prompt
+    assert "Ada" not in prompt

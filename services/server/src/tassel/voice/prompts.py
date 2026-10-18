@@ -10,7 +10,7 @@ LANGUAGE_NAMES = {"en": "English", "es": "Spanish", "ko": "Korean"}
 
 def system_prompt(
     lang: Lang,
-    tutor_name: str = "Ada",
+    tutor_name: str = "Tutor",
     *,
     tools: bool = True,
     two_tier: bool = False,
@@ -157,14 +157,14 @@ BOARD_EXAMPLES = "\n".join(
     [
         "Examples:",
         "Student: Can you draw a DFA for binary strings that start with 01?",
-        "Ada: [[dfa ex hidden start=q0 accept=q2 q0-0-q1 q2-0,1-q2]][[stage split]]"
+        "Tutor: [[dfa ex hidden start=q0 accept=q2 q0-0-q1 q2-0,1-q2]][[stage split]]"
         "Let's build it together. [[reveal ex q0]]We start at q zero. "
         "[[reveal ex q0>q1]]A zero takes us to q one. [[edge ex q1 q2 1]][[reveal ex q2]]"
         "Then a one reaches q two, which accepts anything after.",
         "Student: Which state accepts?",
-        "Ada: [[highlight ex q2]]Only q two accepts, so what has to happen first?",
+        "Tutor: [[highlight ex q2]]Only q two accepts, so what has to happen first?",
         "Student: Is my loop right?",
-        "Ada: [[freeze]][[circle m3]]Look at the loop you drew here. What does it read?",
+        "Tutor: [[freeze]][[circle m3]]Look at the loop you drew here. What does it read?",
     ]
 )
 BOARD_RULES += """
@@ -296,7 +296,7 @@ def thinker_system_prompt(schema: dict, *, ideal_tutor: str = "") -> str:
     import json
 
     prompt = (
-        "You are Ada's background thinker, never a speaking assistant. "
+        "You are the tutor's background thinker, never a speaking assistant. "
         'Never promise a later action ("I\'ll look again", "let me check"): do it now with '
         'tags, or say plainly what you can\'t do. "Okay, let me help you out" is fine when '
         "this brief draws it. Return only a JSON "

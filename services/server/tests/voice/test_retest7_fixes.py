@@ -393,3 +393,54 @@ def test_a_modified_machine_is_a_board_construction():
         ),
     )
     assert (out.action, out.focus, out.route) == ("draw_board", "board", "thinker")
+
+
+@pytest.mark.asyncio
+async def test_processed_unanswered_request_is_not_prepended_to_a_later_turn():
+    from unittest.mock import AsyncMock
+
+    from pipecat.frames.frames import LLMContextFrame
+    from pipecat.processors.frame_processor import FrameDirection
+
+    from tassel.voice.bot import _TurnContext
+
+    gate = _TurnContext()
+    gate.director.decide = AsyncMock(return_value=decision())
+    gate.push_frame = AsyncMock()
+    context = LLMContext([{"role": "user", "content": "Find the Roblox game Hypershot"}])
+    await gate.process_frame(LLMContextFrame(context), FrameDirection.DOWNSTREAM)
+    # The response was interrupted before an assistant message was saved.
+    context.get_messages().append({"role": "user", "content": "Explain the next question"})
+    await gate.process_frame(LLMContextFrame(context), FrameDirection.DOWNSTREAM)
+    assert gate.director.decide.call_args.args[0] == "Explain the next question"
+    # Retain history for follow-ups, but never promote it back to the current request.
+    assert "Hypershot" in str(gate.director.decide.call_args.args[1])
+    current = next(
+        m["content"]
+        for m in context.get_messages()
+        if m.get("role") == "system" and m["content"].startswith("[director]")
+    )
+    assert "Explain the next question" in current
+    assert "Hypershot" not in current
+
+
+@pytest.mark.asyncio
+async def test_unprocessed_adjacent_transcript_fragments_still_join():
+    from unittest.mock import AsyncMock
+
+    from pipecat.frames.frames import LLMContextFrame
+    from pipecat.processors.frame_processor import FrameDirection
+
+    from tassel.voice.bot import _TurnContext
+
+    gate = _TurnContext()
+    gate.director.decide = AsyncMock(return_value=decision())
+    gate.push_frame = AsyncMock()
+    context = LLMContext(
+        [
+            {"role": "user", "content": "Explain the next question"},
+            {"role": "user", "content": "on this page"},
+        ]
+    )
+    await gate.process_frame(LLMContextFrame(context), FrameDirection.DOWNSTREAM)
+    assert gate.director.decide.call_args.args[0] == "Explain the next question on this page"

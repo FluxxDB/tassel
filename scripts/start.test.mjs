@@ -131,3 +131,12 @@ test('pnpm start takes --check and --host-server, and passes --host-server on to
   });
   assert.equal(safeSummary(fromEnv).backend, 'host');
 });
+
+test('live voice does not force optional vision services to require additional keys', () => {
+  const { env } = buildStartup({ root, sharedRoot: shared, platform: 'win32', env: {}, exists });
+  assert.equal(env.TASSEL_PROVIDERS, 'auto');
+  for (const name of ['STT', 'TTS', 'TITLES']) assert.equal(env[`TASSEL_${name}_PROVIDER`], 'live');
+  assert.equal(env.TASSEL_LLM_PROVIDER, undefined);
+  assert.equal(env.TASSEL_GATE_PROVIDER, undefined);
+  assert.equal(env.TASSEL_DEEPCHECK_PROVIDER, undefined);
+});
