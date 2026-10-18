@@ -7,14 +7,14 @@ for (const close of ['escape', 'scrim'] as const) {
     try {
       await page.emulateMedia({ reducedMotion: 'no-preference' });
       await page.getByRole('button', { name: 'Tutor settings', exact: true }).click();
-      await page.getByRole('radio', { name: 'Memory', exact: true }).click();
+      await page.getByRole('radio', { name: 'Personalization & memory', exact: true }).click();
       const notes = page.getByRole('textbox', { name: 'What your tutor remembers' });
       await expect(notes).toBeEnabled();
       await notes.focus();
       await settle(page);
       const before = await page
         .getByRole('dialog')
-        .evaluate((dialog) => dialog.getBoundingClientRect().height);
+        .evaluate((dialog) => (dialog as HTMLElement).offsetHeight);
       const exitFrame = page.evaluate(
         () =>
           new Promise<{ frames: { memory: boolean; height: number }[] }>((resolve, reject) => {
@@ -36,7 +36,7 @@ for (const close of ['escape', 'scrim'] as const) {
                 }
                 frames.push({
                   memory: !!dialog.querySelector('textarea'),
-                  height: dialog.getBoundingClientRect().height,
+                  height: (dialog as HTMLElement).offsetHeight,
                 });
                 requestAnimationFrame(sample);
               };
@@ -49,7 +49,7 @@ for (const close of ['escape', 'scrim'] as const) {
       const exit = await exitFrame;
       expect(exit.frames.length).toBeGreaterThan(0);
       expect(exit.frames.every((frame) => frame.memory)).toBe(true);
-      expect(exit.frames.every((frame) => Math.abs(frame.height - before) < 8)).toBe(true);
+      expect(exit.frames.every((frame) => frame.height === before)).toBe(true);
       await expect(page.getByRole('dialog')).toHaveCount(0);
       await page.getByRole('button', { name: 'Tutor settings', exact: true }).click();
       await expect(notes).toBeVisible();
@@ -72,7 +72,7 @@ test('a pending memory load cannot resize the panel during its closing animation
       await route.fulfill({ json: { enabled: true, content: 'Use short hints.', revision: 1 } });
     });
     await page.getByRole('button', { name: 'Tutor settings', exact: true }).click();
-    await page.getByRole('radio', { name: 'Memory', exact: true }).click();
+    await page.getByRole('radio', { name: 'Personalization & memory', exact: true }).click();
     await expect(page.getByPlaceholder('Loading memory…')).toBeVisible();
     await settle(page);
     const closing = page.evaluate(
@@ -122,7 +122,7 @@ test('opening memory reserves the full form height while notes load', async () =
       await route.fulfill({ json: { enabled: true, content: 'Use short hints.', revision: 1 } });
     });
     await page.getByRole('button', { name: 'Tutor settings', exact: true }).click();
-    await page.getByRole('radio', { name: 'Memory', exact: true }).click();
+    await page.getByRole('radio', { name: 'Personalization & memory', exact: true }).click();
     const notes = page.getByRole('textbox', { name: 'What your tutor remembers' });
     await expect(notes).toBeVisible();
     await expect(notes).toBeDisabled();
@@ -137,6 +137,49 @@ test('opening memory reserves the full form height while notes load', async () =
     ).toBe(height);
   } finally {
     releaseResponse();
+    await app.close();
+  }
+});
+
+test('ideal tutor persists independently of saved memories and its enable switch', async () => {
+  const { app, page } = await launchApp();
+  try {
+    const openSettings = async () => {
+      await page.getByRole('button', { name: 'Tutor settings', exact: true }).click();
+      await page.getByRole('radio', { name: 'Personalization & memory', exact: true }).click();
+    };
+    await openSettings();
+    const style = page.getByRole('textbox', { name: 'Describe your ideal tutor' });
+    const notes = page.getByRole('textbox', { name: 'What your tutor remembers' });
+    await expect(style).toBeEnabled();
+    await style.fill(
+      'Be calm and casual, like a patient older sister. Explain one small step at a time.',
+    );
+    await page.getByRole('button', { name: 'Save tutor style', exact: true }).click();
+    await expect(page.getByText('Tutor style saved', { exact: true })).toBeVisible();
+    await expect(notes).toBeEnabled();
+    await notes.fill('Working on algebra.');
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+    await page.getByRole('switch', { name: 'Remember across sessions' }).click();
+    await expect(page.getByRole('switch', { name: 'Remember across sessions' })).not.toBeChecked();
+    await page.getByRole('switch', { name: 'Use tutor personalization' }).click();
+    await expect(page.getByRole('switch', { name: 'Use tutor personalization' })).not.toBeChecked();
+    await page.getByRole('button', { name: 'Clear memory', exact: true }).click();
+    await expect(notes).toHaveValue('');
+    await page.reload();
+    await openSettings();
+    await expect(style).toHaveValue(
+      'Be calm and casual, like a patient older sister. Explain one small step at a time.',
+    );
+    await expect(page.getByRole('switch', { name: 'Use tutor personalization' })).not.toBeChecked();
+    await expect(notes).toHaveValue('');
+    await expect(page.getByRole('switch', { name: 'Remember across sessions' })).not.toBeChecked();
+    await page.getByRole('dialog').evaluate((dialog) => {
+      dialog.scrollTop = 0;
+    });
+    await page.screenshot({ path: 'test-results/screens/tutor-personality-settings.png' });
+  } finally {
     await app.close();
   }
 });

@@ -7,6 +7,7 @@ from sqlalchemy import create_engine, pool
 
 import tassel.frames.tables  # noqa: F401  (declares the frames table on Base's metadata)
 from tassel.config import Settings
+from tassel.storage.migration_compat import reconcile_legacy_memory_revision
 from tassel.storage.tables import Base
 
 config = context.config
@@ -33,6 +34,7 @@ def run_migrations_online() -> None:
     # A sync engine on purpose: psycopg's async mode can't run on Windows' default event loop.
     engine = create_engine(database_url, poolclass=pool.NullPool)
     with engine.connect() as connection:
+        reconcile_legacy_memory_revision(connection)
         context.configure(connection=connection, target_metadata=target_metadata)
         with context.begin_transaction():
             context.run_migrations()

@@ -15,6 +15,12 @@ from tassel.learner_memory import (
     transcript_text,
     update_after_session,
 )
+from tassel.learner_personalization import (
+    PersonalizationOut,
+    PersonalizationPatch,
+    read_personalization,
+    save_personalization,
+)
 from tassel.storage import sessions_repo
 from tassel.storage.db import get_db
 from tassel.storage.tables import Learner
@@ -68,3 +74,26 @@ async def finish_memory(
             transcript,
         )
     return Response(status_code=204)
+
+
+@router.get("/learner/personalization")
+async def get_personalization(
+    learner: Learner = Depends(current_learner),
+    db: AsyncSession = Depends(get_db),
+) -> PersonalizationOut:
+    return await read_personalization(db, learner.id)
+
+
+@router.patch(
+    "/learner/personalization",
+    responses={409: {"description": "Tutor style changed; reload before saving"}},
+)
+async def patch_personalization(
+    body: PersonalizationPatch,
+    learner: Learner = Depends(current_learner),
+    db: AsyncSession = Depends(get_db),
+) -> PersonalizationOut:
+    result = await save_personalization(db, learner.id, body)
+    if result is None:
+        raise HTTPException(409, "Tutor style changed; reload before saving")
+    return result

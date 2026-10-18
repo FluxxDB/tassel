@@ -124,3 +124,17 @@ class MemoryExtraction(Base):
         ForeignKey("sessions.id", ondelete="CASCADE"), primary_key=True
     )
     digest: Mapped[str] = mapped_column(CHAR(64), primary_key=True)
+
+
+class LearnerPersonalization(Base):
+    """User-authored tutor style; automatic extraction never writes to this table."""
+
+    __tablename__ = "learner_personalization"
+
+    learner_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("learners.id", ondelete="CASCADE"), primary_key=True
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    content: Mapped[str] = mapped_column(Text, server_default="")
+    revision: Mapped[int] = mapped_column(Integer, server_default="0")
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
