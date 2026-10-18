@@ -155,7 +155,8 @@ class SlowIllustrator:
 @pytest.mark.parametrize(
     "draw,text,expected",
     [
-        (None, "draw a network", False),
+        # A draw request whose brief carries nothing to draw goes to the Illustrator anyway.
+        (None, "draw a network", True),
         ("network", "circle my paper", False),
         ("network", "draw a network", True),
     ],
@@ -255,7 +256,11 @@ async def test_timeout_still_speaks_say():
 
     output.push_frame = push
     await output.process_frame(LLMFullResponseEndFrame(), FrameDirection.DOWNSTREAM)
-    assert [f.text for f in frames if isinstance(f, LLMTextFrame)] == ["These are the zones."]
+    # She still speaks her brief, then says plainly the drawing didn't come.
+    from tassel.voice.thinker import NOT_DRAWN
+
+    spoken = " ".join(f.text for f in frames if isinstance(f, LLMTextFrame))
+    assert spoken.startswith("These are the zones.") and NOT_DRAWN["en"] in spoken
     assert not c.board.pending_diagrams
     await c.close()
 

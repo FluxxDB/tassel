@@ -333,6 +333,16 @@ class TutorCoordinator:
                     return None
                 brief = retry
             decision = self.decision or rules(self.text)
+            if (
+                decision.action == "draw_board"
+                and not brief.board
+                and not brief.draw
+                and not AUTOMATA.search(self.text)
+            ):
+                # The brief said it would draw but carried nothing to draw (live test: "I'll add
+                # two PCs in each zone", then nothing): the Illustrator draws her request itself.
+                self.log("draw_fallback", text=self.text)
+                brief = brief.model_copy(update={"draw": self.text})
             if brief.draw and (
                 decision.action == "draw_board"
                 or (decision.action in ("explain", "trace") and decision.refers_to == "board")
@@ -598,6 +608,9 @@ class TutorCoordinator:
             tag = await self.diagram_result()
             if tag:
                 brief = brief.model_copy(update={"board": [tag, *brief.board]})
+            else:
+                # Never leave "I'll draw it" standing when nothing was drawn.
+                brief = brief.model_copy(update={"say": f"{brief.say} {NOT_DRAWN[self.lang()]}"})
         self._notes_context()
         return brief
 
@@ -661,6 +674,13 @@ def compose(brief) -> str:
         text += sentence + " "
     return text.rstrip() + "".join(steps)
 
+
+# Said when a promised drawing didn't reach the board.
+NOT_DRAWN = {
+    "en": "I couldn't get that drawing onto the board. Could you say it another way?",
+    "es": "No pude poner ese dibujo en la pizarra. ¿Puedes decirlo de otra forma?",
+    "ko": "그 그림을 칠판에 그리지 못했어요. 다른 말로 다시 말해 주시겠어요?",
+}
 
 # Longest bracketed aside held back from speech before it's treated as ordinary text.
 META_MAX = 80
@@ -758,6 +778,9 @@ class ThinkerOutput(FrameProcessor):
                                 self.coordinator.lang()
                             ]
                             await self.push_frame(LLMTextFrame(tag + words))
+                        else:
+                            # Never leave "I'll draw it" standing when nothing was drawn.
+                            await self.push_frame(LLMTextFrame(NOT_DRAWN[self.coordinator.lang()]))
                 elif pending and generation == self.coordinator.generation:
                     failure = {
                         "en": "I couldn't finish checking that. Could you ask me again?",
