@@ -1,0 +1,44 @@
+/* The desktop app's design system, imported, not copied (see apps/desktop/.../styles/global.css). */
+@import "tailwindcss";
+@import "@tassel/shared/tokens.css";
+@import "@tassel/shared/fonts.css";
+@import "@tassel/shared/base.css";
+
+/* DESIGN.md's near-medium weight: headings, buttons and names, never bold. */
+@theme {
+  --font-weight-w520: 520;
+}
+
+@layer base {
+  /* Light only, like the app. */
+  html {
+    color-scheme: light;
+    scroll-behavior: smooth;
+    scroll-padding-top: 72px;
+  }
+
+  ::selection {
+    background-color: var(--color-blush);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+@layer components {
+  /* The board's dot grid, from the session stage. */
+  .dot-grid {
+    background-color: var(--color-paper);
+    background-image: radial-gradient(var(--color-board-dot) 1.2px, transparent 1.2px);
+    background-size: 18px 18px;
+  }
+}
