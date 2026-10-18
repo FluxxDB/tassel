@@ -5,7 +5,7 @@
 // opens and closes in 200 ms, at once under reduced motion; closed, it keeps her draft, inert.
 // Images dropped anywhere on it join the draft.
 import type { Lang } from '@tassel/shared/i18n';
-import { type DragEvent, useEffect, useState } from 'react';
+import { type DragEvent, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconButton } from '../../components/IconButton';
 import { Close } from '../../components/icons';
@@ -13,14 +13,15 @@ import { useApi } from '../../lib/api';
 import { cn } from '../../lib/cn';
 import { usePaperLive } from '../../paper/use-paper-capture';
 import type { TutorClient } from '../../tutor/types';
+import { useStageStore } from '../session/stage-store';
 import { ChatComposer, useDraft } from './ChatComposer';
 import { ImageViewer, type Viewed } from './ChatImages';
 import { ChatLog } from './ChatLog';
-import { SIDEBAR_WIDTH, useChatCover, useWideWindow } from './chat-layout';
-import { useChatOpen, useChatPrefs } from './chat-prefs';
+import { SIDEBAR_WIDTH, useChatCover, useWideForSplit, useWideWindow } from './chat-layout';
+import { chatOpenNow, useChatOpen, useChatPrefs } from './chat-prefs';
 import type { PreparedImage } from './prepare-image';
 import { retryMessage, sendMessage } from './send';
-import { CHAT_SIDEBAR_ID, setChatOpen } from './toggle';
+import { CHAT_SIDEBAR_ID, closeChatForSession, setChatOpen } from './toggle';
 
 const EASE = 'motion-safe:duration-200 motion-safe:ease-[cubic-bezier(0.16,1,0.3,1)]';
 
@@ -37,7 +38,19 @@ export function ChatSidebar({ sessionId, lang, client, prepare }: ChatSidebarPro
   const { t } = useTranslation();
   const api = useApi();
   const open = useChatOpen();
-  const wide = useWideWindow();
+  const split = useStageStore((state) => state.mode === 'split');
+  const wideForSplit = useWideForSplit();
+  // In split under 1200 px the board needs the room: the sidebar overlays instead of pushing.
+  const wide = useWideWindow() && (!split || wideForSplit);
+  // And when the split opens there with the sidebar open, it closes for this session (she can
+  // open it again, over the stage); her saved choice stays as it is.
+  const wasSplit = useRef(split);
+  useEffect(() => {
+    if (split && !wasSplit.current && !wideForSplit && chatOpenNow()) {
+      closeChatForSession();
+    }
+    wasSplit.current = split;
+  }, [split, wideForSplit]);
   const paperLive = usePaperLive();
   const voice = useChatPrefs((state) => state.voiceReplies);
   const draft = useDraft({ api, sessionId, prepare });

@@ -17,7 +17,6 @@ import { applyUserDataOverride, downloadDir, readConfig, tokenStoreMode } from '
 import { registerDownloads } from './downloads';
 import { registerIpc } from './ipc';
 import { registerScreenOverlay } from './overlay/controller';
-import { readSavedSettings } from './settings';
 import { createCameraAccess } from './paper/camera-access';
 import { readPaperSettings } from './paper/config';
 import { registerDisplayMedia } from './paper/display-media';
@@ -26,6 +25,7 @@ import { createHelperSupervisor, helperToken } from './paper/helper-supervisor';
 import { registerPaperIpc } from './paper/ipc';
 import { bindHelperToApp } from './paper/lifecycle';
 import { applyPaperSwitches } from './paper/switches';
+import { readSavedSettings } from './settings';
 import { createTokenStore } from './token-store';
 import { readVoiceConfig, registerVoiceIpc } from './voice/ipc';
 import { createMicAccess } from './voice/mic-access';

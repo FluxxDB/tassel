@@ -22,7 +22,10 @@ export const useAppSettings: UseBoundStore<StoreApi<AppSettings>> = create<AppSe
     saved: {},
     launchPaperSource: null,
     load: async () => {
-      const saved = (await bridge()?.get().catch(() => undefined)) ?? {};
+      const saved =
+        (await bridge()
+          ?.get()
+          .catch(() => undefined)) ?? {};
       set((state) => ({
         saved,
         launchPaperSource: state.launchPaperSource ?? saved.paperSource ?? 'auto',

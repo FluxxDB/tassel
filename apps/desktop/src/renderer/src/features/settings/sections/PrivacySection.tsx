@@ -8,6 +8,7 @@ import { useRoute } from '../../../app/route-store';
 import { Button } from '../../../components/Button';
 import { Sheet } from '../../../components/Sheet';
 import { useApi } from '../../../lib/api';
+import { invalidateSessions } from '../../library/useSessions';
 import { SettingsGroup } from '../SettingsView';
 
 type Outcome = { kind: 'done'; count: number } | { kind: 'failed' } | null;
@@ -25,12 +26,9 @@ export function PrivacySection() {
     try {
       const sessions = await listSessions(api, 'recent');
       await Promise.all(sessions.map((session) => deleteSession(api, session.id)));
-      const { data: memory } = await api.GET('/v1/learner/memory');
-      if (memory?.content) {
-        await api.PATCH('/v1/learner/memory', {
-          body: { content: '', enabled: memory.enabled, revision: memory.revision },
-        });
-      }
+      const { response } = await api.DELETE('/v1/learner/preferences');
+      if (!response.ok) throw new Error(`preferences: ${response.status}`);
+      invalidateSessions();
       setOutcome({ kind: 'done', count: sessions.length });
       // The open session, if any, is gone: back to the (now empty) library.
       if (useRoute.getState().route.name === 'session') useRoute.getState().goLibrary();

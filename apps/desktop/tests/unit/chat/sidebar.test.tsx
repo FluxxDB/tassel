@@ -125,13 +125,58 @@ const sidebar = () => screen.getByTestId('chat-sidebar');
 
 beforeEach(() => {
   vi.stubGlobal('tassel', { platform: 'darwin' });
+  // A desktop window: under 1120 px the sidebar starts closed (see below).
+  vi.stubGlobal('innerWidth', 1440);
   localStorage.clear();
-  useChatPrefs.setState({ open: null, defaultOpen: true, voiceReplies: true });
+  useChatPrefs.setState({ open: null, defaultOpen: true, voiceReplies: true, session: null });
   useStageStore.getState().reset();
 });
 afterEach(() => vi.unstubAllGlobals());
 
+/** A window `width` px wide, as matchMedia's min-width queries see it. */
+function windowWidth(width: number) {
+  vi.stubGlobal('innerWidth', width);
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: width >= Number(/min-width: (\d+)px/.exec(query)?.[1] ?? 0),
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
+}
+
 describe('the chat sidebar', () => {
+  it('starts closed in a window under 1120 px, whatever she chose, until she opens it', async () => {
+    windowWidth(1024);
+    useChatPrefs.setState({ open: true });
+    const { user } = await renderSession();
+    expect(toggle()).toHaveAttribute('aria-expanded', 'false');
+    expect(sidebar()).toHaveAttribute('inert');
+    await user.click(toggle());
+    expect(toggle()).toHaveAttribute('aria-expanded', 'true');
+    expect(sidebar()).toHaveAttribute('data-layout', 'overlay');
+  });
+
+  it("closes for the session when Ada's split opens under 1200 px, and overlays if reopened", async () => {
+    windowWidth(1160);
+    const { user } = await renderSession();
+    expect(toggle()).toHaveAttribute('aria-expanded', 'true');
+    expect(sidebar()).toHaveAttribute('data-layout', 'push');
+    act(() => useStageStore.getState().requestMode('split'));
+    expect(toggle()).toHaveAttribute('aria-expanded', 'false');
+    // Her saved choice is untouched.
+    expect(useChatPrefs.getState().open).toBeNull();
+    await user.click(toggle());
+    expect(toggle()).toHaveAttribute('aria-expanded', 'true');
+    expect(sidebar()).toHaveAttribute('data-layout', 'overlay');
+  });
+
+  it('stays open beside a split from 1200 px', async () => {
+    windowWidth(1280);
+    await renderSession();
+    act(() => useStageStore.getState().requestMode('split'));
+    expect(toggle()).toHaveAttribute('aria-expanded', 'true');
+    expect(sidebar()).toHaveAttribute('data-layout', 'push');
+  });
+
   it('opens with a session, beside the stage, with its toggle in the title strip', async () => {
     await renderSession();
     expect(toggle()).toHaveAttribute('aria-expanded', 'true');

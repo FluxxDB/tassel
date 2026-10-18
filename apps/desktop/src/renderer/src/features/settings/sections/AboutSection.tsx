@@ -14,7 +14,9 @@ export function AboutSection({ serverUrl }: { serverUrl?: string }) {
         </p>
       </div>
       <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-8 gap-y-3 border-t border-hairline pt-5 text-[13px]">
-        <dt className="mono text-[11px] leading-5 text-smoke-text">{t('settings.about.languages')}</dt>
+        <dt className="mono text-[11px] leading-5 text-smoke-text">
+          {t('settings.about.languages')}
+        </dt>
         <dd>
           {(['en', 'es', 'ko'] as const).map((lang, index) => (
             <span key={lang} lang={lang}>

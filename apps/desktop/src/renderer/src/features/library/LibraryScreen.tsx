@@ -156,7 +156,12 @@ export function LibraryScreen({
             The page's name for assistive tech, and a landing spot for focus from code (see
             above): never a Tab stop. The strip already says where she is, so it isn't shown.
           */}
-          <h1 id={headingId} ref={heading} tabIndex={-1} className="sr-only">
+          <h1
+            id={headingId}
+            ref={heading}
+            tabIndex={-1}
+            className="sr-only focus-visible:outline-none"
+          >
             {t('library.title')}
           </h1>
           {content}

@@ -8,24 +8,51 @@ import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import { useStageStore } from '../session/stage-store';
 
 export const SIDEBAR_WIDTH = 360;
-/** The narrowest window the sidebar pushes the stage in; below it, the sidebar overlays. */
+/**
+ * The narrowest window the sidebar pushes the stage in; below it, the sidebar overlays. A session
+ * opened in a narrower window starts with the sidebar closed (use-chat.ts).
+ */
 export const PUSH_MIN_WIDTH = 1120;
+/**
+ * The narrowest window the sidebar pushes a split stage in. Narrower, paper and board side by
+ * side need the room: the sidebar overlays, and closes when the split opens (ChatSidebar).
+ */
+export const SPLIT_PUSH_MIN_WIDTH = 1200;
 
-const QUERY = `(min-width: ${PUSH_MIN_WIDTH}px)`;
+function subscribeTo(query: string) {
+  return (onChange: () => void): (() => void) => {
+    if (typeof window.matchMedia !== 'function') return () => {};
+    const media = window.matchMedia(query);
+    media.addEventListener?.('change', onChange);
+    return () => media.removeEventListener?.('change', onChange);
+  };
+}
 
-function subscribe(onChange: () => void): () => void {
-  if (typeof window.matchMedia !== 'function') return () => {};
-  const media = window.matchMedia(QUERY);
-  media.addEventListener?.('change', onChange);
-  return () => media.removeEventListener?.('change', onChange);
+const PUSH_QUERY = `(min-width: ${PUSH_MIN_WIDTH}px)`;
+const SPLIT_QUERY = `(min-width: ${SPLIT_PUSH_MIN_WIDTH}px)`;
+const subscribePush = subscribeTo(PUSH_QUERY);
+const subscribeSplit = subscribeTo(SPLIT_QUERY);
+
+function matches(query: string): boolean {
+  return typeof window.matchMedia === 'function'
+    ? (window.matchMedia(query).matches ?? true)
+    : true;
 }
 
 /** True while the window is wide enough for the sidebar to push the stage. */
 export function useWideWindow(): boolean {
   return useSyncExternalStore(
-    subscribe,
-    () =>
-      typeof window.matchMedia === 'function' ? (window.matchMedia(QUERY).matches ?? true) : true,
+    subscribePush,
+    () => matches(PUSH_QUERY),
+    () => true,
+  );
+}
+
+/** True while the window is wide enough for the sidebar to push a split stage. */
+export function useWideForSplit(): boolean {
+  return useSyncExternalStore(
+    subscribeSplit,
+    () => matches(SPLIT_QUERY),
     () => true,
   );
 }

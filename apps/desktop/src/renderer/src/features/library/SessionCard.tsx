@@ -114,7 +114,10 @@ export function SessionCard({
           </Menu>
         )}
       </div>
-      <span id={`${id}-about`} className="pointer-events-none relative mt-auto flex flex-col gap-2.5">
+      <span
+        id={`${id}-about`}
+        className="pointer-events-none relative mt-auto flex flex-col gap-2.5"
+      >
         <span className="flex min-w-0 items-center gap-1.5">
           {showSubject && session.subject !== null && (
             <Chip tone="bone" lang={session.language} title={session.subject}>

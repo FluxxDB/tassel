@@ -63,8 +63,8 @@ export function SettingsView({ config, platform = window.tassel?.platform }: Set
               document.activeElement instanceof HTMLElement ? document.activeElement : null;
             // Focus starts on the open section's tab, so the arrow keys move through them.
             event.preventDefault();
-            const tab = document.getElementById(`settings-tab-${useSettingsView.getState().section}`);
-            tab?.focus();
+            const content = event.currentTarget as HTMLElement | null;
+            content?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus();
           }}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
@@ -100,7 +100,6 @@ export function SettingsView({ config, platform = window.tassel?.platform }: Set
               <TabList<SettingsSection>
                 label={t('settings.sections.label')}
                 variant="rail"
-                idPrefix="settings-tab"
                 value={section}
                 onChange={setSection}
                 items={SETTINGS_SECTIONS.map((value) => ({

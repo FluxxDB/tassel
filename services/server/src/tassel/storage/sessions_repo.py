@@ -57,13 +57,15 @@ async def patch_for(
     db: AsyncSession, learner_id: uuid.UUID, session_id: uuid.UUID, patch: SessionPatch
 ) -> TutoringSession | None:
     changes = patch.model_dump(exclude_unset=True)
+    # A rename alone isn't activity: it mustn't move the session up the Recent sort.
+    activity = {} if changes.keys() == {"title"} else {"last_activity_at": func.now()}
     if "title" in changes:
         # The source records who set the current title; a cleared title has none.
         changes["title_source"] = None if changes["title"] is None else "student"
     session = await db.scalar(
         update(TutoringSession)
         .where(*_owned(learner_id, session_id))
-        .values(**changes, last_activity_at=func.now())
+        .values(**changes, **activity)
         .returning(TutoringSession)
     )
     await db.commit()

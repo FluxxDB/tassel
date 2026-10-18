@@ -66,8 +66,9 @@ async def test_list_topic_groups_subjects_nulls_last(client):
     first, second, cell, untitled = [(await create(client, h))["id"] for _ in range(4)]
     for session_id, subject in [(first, "Automata"), (second, "Automata"), (cell, "Cell biology")]:
         await patch(client, h, session_id, subject=subject)
-    # Bump the older "Automata" session, so activity order differs from creation order.
-    await patch(client, h, first, title="DFA practice")
+    # Bump the older "Automata" session, so activity order differs from creation order (a
+    # rename alone wouldn't: it isn't activity).
+    await patch(client, h, first)
     assert await listed(client, h, sort="topic") == [first, second, cell, untitled]
 
 
@@ -85,14 +86,32 @@ async def test_search_matches_title_and_subject(client):
 
 
 @pytest.mark.asyncio
-async def test_patch_title_marks_student_source_and_bumps_activity(client):
+async def test_patch_title_marks_student_source_without_bumping_activity(client):
     h = await auth(client)
     s = await create(client, h)
     patched = await patch(client, h, s["id"], title="Strings that start with 010")
     assert patched["title"] == "Strings that start with 010"
     assert patched["title_source"] == "student"
-    assert at(patched["last_activity_at"]) > at(s["last_activity_at"])
+    # A rename doesn't reorder the Recent sort.
+    assert patched["last_activity_at"] == s["last_activity_at"]
     assert patched["created_at"] == s["created_at"]
+
+
+@pytest.mark.asyncio
+async def test_rename_keeps_recent_order(client):
+    h = await auth(client)
+    older = await create(client, h)
+    newer = await create(client, h)
+    await patch(client, h, older["id"], title="Renamed")
+    assert await listed(client, h) == [newer["id"], older["id"]]
+
+
+@pytest.mark.asyncio
+async def test_patch_title_with_other_fields_still_bumps_activity(client):
+    h = await auth(client)
+    s = await create(client, h)
+    patched = await patch(client, h, s["id"], title="Mitosis", subject="Biology")
+    assert at(patched["last_activity_at"]) > at(s["last_activity_at"])
 
 
 @pytest.mark.asyncio

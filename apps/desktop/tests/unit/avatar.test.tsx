@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, expect, it, vi } from 'vitest';
-import { AvatarCustomizer } from '../../src/renderer/src/avatar/AvatarCustomizer';
 import { cycle, DEFAULT_AVATAR, HAIR, readAvatar } from '../../src/renderer/src/avatar/catalog';
 import { useAvatar } from '../../src/renderer/src/avatar/store';
+import { TutorEditor } from '../../src/renderer/src/avatar/TutorEditor';
 import { initI18n } from '../../src/renderer/src/i18n';
 
 afterEach(() => {
@@ -24,7 +24,7 @@ async function open(onClose = vi.fn()) {
   const i18n = await initI18n('en');
   render(
     <I18nextProvider i18n={i18n}>
-      <AvatarCustomizer open onOpenChange={onClose} />
+      <TutorEditor open onDone={() => onClose(false)} />
     </I18nextProvider>,
   );
   return onClose;
@@ -40,7 +40,7 @@ it('edits a draft, switches to the palette, and cancels without saving', async (
   expect(close).toHaveBeenCalledWith(false);
   expect(useAvatar.getState().profile).toEqual(DEFAULT_AVATAR);
 });
-it('persists before celebrating and closes only after the celebration', async () => {
+it('persists before celebrating and is done only after the celebration', async () => {
   const close = await open();
   fireEvent.change(screen.getByLabelText('Tutor name'), { target: { value: 'Nova' } });
   vi.useFakeTimers();
@@ -54,7 +54,7 @@ it('persists before celebrating and closes only after the celebration', async ()
   });
   expect(close).toHaveBeenCalledWith(false);
 });
-it('keeps the draft and dialog open when persistence fails', async () => {
+it('keeps the draft when persistence fails', async () => {
   const close = await open();
   vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
     throw new Error('full');
@@ -68,8 +68,12 @@ it('keeps the draft and dialog open when persistence fails', async () => {
 it('supports tab arrow keys and reduced-motion save feedback', async () => {
   const close = await open();
   const style = screen.getByRole('tab', { name: 'Style' });
+  style.focus();
   fireEvent.keyDown(style, { key: 'ArrowRight' });
-  expect(screen.getByRole('tab', { name: 'Body' })).toHaveAttribute('aria-selected', 'true');
+  // Radix moves focus on the next tick, and selection follows focus.
+  await waitFor(() =>
+    expect(screen.getByRole('tab', { name: 'Body' })).toHaveAttribute('aria-selected', 'true'),
+  );
   expect(screen.getByRole('tab', { name: 'Body' })).toHaveFocus();
   vi.stubGlobal('matchMedia', () => ({ matches: true }));
   vi.useFakeTimers();

@@ -172,133 +172,131 @@ export function TutorEditor({ open, onDone }: TutorEditorProps) {
               ]}
             />
             <TabPanel value="style">
-                {row('hat', HATS)}
-                <div
-                  className="avatar-hat-colors"
-                  data-expanded={draft.hat !== 'none'}
-                  aria-hidden={draft.hat === 'none'}
-                  inert={draft.hat === 'none'}
-                >
-                  <div className="min-h-0 overflow-hidden">
-                    <fieldset className="ml-4 border-l border-hairline py-3 pl-4">
-                      <legend className="text-xs text-smoke-text">
-                        {t('avatar.fields.hatColor')}
-                      </legend>
-                      <div className="flex flex-wrap gap-2 pt-2">
-                        {HAT_COLORS.map((color) => (
-                          <button
-                            key={color}
-                            type="button"
-                            className="avatar-hat-swatch"
-                            aria-label={`${t('avatar.fields.hatColor')}: ${t(`avatar.options.${color}`)}`}
-                            title={t(`avatar.options.${color}`)}
-                            aria-pressed={draft.hatColor === color}
-                            onClick={() => update('hatColor', color)}
-                            style={{ backgroundColor: COLORS.hair[color] }}
-                          >
-                            {draft.hatColor === color && (
-                              <span
-                                aria-hidden="true"
-                                className="rounded-full bg-paper px-1 text-xs text-ink"
-                              >
-                                ✓
-                              </span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </fieldset>
-                  </div>
+              {row('hat', HATS)}
+              <div
+                className="avatar-hat-colors"
+                data-expanded={draft.hat !== 'none'}
+                aria-hidden={draft.hat === 'none'}
+                inert={draft.hat === 'none'}
+              >
+                <div className="min-h-0 overflow-hidden">
+                  <fieldset className="ml-4 border-l border-hairline py-3 pl-4">
+                    <legend className="text-xs text-smoke-text">
+                      {t('avatar.fields.hatColor')}
+                    </legend>
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {HAT_COLORS.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          className="avatar-hat-swatch"
+                          aria-label={`${t('avatar.fields.hatColor')}: ${t(`avatar.options.${color}`)}`}
+                          title={t(`avatar.options.${color}`)}
+                          aria-pressed={draft.hatColor === color}
+                          onClick={() => update('hatColor', color)}
+                          style={{ backgroundColor: COLORS.hair[color] }}
+                        >
+                          {draft.hatColor === color && (
+                            <span
+                              aria-hidden="true"
+                              className="rounded-full bg-paper px-1 text-xs text-ink"
+                            >
+                              ✓
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
                 </div>
-                {row('hair', HAIR)}
-                {row('hairColor', HAIR_COLORS)}
-                {row('outfit', OUTFITS)}
-                {row('outfitColor', OUTFIT_COLORS)}
-                {row('accessory', ACCESSORIES)}
+              </div>
+              {row('hair', HAIR)}
+              {row('hairColor', HAIR_COLORS)}
+              {row('outfit', OUTFITS)}
+              {row('outfitColor', OUTFIT_COLORS)}
+              {row('accessory', ACCESSORIES)}
             </TabPanel>
             <TabPanel value="body">
-                <fieldset className="py-5">
-                  <legend className="pt-4 text-sm font-w520">{t('avatar.skin')}</legend>
-                  <div className="grid grid-cols-4 gap-3">
-                    {SKINS.map((skin, index) => (
-                      <button
-                        key={skin}
-                        type="button"
-                        aria-label={t('avatar.skinTone', { number: index + 1 })}
-                        aria-pressed={draft.skin === skin}
-                        onClick={() => update('skin', skin)}
-                        className="avatar-swatch"
-                        style={{ backgroundColor: COLORS.skin[skin] }}
-                      >
-                        {draft.skin === skin && (
-                          <span
-                            aria-hidden="true"
-                            className="rounded-full bg-paper text-ink px-1 text-sm"
-                          >
-                            ✓
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
-                {row('face', FACES)}
-                <fieldset className="mt-4 flex min-w-0 flex-col gap-3">
-                  <legend className="mb-2 text-sm font-w520">{t('avatar.voice')}</legend>
-                  {VOICE_LANGUAGES.map((lang) => {
-                    const voice = VOICES.find(
-                      (item) => item.id === draft[VOICE_FIELDS[lang]] && item.language === lang,
-                    );
-                    const active =
-                      !!voice &&
-                      preview?.id === `${lang}:${voice.id}` &&
-                      preview.status !== 'error';
-                    return (
-                      <div key={lang} className="flex min-w-0 flex-col gap-1 text-[13px]">
-                        <label htmlFor={`avatar-voice-${lang}`}>
-                          {t(`avatar.voiceLanguages.${lang}`)}
-                        </label>
-                        <div className="flex min-w-0 gap-2">
-                          <select
-                            id={`avatar-voice-${lang}`}
-                            value={draft[VOICE_FIELDS[lang]]}
-                            onChange={(event) => update(VOICE_FIELDS[lang], event.target.value)}
-                            className="w-full min-w-0 rounded-input border border-hairline bg-paper p-2 text-ink"
-                          >
-                            <option value="off">{t('avatar.voiceOff')}</option>
-                            {VOICES.filter((item) => item.language === lang).map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {item.name} · {item.accent}
-                              </option>
-                            ))}
-                          </select>
-                          <Button
-                            variant="ghost"
-                            disabled={!voice || !publicPreviewUrl(voice.previewUrl)}
-                            aria-label={t(active ? 'avatar.stopPreview' : 'avatar.playPreview', {
-                              language: t(`avatar.voiceLanguages.${lang}`),
-                            })}
-                            onClick={() => {
-                              if (active) player.stop();
-                              else if (voice)
-                                void player.play(`${lang}:${voice.id}`, voice.previewUrl);
-                            }}
-                          >
-                            {t(active ? 'avatar.stop' : 'avatar.play')}
-                          </Button>
-                        </div>
-                        {voice &&
-                          (!publicPreviewUrl(voice.previewUrl) ||
-                            (preview?.id === `${lang}:${voice.id}` &&
-                              preview.status === 'error')) && (
-                            <p role="status">{t('avatar.previewUnavailable')}</p>
-                          )}
+              <fieldset className="py-5">
+                <legend className="pt-4 text-sm font-w520">{t('avatar.skin')}</legend>
+                <div className="grid grid-cols-4 gap-3">
+                  {SKINS.map((skin, index) => (
+                    <button
+                      key={skin}
+                      type="button"
+                      aria-label={t('avatar.skinTone', { number: index + 1 })}
+                      aria-pressed={draft.skin === skin}
+                      onClick={() => update('skin', skin)}
+                      className="avatar-swatch"
+                      style={{ backgroundColor: COLORS.skin[skin] }}
+                    >
+                      {draft.skin === skin && (
+                        <span
+                          aria-hidden="true"
+                          className="rounded-full bg-paper text-ink px-1 text-sm"
+                        >
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+              {row('face', FACES)}
+              <fieldset className="mt-4 flex min-w-0 flex-col gap-3">
+                <legend className="mb-2 text-sm font-w520">{t('avatar.voice')}</legend>
+                {VOICE_LANGUAGES.map((lang) => {
+                  const voice = VOICES.find(
+                    (item) => item.id === draft[VOICE_FIELDS[lang]] && item.language === lang,
+                  );
+                  const active =
+                    !!voice && preview?.id === `${lang}:${voice.id}` && preview.status !== 'error';
+                  return (
+                    <div key={lang} className="flex min-w-0 flex-col gap-1 text-[13px]">
+                      <label htmlFor={`avatar-voice-${lang}`}>
+                        {t(`avatar.voiceLanguages.${lang}`)}
+                      </label>
+                      <div className="flex min-w-0 gap-2">
+                        <select
+                          id={`avatar-voice-${lang}`}
+                          value={draft[VOICE_FIELDS[lang]]}
+                          onChange={(event) => update(VOICE_FIELDS[lang], event.target.value)}
+                          className="w-full min-w-0 rounded-input border border-hairline bg-paper p-2 text-ink"
+                        >
+                          <option value="off">{t('avatar.voiceOff')}</option>
+                          {VOICES.filter((item) => item.language === lang).map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name} · {item.accent}
+                            </option>
+                          ))}
+                        </select>
+                        <Button
+                          variant="ghost"
+                          disabled={!voice || !publicPreviewUrl(voice.previewUrl)}
+                          aria-label={t(active ? 'avatar.stopPreview' : 'avatar.playPreview', {
+                            language: t(`avatar.voiceLanguages.${lang}`),
+                          })}
+                          onClick={() => {
+                            if (active) player.stop();
+                            else if (voice)
+                              void player.play(`${lang}:${voice.id}`, voice.previewUrl);
+                          }}
+                        >
+                          {t(active ? 'avatar.stop' : 'avatar.play')}
+                        </Button>
                       </div>
-                    );
-                  })}
-                  <p className="text-[13px] text-smoke-text">{t('avatar.voiceDisabled')}</p>
-                  <p className="text-[12px] text-smoke-text">{t('avatar.voiceLibraryNote')}</p>
-                </fieldset>
+                      {voice &&
+                        (!publicPreviewUrl(voice.previewUrl) ||
+                          (preview?.id === `${lang}:${voice.id}` &&
+                            preview.status === 'error')) && (
+                          <p role="status">{t('avatar.previewUnavailable')}</p>
+                        )}
+                    </div>
+                  );
+                })}
+                <p className="text-[13px] text-smoke-text">{t('avatar.voiceDisabled')}</p>
+                <p className="text-[12px] text-smoke-text">{t('avatar.voiceLibraryNote')}</p>
+              </fieldset>
             </TabPanel>
           </Tabs>
         </div>

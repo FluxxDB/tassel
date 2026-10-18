@@ -15,6 +15,13 @@ interface Saved {
 interface ChatPrefs extends Saved {
   /** Whether the sidebar shows before she chooses: the launch's default. */
   defaultOpen: boolean;
+  /**
+   * This session's own state, never saved, over her choice: closed when a session opens in a
+   * window under 1120 px, or when Ada's split view needs the room (ChatSidebar). Null follows
+   * her choice. Her toggle clears it.
+   */
+  session: boolean | null;
+  setSession(open: boolean | null): void;
   setDefaultOpen(open: boolean): void;
   setOpen(open: boolean): void;
   toggle(): void;
@@ -39,9 +46,11 @@ export const useChatPrefs: UseBoundStore<StoreApi<ChatPrefs>> = create<ChatPrefs
     (set) => ({
       ...DEFAULTS,
       defaultOpen: true,
+      session: null,
       setDefaultOpen: (defaultOpen) => set({ defaultOpen }),
-      setOpen: (open) => set({ open }),
-      toggle: () => set((state) => ({ open: !(state.open ?? state.defaultOpen) })),
+      setSession: (session) => set({ session }),
+      setOpen: (open) => set({ open, session: null }),
+      toggle: () => set((state) => ({ open: !isOpen(state), session: null })),
       setVoiceReplies: (voiceReplies) => set({ voiceReplies }),
     }),
     {
@@ -53,5 +62,12 @@ export const useChatPrefs: UseBoundStore<StoreApi<ChatPrefs>> = create<ChatPrefs
   ),
 );
 
+function isOpen(state: Pick<ChatPrefs, 'session' | 'open' | 'defaultOpen'>): boolean {
+  return state.session ?? state.open ?? state.defaultOpen;
+}
+
 /** Whether the sidebar shows now. */
-export const useChatOpen = (): boolean => useChatPrefs((state) => state.open ?? state.defaultOpen);
+export const useChatOpen = (): boolean => useChatPrefs(isOpen);
+
+/** Whether the sidebar shows now, outside React. */
+export const chatOpenNow = (): boolean => isOpen(useChatPrefs.getState());

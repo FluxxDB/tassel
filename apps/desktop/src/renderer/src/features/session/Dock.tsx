@@ -1,6 +1,6 @@
 // The dock: a white pill at the bottom center holding the session's controls. Mic (with its
-// level meter), Audio settings in a live voice session, Camera, Share, the Board control,
-// Captions, and End session, its primary action.
+// level meter), Push-to-talk, Audio settings in a live voice session, Camera, Share, the Board
+// control, Captions, and End session, its primary action.
 import { type Ref, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -10,6 +10,7 @@ import {
   Board,
   Camera,
   Captions as CaptionsIcon,
+  Hand,
   Mic,
   MicOff,
   Screen,
@@ -76,6 +77,15 @@ export function Dock({ onEnd, boardRef }: DockProps) {
         {micOn ? <Mic /> : <MicOff />}
       </IconButton>
       <LevelMeter on={micOn} />
+      {/* One tap, so speech in the room doesn't become turns: then she holds Space to talk. */}
+      <IconButton
+        label={t('voice.settings.pushToTalk')}
+        pressed={pushToTalk}
+        onClick={() => useAudioPrefs.getState().set({ pushToTalk: !pushToTalk })}
+        title={t('session.dock.pushToTalkHint')}
+      >
+        <Hand />
+      </IconButton>
       {live && (
         <AudioSettings
           open={audioOpen}

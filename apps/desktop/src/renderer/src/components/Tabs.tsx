@@ -51,8 +51,6 @@ export interface TabListProps<T extends string> {
   onChange(value: T): void;
   variant?: 'underline' | 'rail';
   className?: string;
-  /** A prefix for the tabs' ids, so a test or a label can point at one. */
-  idPrefix?: string;
 }
 
 export function TabList<T extends string>({
@@ -62,16 +60,13 @@ export function TabList<T extends string>({
   onChange,
   variant = 'underline',
   className,
-  idPrefix,
 }: TabListProps<T>) {
   const rail = variant === 'rail';
   return (
     <RadixTabs.List
       aria-label={label}
       className={cn(
-        rail
-          ? 'flex flex-col gap-0.5'
-          : 'flex gap-6 shadow-[inset_0_-1px_0_var(--color-hairline)]',
+        rail ? 'flex flex-col gap-0.5' : 'flex gap-6 shadow-[inset_0_-1px_0_var(--color-hairline)]',
         className,
       )}
     >
@@ -81,7 +76,6 @@ export function TabList<T extends string>({
           <RadixTabs.Trigger
             key={item.value}
             value={item.value}
-            id={idPrefix ? `${idPrefix}-${item.value}` : undefined}
             // Radix selects on mouse down; a click (from code or assistive tech) selects too.
             onClick={() => {
               if (!selected) onChange(item.value);

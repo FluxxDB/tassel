@@ -5,6 +5,7 @@
 import type { ApiClient } from '@tassel/shared/api';
 import { useEffect, useLayoutEffect } from 'react';
 import { fetchHistory } from './chat-api';
+import { PUSH_MIN_WIDTH } from './chat-layout';
 import { useChatPrefs } from './chat-prefs';
 import { useChatStore } from './chat-store';
 
@@ -18,7 +19,12 @@ export function useSessionChat(
   useLayoutEffect(() => {
     useChatStore.getState().reset();
     useChatPrefs.getState().setDefaultOpen(!startClosed);
-    return () => useChatStore.getState().reset();
+    // In a narrow window the sidebar starts closed, whatever she chose, until she opens it.
+    useChatPrefs.getState().setSession(window.innerWidth < PUSH_MIN_WIDTH ? false : null);
+    return () => {
+      useChatStore.getState().reset();
+      useChatPrefs.getState().setSession(null);
+    };
   }, [sessionId, startClosed]);
   useEffect(() => {
     if (!history) return;
