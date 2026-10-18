@@ -7,9 +7,8 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from sqlalchemy import create_engine, inspect, make_url, text
-
 from conftest import TEST_DATABASE_URL
+from sqlalchemy import create_engine, inspect, make_url, text
 
 SERVER_DIR = Path(__file__).resolve().parents[2]
 TABLES = {"session_messages", "session_attachments"}
