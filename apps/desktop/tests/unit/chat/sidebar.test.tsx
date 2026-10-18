@@ -253,8 +253,10 @@ describe('the chat sidebar', () => {
     );
   });
 
-  it('an action row on her image goes to the image stage once one registers', async () => {
+  it('an action row on her image goes to the image stage', async () => {
     const { emit, user } = await renderSession();
+    // The latest registration is the stage (the session screen's own, when it has one, comes
+    // back when this one goes).
     const shown: string[] = [];
     const off = registerImageStage((id) => shown.push(id));
     emit(
@@ -267,10 +269,8 @@ describe('the chat sidebar', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Marked your image' }));
     expect(shown).toEqual(['att-1']);
+    expect(screen.queryByRole('dialog', { name: 'Your image' })).not.toBeInTheDocument();
     off();
-    // Without one, the sidebar's own viewer opens it.
-    await user.click(screen.getByRole('button', { name: 'Marked your image' }));
-    expect(await screen.findByRole('dialog', { name: 'Your image' })).toBeInTheDocument();
   });
 
   it('leaves the chat empty when the session screen goes', async () => {
