@@ -9,7 +9,6 @@ from collections import deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
 from uuid import UUID, uuid4
 
 from loguru import logger
@@ -54,6 +53,7 @@ from tassel.beats.processor import BeatTagProcessor
 from tassel.board.history import BoardHistory, replay
 from tassel.board.snapshots import BoardSnapshots
 from tassel.chat.log import ChatLog
+from tassel.chat.store import ChatStore
 from tassel.chat.turns import model_text, with_images
 from tassel.models import Lang, SessionPatch
 from tassel.screen.api import ScreenDrawing
@@ -138,7 +138,7 @@ class BotContext:
     board_history: BoardHistory | None = None
     # The chat's storage (``chat.store.ChatStore``): her images, and the lines it saves. None
     # keeps the chat live but unsaved, without images.
-    chat: Any = None
+    chat: ChatStore | None = None
     # The session's last saved chat seq, which this bot's lines follow.
     chat_seq: int = 0
 
