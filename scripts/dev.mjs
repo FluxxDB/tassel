@@ -26,7 +26,8 @@ const serverDir = join(root, 'services', 'server');
 const desktopDir = join(root, 'apps', 'desktop');
 const port = process.env.TASSEL_PORT || '8787';
 const healthUrl = `http://127.0.0.1:${port}/v1/health`;
-const SERVER_STARTUP_MS = 30_000;
+// Fresh Windows environments can spend over 30 s importing provider SDKs.
+const SERVER_STARTUP_MS = 180_000;
 const STOP_TIMEOUT_MS = 10_000;
 const isWindows = process.platform === 'win32';
 
@@ -192,18 +193,27 @@ async function main() {
   );
 
   // uv passes SIGTERM on to the server, which shuts down cleanly.
-  const server = start('server', 'uv', ['run', 'tassel-server'], {
+  console.log('[dev] Loading the server; first startup can take a few minutes…');
+  const server = start('server', 'uv', ['run', 'python', '-u', '-m', 'tassel'], {
     cwd: serverDir,
     env: { ...process.env, TASSEL_TRANSCRIPT_DIR: join(root, '.cache/live/transcripts') },
     stopSignal: 'SIGTERM',
   });
-  const deadline = Date.now() + SERVER_STARTUP_MS;
+  const started = Date.now();
+  const deadline = started + SERVER_STARTUP_MS;
+  let nextProgress = started + 10_000;
   while (!(await isHealthy())) {
     if (stopping || server.exitCode !== null) return;
     if (Date.now() > deadline) {
       console.error(`[dev] ${healthUrl} didn't answer within ${SERVER_STARTUP_MS / 1_000} s.`);
       stop(1);
       return;
+    }
+    if (Date.now() >= nextProgress) {
+      console.log(
+        `[dev] Still loading the server (${Math.round((Date.now() - started) / 1_000)} s)…`,
+      );
+      nextProgress = Date.now() + 10_000;
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
