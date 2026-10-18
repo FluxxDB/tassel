@@ -183,8 +183,10 @@ async def test_router_credit_refusal_falls_back_once_preserving_image_tools_and_
     assert [host for host, _ in calls] == ["router.test", "openai.test", "openai.test"]
     assert calls[0][1]["provider"] == OPENROUTER_PROVIDER
     for _, body in calls[1:]:
-        assert body["messages"][1:] == messages
+        # One leading system message: the persona, then the context's own system lines.
+        assert body["messages"][1:] == messages[1:]
         assert "Reply only in English" in body["messages"][0]["content"]
+        assert body["messages"][0]["content"].endswith("Tutor")
         assert body["model"] == "gpt-4.1-mini"
         assert "provider" not in body and "reasoning" not in body and "response_format" not in body
         assert [t["function"]["name"] for t in body["tools"]] == ["show_stage", "set_language"]
@@ -353,10 +355,13 @@ async def test_transport_retry_then_image_free_request(failures):
     assert calls[0] == calls[1]
     if failures >= 2:
         assert "image_url" not in json.dumps(calls[2])
+        # The image-failed note reaches the model as an app note: Cerebras accepts no system
+        # message after the first.
         assert any(
-            m["role"] == "system" and "latest page notes" in m["content"]
+            m["role"] == "user" and "latest page notes" in str(m["content"])
             for m in calls[2]["messages"]
         )
+        assert [m["role"] for m in calls[2]["messages"]].count("system") <= 1
     assert "image_url" in json.dumps(context.get_messages())
     assert any(isinstance(f, ErrorFrame) for f in down + up) == (failures == 3)
 
@@ -468,3 +473,22 @@ def test_speech_settings_are_configurable(monkeypatch):
     assert settings.stability == 0.45
     assert settings.similarity_boost == 0.8
     assert settings.speed == 1.05
+
+
+def test_only_the_leading_system_message_reaches_cerebras():
+    # Owner's retest #5: the director note was a system message after the student's words,
+    # and Cerebras refuses that ("System message must be at the beginning"), so Ada was silent.
+    from tassel.voice.providers import leading_system_only
+
+    messages = [
+        {"role": "system", "content": "You are Ada."},
+        {"role": "user", "content": "Hello?"},
+        {"role": "system", "content": "[director] {} Follow this decision."},
+        {"role": "system", "content": "Tutor notes: x"},
+    ]
+    out = leading_system_only([{"role": "system", "content": "Persona"}, *messages])
+    assert out[0] == {"role": "system", "content": "Persona\n\nYou are Ada."}
+    assert all(m["role"] != "system" for m in out[1:])
+    assert out[2] == {"role": "user", "content": "[director] {} Follow this decision."}
+    assert out[3] == {"role": "user", "content": "[app note] Tutor notes: x"}
+    assert messages[2]["role"] == "system"  # the context itself is left alone

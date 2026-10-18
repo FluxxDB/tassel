@@ -47,6 +47,32 @@ def _without_images(context: LLMContext) -> LLMContext:
     return LLMContext(messages, tools=context.tools, tool_choice=context.tool_choice)
 
 
+def leading_system_only(messages: list) -> list:
+    """Cerebras (via OpenRouter) accepts one system message, first ("System message must be at
+    the beginning"); anything else was refused, which silenced Ada. The opening run of system
+    messages merges into one; later system notes (director, tutor notes, bridge, image-failed)
+    become bracketed user notes, which the persona reads as app notes."""
+    out: list = []
+    lead: list[str] = []
+    i = 0
+    while (
+        i < len(messages) and isinstance(messages[i], dict) and messages[i].get("role") == "system"
+    ):
+        lead.append(str(messages[i].get("content", "")))
+        i += 1
+    if lead:
+        out.append({"role": "system", "content": "\n\n".join(lead)})
+    for message in messages[i:]:
+        if isinstance(message, dict) and message.get("role") == "system":
+            content = message.get("content", "")
+            if isinstance(content, str) and not content.startswith("["):
+                content = "[app note] " + content
+            out.append({**message, "role": "user", "content": content})
+        else:
+            out.append(message)
+    return out
+
+
 def _transport_error(error: Exception) -> bool:
     return isinstance(
         error,
@@ -233,9 +259,9 @@ class LiveLLMService(OpenRouterLLMService):
                     system_instruction=self._settings.system_instruction,
                     convert_developer_to_user=not self.supports_developer_role,
                 )
-                stream = await self._client.chat.completions.create(
-                    **self.build_chat_completion_params(params)
-                )
+                request = self.build_chat_completion_params(params)
+                request["messages"] = leading_system_only(list(request["messages"]))
+                stream = await self._client.chat.completions.create(**request)
                 async for chunk in stream:
                     substantive = any(
                         choice.delta.content or choice.delta.tool_calls for choice in chunk.choices
