@@ -1,0 +1,13 @@
+{
+  "name": "isolation-first",
+  "title": "Isolation, first session: a DFA, a 10.0.0.0/24 network and two stated preferences",
+  "description": "The session whose memory gets extracted (tassel.evals.isolation): she names a DFA and an office network, and says how she likes to be taught. Only the preferences may reach the next session.",
+  "default": false,
+  "fake_script": "dfa-opening",
+  "stage": { "view": "board" },
+  "turns": [
+    {
+      "student": "I'm working on a DFA that accepts binary strings ending in 01, and later I have to split my office network 10.0.0.0/24 into two subnets. Please go slow, keep explanations short, and give me one hint at a time, never the full answer."
+    }
+  ]
+}

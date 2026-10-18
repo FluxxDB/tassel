@@ -70,10 +70,12 @@ class TutorPreferences:
     def notes(self) -> str:
         return memory_instruction(self.memory)
 
-    def talker_prompt(self, lang: Lang, *, tools: bool, two_tier: bool) -> str:
-        return (
-            system_prompt(lang, tools=tools, two_tier=two_tier, ideal_tutor=self.ideal_tutor)
-            + self.notes
+    def talker_prompt(
+        self, lang: Lang, *, tools: bool, two_tier: bool, greeting: bool = False
+    ) -> str:
+        """The greeting turn carries no notes: nothing from before her first word."""
+        return system_prompt(lang, tools=tools, two_tier=two_tier, ideal_tutor=self.ideal_tutor) + (
+            "" if greeting else self.notes
         )
 
 

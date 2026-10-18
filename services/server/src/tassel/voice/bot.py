@@ -237,11 +237,24 @@ class _RoutedService(Pipeline):
         await super().process_frame(frame, direction)
 
 
-def talker_instruction(lang, *, tools: bool, two_tier: bool, notes: str = "") -> str:
+def talker_instruction(
+    lang, *, tools: bool, two_tier: bool, notes: str = "", greeting: bool = False
+) -> str:
     """The talker's system instruction: its own prompt for the route (two tiers: the talker
-    rules, never the board manual), then her learner memory. The memory refresh before each
-    reply once dropped two_tier and tools, so every live talker got the single-tier prompt."""
-    return system_prompt(lang, tools=tools, two_tier=two_tier) + notes
+    rules, never the board manual), then her learner preferences. The memory refresh before each
+    reply once dropped two_tier and tools, so every live talker got the single-tier prompt.
+    The greeting turn gets no notes at all: three live sessions opened with "Welcome back!
+    Ready to dive back into subnetting?"."""
+    return system_prompt(lang, tools=tools, two_tier=two_tier) + ("" if greeting else notes)
+
+
+def is_greeting_turn(messages: list[dict]) -> bool:
+    """Before her first turn: no student message in the context, app notes aside."""
+    return not any(
+        m.get("role") == "user"
+        and not (isinstance(m.get("content"), str) and is_note(m["content"]))
+        for m in messages
+    )
 
 
 # What Ada says when the app switches the view she asked for.
@@ -285,7 +298,7 @@ class _TurnContext(FrameProcessor):
         self.coordinator = None
         self._last_user = None
         self.on_language = None
-        self.refresh_memory: Callable[[], Awaitable[None]] | None = None
+        self.refresh_memory: Callable[[bool], Awaitable[None]] | None = None
         self._session_id = session_id
         self._turn_image = turn_image
         # When this turn began (her speech start), once the app has been asked for its frame.
@@ -383,9 +396,9 @@ class _TurnContext(FrameProcessor):
                 frame.context.set_tools(
                     SCREEN_TOOLS if self.screen and self.screen.active else self.default_tools
                 )
-            if self.refresh_memory is not None:
-                await self.refresh_memory()
             messages = frame.context.get_messages()
+            if self.refresh_memory is not None:
+                await self.refresh_memory(is_greeting_turn(messages))
             user = next((m for m in reversed(messages) if m.get("role") == "user"), None)
             if (
                 user
@@ -905,7 +918,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     turn_context.student_images = LatestImage(ctx.chat, ctx.learner_id, ctx.session_id)
     turn_context.default_tools = tools if tools_ok else None
 
-    async def preferred_prompt(lang):
+    async def preferred_prompt(lang, greeting=False):
         from tassel.learner_memory import MemoryOut
         from tassel.learner_personalization import (
             PersonalizationOut,
@@ -924,7 +937,9 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         if isinstance(thinker, Thinker):
             thinker.ideal_tutor = preferences.ideal_tutor
             thinker.learner_notes = preferences.notes
-        prompt = preferences.talker_prompt(lang, tools=tools_ok, two_tier=two_tier)
+        prompt = preferences.talker_prompt(
+            lang, tools=tools_ok, two_tier=two_tier, greeting=greeting
+        )
         if ctx.screen is not None and ctx.screen.active:
             prompt += (
                 "\nScreen mode: the image is a digital assignment, not paper. "
@@ -934,13 +949,16 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
             )
         return prompt
 
-    async def refresh_memory():
+    async def refresh_memory(greeting: bool = False):
         if isinstance(llm, FakeLLMService):
             return
-        # Refresh before every reply, including greetings and resumed conversations.
+        # Refresh before every reply, including resumed conversations; the greeting, before
+        # her first turn, renders no memory.
         await turn_context.push_frame(
             LLMUpdateSettingsFrame(
-                delta=llm.Settings(system_instruction=await preferred_prompt(ctx.lang))
+                delta=llm.Settings(
+                    system_instruction=await preferred_prompt(ctx.lang, greeting=greeting)
+                )
             )
         )
 

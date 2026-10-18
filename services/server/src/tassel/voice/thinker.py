@@ -171,6 +171,14 @@ INTENT = re.compile(
     r"\b(draw|mark|highlight|check|circle|find (?:a |the |my )?mistake|explain why)\b", re.I
 )
 PAPER = re.compile(r"\b(on my paper|my camera|on (?:the )?camera|circle mine)\b", re.I)
+# A drawing "from problem two": it needs her page, never an example in its place (c194768a: the
+# 10.0.0.x network from the prompts' worked example was drawn while her page wasn't visible).
+FROM_PAGE = re.compile(
+    r"\b(problem|question|exercise|part|task|item)\s+(?:\d+|[a-z]|one|two|three|four|five|six|"
+    r"seven|eight|nine|ten)\b|\b(?:my|the) (?:page|paper|sheet|assignment|homework|worksheet|"
+    r"notes|handout|textbook|book)\b",
+    re.I,
+)
 AUTOMATA = re.compile(r"\b(?:dfa|nfa|automat\w*|state machine|accept\w*|regex|language)\b", re.I)
 NOTE_PREFIX = "[tutor notes]"
 THINKER_WINDOW = 12
@@ -502,6 +510,13 @@ class TutorCoordinator:
                     return None
                 brief = retry
             decision = self.decision or rules(self.text)
+            needs_page = self._needs_page(brief, decision)
+            if needs_page:
+                # No page, no example drawing: she gets asked to show the problem instead.
+                self.log("needs_page", text=self.text)
+                brief = brief.model_copy(
+                    update={"draw": None, "board": [], "say": SEE_PAGE[self.lang()]}
+                )
             if brief.draw and ERASE.search(self.text):
                 # Erasing is [[clear ITEM]] or [[undo]], never a drawing: the eval's "erase the
                 # network" came back as the same diagram redrawn, with "The network is erased."
@@ -513,7 +528,7 @@ class TutorCoordinator:
                 and not RESTORE.search(self.text)
             ):
                 brief = self._honest_erase(brief, decision)
-            if self._illustrator_takes_over(brief, decision):
+            if not needs_page and self._illustrator_takes_over(brief, decision):
                 # The brief said it would draw but carried nothing to draw (live test: "I'll add
                 # two PCs in each zone", then nothing): the Illustrator draws her request itself.
                 self.log("draw_fallback", text=self.text)
@@ -914,6 +929,18 @@ class TutorCoordinator:
             return brief.model_copy(update={"say": f"{brief.say.rstrip()} {NOT_MARKED[lang]}"})
         return brief
 
+    def _needs_page(self, brief, decision) -> bool:
+        """A draw request about her page, with no page or image of hers in this turn."""
+        return bool(
+            decision.action == "draw_board"
+            and self.rung[0] is None
+            and FROM_PAGE.search(self.text)
+            and self.page_image is None
+            and self.student_image is None
+            and not self.attachments
+            and not (brief.page or "").strip()
+        )
+
     def _illustrator_takes_over(self, brief, decision) -> bool:
         """A draw turn whose brief carries nothing to draw goes to the Illustrator, unless it
         is an automaton (the exact verifier's), an erase, or a ladder rung (her words there are
@@ -1275,6 +1302,13 @@ def compose(brief) -> str:
         text += "".join(marks[i]) + "".join(moves[i]) + sentence + " "
     return text.rstrip() + "".join(after)
 
+
+# Said in place of a drawing "from problem two" when her page isn't in sight.
+SEE_PAGE = {
+    "en": "I can't see that problem yet. Could you show me the page, and I'll draw it from there?",
+    "es": "Todavía no veo ese problema. ¿Me muestras la hoja y lo dibujo a partir de ahí?",
+    "ko": "아직 그 문제가 보이지 않아요. 페이지를 보여 주시면 거기서부터 그릴게요.",
+}
 
 # Said when a promised drawing didn't reach the board.
 NOT_DRAWN = {
