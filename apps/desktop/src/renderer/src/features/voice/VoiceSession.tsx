@@ -29,7 +29,7 @@ export function VoiceSession({
   const { t } = useTranslation();
   // The developer console (TASSEL_DEV_CONSOLE=1): typed lines go to Ada as the student's.
   const devConsole = config.devConsole && client && (
-    <div className="absolute bottom-24 left-6 z-20 w-96 max-w-[calc(100%-3rem)]">
+    <div className="absolute bottom-[196px] left-6 z-20 w-96 max-w-[calc(100%-3rem)]">
       <DevConsole onSend={(text) => client.sendText(text)} />
     </div>
   );
