@@ -93,7 +93,15 @@
     "stage": {
       "paper": "Papel",
       "board": "Pizarra",
-      "split": "Papel y pizarra"
+      "split": "Papel y pizarra",
+      "image": {
+        "tag": "Tu imagen",
+        "backToPaper": "Volver al papel",
+        "loading": "Cargando tu imagen…",
+        "failed": "No se pudo cargar tu imagen",
+        "alt": "La imagen que enviaste",
+        "marksLabel": "Las marcas de Ada en tu imagen"
+      }
     },
     "placeholder": {
       "paper": {

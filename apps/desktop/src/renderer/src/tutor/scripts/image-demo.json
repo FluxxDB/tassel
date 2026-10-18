@@ -1,0 +1,128 @@
+{
+  "lang": "en",
+  "steps": [
+    {
+      "at": 0,
+      "event": {
+        "type": "state",
+        "state": "connecting"
+      }
+    },
+    {
+      "at": 800,
+      "event": {
+        "type": "state",
+        "state": "listening"
+      }
+    },
+    {
+      "at": 1500,
+      "event": {
+        "type": "caption",
+        "speaker": "student",
+        "text": "Here's a photo of my working. Is it right?",
+        "lang": "en",
+        "final": true
+      }
+    },
+    {
+      "at": 2400,
+      "turn": [
+        {
+          "say": "Let me put your photo up. {#show}Here it is.",
+          "actions": {
+            "show": {
+              "kind": "image.show",
+              "attachmentId": "fixture-image-1"
+            }
+          }
+        },
+        {
+          "say": "{#s1}First you moved the 3 across, {#circle}and this is the line to check: {#callout}11 take away 3 is 8, {#arrow}so the next line follows, {#underline}and x is 4. {#check}That's right.",
+          "actions": {
+            "s1": {
+              "kind": "image.mark",
+              "attachmentId": "fixture-image-1",
+              "mark": {
+                "type": "step",
+                "id": "s1",
+                "n": 1,
+                "target": {
+                  "el": "m1"
+                }
+              }
+            },
+            "circle": {
+              "kind": "image.mark",
+              "attachmentId": "fixture-image-1",
+              "mark": {
+                "type": "circle",
+                "id": "circle",
+                "target": {
+                  "el": "m2"
+                },
+                "wash": true
+              }
+            },
+            "callout": {
+              "kind": "image.mark",
+              "attachmentId": "fixture-image-1",
+              "mark": {
+                "type": "callout",
+                "id": "callout",
+                "target": {
+                  "el": "m2"
+                },
+                "text": "11 − 3 = 8: this is the step that matters"
+              }
+            },
+            "arrow": {
+              "kind": "image.mark",
+              "attachmentId": "fixture-image-1",
+              "mark": {
+                "type": "arrow",
+                "id": "arrow",
+                "from": {
+                  "el": "m2"
+                },
+                "to": {
+                  "box": {
+                    "x": 0.12,
+                    "y": 0.54,
+                    "w": 0.19,
+                    "h": 0.08
+                  }
+                }
+              }
+            },
+            "underline": {
+              "kind": "image.mark",
+              "attachmentId": "fixture-image-1",
+              "mark": {
+                "type": "underline",
+                "id": "underline",
+                "target": {
+                  "el": "m3"
+                }
+              }
+            },
+            "check": {
+              "kind": "image.mark",
+              "attachmentId": "fixture-image-1",
+              "mark": {
+                "type": "check",
+                "id": "check",
+                "target": {
+                  "at": {
+                    "x": 0.45,
+                    "y": 0.74
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

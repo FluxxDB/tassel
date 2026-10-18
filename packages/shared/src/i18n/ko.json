@@ -93,7 +93,15 @@
     "stage": {
       "paper": "종이",
       "board": "칠판",
-      "split": "종이와 칠판"
+      "split": "종이와 칠판",
+      "image": {
+        "tag": "내 이미지",
+        "backToPaper": "종이로 돌아가기",
+        "loading": "이미지를 가져오는 중이에요…",
+        "failed": "이미지를 불러오지 못했어요",
+        "alt": "내가 보낸 이미지",
+        "marksLabel": "내 이미지 위 Ada의 표시"
+      }
     },
     "placeholder": {
       "paper": {

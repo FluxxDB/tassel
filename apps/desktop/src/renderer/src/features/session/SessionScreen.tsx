@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import type { AppConfig } from '../../../../shared/bridge';
 import type { VoiceConfig } from '../../../../shared/voice-bridge';
 import { useRoute } from '../../app/route-store';
+import { createAttachmentSource } from '../../board/marks/attachment-source';
+import { registerImageSource } from '../../board/marks/image-store';
 import { createPaperSource } from '../../board/marks/paper-source';
 import { registerSnapshotSource } from '../../board/marks/snapshot-sources';
 import { Button } from '../../components/Button';
@@ -59,6 +61,11 @@ export function SessionScreen({ sessionId, createTutor, app, voiceConfig }: Sess
           sessionId: () => sessionId,
         }),
       ),
+    [api, sessionId],
+  );
+  // The student's images from the chat, for when Ada (or the chat) shows one on the stage.
+  useLayoutEffect(
+    () => registerImageSource(createAttachmentSource({ api, sessionId: () => sessionId })),
     [api, sessionId],
   );
   const { session, failed, load } = useCurrentSession();

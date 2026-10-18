@@ -87,7 +87,7 @@ export const AREAS = [
     title: 'Board: tldraw canvas, scenes, beats, marks, diagrams, automata',
     app: [
       `${R}/board/**`,
-      `${R}/tutor/scripts/{board,diagram,marks}-demo.json`,
+      `${R}/tutor/scripts/{board,diagram,marks,image}-demo.json`,
       `${R}/tutor/scripts/board-snapshot.json`,
     ],
     server: [`${SRC}/{board,beats}/**`, 'packages/shared/src/beats/**'],
