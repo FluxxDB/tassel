@@ -820,7 +820,12 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     if thinker is not None:
         thinker.on_usage = transcript.meter.llm
     turn_context.coordinator = TutorCoordinator(
-        thinker, ctx.board, transcript=transcript, lang=lambda: ctx.lang, on_brief=stage_brief
+        thinker,
+        ctx.board,
+        transcript=transcript,
+        lang=lambda: ctx.lang,
+        on_brief=stage_brief,
+        reply_timeout_s=ctx.settings.thinker_reply_timeout_s,
     )
     reasoning = [ThinkerOutput(turn_context.coordinator)]
     worker = PipelineWorker(
