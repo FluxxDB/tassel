@@ -9,6 +9,8 @@ Tassel is a live AI tutor for the desktop: an Electron + React app (`apps/deskto
 | `pnpm install` | Installs everything, downloads Electron 44.9.0, copies the fonts |
 | `pnpm dev` | Postgres, migrations, the server on 8787, then the app (`scripts/dev.mjs`); Ctrl+C stops both |
 | `pnpm test` | Every package's unit tests (Vitest), then the server's tests (pytest, database `tassel_test`) |
+| `pnpm test:changed` | Only the tests the change needs: everything since the merge-base with the nearest origin branch, committed or not (`scripts/test-changed.mjs`). `--dry-run` prints the plan, `--no-e2e` or `--only unit,pytest` narrows it, `--base <ref>` and `--files a,b` pick the changes |
+| `pnpm test:area <name...>` | Every unit, E2E and server test of the named areas; `--list` names them (`scripts/test-areas.mjs`) |
 | `pnpm e2e` | Builds the desktop app and runs its Playwright E2E specs (server on 8799, database `tassel_e2e`, frames in local S3), on the fake clip |
 | `node scripts/camera.mjs` | Tassel on the real Desk View camera through LaunchServices (owner at the Mac only) |
 | `pnpm check` | Biome, typechecks, `check:i18n`, `check:api` and ruff |
@@ -17,6 +19,16 @@ Tassel is a live AI tutor for the desktop: an Electron + React app (`apps/deskto
 | `pnpm --filter @tassel/desktop e2e <pattern>` | E2E specs matching a pattern (build the app first) |
 
 `pnpm test` and `pnpm e2e` need Postgres, and E2E local S3: `docker compose up -d db s3`. Checkouts that run tests side by side each set their own `TASSEL_E2E_PORT`, `TASSEL_E2E_DATABASE_URL` and `TASSEL_TEST_DATABASE_URL`; the test setups create and migrate those databases. Run every command to completion: no watch modes, and no dev server or app window left running when you're done.
+
+## Which tests to run
+
+The full suites are slow (E2E alone takes 4–7 minutes), so don't run all of them after every change:
+
+- **While iterating:** `pnpm check` and `pnpm test:changed`. It maps each changed file to its areas (shell, library, session, board, paper, vision, voice, avatar, api, domains, tooling) and runs the unit tests that import the file (`vitest related`), the E2E specs of those screens (building the app first only when E2E runs) and the server tests of the touched server areas. Shared files widen it: i18n catalogs and design tokens add the shell, library and session specs; migrations, server settings and `conftest.py` run the whole server suite; E2E fixtures run every spec; dependency changes run everything. `--dry-run` first if unsure.
+- **After merging someone else's branch:** `pnpm test` (unit and server) and `pnpm check`.
+- **Once per batch, right before pushing:** the full `pnpm e2e`, in the background.
+
+A new test or source file goes in an area in `scripts/test-areas.mjs`; `scripts/test-select.test.mjs` (part of `pnpm test`) fails and names the file until it has one.
 
 ## Layout
 
