@@ -437,3 +437,10 @@ def test_explaining_something_visual_goes_to_the_thinker(text, route):
     from tassel.voice.director import guard
 
     assert guard(text, rules(text)).route == route
+
+
+def test_compose_never_steps_a_trace_past_its_input():
+    """Real-token eval, step 2: eight [[step t]] for the 4-symbol input 0101 ran the board's trace
+    past its end after her last sentence. A trace gets at most one step per symbol."""
+    spoken = compose(brief(board=["[[trace t ex 0101]]"] + ["[[step t]]"] * 8, say="Run 0101."))
+    assert spoken.count("[[step t]]") == 4

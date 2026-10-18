@@ -1243,9 +1243,13 @@ def compose(brief) -> str:
     sentences = [s for s in re.split(r"(?<=[.!?])\s+", brief.say.strip()) if s] or [""]
     trace = next((t for t in tags if TRACE_TAG.match(t)), None)
     steps = [t for t in tags if STEP.match(t)]
+    if trace:
+        # One step per symbol: extra steps would run the board's trace past its input.
+        steps = steps[: len(TRACE_TAG.match(trace).group(1))]
     points = [t for t in tags if POINT_TAG.match(t)]
     verdicts = [t for t in tags if trace and VERDICT_TAG.match(t)]
-    moved = {id(t) for t in [*steps, *points, *verdicts]} | ({id(trace)} if trace else set())
+    extra = {id(t) for t in tags if STEP.match(t)}
+    moved = extra | {id(t) for t in [*points, *verdicts]} | ({id(trace)} if trace else set())
     lead = [t for t in tags if id(t) not in moved]
     walk = _walk_start(sentences, trace, len(steps)) if trace else 0
     marks = [[] for _ in sentences]
