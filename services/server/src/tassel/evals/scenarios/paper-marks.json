@@ -1,0 +1,37 @@
+{
+  "name": "paper-marks",
+  "title": "Marks on her handwriting: underline, circle, callout",
+  "description": "Synthetic pages through the turn-image path; each mark must land on the page's truth box. The IP underline fails until text-line labels land (workstream C).",
+  "stage": { "view": "paper" },
+  "turns": [
+    {
+      "student": "Can you underline the IP address I wrote on my paper?",
+      "page": "ip-page",
+      "expect": {
+        "route": "thinker",
+        "action": "mark_paper",
+        "tags": ["paper.mark:underline"],
+        "marks": [{ "type": "underline", "truth": "ip" }]
+      }
+    },
+    {
+      "student": "Here's my DFA. Can you circle q2 on my paper?",
+      "page": "dfa-page",
+      "expect": {
+        "route": "thinker",
+        "action": "mark_paper",
+        "tags": ["paper.mark:circle"],
+        "marks": [{ "type": "circle", "truth": "q2" }]
+      }
+    },
+    {
+      "student": "Put a callout on q3 on my paper saying it should be an accepting state.",
+      "expect": {
+        "route": "thinker",
+        "action": "mark_paper",
+        "tags": ["paper.mark:callout"],
+        "marks": [{ "type": "callout", "truth": "q3" }]
+      }
+    }
+  ]
+}

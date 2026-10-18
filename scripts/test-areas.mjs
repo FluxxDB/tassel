@@ -130,7 +130,14 @@ export const AREAS = [
       `${E2E}/{fake-mic,voice-bundle,voice-conversation}.spec.ts`,
       `${E2E}/board/live-board.spec.ts`,
     ],
-    pytest: [`${PY}/voice/**`],
+    pytest: [`${PY}/voice/**`, `${PY}/evals/**`],
+  },
+  {
+    name: 'evals',
+    title: 'The live tutor eval: scenarios, page fixtures, checks, the budget, reports',
+    server: [`${SRC}/evals/**`],
+    // The voice area runs these too: the fake-provider run drives the whole voice pipeline.
+    pytest: [`${PY}/evals/**`],
   },
   {
     name: 'avatar',
