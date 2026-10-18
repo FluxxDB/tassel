@@ -1,5 +1,14 @@
 # Tassel
 
+## Shared app startup contract
+
+- **One app launcher:** `Start-Tassel.cmd` on Windows, or `pnpm start` on any platform. Both use tracked `scripts/start.mjs` and launch the current checkout. Do not add feature-specific CMD files, check out another branch, or launch the ignored `.local/live-test` clone.
+- Paper/webcam, screen overlay, voice, board, avatar, memory and personality belong in the same app and are selected through its UI. New features must not require a different launcher, profile, database, or fake-provider preset.
+- Shared local paths live in the primary Git checkout's ignored `.local/start.json`, resolved through Git's common directory so worktrees share the saved profile and backend. Existing avatar profile and primary development data are preserved by default. Do not reset/copy device tokens or databases to solve startup issues.
+- `Start-Tassel.cmd --check` / `pnpm start --check` are read-only preflight checks and do not open devices or call providers. Agent-run app tests still use the existing fake-device harness; never run normal live startup unattended.
+- To share startup/features with another branch, merge the integration commits through Git. Never copy ignored local scripts or silently switch branches. Keep the launcher and this contract in shared commits. The launcher cannot supply code that a branch has not merged.
+
+
 Tassel is a live AI tutor for the desktop: an Electron + React app (`apps/desktop`), a FastAPI server with Postgres (`services/server`), and a shared package (`packages/shared`). `PRODUCT.md` says what it is and who it serves; the design is `docs/superpowers/specs/2026-10-17-tassel-design.md`; the plans are in `docs/superpowers/plans/`.
 
 ## Commands
@@ -7,6 +16,7 @@ Tassel is a live AI tutor for the desktop: an Electron + React app (`apps/deskto
 | Command | What it does |
 |---|---|
 | `pnpm install` | Installs everything, downloads Electron 44.9.0, copies the fonts |
+| `pnpm start` | Shared owner startup: current checkout, saved profile/backend, all features |
 | `pnpm dev` | Postgres, migrations, the server on 8787, then the app (`scripts/dev.mjs`); Ctrl+C stops both |
 | `pnpm test` | Every package's unit tests (Vitest), then the server's tests (pytest, database `tassel_test`) |
 | `pnpm test:changed` | Only the tests the change needs: everything since the merge-base with the nearest origin branch, committed or not (`scripts/test-changed.mjs`). `--dry-run` prints the plan, `--no-e2e` or `--only unit,pytest` narrows it, `--base <ref>` and `--files a,b` pick the changes |
@@ -62,4 +72,4 @@ A new test or source file goes in an area in `scripts/test-areas.mjs`; `scripts/
 - **Secrets:** the desktop app holds no provider API keys, only a device token (Electron `safeStorage`, or plaintext JSON when `TASSEL_TOKEN_STORE=file` in dev and E2E). Never read or print `.env` files or tokens.
 - **Origins:** the renderer is `app://tassel` in builds and `http://localhost:5173` in dev; the server's CORS allows exactly those two.
 - **Sessions:** type `homework|studying|research|other`, language `en|es|ko`, source `paper|screen|talk`; a null title shows "Untitled Session"; library sorts `recent|created|topic`.
-- **Windows** has no Desk View: the new session sheet disables paper there and starts from screen share.
+- **Windows** has no Desk View: shared startup exposes ordinary webcam Paper and defaults new sessions to screen share.

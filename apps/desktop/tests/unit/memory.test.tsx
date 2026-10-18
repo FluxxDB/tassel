@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createApiClient } from '@tassel/shared/api';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { expect, it, vi } from 'vitest';
 import { AvatarCustomizer } from '../../src/renderer/src/avatar/AvatarCustomizer';
@@ -34,25 +34,35 @@ async function setup(conflict = false) {
       </ApiProvider>
     </I18nextProvider>,
   );
-  fireEvent.click(screen.getByRole('radio', { name: 'Memory' }));
-  await screen.findByDisplayValue('Use visual explanations.');
+  fireEvent.click(screen.getByRole('radio', { name: 'Personalization & memory' }));
+  await within(screen.getByRole('region', { name: 'Memory' })).findByDisplayValue(
+    'Use visual explanations.',
+  );
   return { updates };
 }
 
 it('keeps saved notes when memory is disabled and deletes them only on clear', async () => {
   const { updates } = await setup();
   fireEvent.click(screen.getByRole('switch', { name: 'Remember across sessions' }));
-  await waitFor(() => expect(screen.getByRole('switch')).not.toBeChecked());
-  expect(screen.getByRole('textbox')).toHaveValue('Use visual explanations.');
+  await waitFor(() =>
+    expect(screen.getByRole('switch', { name: 'Remember across sessions' })).not.toBeChecked(),
+  );
+  expect(screen.getByRole('textbox', { name: 'What your tutor remembers' })).toHaveValue(
+    'Use visual explanations.',
+  );
   expect(updates[0]).toEqual({ enabled: false, content: 'Use visual explanations.', revision: 1 });
   fireEvent.click(screen.getByRole('button', { name: 'Clear memory' }));
-  await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue(''));
+  await waitFor(() =>
+    expect(screen.getByRole('textbox', { name: 'What your tutor remembers' })).toHaveValue(''),
+  );
   expect(updates[1]).toEqual({ enabled: false, content: '', revision: 2 });
 });
 
 it('saves edited notes with the current revision', async () => {
   const { updates } = await setup();
-  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'One hint at a time.' } });
+  fireEvent.change(screen.getByRole('textbox', { name: 'What your tutor remembers' }), {
+    target: { value: 'One hint at a time.' },
+  });
   fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
   await screen.findByText('Saved');
   expect(updates[0]).toEqual({ enabled: true, content: 'One hint at a time.', revision: 1 });
@@ -60,8 +70,12 @@ it('saves edited notes with the current revision', async () => {
 
 it('keeps a draft when a concurrent update conflicts', async () => {
   await setup(true);
-  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Keep my edit.' } });
+  fireEvent.change(screen.getByRole('textbox', { name: 'What your tutor remembers' }), {
+    target: { value: 'Keep my edit.' },
+  });
   fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
   await screen.findByText(/Memory changed since you opened it/);
-  expect(screen.getByRole('textbox')).toHaveValue('Keep my edit.');
+  expect(screen.getByRole('textbox', { name: 'What your tutor remembers' })).toHaveValue(
+    'Keep my edit.',
+  );
 });

@@ -129,3 +129,17 @@ async def test_ada_only_ever_opens_the_split_view():
         views = {e["view"] for e in out.events() if e["kind"] == "stage"}
         assert views == {"split"}
         assert not any(e.get("pinned") for e in out.events() if e["kind"] == "stage")
+
+
+@pytest.mark.asyncio
+async def test_view_acknowledgement_opens_the_current_screen_audio_epoch():
+    from tassel.screen.session import ScreenSession
+
+    screen = ScreenSession()
+    ctx = context(screen=screen, request=OfferRequestData(scenario="dfa-opening"))
+    async with running(ctx) as (bot, out):
+        await until(lambda: load_scenario("dfa-opening").langs["en"].greeting in out.text())
+        await screen.reset(source="display", epoch=42, active=True)
+        await say(bot, "Back to board, please.")
+        await until(lambda: "Here's the board." in out.text())
+        assert {"kind": "screen-turn", "epoch": 42} in out.events()

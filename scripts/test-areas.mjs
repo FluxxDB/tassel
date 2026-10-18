@@ -27,6 +27,21 @@ const PY = `${S}/tests`;
 
 export const AREAS = [
   {
+    name: 'screen',
+    title: 'Screen capture, desktop overlay and reset interruption',
+    app: [
+      `${D}/src/main/overlay/**`,
+      `${D}/playwright.screen.config.ts`,
+      `${D}/src/shared/screen-bridge.ts`,
+      `${R}/screen/**`,
+      `${R}/overlay/**`,
+    ],
+    server: [`${SRC}/screen/**`],
+    unit: [`${UNIT}/screen/**`],
+    e2e: [`${E2E}/screen-overlay.spec.ts`],
+    pytest: [`${PY}/screen/**`],
+  },
+  {
     name: 'shell',
     title:
       'App shell: main process, preload bridge, protocol, IPC, token store, app frame, components',
@@ -145,12 +160,17 @@ export const AREAS = [
     app: [`${R}/avatar/**`],
     server: [
       `${SRC}/learner_memory.py`,
+      `${SRC}/learner_personalization.py`,
       `${SRC}/api/memory.py`,
       `${SRC}/scripts/export_avatar_voices.py`,
     ],
-    unit: [`${UNIT}/{avatar,avatar-motion,memory,voice-preview}.test.{ts,tsx}`],
+    unit: [`${UNIT}/{avatar,avatar-motion,memory,personality,voice-preview}.test.{ts,tsx}`],
     e2e: [`${E2E}/{avatar,memory-close}.spec.ts`],
-    pytest: [`${PY}/test_learner_memory.py`, `${PY}/scripts/test_avatar_voices.py`],
+    pytest: [
+      `${PY}/test_learner_memory.py`,
+      `${PY}/test_tutor_personality.py`,
+      `${PY}/scripts/test_avatar_voices.py`,
+    ],
   },
   {
     name: 'api',

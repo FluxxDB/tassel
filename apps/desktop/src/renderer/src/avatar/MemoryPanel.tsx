@@ -68,6 +68,7 @@ export function MemoryPanel({ open }: { open: boolean }) {
 
   return (
     <section className="flex flex-col gap-5" aria-label={t('memory.title')} aria-busy={!memory}>
+      <h3 className="text-lg font-w520">{t('memory.savedTitle')}</h3>
       <label className="flex items-center justify-between gap-4 text-sm font-w520">
         {t('memory.enabled')}
         <input

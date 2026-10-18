@@ -14,6 +14,7 @@ import { useStageStore } from '../features/session/stage-store';
 import { useVoiceDebug } from '../features/voice/voice-debug';
 import { useApi } from '../lib/api';
 import { requestTurnFrame } from '../paper/turn-frame';
+import { acceptScreenMarks, requestScreenTurn } from '../screen/controller';
 import type { TutorClient } from './types';
 
 /**
@@ -99,7 +100,12 @@ export function useTutorSession(
           useVoiceDebug.getState().push(event.event);
           break;
         case 'paper-request':
-          void requestTurnFrame();
+          void requestScreenTurn().then((handled) => {
+            if (!handled) return requestTurnFrame();
+          });
+          break;
+        case 'screen-marks':
+          acceptScreenMarks(event.data);
           break;
         case 'board-snapshot':
           void sendBoardSnapshot(api.current, sessionId);

@@ -64,6 +64,8 @@ export class LiveTutorClient implements TutorClient {
   private retries = 0;
   private successes = 0;
   private talking = false;
+  private screenEpoch = 0;
+  private responseBlocked = false;
   constructor(private readonly deps: LiveClientDeps) {
     this.clock = deps.clock ?? systemClock;
     this.backoff = deps.backoffMs ?? [1000, 2000, 4000];
@@ -114,6 +116,14 @@ export class LiveTutorClient implements TutorClient {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+  interrupt(epoch: number) {
+    if (epoch < this.screenEpoch) return;
+    this.screenEpoch = epoch;
+    this.responseBlocked = true;
+    this.state = initialMapState(this.state.lang);
+    this.deps.audio.interrupt(true);
+    this.emit({ type: 'state', state: 'listening' });
   }
   sendText(text: string) {
     this.emit({ type: 'caption', speaker: 'student', text, final: true, lang: this.state.lang });
@@ -269,6 +279,39 @@ export class LiveTutorClient implements TutorClient {
     });
   }
   private map(input: RtviInput) {
+    // Normal voice interruption is released by the next bot response. Screen reset stays
+    // latched until the matching screen-turn barrier below has arrived.
+    if (input.kind === 'bot-started' && !this.responseBlocked) this.deps.audio.interrupt(false);
+    if (input.kind === 'server' && input.data && typeof input.data === 'object') {
+      const envelope = input.data as {
+        tassel?: { kind?: string; epoch?: number };
+        screen_epoch?: number;
+      };
+      const event = envelope.tassel;
+      if (event?.kind === 'screen-turn') {
+        if (event.epoch === this.screenEpoch) {
+          this.responseBlocked = false;
+          this.state = initialMapState(this.state.lang);
+          this.deps.audio.interrupt(false);
+        }
+        return;
+      }
+      if (event?.kind === 'screen-marks') {
+        if (!this.responseBlocked && event.epoch === this.screenEpoch)
+          this.emit({ type: 'screen-marks', data: event });
+        return;
+      }
+      if (envelope.screen_epoch !== undefined && envelope.screen_epoch < this.screenEpoch) return;
+    }
+    if (
+      this.responseBlocked &&
+      (input.kind === 'bot-started' || input.kind === 'bot-stopped' || input.kind === 'bot-output')
+    )
+      return;
+    if (this.responseBlocked && input.kind === 'server') {
+      const data = input.data as { tassel?: { kind?: string } };
+      if (['beat', 'actions', 'stage', 'stage-hint'].includes(data?.tassel?.kind ?? '')) return;
+    }
     const result = mapRtvi(this.state, input);
     this.state = result.state;
     for (const event of result.events) this.emit(event);

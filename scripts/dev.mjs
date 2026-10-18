@@ -176,6 +176,12 @@ async function main() {
     throw new Error(`Something already answers ${healthUrl}. Stop it, then rerun pnpm dev.`);
   }
   step('start Postgres and local S3', 'docker', ['compose', 'up', '-d', '--wait', 'db', 's3']);
+  step(
+    'ensure the local dev database exists',
+    'uv',
+    ['run', 'python', join(root, 'scripts/ensure-dev-database.py')],
+    serverDir,
+  );
   step('migrate the dev database', 'uv', ['run', 'alembic', 'upgrade', 'head'], serverDir);
   buildHelper();
   const paper = devPaperEnv(process.env, demoClip);

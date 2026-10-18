@@ -16,6 +16,7 @@ import {
   Sliders,
 } from '../../components/icons';
 import { cn } from '../../lib/cn';
+import { screenActions, useScreen } from '../../screen/store';
 import { AudioSettings } from '../voice/AudioSettings';
 import { useAudioPrefs } from '../voice/audio-prefs';
 import { type LiveMic, useLiveVoice } from '../voice/live-voice';
@@ -30,6 +31,7 @@ export interface DockProps {
 
 export function Dock({ onEnd, boardRef }: DockProps) {
   const { t } = useTranslation();
+  const sharing = useScreen((state) => state.selected !== null);
   const { micOn, cameraOn, captionsOn, pinned, toggleMic, toggleCamera, toggleCaptions } =
     useStageStore(
       useShallow((state) => ({
@@ -87,17 +89,19 @@ export function Dock({ onEnd, boardRef }: DockProps) {
       )}
       <IconButton
         label={t('session.dock.camera')}
+        disabled={sharing}
         pressed={cameraOn}
         onClick={toggleCamera}
         title={t('session.dock.camera')}
       >
         <Camera />
       </IconButton>
-      {/* Visible but unavailable until screen sharing lands (R18). */}
+
       <IconButton
         label={t('session.dock.share')}
-        aria-disabled
-        title={t('session.dock.shareLater')}
+        pressed={sharing}
+        onClick={() => void (sharing ? screenActions()?.collapse() : screenActions()?.choose())}
+        title={t('session.dock.share')}
       >
         <Screen />
       </IconButton>

@@ -61,3 +61,19 @@ test('voice mode keeps the normal source; demo mode uses explicit fakes', () => 
   assert.equal(demo.TASSEL_TUTOR, 'fake');
   assert.equal(demo.TASSEL_PAPER_SOURCE, 'fake-clip');
 });
+
+test('screenshare launch uses the current checkout and an isolated backend with the saved avatar profile', () => {
+  const settings = team2Env('screen', {
+    root,
+    env: {
+      TASSEL_LOCAL_USER_DATA: 'saved-avatar-profile',
+      TASSEL_VOICE_ENV_FILE: 'existing-provider-settings',
+    },
+  });
+  assert.equal(settings.TASSEL_USER_DATA, 'saved-avatar-profile');
+  assert.equal(settings.TASSEL_PORT, '8865');
+  assert.match(settings.TASSEL_DATABASE_URL, /tassel_t2_screen_dev$/);
+  assert.equal(settings.TASSEL_VOICE_ENV_FILE, 'existing-provider-settings');
+  assert.equal(settings.TASSEL_REQUIRE_FAKE_CAPTURE, '0');
+  assert.equal(settings.TASSEL_TUTOR, 'live');
+});

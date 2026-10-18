@@ -17,6 +17,8 @@ import { PaperPanel } from '../../paper/PaperPanel';
 import { PaperTopLineExtras } from '../../paper/PaperTopLineExtras';
 import { usePaperStore } from '../../paper/paper-store';
 import { usePaperTag } from '../../paper/use-paper-capture';
+import { ScreenPanel } from '../../screen/ScreenControls';
+import { useScreen } from '../../screen/store';
 import { CameraPip } from './CameraPip';
 import { type StageMode, useStageStore } from './stage-store';
 import { TutorTile } from './TutorTile';
@@ -52,7 +54,8 @@ export function Stage({ source, onUnpinned }: StageProps) {
   const paperTag = usePaperTag();
   const paperShown = mode !== 'board';
   const boardShown = mode !== 'paper';
-  const paper = source === 'paper';
+  const screenActive = useScreen((state) => state.selected !== null);
+  const paper = source === 'paper' && !screenActive;
   const tag = paper ? paperTag : t(`session.placeholder.${source}.tag`);
   // Her camera's picture in picture: any paper source's stream, only while the board is alone.
   const stream = usePaperStore((state) => state.stream);
@@ -60,9 +63,15 @@ export function Stage({ source, onUnpinned }: StageProps) {
   return (
     <div data-testid="stage" className="absolute top-2 right-4 bottom-[104px] left-4 flex">
       <Panel shown={paperShown} label={tag}>
-        {paper ? <PaperPanel fallback={<Waiting source="paper" />} /> : <Waiting source={source} />}
+        {paper ? (
+          <PaperPanel fallback={<Waiting source="paper" />} />
+        ) : source === 'screen' || screenActive ? (
+          <ScreenPanel />
+        ) : (
+          <Waiting source={source} />
+        )}
         {/* Ada's marks over a snapshot of her paper (P5-R8). */}
-        <PaperMarksLayer />
+        {paper && <PaperMarksLayer />}
         <TopLine
           pinIndicator={paperShown}
           onUnpinned={onUnpinned}

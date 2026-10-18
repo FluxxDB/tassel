@@ -9,7 +9,7 @@
     "dev": "node scripts/dev.mjs",
     "live": "node scripts/live.mjs",
     "eval:live": "node scripts/eval-live.mjs",
-    "test": "pnpm -r test && node --test scripts/check-no-frames.test.mjs scripts/paper-env.test.mjs scripts/dev-voice-env.test.mjs scripts/camera-launch.test.mjs scripts/camera-lifecycle.test.mjs scripts/eval-live.test.mjs scripts/test-select.test.mjs && uv run --directory services/server pytest",
+    "test": "pnpm -r test && node --test scripts/check-no-frames.test.mjs scripts/paper-env.test.mjs scripts/dev-voice-env.test.mjs scripts/camera-launch.test.mjs scripts/camera-lifecycle.test.mjs scripts/eval-live.test.mjs scripts/test-select.test.mjs scripts/start.test.mjs && uv run --directory services/server pytest",
     "test:changed": "node scripts/test-changed.mjs",
     "test:area": "node scripts/test-changed.mjs --area",
     "check": "biome check . && pnpm -r typecheck && pnpm check:i18n && pnpm check:api && node scripts/check-no-frames.mjs && uv run --directory services/server ruff check",
@@ -19,7 +19,8 @@
     "check:i18n": "node packages/shared/scripts/check-i18n.ts",
     "build:native": "node scripts/native.mjs build",
     "test:native": "node scripts/native.mjs test",
-    "gen:paper-clip": "node packages/paper-synth/scripts/gen-clip.ts"
+    "gen:paper-clip": "node packages/paper-synth/scripts/gen-clip.ts",
+    "start": "node scripts/start.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

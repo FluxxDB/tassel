@@ -59,6 +59,24 @@ export interface paths {
         patch: operations["patch_memory_v1_learner_memory_patch"];
         trace?: never;
     };
+    "/v1/learner/personalization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Personalization */
+        get: operations["get_personalization_v1_learner_personalization_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Personalization */
+        patch: operations["patch_personalization_v1_learner_personalization_patch"];
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -205,6 +223,40 @@ export interface paths {
         put?: never;
         /** Finish Memory */
         post: operations["finish_memory_v1_sessions__session_id__memory_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/screen/control": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Control */
+        post: operations["control_v1_sessions__session_id__screen_control_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/screen/frame": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload */
+        post: operations["upload_v1_sessions__session_id__screen_frame_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -777,6 +829,33 @@ export interface components {
             /** Width */
             width: number;
         };
+        /** PersonalizationOut */
+        PersonalizationOut: {
+            /**
+             * Content
+             * @default
+             */
+            content: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Revision
+             * @default 0
+             */
+            revision: number;
+        };
+        /** PersonalizationPatch */
+        PersonalizationPatch: {
+            /** Content */
+            content: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Revision */
+            revision: number;
+        };
         /**
          * Point
          * @description A point in pixels of the full JPEG.
@@ -870,6 +949,22 @@ export interface components {
             title: string | null;
             /** Trusted */
             trusted: boolean;
+        };
+        /** ScreenAck */
+        ScreenAck: {
+            /** Active */
+            active: boolean;
+            /** Epoch */
+            epoch: number;
+        };
+        /** ScreenControl */
+        ScreenControl: {
+            /** Active */
+            active: boolean;
+            /** Epoch */
+            epoch: number;
+            /** Source */
+            source: string;
         };
         /** SessionCreate */
         SessionCreate: {
@@ -1092,6 +1187,66 @@ export interface operations {
                 };
             };
             /** @description Memory changed; reload before saving */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_personalization_v1_learner_personalization_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalizationOut"];
+                };
+            };
+        };
+    };
+    patch_personalization_v1_learner_personalization_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonalizationPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalizationOut"];
+                };
+            };
+            /** @description Tutor style changed; reload before saving */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1550,6 +1705,77 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    control_v1_sessions__session_id__screen_control_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScreenControl"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenAck"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_v1_sessions__session_id__screen_frame_post: {
+        parameters: {
+            query: {
+                source: string;
+                epoch: number;
+                revision: number;
+                frame_id: string;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenAck"];
+                };
             };
             /** @description Validation Error */
             422: {

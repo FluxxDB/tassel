@@ -135,11 +135,11 @@ describe('useTutorSession', () => {
     expect(result.current.session?.language).toBe('ko');
   });
 
-  it("the server's paper-frame request sends her paper as it is now", () => {
+  it("the server's paper-frame request sends her paper as it is now", async () => {
     const { client, emit } = scriptedTutor();
     renderTutor(client);
     emit({ type: 'paper-request' });
-    expect(requestTurnFrame).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(requestTurnFrame).toHaveBeenCalledTimes(1));
   });
 
   it("the server's board-snapshot request sends her board for this session", () => {

@@ -134,3 +134,15 @@ async def test_board_item_inventory_includes_adas_diagrams_and_notes():
     note = {"kind": "board.note", "item": "n", "text": "Ada's note"}
     turn.board_history = SimpleNamespace(board_items={"n": note})
     assert turn._board_items() == {"d": diagram.spec.model_dump(mode="json"), "n": note}
+
+
+async def test_snapshot_revision_distinguishes_updates_on_a_coarse_platform_clock(monkeypatch):
+    from tassel.board.snapshots import BoardSnapshots
+
+    monkeypatch.setattr("tassel.board.snapshots.time.monotonic", lambda: 100.0)
+    sid = uuid4()
+    snapshots = BoardSnapshots()
+    snapshots.put(sid, b"old")
+    revision = snapshots.revision(sid)
+    snapshots.put(sid, b"fresh")
+    assert await snapshots.wait(sid, 100.0, revision=revision) == b"fresh"
