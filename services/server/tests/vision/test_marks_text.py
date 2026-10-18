@@ -155,3 +155,26 @@ def test_a_line_of_separate_glyphs_also_gets_one_marker():
     glyphs = [g for g in found.labels if g is not lines[0] and covered(box(g), ip) > 0.8]
     assert len(glyphs) >= 6
     assert all(glyph.mark < lines[0].mark for glyph in glyphs)
+
+
+def test_a_row_of_states_and_their_arrows_is_not_a_glyph_line():
+    """On the DFA fixture the state names inside the circles chained the arrows' labels into one
+    marker across the whole row of states. A line of writing never runs through a state."""
+    from tassel.domains.dfa.contract import Pt
+    from tassel.evals.fixtures import render as render_fixture
+    from tassel.vision.page import FlatPage
+    from tassel.vision.turn_image import decode_jpeg
+
+    rgb = decode_jpeg(render_fixture("dfa-page").jpeg)
+    h, w = rgb.shape[:2]
+    corners = (Pt(x=0, y=0), Pt(x=w, y=0), Pt(x=w, y=h), Pt(x=0, y=h))
+    found = find_candidates(FlatPage(rgb, w, h, corners, False))
+    assert len(found.circles) == 4
+    for label in found.labels:
+        x, y, bw, bh = box(label)
+        for c in found.circles:
+            # A state's own name sits inside its circle; anything else holding its centre runs
+            # through it.
+            own = ((x + bw / 2 - c.cx) ** 2 + (y + bh / 2 - c.cy) ** 2) ** 0.5 <= c.r
+            through = x <= c.cx <= x + bw and y <= c.cy <= y + bh
+            assert own or not through, f"m{label.mark} runs through state m{c.mark}"

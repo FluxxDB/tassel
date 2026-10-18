@@ -200,7 +200,7 @@ def find_candidates(page: FlatPage, mask: np.ndarray | None = None) -> Candidate
     groups = groups[: MAX_MARKS - len(circles)]
     # A line whose glyphs stand apart ("10.0.0.0/24" in a spaced hand) is several small labels:
     # it gets one more marker for the whole line, so Ada can underline it, not just its "1".
-    groups += _glyph_lines(groups, w)[: max(0, MAX_MARKS - len(circles) - len(groups))]
+    groups += _glyph_lines(groups, w, circles)[: max(0, MAX_MARKS - len(circles) - len(groups))]
     # Lines number after the small labels, and glyph lines after those, so adding them never
     # renumbers existing marks.
     groups.sort(key=lambda s: (int(s[5]), int(s[1] / (ROW_HEIGHT * h)), s[0], s[1]))
@@ -211,12 +211,21 @@ def find_candidates(page: FlatPage, mask: np.ndarray | None = None) -> Candidate
     return Candidates(tuple(circles), labels)
 
 
-def _glyph_lines(groups: list, page_width: int) -> list:
+def _glyph_lines(groups: list, page_width: int, circles: list) -> list:
     """Rows of small labels that sit side by side on one line, each as one more group (kind 2):
     boxes overlapping vertically by half the shorter one, at most one glyph height apart, and
     together wider than any single label can be. Rows a handwritten-line chunk already covers
-    are left out."""
-    small = sorted((g for g in groups if g[5] is False), key=lambda g: g[0])
+    are left out, and so are a state's name inside its circle and any row through a state: on
+    a DFA those chained the arrows' labels into one marker across every state."""
+
+    def in_circle(g) -> bool:
+        cx, cy = g[0] + g[2] / 2, g[1] + g[3] / 2
+        return any(hypot(cx - c.cx, cy - c.cy) <= c.r for c in circles)
+
+    def through_state(x0, y0, x1, y1) -> bool:
+        return any(x0 <= c.cx <= x1 and y0 <= c.cy <= y1 for c in circles)
+
+    small = sorted((g for g in groups if g[5] is False and not in_circle(g)), key=lambda g: g[0])
     chunks = [g for g in groups if g[5] is True]
     parent = list(range(len(small)))
 
@@ -244,7 +253,7 @@ def _glyph_lines(groups: list, page_width: int) -> list:
         y0 = min(g[1] for g in members)
         x1 = max(g[0] + g[2] for g in members)
         y1 = max(g[1] + g[3] for g in members)
-        if x1 - x0 <= LABEL_MAX_SIDE * page_width:
+        if x1 - x0 <= LABEL_MAX_SIDE * page_width or through_state(x0, y0, x1, y1):
             continue
         line = (x0, y0, x1 - x0, y1 - y0)
         if any(_overlap(line, c[:4]) > 0.5 for c in chunks):
