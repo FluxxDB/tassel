@@ -88,10 +88,14 @@ class _Sheet:
         cv2.putText(self.img, name, (cx - w // 2, cy + h // 2), SCRIPT, 1.4, INK, 3, cv2.LINE_AA)
         self.truths[name] = Truth((cx - r - 6, cy - r - 6, 2 * r + 12, 2 * r + 12), "inside")
 
-    def arrow(self, x1, y1, x2, y2, label):
+    def arrow(self, x1, y1, x2, y2, label, *, truth=None):
         cv2.arrowedLine(self.img, (x1, y1), (x2, y2), INK, 4, cv2.LINE_AA, tipLength=0.15)
         mx, my = (x1 + x2) // 2, (y1 + y2) // 2
         cv2.putText(self.img, label, (mx - 10, my - 20), SCRIPT, 1.4, INK, 3, cv2.LINE_AA)
+        if truth:
+            # The stroke with its label above and room for a line under it: a mark sits inside.
+            left, top = min(x1, x2) - 10, min(y1, y2) - 70
+            self.truths[truth] = Truth((left, top, abs(x2 - x1) + 20, abs(y2 - y1) + 120), "inside")
 
     def done(self, name) -> PageFixture:
         rgb = cv2.cvtColor(self.img, cv2.COLOR_BGR2RGB)
@@ -115,8 +119,8 @@ def dfa_page() -> PageFixture:
     states = [("q0", 300, 700), ("q1", 620, 700), ("q2", 940, 700), ("q3", 1260, 700)]
     for name, cx, cy in states:
         sheet.state(name, cx, cy)
-    for (_, x1, y), (_, x2, _), symbol in zip(states, states[1:], "010", strict=False):
-        sheet.arrow(x1 + 84, y, x2 - 84, y, symbol)
+    for (a, x1, y), (b, x2, _), symbol in zip(states, states[1:], "010", strict=False):
+        sheet.arrow(x1 + 84, y, x2 - 84, y, symbol, truth=f"{a}>{b}")
     # The start arrow into q0.
     cv2.arrowedLine(sheet.img, (110, 700), (214, 700), INK, 4, cv2.LINE_AA, tipLength=0.2)
     return sheet.done("dfa-page")

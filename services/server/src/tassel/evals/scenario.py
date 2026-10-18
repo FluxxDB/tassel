@@ -65,17 +65,35 @@ class StageExpect(_Strict):
     pinned: bool = False
 
 
+class EdgeExpect(_Strict):
+    """An edge between a node whose label contains `from` and one whose label contains `to`,
+    either direction."""
+
+    from_: str = Field(alias="from", min_length=1)
+    to: str = Field(min_length=1)
+
+
 class BoardExpect(_Strict):
     automata: Count | None = None
     diagrams: Count | None = None
     # Items, or their parts as ITEM.PART (a zone, node or state).
     has: list[str] = Field(default_factory=list)
     lacks: list[str] = Field(default_factory=list)
-    # Zone, node or diagram names on the board after the turn.
-    labels: list[str] = Field(default_factory=list)
     nodes: Count | None = None
     groups: Count | None = None
     icons: dict[str, Count] = Field(default_factory=dict)
+    # Each text appears in some diagram's title, group or node label or sublabel (case, spaces
+    # and punctuation ignored), or in none of them: a zone, node or diagram name included.
+    labels: list[str] = Field(default_factory=list)
+    lacks_labels: list[str] = Field(default_factory=list)
+    # Icon counts inside the group whose label contains the key; "*" means every group.
+    group_icons: dict[str, dict[str, Count]] = Field(default_factory=dict)
+    edges: list[EdgeExpect] = Field(default_factory=list)
+    # The group whose label contains the key has a CIDR (its label or sublabel) with at least
+    # this many usable hosts.
+    group_hosts: dict[str, int] = Field(default_factory=dict)
+    # Each host count fits a different group's CIDR (VLSM zones she didn't name).
+    zone_hosts: list[int] = Field(default_factory=list)
     # 1-based: the board after this turn equals the board after that earlier turn (undo, redo).
     same_as_turn: int | None = Field(None, ge=1)
     unchanged: bool | None = None
@@ -101,6 +119,8 @@ class Expect(_Strict):
     asks: bool | None = None
     board: BoardExpect | None = None
     marks: list[MarkExpect] = Field(default_factory=list)
+    # Marks on the image she sent (the latest), checked against that fixture's truths.
+    image_marks: list[MarkExpect] = Field(default_factory=list)
     forbid: list[str] = Field(default_factory=list)
     allow_repeat: bool = False
     spoke: bool = True
@@ -163,7 +183,22 @@ class Scenario(_Strict):
                     raise ValueError(f"{where}: marks need a page fixture on the desk")
                 if mark.truth not in render(page).truths:
                     raise ValueError(f"{where}: {page} has no truth box {mark.truth!r}")
+            if expect.image_marks:
+                image = self.image_at(index - 1)
+                if image is None:
+                    raise ValueError(f"{where}: image marks need an image she sent")
+                for mark in expect.image_marks:
+                    if mark.truth not in render(image).truths:
+                        raise ValueError(f"{where}: {image} has no truth box {mark.truth!r}")
         return self
+
+    def image_at(self, index: int) -> str | None:
+        """The latest image she sent by this 0-based turn."""
+        image = None
+        for turn in self.turns[: index + 1]:
+            if turn.images:
+                image = turn.images[-1]
+        return image
 
     def page_at(self, index: int) -> str | None:
         """The fixture on her desk at this 0-based turn."""

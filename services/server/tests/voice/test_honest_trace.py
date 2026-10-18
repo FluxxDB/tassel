@@ -162,7 +162,7 @@ async def test_a_lost_network_diagram_goes_to_the_illustrator_and_is_said_plainl
     text = await spoken(c)
     await c.close()
     [intent] = illustrator.intents
-    assert intent == f"Two zones. (She asked: {request})"
+    assert intent == "Two zones."  # her words reach it beside the plan, as request=
     assert text == "Two zones. " + NOT_DRAWN["en"]
 
 

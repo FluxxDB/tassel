@@ -34,8 +34,9 @@ class Illustrator:
     def __init__(self):
         self.intents = []
 
-    async def draw(self, intent, board, lang):
+    async def draw(self, intent, board, lang, **kwargs):
         self.intents.append(intent)
+        self.requests = [*getattr(self, "requests", []), kwargs.get("request")]
         return None
 
     async def close(self):
@@ -61,9 +62,9 @@ async def test_a_draw_turn_with_nothing_to_draw_asks_the_illustrator():
     )
     await c.prepare(LLMContext([{"role": "user", "content": request}]), request, decision=DRAW)
     words = await spoken(c)
-    # Her words, with the brief's own plan: the Illustrator knows what to change.
+    # The brief's own plan, with her words beside it: the Illustrator knows what to change.
     [intent] = illustrator.intents
-    assert request in intent and "I'll add two PCs in each zone." in intent
+    assert intent == "I'll add two PCs in each zone." and illustrator.requests == [request]
     # Nothing came back to draw, so she says so instead of implying it's there.
     assert "couldn't" in words.lower()
     await c.close()
@@ -132,7 +133,7 @@ async def test_an_unchanged_redraw_is_not_a_drawing():
     board = BoardContext()
 
     class Same:
-        async def draw(self, intent, board_copy, lang):
+        async def draw(self, intent, board_copy, lang, **kwargs):
             return "net", DiagramSpec.model_validate(SPEC)
 
         async def close(self):
