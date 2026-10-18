@@ -22,7 +22,7 @@ it('uses the existing session speaking state without changing voice playback', a
   useStageStore.setState({ tutorState: 'speaking' });
   const { rerender } = render(
     <I18nextProvider i18n={i18n}>
-      <TutorTile />
+      <TutorTile inset={14} bottomClearance={110} />
     </I18nextProvider>,
   );
   expect(screen.getByTestId('tutor-tile').querySelector('svg')).toHaveAttribute(
@@ -32,7 +32,7 @@ it('uses the existing session speaking state without changing voice playback', a
   act(() => useStageStore.setState({ tutorState: 'listening' }));
   rerender(
     <I18nextProvider i18n={i18n}>
-      <TutorTile />
+      <TutorTile inset={14} bottomClearance={110} />
     </I18nextProvider>,
   );
   expect(screen.getByTestId('tutor-tile').querySelector('svg')).toHaveAttribute(

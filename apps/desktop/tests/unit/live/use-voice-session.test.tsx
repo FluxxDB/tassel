@@ -138,6 +138,10 @@ it('uses the live client by default and connects with authenticated ICE; only ex
   expect(request.headers.get('Authorization')).toBe('Bearer test-token');
   expect(useStageStore.getState().caption).toEqual({});
   view.unmount();
+  // Ending a live session hands it to learner memory, once the client has disconnected.
+  const urls = () =>
+    fetcher.mock.calls.map(([input]) => (input instanceof Request ? input.url : String(input)));
+  await waitFor(() => expect(urls()).toContain(`${app.serverUrl}/v1/sessions/session/memory`));
   const calls = fetcher.mock.calls.length;
   const fake = mount('fake');
   await waitFor(() => expect(fake.result.current.client).toBeInstanceOf(FakeTutorClient));
