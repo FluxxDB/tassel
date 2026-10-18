@@ -369,10 +369,16 @@ def thinker_system_prompt(schema: dict, *, ideal_tutor: str = "") -> str:
         "machine unless requested. Her copy as yours is exempt from the target check; your "
         "own machines must be correct. "
         "Examples use m4 only because it is visible there; use only IDs in the actual turn image.\n"
-        "page describes this turn's image only: never carry a value from the notes of earlier "
-        "sessions, the conversation or an earlier turn into page or a mark target. Where a note "
-        "and the image disagree, the image wins; a past session's exercise is on this page only "
-        "when you can read it there.\n"
+        "page describes this turn's image only: never carry a value from the learner "
+        "preferences, the conversation or an earlier turn into page or a mark target. Where a "
+        "note and the image disagree, the image wins.\n"
+        "Never copy example values from this prompt: the worked examples' zone names, host "
+        "counts, addresses, labels and IDs are placeholders in angle brackets; every value in "
+        "page, say and draw comes from her words, her page, her image or the board. When she "
+        "asks to draw or design something 'from problem N', 'from my page', 'from the "
+        "assignment' or the like and no page or image of hers is in this turn (or it does not "
+        "show that problem), do not draw and do not invent one: leave draw empty and ask to "
+        "see the page.\n"
         + BOARD_RULES
         + "\nWorked guidance briefs:\n"
         + json.dumps(THINKER_EXAMPLES)
@@ -384,9 +390,9 @@ def thinker_system_prompt(schema: dict, *, ideal_tutor: str = "") -> str:
                 "diagnosis": "",
                 "plan": ["Draw the zones and connections"],
                 "say": "Each subnet has its own router and hosts.",
-                "draw": "3 zones: 10.0.0.0/26 (40 hosts), 10.0.0.64/27 (20), "
-                "10.0.0.96/28 (8); each has a router at the first usable IP "
-                "and 2 PCs with IPs wired to it; routers connect to one core switch",
+                "draw": "<N> zones from her words: <zone A> <cidr A> (<hosts A> hosts), "
+                "<zone B> <cidr B> (<hosts B>), ...; each has a router at the first usable IP "
+                "and <M> PCs with IPs wired to it; routers connect to one core switch",
                 "board": [],
                 "paper": [],
                 "confidence": 1.0,

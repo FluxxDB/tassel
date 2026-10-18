@@ -77,6 +77,31 @@ export interface paths {
         patch: operations["patch_personalization_v1_learner_personalization_patch"];
         trace?: never;
     };
+    "/v1/learner/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Preferences
+         * @description Settings → Memory: the preference lines Ada keeps (the memory document, one per line).
+         */
+        get: operations["get_preferences_v1_learner_preferences_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Preferences
+         * @description Delete all: every line goes at once, whatever revision the screen holds.
+         */
+        delete: operations["delete_preferences_v1_learner_preferences_delete"];
+        options?: never;
+        head?: never;
+        /** Patch Preferences */
+        patch: operations["patch_preferences_v1_learner_preferences_patch"];
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -1082,6 +1107,30 @@ export interface components {
             why: string;
         };
         /**
+         * PreferencesOut
+         * @description The same document as Settings → Memory shows it: one preference per line.
+         */
+        PreferencesOut: {
+            /** Enabled */
+            enabled: boolean;
+            /** Lines */
+            lines: string[];
+            /** Revision */
+            revision: number;
+        };
+        /** PreferencesPatch */
+        PreferencesPatch: {
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Lines */
+            lines: string[];
+            /** Revision */
+            revision: number;
+        };
+        /**
          * Pt
          * @description A point in page coordinates (0–1), or in pixels where a field says so.
          */
@@ -1444,6 +1493,84 @@ export interface operations {
                 };
             };
             /** @description Tutor style changed; reload before saving */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_preferences_v1_learner_preferences_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesOut"];
+                };
+            };
+        };
+    };
+    delete_preferences_v1_learner_preferences_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patch_preferences_v1_learner_preferences_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferencesPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesOut"];
+                };
+            };
+            /** @description Preferences changed; reload before saving */
             409: {
                 headers: {
                     [name: string]: unknown;

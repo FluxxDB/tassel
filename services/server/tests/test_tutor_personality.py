@@ -113,7 +113,7 @@ async def test_disabled_memory_and_disabled_style_are_independent_in_prompts(cli
         headers=headers,
         json=dict(
             enabled=False,
-            content="Studying algebra.",
+            content="Likes one hint at a time.",
             revision=0,
         ),
     )
@@ -125,7 +125,7 @@ async def test_disabled_memory_and_disabled_style_are_independent_in_prompts(cli
         preferences = await read_tutor_preferences(db, device.learner_id)
     prompt = preferences.talker_prompt("en", tools=False, two_tier=True)
     assert "Be calm and informal." in prompt
-    assert "Studying algebra." not in prompt
+    assert "Likes one hint at a time." not in prompt
     await client.patch(
         "/v1/learner/personalization",
         headers=headers,
@@ -140,7 +140,7 @@ async def test_disabled_memory_and_disabled_style_are_independent_in_prompts(cli
         headers=headers,
         json=dict(
             enabled=True,
-            content="Studying algebra.",
+            content="Likes one hint at a time.",
             revision=1,
         ),
     )
@@ -148,7 +148,7 @@ async def test_disabled_memory_and_disabled_style_are_independent_in_prompts(cli
         preferences = await read_tutor_preferences(db, device.learner_id)
     prompt = preferences.talker_prompt("ko", tools=False, two_tier=True)
     assert "Be calm and informal." not in prompt
-    assert "Studying algebra." in prompt
+    assert "Likes one hint at a time." in prompt
     assert "Reply only in Korean" in prompt
     assert "Call show_stage" not in prompt
 

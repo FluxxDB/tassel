@@ -1786,6 +1786,62 @@
         "title": "PolicyDebug",
         "type": "object"
       },
+      "PreferencesOut": {
+        "description": "The same document as Settings \u2192 Memory shows it: one preference per line.",
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "lines": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "lines",
+          "revision"
+        ],
+        "title": "PreferencesOut",
+        "type": "object"
+      },
+      "PreferencesPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "lines": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 60,
+            "title": "Lines",
+            "type": "array"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "lines",
+          "revision"
+        ],
+        "title": "PreferencesPatch",
+        "type": "object"
+      },
       "Pt": {
         "additionalProperties": false,
         "description": "A point in page coordinates (0\u20131), or in pixels where a field says so.",
@@ -2576,6 +2632,98 @@
           }
         ],
         "summary": "Patch Personalization",
+        "tags": [
+          "memory"
+        ]
+      }
+    },
+    "/v1/learner/preferences": {
+      "delete": {
+        "description": "Delete all: every line goes at once, whatever revision the screen holds.",
+        "operationId": "delete_preferences_v1_learner_preferences_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Delete Preferences",
+        "tags": [
+          "memory"
+        ]
+      },
+      "get": {
+        "description": "Settings \u2192 Memory: the preference lines Ada keeps (the memory document, one per line).",
+        "operationId": "get_preferences_v1_learner_preferences_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Get Preferences",
+        "tags": [
+          "memory"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_preferences_v1_learner_preferences_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreferencesPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "Preferences changed; reload before saving"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Patch Preferences",
         "tags": [
           "memory"
         ]

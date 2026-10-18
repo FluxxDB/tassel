@@ -1,11 +1,12 @@
 // Connects the session screen to its tutor once the session has loaded: Ada's states, captions
 // and view requests go to the stage store. Her title shows in the title strip at once (R4). The
-// app never saves a title: the server writes the live tutor's (P2-R4), and the scripted tutor's
-// are display-only, naming only an untitled session (spec §5.1). Her board, paper and stage
+// server writes the live tutor's title (P2-R4); the scripted tutor's names only an untitled
+// session (spec §5.1), and is saved so the library keeps it. Her board, paper and stage
 // actions go to the dispatcher, now or, in a beat, as the beat player hears her words (P5). The
 // server's board-snapshot request sends the board as it is now, for Ada's board turn. The
 // conversation's lines go to the chat sidebar's store. Ending a
 // live session hands it to learner memory.
+import { patchSession } from '@tassel/shared/api';
 import { useEffect, useRef } from 'react';
 import { beatPlayer } from '../board/beats/player';
 import { dispatchActions } from '../board/dispatch';
@@ -70,8 +71,11 @@ export function useTutorSession(
         case 'title': {
           const name = { title: event.title, subject: event.subject };
           // The server wrote the live tutor's (title_source 'ai'), never over the student's own.
+          // The scripted tutor's name is saved here, once, so the library keeps it.
           if (client.voice) patchLocal(name);
-          else nameIfUntitled(name);
+          else if (nameIfUntitled(name)) {
+            void patchSession(api.current, sessionId, name).catch(() => undefined);
+          }
           break;
         }
         case 'actions':

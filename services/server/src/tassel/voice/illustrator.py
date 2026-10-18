@@ -114,16 +114,22 @@ EXAMPLES = [
         "item": "net",
         "spec": {
             "direction": "LR",
-            "groups": [{"id": "lan", "label": "LAN", "sublabel": "10.0.0.0/26"}],
+            "groups": [{"id": "lan", "label": "<zone name>", "sublabel": "<zone cidr>"}],
             "nodes": [
                 {
                     "id": "r",
                     "label": "Router",
-                    "sublabel": "10.0.0.1",
+                    "sublabel": "<first usable IP>",
                     "icon": "router",
                     "group": "lan",
                 },
-                {"id": "pc", "label": "PC", "sublabel": "10.0.0.2", "icon": "pc", "group": "lan"},
+                {
+                    "id": "pc",
+                    "label": "PC",
+                    "sublabel": "<next usable IP>",
+                    "icon": "pc",
+                    "group": "lan",
+                },
                 {"id": "core", "label": "Core", "icon": "switch"},
             ],
             "edges": [
@@ -180,8 +186,11 @@ references must exist. CIDRs must not overlap, and all
 addressed devices including routers/gateways must be usable hosts (not network/broadcast).
 Schema: """
     + json.dumps(drawing_schema())
-    + "\nWorked examples: "
+    + "\nWorked examples (wire shape only; values in angle brackets are placeholders): "
     + json.dumps(EXAMPLES)
+    + "\nNever copy example values: every label, sublabel, address, count and name comes from "
+    "the intent and the existing board items, never from these examples. If the intent "
+    "gives no addresses, leave sublabels out rather than inventing any."
 )
 
 

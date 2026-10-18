@@ -231,9 +231,12 @@ describe('the session screen with its tutor', () => {
     expect(within(strip).getByRole('heading', { level: 1 })).toHaveTextContent(
       'Strings that start with 010',
     );
-    // P2-R4: the app saves no title; the server writes the live tutor's.
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(PATCH).not.toHaveBeenCalled();
+    // The scripted tutor's name is saved, once, so the library keeps it; the live tutor's the
+    // server writes itself (P2-R4).
+    await waitFor(() => expect(PATCH).toHaveBeenCalledTimes(1));
+    expect(PATCH.mock.calls[0][1]).toMatchObject({
+      body: { title: 'Strings that start with 010', subject: 'Automata · DFA' },
+    });
   });
 
   it("leaves a titled session's own title, and saves nothing (spec §5.1)", async () => {
