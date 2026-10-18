@@ -1,8 +1,9 @@
 """Local Set-of-Mark geometry for student attachments, with no OCR/provider calls.
 
 Unlike paper detection, this preserves the complete image and its pixel coordinates.
-Text can have either polarity; connected glyphs form lines, and closed figures/table
-cells remain targets. This is geometry, not a semantic reading of an image.
+Text can have either polarity; connected glyphs form lines, closed figures/table
+cells remain targets, and exterior diagram strokes and labels get their own marks.
+This is geometry, not a semantic reading of an image.
 """
 
 import io
@@ -43,7 +44,7 @@ class ImageView:
 @dataclass(frozen=True)
 class _Region:
     box: tuple[int, int, int, int]
-    shape: Literal["text line", "figure", "circle", "table cell"]
+    shape: Literal["text line", "figure", "circle", "table cell", "arrow", "arrow + label", "label"]
 
 
 def _inside(a, b, slack=0):
@@ -63,6 +64,7 @@ def _figures(gray: np.ndarray, glyph_height: float) -> list[_Region]:
     contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     minimum = max(30, glyph_height * 2.1)
     raw = []
+    rectangles = set()
     for contour in contours:
         x, y, bw, bh = cv2.boundingRect(contour)
         area = cv2.contourArea(contour)
@@ -70,7 +72,10 @@ def _figures(gray: np.ndarray, glyph_height: float) -> list[_Region]:
             continue
         perimeter = cv2.arcLength(contour, True)
         circularity = 4 * np.pi * area / max(1, perimeter**2)
-        curved = len(cv2.approxPolyDP(contour, 0.02 * perimeter, True)) >= 6
+        vertices = len(cv2.approxPolyDP(contour, 0.02 * perimeter, True))
+        curved = vertices >= 6
+        if vertices == 4 and area > 0.8 * bw * bh:
+            rectangles.add((x, y, bw, bh))
         shape = (
             "circle"
             if curved and circularity > 0.75 and min(bw, bh) / max(bw, bh) > 0.75
@@ -84,14 +89,22 @@ def _figures(gray: np.ndarray, glyph_height: float) -> list[_Region]:
     # A table's closed cells partition its outer rectangle. Nested objects inside a
     # diagram do not, so they stay part of the figure rather than getting duplicate ids.
     result = []
+    consumed = set()
     for region in unique:
-        if any(_inside(region.box, r.box) for r in result):
+        if region in consumed or any(_inside(region.box, r.box) for r in result):
             continue
         children = [r for r in unique if r != region and _inside(r.box, region.box)]
         leaves = [
             r for r in children if not any(r != c and _inside(c.box, r.box) for c in children)
         ]
-        if (
+        circles = [r for r in leaves if r.shape == "circle"]
+        if circles and region.shape != "circle" and region.box not in rectangles:
+            # A loop attached at both ends closes an extra contour with its
+            # state. The combined outline is neither a figure frame nor a table:
+            # keep the state rings and let exterior-stroke detection find the loop.
+            result.extend(circles)
+            consumed.update(children)
+        elif (
             len(leaves) >= 2
             and sum(r.box[2] * r.box[3] for r in leaves) > 0.65 * region.box[2] * region.box[3]
         ):
@@ -101,7 +114,83 @@ def _figures(gray: np.ndarray, glyph_height: float) -> list[_Region]:
     return result
 
 
-def _text_lines(mask: np.ndarray, figures: list[_Region]) -> list[_Region]:
+def _gap(a, b):
+    """Distance between boxes; overlapping boxes have no gap."""
+    x, y, w, h = a
+    bx, by, bw, bh = b
+    return np.hypot(max(0, x - bx - bw, bx - x - w), max(0, y - by - bh, by - y - h))
+
+
+def _arrows(
+    mask: np.ndarray,
+    figures: list[_Region],
+    lines: list[_Region],
+    glyph_height: float,
+    contrast: np.ndarray,
+):
+    """Long, thin connected ink beside figures, including open curves and start strokes.
+
+    Remove the figures first so a touching edge is not swallowed by its state. Use
+    disks for circles: rectangular erasure would cut diagonal edges at empty corners.
+    Enclosed illustrations and tables keep their existing single-figure/cell behavior.
+    """
+    exterior = mask.copy()
+    # Canny can select the inner boundary of a ring. Include its stroke width
+    # so residual arcs cannot masquerade as additional edges or short labels.
+    pad = max(5, round(glyph_height * 0.23))
+    for r in figures + lines:
+        x, y, w, h = r.box
+        if r.shape == "circle":
+            cv2.ellipse(
+                exterior, (x + w // 2, y + h // 2), (w // 2 + pad, h // 2 + pad), 0, 0, 360, 0, -1
+            )
+        else:
+            exterior[max(0, y - pad) : y + h + pad, max(0, x - pad) : x + w + pad] = 0
+    _, components, stats, _ = cv2.connectedComponentsWithStats(exterior)
+    arrows = []
+    for index, (x, y, w, h, area) in enumerate(stats[1:], 1):
+        box = tuple(map(int, (x, y, w, h)))
+        if max(w, h) < max(30, 2 * glyph_height) or area < 20:
+            continue
+        if not any(_gap(box, r.box) <= max(12, glyph_height) for r in figures):
+            continue
+        ink = (components[y : y + h, x : x + w] == index).astype(np.uint8)
+        # At thick junctions the median background can cross the stroke and
+        # create opposite-polarity halos. They are not part of the edge's ink.
+        local_contrast = contrast[y : y + h, x : x + w]
+        dark = np.median(local_contrast[ink != 0]) < 0
+        stroke = ink & ((local_contrast < 0) if dark else (local_contrast > 0))
+        # Stroke thickness, unlike box aspect ratio, also accepts diagonal edges
+        # and curved self-loops. Padding gives the distance transform an exterior.
+        distance = cv2.distanceTransform(np.pad(stroke, 1), cv2.DIST_L2, 3)[1:-1, 1:-1]
+        if np.percentile(distance[stroke != 0], 90) * 2 > max(6, glyph_height * 0.6):
+            continue
+        ys, xs = np.nonzero(stroke)
+        box = (int(x + xs.min()), int(y + ys.min()), int(np.ptp(xs) + 1), int(np.ptp(ys) + 1))
+        shape = "arrow"
+        # A glyph touching a straight shaft makes a broad branch in its middle;
+        # ordinary arrowheads at the ends do not. Keep that connected ink as one
+        # target, explicitly usable as either the edge or its attached label.
+        if max(w, h) > 3 * min(w, h):
+            horizontal = stroke if w >= h else stroke.T
+            middle = horizontal[:, horizontal.shape[1] // 5 : 4 * horizontal.shape[1] // 5]
+            spans = middle.shape[0] - middle.argmax(axis=0) - middle[::-1].argmax(axis=0)
+            spans = spans[middle.any(axis=0)]
+            if np.count_nonzero(spans > max(np.median(spans) * 2, glyph_height * 0.6)) >= 3:
+                shape = "arrow + label"
+        arrows.append(_Region(box, shape))
+        # Erase only this component, not its rectangular box: a diagonal edge
+        # or loop can surround a disconnected label that still needs a marker.
+        exterior[y : y + h, x : x + w][ink != 0] = 0
+    return arrows, exterior
+
+
+def _text_lines(
+    mask: np.ndarray,
+    figures: list[_Region],
+    arrows: list[_Region] | None = None,
+) -> list[_Region]:
+    arrows = arrows or []
     _, w = mask.shape
     _, components, stats, _ = cv2.connectedComponentsWithStats(mask)
     glyphs = []
@@ -139,13 +228,15 @@ def _text_lines(mask: np.ndarray, figures: list[_Region]) -> list[_Region]:
         rows.setdefault(root(i), []).append(glyph)
     lines = []
     for members in rows.values():
-        if len(members) < 3:
-            continue
         x = min(g[0][0] for g in members)
         y = min(g[0][1] for g in members)
         right = max(g[0][0] + g[0][2] for g in members)
         bottom = max(g[0][1] + g[0][3] for g in members)
-        if right - x < 2 * (bottom - y):
+        box = (x, y, right - x, bottom - y)
+        short_label = len(members) < 3 and any(
+            _gap(box, r.box) <= max(12, (bottom - y) * 2) for r in arrows
+        )
+        if not short_label and (len(members) < 3 or right - x < 2 * (bottom - y)):
             continue
         ink = np.isin(components[y:bottom, x:right], [g[1] for g in members])
         height = float(np.median([g[0][3] for g in members]))
@@ -156,7 +247,10 @@ def _text_lines(mask: np.ndarray, figures: list[_Region]) -> list[_Region]:
         ):
             ys = np.flatnonzero(ink[:, lo:hi].any(axis=1))
             lines.append(
-                _Region((x + lo, y + int(ys[0]), hi - lo, int(ys[-1] - ys[0] + 1)), "text line")
+                _Region(
+                    (x + lo, y + int(ys[0]), hi - lo, int(ys[-1] - ys[0] + 1)),
+                    "label" if short_label else "text line",
+                )
             )
     return lines
 
@@ -166,12 +260,17 @@ def _regions(rgb: np.ndarray) -> tuple[list[_Region], np.ndarray]:
     # A median background follows slow illumination changes without making light
     # halos beside dark text (or dark halos beside light text) into extra glyphs.
     background = cv2.medianBlur(gray, 31)
+    contrast = gray.astype(np.int16) - background.astype(np.int16)
     mask = (cv2.absdiff(gray, background) >= MIN_CONTRAST).astype(np.uint8) * 255
     _, _, stats, _ = cv2.connectedComponentsWithStats(mask)
     heights = [s[3] for s in stats[1:] if 6 <= s[3] <= 60 and 2 <= s[2] <= 3 * s[3] and s[4] >= 8]
     glyph_height = float(np.median(heights)) if heights else 14
     figures = _figures(gray, glyph_height)
-    regions = figures + _text_lines(mask, figures)
+    lines = _text_lines(mask, figures)
+    arrows, remaining = _arrows(mask, figures, lines, glyph_height, contrast)
+    regions = figures + lines + arrows
+    if arrows:
+        regions += _text_lines(remaining, figures, arrows)
     # Build reading rows with a narrow tolerance; unlike the paper's coarse bands,
     # text lines don't reorder just because one line starts farther to the left.
     regions.sort(key=lambda r: (r.box[1], r.box[0]))
@@ -198,7 +297,7 @@ def _tagged(rgb: np.ndarray, regions: list[_Region], mask: np.ndarray):
     # all outside edges abut other table cells; their contrasted pixels stay protected.
     for r in regions:
         x, y, bw, bh = r.box
-        if r.shape == "text line":
+        if r.shape in ("text line", "label"):
             occupied[y : y + bh, x : x + bw] = True
     drawn = []
     for region in regions:
@@ -214,7 +313,7 @@ def _tagged(rgb: np.ndarray, regions: list[_Region], mask: np.ndarray):
             for ty in range(max(0, y - 2 * bh), min(h - bh, y + rh + 2 * bh), bh)
             for tx in (x - bw - 8, x + rw + 8, x)
         ]
-        if region.shape != "text line":
+        if region.shape not in ("text line", "label"):
             anchors += [(x + 6, y + 6), (x + rw - bw - 6, y + 6), (x + 6, y + rh - bh - 6)]
         position = next(
             (
@@ -226,7 +325,9 @@ def _tagged(rgb: np.ndarray, regions: list[_Region], mask: np.ndarray):
                 and ty + bh < h
                 and not occupied[ty : ty + bh + 1, tx : tx + bw + 1].any()
                 and not any(
-                    other != region and _overlap((tx, ty, bw + 1, bh + 1), other.box) > 0
+                    other != region
+                    and not other.shape.startswith("arrow")
+                    and _overlap((tx, ty, bw + 1, bh + 1), other.box) > 0
                     for other in regions
                 )
             ),

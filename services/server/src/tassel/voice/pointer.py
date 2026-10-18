@@ -158,12 +158,42 @@ class ChatClient:
         await self.client.close()
 
 
-def compatible(target, element, elements):
+def compatible(target, element, elements, shapes=None):
     # Classify the first named subject, not relational context: "state next to
-    # the arrow" still needs a circle, while "edge between states" does not.
+    # the arrow" needs a circle; "the 1 on the arrow" needs its label, not the edge.
+    if shapes:
+        head, *relation = re.split(
+            r"\b(?:on|from|out of|between|next to|beside|above|below|near|with)\b",
+            target,
+            maxsplit=1,
+            flags=re.I,
+        )
+        subject = re.search(
+            r"\b(state|circle|circled|edge|arrow|loop|label|text|line|word|digit|symbol|"
+            r"number|figure|diagram|cell)s?\b",
+            head,
+            re.I,
+        )
+        kind = subject.group(1).lower() if subject else None
+        if re.search(r"\b(?:arrow|edge|loop|state|circle)['’]?s?\s+labels?\b", head, re.I):
+            kind = "label"
+        if kind is None and relation and re.search(r"\b(arrow|edge|loop)s?\b", relation[0], re.I):
+            kind = "label"
+        shape = shapes.get(element.id)
+        if kind in ("edge", "arrow", "loop"):
+            return shape in ("arrow", "arrow + label")
+        if kind in ("label", "text", "line", "word", "digit", "symbol", "number"):
+            return shape in ("label", "text line", "arrow + label")
+        if kind in ("state", "circle", "circled"):
+            return shape == "circle"
+        if kind in ("figure", "diagram", "cell"):
+            return shape in ("figure", "table cell", "circle")
+        return True
+    # Legacy paper legends have no distinct arrow/figure kinds. Preserve their
+    # label behavior, but a circle alone still cannot represent an edge or label.
     subject = re.search(r"\b(state|circle|circled|edge|arrow|label)s?\b", target, re.I)
     if subject is None or subject.group(1).lower() in ("edge", "arrow", "label"):
-        return True
+        return subject is None or element.kind != "circle"
     if element.kind == "circle":
         return True
     a = element.box
@@ -191,9 +221,13 @@ class Pointer:
                     "Resolve each target in words to a numbered candidate on this current image. "
                     "Return only JSON marks: [{i: zero-based intent index, id: mN or null, "
                     "box: {x, y, w, h} or null}]. A wide label can be a whole handwritten line "
-                    "or word. Prefer an id. Only when no numbered candidate covers the target's "
-                    "ink, give id null and box: that ink's bounding box as fractions (0 to 1) of "
-                    "the image width (x, w) and height (y, h); otherwise box null. "
+                    "or word. Prefer an id only when its kind and ink match the named thing. "
+                    "An arrow/edge is the stroke between figures (or a start arrow or loop), "
+                    "not a nearby state circle. A symbol on an arrow is its label, not the "
+                    "arrow or state; an 'arrow + label' marker covers touching ink of both. "
+                    "When no marker fits, never choose the nearest unrelated "
+                    "marker: give id null and box, the target ink's bounding box as fractions "
+                    "(0 to 1) of the image width (x, w) and height (y, h); otherwise box null. "
                     "Use null for both when uncertain. Match the student's ink, "
                     "not colored app annotations. "
                     "Cross-check the legend; never use an ID from another image. "
@@ -230,15 +264,24 @@ class Pointer:
                 raise ValueError("Invalid or duplicate pointer index")
             by_index[mark.i] = mark
         known = {e.id: e for e in elements}
+        # Attachment legends name richer geometry without extending the shared
+        # DetectedElement wire enum. Paper's "at top left" legends stay legacy.
+        shapes = dict(
+            re.findall(
+                r"\b(m\d+) (text line|table cell|figure|circle|arrow \+ label|arrow|label) at \(",
+                legend_text,
+            )
+        )
         resolved = []
         for i, intent in enumerate(intents):
             mark = by_index.get(i)
             mark_id = None if mark is None else mark.id
             element = known.get(mark_id)
-            accepted = element is not None and compatible(intent.target, element, elements)
+            candidates = [e for e in elements if compatible(intent.target, e, elements, shapes)]
+            accepted = element is not None and element in candidates
             # A null or rejected id falls back to the model's box, when it gave a usable one;
             # a box a detected marker matches well lands on that marker, which follows the ink.
-            snapped = None if accepted or mark is None else snap(mark.box, elements, size)
+            snapped = None if accepted or mark is None else snap(mark.box, candidates, size)
             if snapped is not None:
                 mark_id, accepted = snapped, True
             box = None if accepted or mark is None else box_target(mark.box)

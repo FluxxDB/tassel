@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import cv2
 import pytest
-from image_marks_fixtures import FIXTURES, box_of
+from image_marks_fixtures import FIXTURES, box_of, dfa_page, touching_label
 from pipecat.processors.aggregators.llm_context import LLMContext
 from test_retest8_fixes import decision
 from test_two_tier import brief
@@ -306,5 +306,154 @@ async def test_student_image_intents_snap_to_original_image_pixels(name, scale):
             ("underline", expected[0].id, None, None),
             ("circle", expected[1].id, None, None),
         ]
+    finally:
+        await pointer.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("use_ids", [True, False])
+async def test_dfa_image_arrows_labels_and_states_resolve_to_their_own_markers(use_ids):
+    scene = dfa_page()
+    view = image_view(scene.png())
+    cases = [
+        ("the arrow out of q2", "q2->q3"),
+        ("the 1 on the arrow from q1", "label 1"),
+        # This eval deliberately draws q3 without a double ring. The fake client
+        # chooses q3: this checks circle compatibility, not semantic acceptance.
+        ("the accepting state", "q3"),
+    ]
+    answers, expected = [], []
+    for i, (_, name) in enumerate(cases):
+        truth = next(t for t in scene.truth if t.name == name)
+        candidates = [e for e in view.elements if iou(box_of(e), truth.box) >= 0.5]
+        assert len(candidates) == 1, name
+        [element] = candidates
+        expected.append(("underline", element.id, None, None))
+        x, y, w, h = truth.box
+        answers.append(
+            {
+                "i": i,
+                "id": element.id if use_ids else None,
+                "box": None
+                if use_ids
+                else {
+                    "x": x / view.width,
+                    "y": y / view.height,
+                    "w": w / view.width,
+                    "h": h / view.height,
+                },
+            }
+        )
+    q2, q3 = (next(e for e in view.elements if e.id == name) for name in ("m4", "m5"))
+    edge = next(e for e in view.elements if e.id == expected[0][1])
+    assert q2.box.x + q2.box.w <= edge.box.x < edge.box.x + edge.box.w <= q3.box.x
+    pointer = Pointer(VoiceSettings(), client=Client(answers))
+    try:
+        assert (
+            await pointer.resolve(
+                [thinker.MarkIntent(verb="underline", target=target) for target, _ in cases],
+                view.marked_jpeg,
+                view.legend_text,
+                view.elements,
+                size=(view.width, view.height),
+            )
+            == expected
+        )
+    finally:
+        await pointer.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("answer_id", ["m5", None])
+@pytest.mark.parametrize("target", ["the arrow out of q2", "the 1 on the arrow from q1"])
+async def test_missing_diagram_target_uses_box_even_if_it_overlaps_an_unrelated_circle(
+    answer_id,
+    target,
+):
+    view = image_view(dfa_page().png())
+    # Simulate the original five-marker detector and a coarse fallback box with
+    # enough overlap to snap to q3. Neither a selected ID nor a snap may take q3.
+    elements = [e for e in view.elements if e.id in {"m1", "m2", "m3", "m4", "m5"}]
+    box = {"x": 0.72, "y": 0.52, "w": 0.12, "h": 0.14}
+    pointer = Pointer(VoiceSettings(), client=Client([{"i": 0, "id": answer_id, "box": box}]))
+    try:
+        assert await pointer.resolve(
+            [thinker.MarkIntent(verb="underline", target=target)],
+            view.marked_jpeg,
+            view.legend_text,
+            elements,
+            size=(view.width, view.height),
+        ) == [("underline", "box=0.720,0.520,0.120,0.140", None, None)]
+    finally:
+        await pointer.close()
+
+
+@pytest.mark.asyncio
+async def test_a_touching_label_and_its_arrow_can_use_the_shared_marker():
+    scene = touching_label()
+    view = image_view(scene.png())
+    [edge] = [e for e in view.elements if iou(box_of(e), scene.truth[0].box) >= 0.5]
+    pointer = Pointer(
+        VoiceSettings(),
+        client=Client(
+            [
+                {"i": 0, "id": edge.id, "box": None},
+                {"i": 1, "id": edge.id, "box": None},
+            ]
+        ),
+    )
+    try:
+        assert (
+            await pointer.resolve(
+                [
+                    thinker.MarkIntent(verb="underline", target=t)
+                    for t in ("the arrow between circles", "the 0 on the arrow")
+                ],
+                view.marked_jpeg,
+                view.legend_text,
+                view.elements,
+            )
+            == [("underline", edge.id, None, None)] * 2
+        )
+    finally:
+        await pointer.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("target", ["the arrow label", "the edge label 1"])
+@pytest.mark.parametrize("wrong_id", [False, True])
+async def test_compound_arrow_label_targets_choose_text_not_the_edge(target, wrong_id):
+    scene = dfa_page()
+    view = image_view(scene.png())
+    label_truth = next(t for t in scene.truth if t.name == "label 1")
+    edge_truth = next(t for t in scene.truth if t.name == "q1->q2")
+    [label] = [e for e in view.elements if iou(box_of(e), label_truth.box) >= 0.5]
+    [edge] = [e for e in view.elements if iou(box_of(e), edge_truth.box) >= 0.5]
+    x, y, w, h = label_truth.box
+    pointer = Pointer(
+        VoiceSettings(),
+        client=Client(
+            [
+                {
+                    "i": 0,
+                    "id": edge.id if wrong_id else label.id,
+                    "box": {
+                        "x": x / view.width,
+                        "y": y / view.height,
+                        "w": w / view.width,
+                        "h": h / view.height,
+                    },
+                }
+            ]
+        ),
+    )
+    try:
+        assert await pointer.resolve(
+            [thinker.MarkIntent(verb="underline", target=target)],
+            view.marked_jpeg,
+            view.legend_text,
+            view.elements,
+            size=(view.width, view.height),
+        ) == [("underline", label.id, None, None)]
     finally:
         await pointer.close()

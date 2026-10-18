@@ -125,6 +125,86 @@ FIXTURES = {
 }
 
 
+def dfa_page() -> Scene:
+    from tassel.evals.fixtures import render
+
+    page = render("dfa-page")
+    rgb = cv2.cvtColor(cv2.imdecode(np.frombuffer(page.jpeg, np.uint8), 1), cv2.COLOR_BGR2RGB)
+    truth = [
+        Truth(name, "text" if name == "title" else "circle", item.box)
+        for name, item in page.truths.items()
+    ]
+    # Independent renderer coordinates, including the stroke thickness and arrow tips.
+    truth.append(Truth("start", "arrow", (107, 682, 111, 37)))
+    for index, x in enumerate((384, 704, 1024)):
+        truth.append(Truth(f"q{index}->q{index + 1}", "arrow", (x - 3, 680, 159, 41)))
+        label_box = (776, 649, 13, 34) if index == 1 else (x + 67, 648, 27, 36)
+        truth.append(Truth(f"label {index}", "label", label_box))
+    return Scene(rgb, truth)
+
+
+def arrow_diagram() -> Scene:
+    image = Image.new("RGB", (1000, 740), "white")
+    draw, truth = ImageDraw.Draw(image), []
+    text(draw, truth, "title", (60, 40), "Transitions and loops", 28)
+    for name, cx, cy in (("a", 220, 350), ("b", 540, 350), ("c", 780, 570)):
+        draw.ellipse((cx - 50, cy - 50, cx + 50, cy + 50), outline="black", width=3)
+        draw.text((cx - 8, cy - 14), name, font=ImageFont.load_default(size=24), fill="black")
+        truth.append(Truth(name, "circle", (cx - 50, cy - 50, 101, 101)))
+    draw.rectangle((170, 520, 270, 620), outline="black", width=3)
+    truth.append(Truth("box", "figure", (170, 520, 101, 101)))
+    rgb = np.array(image)
+
+    def stroke(name, paint):
+        # Truth comes from the renderer's isolated layer, not image_view's segmentation.
+        layer = np.zeros(rgb.shape[:2], np.uint8)
+        paint(layer)
+        ys, xs = np.nonzero(layer)
+        truth.append(Truth(name, "arrow", (xs.min(), ys.min(), np.ptp(xs) + 1, np.ptp(ys) + 1)))
+        rgb[layer != 0] = 0
+
+    stroke("start", lambda im: cv2.arrowedLine(im, (60, 350), (170, 350), 255, 3, tipLength=0.15))
+    stroke("a->b", lambda im: cv2.arrowedLine(im, (270, 350), (490, 350), 255, 3, tipLength=0.1))
+    stroke("headless", lambda im: cv2.line(im, (220, 400), (220, 520), 255, 3))
+    stroke("b->c", lambda im: cv2.arrowedLine(im, (578, 388), (742, 532), 255, 3, tipLength=0.12))
+
+    def loop(im):
+        angles = np.linspace(np.deg2rad(135), np.deg2rad(405), 100)
+        pts = np.column_stack((540 + 48 * np.cos(angles), 240 + 70 * np.sin(angles)))
+        cv2.polylines(im, [pts.astype(np.int32)], False, 255, 3)
+        cv2.arrowedLine(
+            im, tuple(pts[-8].astype(int)), tuple(pts[-1].astype(int)), 255, 3, tipLength=0.65
+        )
+
+    stroke("loop", loop)
+    image = Image.fromarray(rgb)
+    draw = ImageDraw.Draw(image)
+    for name, xy, value in (
+        ("zero", (365, 315), "0"),
+        ("one", (534, 135), "1"),
+        ("x", (185, 450), "x"),
+        ("two symbols", (680, 425), "01"),
+    ):
+        text(draw, truth, name, xy, value, 24)
+        truth[-1] = Truth(name, "label", truth[-1].box)
+    return Scene(np.array(image), truth)
+
+
+DIAGRAM_FIXTURES = {"dfa-page": dfa_page, "arrow diagram": arrow_diagram}
+
+
+def touching_label() -> Scene:
+    image = Image.new("RGB", (700, 400), "white")
+    draw = ImageDraw.Draw(image)
+    for x in (140, 560):
+        draw.ellipse((x - 50, 200, x + 50, 300), outline="black", width=3)
+    draw.line((190, 250, 510, 250), fill="black", width=3)
+    draw.line((495, 240, 510, 250, 495, 260), fill="black", width=3)
+    # The bottom of this glyph touches the shaft, making a single ink component.
+    text(draw, [], "label", (340, 226), "0", 28)
+    return Scene(np.array(image), [Truth("edge and label", "arrow", (190, 234, 321, 28))])
+
+
 def iou(a, b):
     ix = max(0, min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0]))
     iy = max(0, min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1]))
