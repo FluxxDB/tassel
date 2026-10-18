@@ -130,7 +130,11 @@ class Thinker:
                     messages=request,
                     response_format={"type": "json_object"},
                     max_completion_tokens=(
-                        8192 if drawing else BRIEF_TOKENS if effort == "none" else DRAWN_BRIEF_TOKENS
+                        8192
+                        if drawing
+                        else BRIEF_TOKENS
+                        if effort == "none"
+                        else DRAWN_BRIEF_TOKENS
                     ),
                 )
             except (APIConnectionError, TimeoutError) as error:

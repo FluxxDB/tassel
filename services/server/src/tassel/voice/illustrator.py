@@ -140,7 +140,14 @@ class ChatClient:
                     "low" if self.settings.illustrator_model.startswith("gpt-6-astra") else "none"
                 ),
                 max_completion_tokens=max(8192, max_tokens),
-                response_format={"type": "json_object"},
+                response_format=(
+                    {
+                        "type": "json_schema",
+                        "json_schema": {"name": name, "strict": True, "schema": schema},
+                    }
+                    if schema is not None
+                    else {"type": "json_object"}
+                ),
             )
         try:
             response = await self.client.chat.completions.create(**request)
