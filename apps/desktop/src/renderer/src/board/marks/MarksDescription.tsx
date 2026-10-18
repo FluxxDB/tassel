@@ -40,6 +40,11 @@ function describeMark(t: TFunction, mark: PaperMark, lng: Lang): string {
       return t('marks.description.arrow', { target: describeTarget(t, mark.to, lng), lng });
     case 'strike':
       return t('marks.description.strike', { target: describeTarget(t, mark.target, lng), lng });
+    case 'underline':
+      return t('marks.description.underline', {
+        target: describeTarget(t, mark.target, lng),
+        lng,
+      });
     case 'check':
       return t('marks.description.check', { target: describeTarget(t, mark.target, lng), lng });
   }

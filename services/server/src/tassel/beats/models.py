@@ -570,6 +570,14 @@ class StrikeMark(Wire):
     target: PaperTarget
 
 
+class UnderlineMark(Wire):
+    """A line just under a target: her handwritten IP, a label, a state."""
+
+    type: Literal["underline"]
+    id: Id
+    target: PaperTarget
+
+
 class CheckMark(Wire):
     type: Literal["check"]
     id: Id
@@ -577,7 +585,7 @@ class CheckMark(Wire):
 
 
 PaperMark = Annotated[
-    CircleMark | ArrowMark | StepMark | CalloutMark | StrikeMark | CheckMark,
+    CircleMark | ArrowMark | StepMark | CalloutMark | StrikeMark | UnderlineMark | CheckMark,
     Field(discriminator="type"),
 ]
 

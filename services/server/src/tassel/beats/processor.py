@@ -25,7 +25,8 @@ from .markup import BoardContext, MarkupStream, Sentence
 
 FREEZE_TAG = re.compile(r"\[\[\s*freeze(?:\s+[^\]]*)?\]\]", re.IGNORECASE)
 PAPER_MARK_TAG = re.compile(
-    r"\[\[\s*(?:circle|wash|number|check|strike|arrow|callout)\s+[^\]]+\]\]", re.IGNORECASE
+    r"\[\[\s*(?:circle|wash|number|check|strike|underline|arrow|callout)\s+[^\]]+\]\]",
+    re.IGNORECASE,
 )
 
 

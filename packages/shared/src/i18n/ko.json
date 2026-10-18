@@ -300,6 +300,7 @@
       "note": "메모: {text}",
       "arrow": "화살표: {target}",
       "strike": "줄 그음: {target}",
+      "underline": "밑줄: {target}",
       "check": "체크 표시: {target}",
       "trace": "{input} 추적 중, 현재 {state}"
     },

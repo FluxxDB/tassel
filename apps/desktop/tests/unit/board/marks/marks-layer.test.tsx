@@ -356,6 +356,7 @@ describe('PaperMarksLayer', () => {
       { type: 'arrow', id: 'm2', from: { at: { x: 0.5, y: 0.2 } }, to: at('state:q1') },
       { type: 'strike', id: 'm5', target: at('start') },
       { type: 'check', id: 'm6', target: { at: { x: 0.81, y: 0.4 } } },
+      { type: 'underline', id: 'm7', target: at('state:q1') },
     ]);
     resizePanel(1408, 736);
 
@@ -375,9 +376,10 @@ describe('PaperMarksLayer', () => {
       'Flecha hacia estado q1',
       'Tachado: la flecha de inicio',
       'Visto bueno: un punto de tu papel',
+      'Subrayado: estado q1',
     ]);
     // Every mark is drawn too.
-    for (const id of ['mark-arrow-m2', 'mark-strike-m5', 'mark-check-m6']) {
+    for (const id of ['mark-arrow-m2', 'mark-strike-m5', 'mark-check-m6', 'mark-underline-m7']) {
       expect(screen.getByTestId(id)).toBeInTheDocument();
     }
     // The chrome stays in the UI's language.

@@ -120,6 +120,7 @@ export type PaperMark =
   /** `text` is at most 280 characters. */
   | { type: 'callout'; id: string; target: PaperTarget; text: string }
   | { type: 'strike'; id: string; target: PaperTarget }
+  | { type: 'underline'; id: string; target: PaperTarget }
   | { type: 'check'; id: string; target: PaperTarget };
 
 export type FrameRef =
@@ -513,6 +514,7 @@ function mark(value: unknown): PaperMark {
       return { type, id: id(f.id), target: target(f.target), text: text(f.text) };
     }
     case 'strike':
+    case 'underline':
     case 'check': {
       const f = fields(value, ['type', 'id', 'target']);
       return { type, id: id(f.id), target: target(f.target) };

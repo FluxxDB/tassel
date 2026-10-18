@@ -41,7 +41,7 @@ PAPER = re.compile(
 )
 SIMPLE = re.compile(r"^\W*(what(?: is|'s| are)|define|what does .{1,30} mean)\b", re.I)
 BOARD = re.compile(r"\b(board|whiteboard)\b", re.I)
-DRAW = re.compile(r"\b(draw|mark|highlight|circle|wash|strike|callout)\b", re.I)
+DRAW = re.compile(r"\b(draw|mark|highlight|circle|wash|strike|underline|callout)\b", re.I)
 # Her own work ("the DFA I tried to draw", "my DFA") is a paper reference, not a draw request.
 SELF_WORK = re.compile(
     r"\b(?:I (?:try|tried|was trying|am trying|'m trying) to draw|I drew|I(?:'ve| have) drawn|"

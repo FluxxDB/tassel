@@ -498,7 +498,7 @@ def _command(command: str, ctx: BoardContext, notes: list[str] | None = None) ->
     if verb == "stage":
         [view] = _between(rest, 1, 1, "stage paper|board|split")
         return _make(StageAction, view=view)
-    if verb in ("circle", "wash", "number", "strike", "check", "callout"):
+    if verb in ("circle", "wash", "number", "strike", "underline", "check", "callout"):
         return _mark(verb, rest, ctx)
     if verb == "ptrace":
         [text] = _between(rest, 1, 1, "ptrace INPUT")

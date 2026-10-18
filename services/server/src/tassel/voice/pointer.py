@@ -14,7 +14,7 @@ from tassel.voice.director import QWEN_BACKUP_PROVIDER, QWEN_PRIMARY_PROVIDER, r
 
 class MarkIntent(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
-    verb: Literal["circle", "wash", "check", "strike", "callout", "number"]
+    verb: Literal["circle", "wash", "check", "strike", "underline", "callout", "number"]
     target: str = Field(min_length=1, max_length=80)
     text: str | None = None
     n: int | None = None

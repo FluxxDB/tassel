@@ -93,13 +93,14 @@ defined automaton MACHINE, like [[trace t yours 010 student]] (no word "ON").
 [[wash EL]] softly shades a paper mark.
 [[number N EL]] numbers a paper mark.
 [[strike EL]] strikes a paper mark.
+[[underline EL]] draws a line under a paper mark: "underline" means this, never a callout.
 [[check EL]] checks a paper mark.
 [[callout EL "TEXT"]] labels a paper mark.
 [[ptrace INPUT]] traces on the paper.
 [[pstep]] advances the paper trace.
 [[live]] returns to live paper.
 [[freeze [latest|frame=ID]]] freezes the paper image.
-Freeze only right before marking the paper (circle, number, check, strike),
+Freeze only right before marking the paper (circle, number, check, strike, underline),
 never when only describing.
 Remember: a DFA has exactly one move per state per symbol; always give accept=.
 Use accept= with no states when none accept.
@@ -256,7 +257,8 @@ def thinker_system_prompt(schema: dict) -> str:
         "student to confirm a goal you can read clearly; state the diagnosis as a question "
         "or hint. "
         "marks: preferred for paper marks. Supply a list of {verb, target, text, n}. "
-        "verb is circle, wash, check, strike, callout or number. target describes the ink "
+        "verb is circle, wash, check, strike, underline, callout or number. "
+        "target describes the ink "
         "in words (at most 80 characters), e.g. the double-circled final state at the right. "
         "text is callout text or null; n is the number or null. The Pointer resolves IDs. "
         "Raw [[circle mN]] tags in paper remain accepted as a fallback. "

@@ -166,7 +166,7 @@ CAPTION = (
     "Student's flattened paper. Blue numbers are visual candidate IDs, not student ink: "
     "number 3 means element m3 (likewise each other number). They identify circles or labels, "
     "not verified state names. Before drawing, use [[freeze]] to show this exact paper frame. "
-    "Target IDs with [[circle m3]], [[wash m3]], [[number 1 m3]], [[strike m3]], "
+    "Target IDs with [[circle m3]], [[wash m3]], [[number 1 m3]], [[strike m3]], [[underline m3]], "
     '[[check m3]], or [[callout m3 "Look here"]]. Use only IDs visible in this image. '
     "[[live]] returns to live paper."
 )

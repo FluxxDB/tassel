@@ -91,7 +91,8 @@ def test_the_board_examples_are_complete_and_every_tag_in_them_reads_cleanly():
 @pytest.mark.parametrize("lang", ["en", "es", "ko"])
 def test_freeze_only_for_marks_and_dfa_rules(lang):
     prompt = system_prompt(lang)
-    assert "Freeze only right before marking the paper (circle, number, check, strike)" in prompt
+    marks = "(circle, number, check, strike, underline)"
+    assert f"Freeze only right before marking the paper {marks}" in prompt
     assert "never when only describing" in prompt
     assert "a DFA has exactly one move per state per symbol; always give accept=" in prompt
 

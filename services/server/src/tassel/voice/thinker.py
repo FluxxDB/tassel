@@ -631,7 +631,7 @@ class TutorCoordinator:
 
 STEP = re.compile(r"\[\[\s*p?step\b")
 PAPER_VERB = re.compile(
-    r"\[\[\s*(?:freeze|circle|wash|number|strike|check|callout|ptrace|pstep|live)\b"
+    r"\[\[\s*(?:freeze|circle|wash|number|strike|underline|check|callout|ptrace|pstep|live)\b"
 )
 SAY_TAG = re.compile(r"\[\[[^\[\]]*\]\]")
 # Per-action guidance for the thinker: the playbook's rung, made explicit for this turn.

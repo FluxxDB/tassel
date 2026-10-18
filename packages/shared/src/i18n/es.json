@@ -300,6 +300,7 @@
       "note": "Nota: {text}",
       "arrow": "Flecha hacia {target}",
       "strike": "Tachado: {target}",
+      "underline": "Subrayado: {target}",
       "check": "Visto bueno: {target}",
       "trace": "Trazando {input}, ahora en {state}"
     },

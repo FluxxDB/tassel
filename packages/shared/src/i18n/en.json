@@ -300,6 +300,7 @@
       "note": "Note: {text}",
       "arrow": "Arrow to {target}",
       "strike": "Crossed out: {target}",
+      "underline": "Underlined: {target}",
       "check": "Checked: {target}",
       "trace": "Tracing {input}, now at {state}"
     },

@@ -25,6 +25,7 @@ import {
   stepDotFor,
   strikeFor,
   targetKey,
+  underlineFor,
 } from './geometry';
 import type { Snapshot } from './marks-store';
 import type { Fit } from './project';
@@ -111,6 +112,13 @@ export function MarkShapes({ marks, snapshot, fit, panel, lang }: MarkShapesProp
         shapes.push(
           <g key={key} data-testid={testId}>
             <Stroke d={polyline(strikeFor(target))} />
+          </g>,
+        );
+        break;
+      case 'underline':
+        shapes.push(
+          <g key={key} data-testid={testId}>
+            <Stroke d={polyline(underlineFor(target))} />
           </g>,
         );
         break;

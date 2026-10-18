@@ -280,6 +280,34 @@ export function arrowFor(
   return { line: [start, end], head: [tip(ARROW_HEAD_ANGLE), end, tip(-ARROW_HEAD_ANGLE)] };
 }
 
+/** How far under its target an underline runs, in panel px. */
+const UNDERLINE_GAP = 4;
+
+/**
+ * A line just under a target, as wide as it: under her handwriting's box, under a state's
+ * circle, or under an edge's midpoint. Live test: "underline the IP and the subnet" had no mark.
+ */
+export function underlineFor(r: Resolved): [Pt, Pt] {
+  if (r.radius > 0) {
+    const y = r.center.y + r.radius + UNDERLINE_GAP;
+    return [
+      { x: r.center.x - r.radius, y },
+      { x: r.center.x + r.radius, y },
+    ];
+  }
+  const { x, y, w, h } = r.bbox;
+  if (w > 0) {
+    return [
+      { x, y: y + h + UNDERLINE_GAP },
+      { x: x + w, y: y + h + UNDERLINE_GAP },
+    ];
+  }
+  return [
+    { x: r.center.x - 12, y: r.center.y + UNDERLINE_GAP },
+    { x: r.center.x + 12, y: r.center.y + UNDERLINE_GAP },
+  ];
+}
+
 /** A strike through a target: across a state, a slash over an edge, corner to corner on a box. */
 export function strikeFor(r: Resolved): [Pt, Pt] {
   if (r.radius > 0) {
