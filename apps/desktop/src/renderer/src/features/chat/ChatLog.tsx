@@ -5,7 +5,7 @@
 // reads at the bottom, and leaves her place alone when she has scrolled up.
 import type { Lang } from '@tassel/shared/i18n';
 import type { MessageAction } from '@tassel/shared/voice';
-import { useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useBoardStore } from '../../board/board-store';
 import { Board, ImageIcon, Mic, Paper, Undo } from '../../components/icons';
@@ -36,6 +36,17 @@ export function ChatLog({ sessionId, lang, onRetry, onOpenImage }: ChatLogProps)
     const el = box.current;
     if (el && stuck.current) el.scrollTop = el.scrollHeight;
   }, [lines]);
+  // The log shrinks as the composer grows (chips, more lines, a notice): the newest line stays
+  // in view while she's reading there.
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      if (stuck.current) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   return (
     <div
       ref={box}

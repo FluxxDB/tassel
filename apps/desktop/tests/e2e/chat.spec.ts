@@ -89,6 +89,16 @@ const log = (page: Page) => page.getByRole('log', { name: 'Conversation' });
 const field = (page: Page) => page.getByRole('textbox', { name: 'Message to Ada' });
 const toggle = (page: Page) => page.getByRole('button', { name: 'Chat', exact: true });
 
+/** Whether the log's newest line is in view, whole, above the composer. */
+const newestInView = (page: Page) =>
+  page.getByTestId('chat-log').evaluate((log) => {
+    const last = log.querySelector('[data-testid="chat-line"]:last-child');
+    if (!last) return false;
+    const box = log.getBoundingClientRect();
+    const line = last.getBoundingClientRect();
+    return line.top >= box.top - 1 && line.bottom <= box.bottom + 1;
+  });
+
 async function close(app: ElectronApplication): Promise<void> {
   await app.close();
 }
@@ -162,6 +172,8 @@ test('a conversation in the sidebar at 1440×900, beside the stage', async () =>
     { name: 'part-b.png', mimeType: 'image/png', buffer: syntheticPng(480, 480, 40) },
   ]);
   await expect(page.getByRole('button', { name: /^Remove image/ })).toHaveCount(2);
+  // The chips grew the composer: the newest line is still in view.
+  await expect.poll(() => newestInView(page)).toBe(true);
   await settle(page);
   await snap(page, 'chat-1440-images');
   await field(page).fill("Here's part b");
@@ -222,6 +234,14 @@ test('over the stage at 1024×680, clear of the tiles, captions and dock', async
   await page.keyboard.press('t');
   await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true');
   await expectClearOfStage(page);
+  // Split, the stage itself makes room: her board and its controls stay out from under it.
+  const sidebarBox = await boxOf(page.getByTestId('chat-sidebar'));
+  const boardBox = await boxOf(page.getByRole('region', { name: "Ada's board" }));
+  expect(boardBox.x + boardBox.width).toBeLessThanOrEqual(sidebarBox.x - 16);
+  await expect(page.getByRole('button', { name: 'Fit', exact: true })).toBeVisible();
+  const fit = await boxOf(page.getByRole('button', { name: 'Fit', exact: true }));
+  expect(fit.x + fit.width).toBeLessThan(sidebarBox.x);
+  expect(intersects(await boxOf(page.getByTestId('tutor-tile')), sidebarBox)).toBe(false);
   await snap(page, 'chat-1024-split-open');
 
   await page.getByRole('button', { name: 'Hide chat' }).click();
