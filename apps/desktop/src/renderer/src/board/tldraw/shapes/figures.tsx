@@ -1,10 +1,14 @@
-// What Ada's shapes draw: a state, the trace card and a note, at the global constraints' visual
+// What Ada's shapes draw: a state, the trace card, a note, and a diagram's node cards and group
+// frames, at the global constraints' visual
 // values (CSS px at zoom 1). Plain React with no tldraw, so they're tested in jsdom; the shape
 // utils place them on the canvas. Ada's content speaks the session's language (`lang`).
+import type { DiagramIcon as Icon } from '@tassel/shared/beats';
 import type { Lang } from '@tassel/shared/i18n';
 import type { CSSProperties, JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../../lib/cn';
+import { DiagramIcon } from '../../icons/DiagramIcon';
+import { GROUP_LABEL, NODE_CARD } from '../../scene/diagram';
 
 export type StateRing = 'none' | 'highlight' | 'current';
 
@@ -47,6 +51,27 @@ export interface NoteProps {
   variant: 'note' | 'title';
 }
 
+export interface NodeProps {
+  w: number;
+  h: number;
+  label: string;
+  /** '' for none. */
+  sublabel: string;
+  icon: Icon;
+  highlight: boolean;
+}
+
+export interface GroupProps {
+  w: number;
+  h: number;
+  label: string;
+  /** '' for none. */
+  sublabel: string;
+  /** Which of the group washes it takes: its place among the diagram's groups. */
+  tone: number;
+  highlight: boolean;
+}
+
 const INK = 'var(--color-ink)';
 const PAPER = 'var(--color-paper)';
 const IRIS_INK = 'var(--color-iris-ink)';
@@ -60,7 +85,44 @@ const SMOKE_TEXT = 'var(--color-smoke-text)';
 export const TEXT_STYLE = Object.freeze({
   note: { fontFamily: 'var(--font-sans)', fontSize: 17, fontWeight: 400, lineHeight: '24px' },
   verdict: { fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 400, lineHeight: '20px' },
-} satisfies Record<'note' | 'verdict', CSSProperties>);
+  // A diagram's text sets on one line, measured for its card or frame (scene/diagram.ts).
+  nodeLabel: {
+    fontFamily: 'var(--font-sans)',
+    fontSize: NODE_CARD.labelSize,
+    fontWeight: 500,
+    lineHeight: `${NODE_CARD.labelLine}px`,
+    letterSpacing: '-0.025em',
+    textTransform: 'none',
+  },
+  // Addresses keep their case: mono, but not a lab label.
+  nodeSub: {
+    fontFamily: 'var(--font-mono)',
+    fontSize: NODE_CARD.subSize,
+    fontWeight: 400,
+    lineHeight: `${NODE_CARD.subLine}px`,
+    letterSpacing: '0',
+    textTransform: 'none',
+  },
+  groupLabel: {
+    fontFamily: 'var(--font-mono)',
+    fontSize: GROUP_LABEL.size,
+    fontWeight: 500,
+    lineHeight: `${GROUP_LABEL.line}px`,
+    letterSpacing: '0.025em',
+    textTransform: 'uppercase',
+  },
+  groupSub: {
+    fontFamily: 'var(--font-mono)',
+    fontSize: GROUP_LABEL.size,
+    fontWeight: 400,
+    lineHeight: `${GROUP_LABEL.line}px`,
+    letterSpacing: '0.025em',
+    textTransform: 'uppercase',
+  },
+} satisfies Record<
+  'note' | 'verdict' | 'nodeLabel' | 'nodeSub' | 'groupLabel' | 'groupSub',
+  CSSProperties
+>);
 
 /** One line of a lab label (a title), cut short with an ellipsis rather than wrapped. */
 const LAB_LABEL_LINE: CSSProperties = {
@@ -318,10 +380,160 @@ export function NoteFigure({ w, h, text, variant }: NoteProps): JSX.Element {
         borderRadius: 20,
         backgroundColor: INK,
         color: PAPER,
+        // Her line breaks are hers: the board measures them too (measure.ts).
+        whiteSpace: 'pre-wrap',
         overflowWrap: 'break-word',
       }}
     >
       {text}
+    </div>
+  );
+}
+
+const HAIRLINE = 'var(--color-hairline)';
+/**
+ * The group washes, in order: DESIGN.md's pastel surfaces, for categories only. Each with its
+ * token's value behind it: Tailwind emits only the theme variables the app's CSS uses.
+ */
+const GROUP_TONES = [
+  'var(--color-mint, #daf7ee)',
+  'var(--color-sky, #ccdff1)',
+  'var(--color-meringue, #ffe9cf)',
+  'var(--color-blush, #fce0ee)',
+  'var(--color-seafoam, #cef1e1)',
+  'var(--color-rose-mist, #fdebf7)',
+] as const;
+
+/** Ada's highlight on a card or frame: the iris-ink ring of a highlighted state, outside it. */
+const HIGHLIGHT: CSSProperties = {
+  outlineWidth: 2,
+  outlineStyle: 'solid',
+  outlineColor: IRIS_INK,
+  outlineOffset: 3,
+};
+
+/**
+ * A diagram's node: a hairline card on paper, its stroke icon beside its label (Geist 14/500) over
+ * its sublabel (an address, say) in Geist Mono, each on one line, in the box its text was
+ * measured for (NODE_CARD). Named for screen readers by its label, its icon and its sublabel.
+ */
+export function NodeFigure({
+  w,
+  h,
+  label,
+  sublabel,
+  icon,
+  highlight,
+  lang,
+}: NodeProps & { lang: Lang }): JSX.Element {
+  const { t } = useTranslation();
+  const kind = t(`board.icon.${icon}`, { lng: lang });
+  const name = [label, kind, sublabel].filter((part) => part !== '').join(', ');
+  const line: CSSProperties = { display: 'block', whiteSpace: 'nowrap' };
+  const { padY, padLeft, padRight } = NODE_CARD;
+  return (
+    <div
+      role="img"
+      aria-label={name}
+      lang={lang}
+      data-icon={icon}
+      data-highlight={highlight}
+      style={{
+        boxSizing: 'border-box',
+        width: w,
+        height: h,
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: NODE_CARD.iconGap,
+        padding: `${padY}px ${padRight}px ${padY}px ${padLeft}px`,
+        borderWidth: 1,
+        borderStyle: 'solid',
+        borderColor: HAIRLINE,
+        borderRadius: 12,
+        backgroundColor: PAPER,
+        color: INK,
+        ...(highlight && HIGHLIGHT),
+      }}
+    >
+      <span style={{ display: 'flex', flex: 'none' }}>
+        <DiagramIcon icon={icon} size={NODE_CARD.icon} />
+      </span>
+      <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <span
+          style={{
+            ...TEXT_STYLE.nodeLabel,
+            ...line,
+            // Tracking damages Hangul (base.css).
+            ...(lang === 'ko' && { letterSpacing: 0 }),
+          }}
+        >
+          {label}
+        </span>
+        {sublabel !== '' && (
+          <span
+            style={{
+              ...TEXT_STYLE.nodeSub,
+              ...line,
+              marginTop: NODE_CARD.subGap,
+              color: SMOKE_TEXT,
+            }}
+          >
+            {sublabel}
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * A diagram's group: a hairline frame on its wash around its nodes, behind them, its lab label
+ * and sublabel on one line at its top-left (GROUP_LABEL), where the layout left room for them.
+ */
+export function GroupFigure({
+  w,
+  h,
+  label,
+  sublabel,
+  tone,
+  highlight,
+  lang,
+}: GroupProps & { lang: Lang }): JSX.Element {
+  const wash = GROUP_TONES[((tone % GROUP_TONES.length) + GROUP_TONES.length) % GROUP_TONES.length];
+  const line: CSSProperties = { display: 'block', whiteSpace: 'nowrap' };
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: a drawn frame on the canvas, not a form group
+    <div
+      role="group"
+      aria-label={[label, sublabel].filter((part) => part !== '').join(', ')}
+      lang={lang}
+      data-highlight={highlight}
+      style={{
+        boxSizing: 'border-box',
+        position: 'relative',
+        width: w,
+        height: h,
+        padding: GROUP_LABEL.pad,
+        borderWidth: 1,
+        borderStyle: 'solid',
+        borderColor: HAIRLINE,
+        borderRadius: 16,
+        backgroundColor: wash,
+        color: INK,
+        ...(highlight && HIGHLIGHT),
+      }}
+    >
+      <span style={{ display: 'flex', gap: GROUP_LABEL.gap, whiteSpace: 'nowrap' }}>
+        <span className="mono" style={{ ...TEXT_STYLE.groupLabel, ...line }}>
+          {label}
+        </span>
+        {sublabel !== '' && (
+          <span className="mono" style={{ ...TEXT_STYLE.groupSub, ...line, color: SMOKE_TEXT }}>
+            {sublabel}
+          </span>
+        )}
+      </span>
     </div>
   );
 }

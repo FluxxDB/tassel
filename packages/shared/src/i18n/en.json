@@ -211,7 +211,16 @@
       "transition": "{from} to {to} on {symbols}",
       "step": "Step {n}: read {symbol}, {from} to {to}",
       "stuck": "Step {n}: read {symbol}, no move from {from}: rejected",
-      "note": "Note: {text}"
+      "note": "Note: {text}",
+      "diagram": "Diagram: {title}",
+      "group": "{name}: {list}",
+      "groupEmpty": "{name}: empty",
+      "node": "{label}: {kind}",
+      "nodeSub": "{label}: {kind}, {sublabel}",
+      "link": "{from} connected to {to}",
+      "linkLabeled": "{from} connected to {to}, {label}",
+      "arrow": "{from} to {to}",
+      "arrowLabeled": "{from} to {to}, {label}"
     },
     "trace": {
       "title": "Trace · input {input}",
@@ -238,6 +247,19 @@
       "in": "Zoom in",
       "out": "Zoom out",
       "fit": "Fit"
+    },
+    "icon": {
+      "router": "router",
+      "switch": "switch",
+      "pc": "PC",
+      "laptop": "laptop",
+      "server": "server",
+      "cloud": "cloud",
+      "firewall": "firewall",
+      "phone": "phone",
+      "database": "database",
+      "box": "box",
+      "circle": "circle"
     }
   },
   "marks": {

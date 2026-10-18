@@ -16,7 +16,7 @@ import {
   toRichText,
 } from 'tldraw';
 import type { BoardEngine, StageGeometry, StudentBoardEdit } from '../engine';
-import type { AutomatonLayout } from '../layout/types';
+import type { BoardLayout } from '../layout/types';
 import { prefersReducedMotion } from '../motion';
 import { type BoardText, type Box, placeItems } from '../scene/placement';
 import type { BoardEffect, BoardScene } from '../scene/types';
@@ -70,8 +70,7 @@ export function createTldrawEngine(
 
   /** What Ada's board holds now, and what it was drawn from. */
   let shown: Desired = NO_SHAPES;
-  let drawn: { scene: BoardScene; layouts: Readonly<Record<string, AutomatonLayout>> } | null =
-    null;
+  let drawn: { scene: BoardScene; layouts: Readonly<Record<string, BoardLayout>> } | null = null;
   /** What the camera fitted last: an item (or null for everything) and its box. */
   let fitted: string | null = null;
 
@@ -119,7 +118,7 @@ export function createTldrawEngine(
     control.refit();
   });
 
-  const render = (scene: BoardScene, layouts: Readonly<Record<string, AutomatonLayout>>) => {
+  const render = (scene: BoardScene, layouts: Readonly<Record<string, BoardLayout>>) => {
     drawn = { scene, layouts };
     const next = desiredBoard(scene, layouts, text(), lang);
     apply(editor, planSync(shown, next));
@@ -147,8 +146,17 @@ export function createTldrawEngine(
     async play(effect: BoardEffect) {
       if (reduced()) return;
       if (effect.type === 'pulse') {
+        const shape = editor.getShape(adaShapeId(effect.item, effect.el) as TLShapeId);
+        if (shape?.type === 'tassel-node') {
+          // Around a diagram's card: a ring that clears its corners. The overlay adds its 4 px.
+          const bounds = editor.getShapePageBounds(shape);
+          if (!bounds) return;
+          const center = { x: bounds.center.x, y: bounds.center.y };
+          await effects.play({ type: 'pulse', center, r: Math.hypot(bounds.w, bounds.h) / 2 });
+          return;
+        }
         // Around the state's own circle: its page bounds come from a polygon, a little smaller.
-        const state = editor.getShape(adaShapeId(effect.item, effect.el) as TLShapeId);
+        const state = shape;
         if (state?.type !== 'tassel-state') return;
         const r = state.props.w / 2;
         const center = editor.getShapePageTransform(state).applyToPoint({ x: r, y: r });

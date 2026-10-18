@@ -14,10 +14,14 @@ import {
 } from '../../../src/renderer/src/features/session/current-session';
 import { initI18n } from '../../../src/renderer/src/i18n';
 import { ApiProvider } from '../../../src/renderer/src/lib/api';
-import { CORRECT, WRONG } from './fixtures';
+import { CORRECT, NETWORK, WRONG } from './fixtures';
 
 vi.mock('../../../src/renderer/src/board/layout/client', () => ({
-  getLayoutClient: () => ({ layout: () => new Promise(() => {}), dispose: () => {} }),
+  getLayoutClient: () => ({
+    layout: () => new Promise(() => {}),
+    layoutDiagram: () => new Promise(() => {}),
+    dispose: () => {},
+  }),
 }));
 
 function session(language: Lang): Session {
@@ -175,5 +179,52 @@ describe('BoardDescription', () => {
       'q0 to q1 on 0',
       'q2 to q3 on 0',
     ]);
+  });
+  it('describes a diagram as its groups and their nodes, each node, then its links', async () => {
+    await renderFor('en');
+    act(() =>
+      applyBoardAction({ kind: 'board.diagram', item: 'net', spec: NETWORK, reveal: 'none' }),
+    );
+    expect(screen.getByRole('list', { name: "What's on Ada's board" })).toBeEmptyDOMElement();
+    act(() => applyBoardAction({ kind: 'board.reveal', item: 'net', els: ['edge:core>rA'] }));
+    expect(items("What's on Ada's board")).toEqual([
+      'Diagram: Subnets 192.168.1.0/24',
+      'Zone A (192.168.1.0/26): Router A',
+      'Core switch: switch',
+      'Router A: router, 192.168.1.1',
+      'Core switch connected to Router A, Gi0/1',
+    ]);
+    act(() => applyBoardAction({ kind: 'board.reveal', item: 'net' }));
+    const all = items("What's on Ada's board");
+    expect(all.slice(0, 4)).toEqual([
+      'Diagram: Subnets 192.168.1.0/24',
+      'Zone A (192.168.1.0/26): Router A, PC A1, PC A2',
+      'Zone B (192.168.1.64/27): Router B, PC B1, PC B2',
+      'Zone C (192.168.1.96/28): Router C, PC C1, PC C2',
+    ]);
+    expect(all).toContain('PC B2: laptop, 192.168.1.71');
+    expect(all).toContain('Router A connected to PC A1');
+    expect(all).toHaveLength(4 + 10 + 9);
+  });
+
+  it('describes a diagram in the session language', async () => {
+    await renderFor('ko');
+    act(() =>
+      applyBoardAction({
+        kind: 'board.diagram',
+        item: 'flow',
+        spec: {
+          direction: 'TB',
+          groups: [],
+          nodes: [
+            { id: 'a', label: '요청', icon: 'circle' },
+            { id: 'b', label: '주문', icon: 'database' },
+          ],
+          edges: [{ from: 'a', to: 'b', label: '허용', directed: true, style: 'solid' }],
+        },
+      }),
+    );
+    const name = screen.getByRole('list').getAttribute('aria-label') ?? '';
+    expect(items(name)).toEqual(['요청: 원', '주문: 데이터베이스', '요청에서 주문까지, 허용']);
   });
 });

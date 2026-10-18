@@ -211,7 +211,16 @@
       "transition": "{from} → {to}, 입력 {symbols}",
       "step": "{n}단계: {symbol} 읽음, {from} → {to}",
       "stuck": "{n}단계: {symbol} 읽음, {from}에서 전이 없음: 거부",
-      "note": "메모: {text}"
+      "note": "메모: {text}",
+      "diagram": "다이어그램: {title}",
+      "group": "{name}: {list}",
+      "groupEmpty": "{name}: 비어 있음",
+      "node": "{label}: {kind}",
+      "nodeSub": "{label}: {kind}, {sublabel}",
+      "link": "{from}, {to} 연결",
+      "linkLabeled": "{from}, {to} 연결, {label}",
+      "arrow": "{from}에서 {to}까지",
+      "arrowLabeled": "{from}에서 {to}까지, {label}"
     },
     "trace": {
       "title": "추적 · 입력 {input}",
@@ -238,6 +247,19 @@
       "in": "Zoom in",
       "out": "Zoom out",
       "fit": "Fit"
+    },
+    "icon": {
+      "router": "라우터",
+      "switch": "스위치",
+      "pc": "PC",
+      "laptop": "노트북",
+      "server": "서버",
+      "cloud": "클라우드",
+      "firewall": "방화벽",
+      "phone": "전화",
+      "database": "데이터베이스",
+      "box": "상자",
+      "circle": "원"
     }
   },
   "marks": {
