@@ -150,3 +150,31 @@ export function largestCluster(cells: number[], cols: number): number {
   }
   return best;
 }
+
+/** The cells in 4-connected clusters of at least `min` cells: where a hand or sleeve lies. */
+export function clusterCells(cells: number[], cols: number, min: number): Set<number> {
+  const left = new Set(cells);
+  const out = new Set<number>();
+  for (const start of cells) {
+    if (!left.has(start)) continue;
+    left.delete(start);
+    const queue = [start];
+    const cluster: number[] = [];
+    while (queue.length > 0) {
+      const c = queue.pop() as number;
+      cluster.push(c);
+      const col = c % cols;
+      const neighbors = [c - cols, c + cols];
+      if (col > 0) neighbors.push(c - 1);
+      if (col < cols - 1) neighbors.push(c + 1);
+      for (const nb of neighbors) {
+        if (left.has(nb)) {
+          left.delete(nb);
+          queue.push(nb);
+        }
+      }
+    }
+    if (cluster.length >= min) for (const c of cluster) out.add(c);
+  }
+  return out;
+}

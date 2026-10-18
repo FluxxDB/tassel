@@ -34,8 +34,8 @@
 // band along the page's edges (EDGE_BAND) is never compared.
 
 import type { CellMask, DetectorStats, NormRect, Quad } from '../contracts';
-import { type CellDiff, compareCells, darkCells, largestCluster } from './cells';
-import { blur3, movingFraction } from './gray';
+import { type CellDiff, clusterCells, compareCells, darkCells } from './cells';
+import { blur3, stillFraction } from './gray';
 import { applyH, homography, invertH, quadShift } from './homography';
 import { normalizeLighting } from './normalize';
 import { DEFAULT_PARAMS, type DetectorParams } from './params';
@@ -80,6 +80,9 @@ interface Reference {
   dark: Set<number>;
   at: number;
 }
+
+/** Cells around a hand left out of the comparison: its shadow and the edge of the sleeve. */
+const HAND_MARGIN = 1;
 
 const UNIT: Quad = [
   { x: 0, y: 0 },
@@ -166,6 +169,7 @@ export function createDetector(params?: Partial<DetectorParams>) {
   let lastNewInkAt = Number.NEGATIVE_INFINITY;
   let lastTriggerAt = Number.NEGATIVE_INFINITY;
   let heldPage = false;
+  let wasOccluded = false;
   /** N1: when each cell was first seen dark, in this run of samples where it stayed dark. */
   let darkSince = new Map<number, number>();
   let darkGrid = '';
@@ -342,7 +346,8 @@ export function createDetector(params?: Partial<DetectorParams>) {
     const busy =
       previous === null ||
       previous.length !== motion.gray.length ||
-      movingFraction(previous, motion.gray, p.motionDelta) > p.busyFraction;
+      stillFraction(previous, motion.gray, motion.width, motion.height, p.motionDelta) >
+        p.busyFraction;
     previous = motion.gray.slice();
     if (busy) {
       quiet = 0;
@@ -369,17 +374,25 @@ export function createDetector(params?: Partial<DetectorParams>) {
     // not the next as the page is resampled, so they never stay dark long enough themselves.
     const scenery = around(trackDark(dark, cols, rows, t), cols, rows, 1);
     const occluders = dark.filter((c) => !scenery.has(c));
-    if (largestCluster(occluders, cols) >= p.occlusionMinCells) {
+    // A hand or sleeve on the page no longer stops it (owner's live test, 2026-10-18): its cells
+    // are left out of the comparison and never enter the reference, the quiet count and pending
+    // ink carry on, and a trigger waits only until it leaves, so the image shows no hand.
+    const handCells = clusterCells(occluders, cols, p.occlusionMinCells);
+    const occluded = handCells.size > 0;
+    // What lay under the hand is new from the moment it shows: the ink's quiet time starts then.
+    if (wasOccluded && !occluded) lastNewInkAt = Math.max(lastNewInkAt, t);
+    wasOccluded = occluded;
+    stats.occluded = occluded;
+    const hand = occluded ? around(handCells, cols, rows, HAND_MARGIN) : new Set<number>();
+    const norm = prepare(page.raw, page);
+
+    // 4. The first reference, never with a hand on the page.
+    if (!reference && occluded) {
       quiet = 0;
       stale = 0;
-      stats.occluded = true;
       stats.quiet = 0;
       return null;
     }
-    stats.occluded = false;
-    const norm = prepare(page.raw, page);
-
-    // 4. The first reference.
     if (!reference) {
       adopt(page, norm, dark, t);
       sheetInk = new Set();
@@ -392,16 +405,18 @@ export function createDetector(params?: Partial<DetectorParams>) {
     }
     const ref: Reference = reference;
 
+    // A page event never takes a hand into its new reference: it waits until the hand leaves.
     // A page event held by the minimum interval goes out on the first stable, clear sample after.
-    if (heldPage && t - lastTriggerAt >= p.minTriggerIntervalMs)
+    if (!occluded && heldPage && t - lastTriggerAt >= p.minTriggerIntervalMs)
       return pageEvent(t, samplePage, null);
 
     // A sample that doesn't match the reference's size can't be compared: treat it as a new page.
     if (page.width !== ref.size.width || page.height !== ref.size.height)
-      return pageEvent(t, samplePage, null);
+      return occluded ? null : pageEvent(t, samplePage, null);
 
     // 5. The page moved.
     if (
+      !occluded &&
       page.found &&
       ref.found &&
       quadShift(ref.quad, page.quad) > p.pageMoveFraction * page.frameDiagonal
@@ -412,7 +427,8 @@ export function createDetector(params?: Partial<DetectorParams>) {
     // 6. Compare, and look for a stale reference.
     // Scenery is left out: a printed fill is in the reference anyway, and a hand that has lain
     // still for sceneryMs is neither ink nor allowed into the reference by a trigger's mask.
-    const diff = compare(ref, page, norm, scenery);
+    const ignore = occluded ? new Set([...scenery, ...hand]) : scenery;
+    const diff = compare(ref, page, norm, ignore);
     stats.cols = diff.cols;
     stats.rows = diff.rows;
     stats.changed = diff.changed;
@@ -420,7 +436,7 @@ export function createDetector(params?: Partial<DetectorParams>) {
     const nearDark = around(ref.dark, diff.cols, diff.rows, 1);
     const erased = new Set(diff.erased);
     const ghost = diff.solid.filter((c) => erased.has(c) && nearDark.has(c) && !sheetInk.has(c));
-    if (ghost.length >= p.occlusionMinCells) {
+    if (!occluded && ghost.length >= p.occlusionMinCells) {
       const zone = around(ref.dark, diff.cols, diff.rows, 2);
       if (diff.changed.every((c) => zone.has(c))) {
         stale++;
@@ -434,9 +450,9 @@ export function createDetector(params?: Partial<DetectorParams>) {
     stale = 0;
 
     // 7. A new page, or this sheet cleared of her ink.
-    if (diff.changed.length > p.bigChangeFraction * diff.cols * diff.rows)
+    if (!occluded && diff.changed.length > p.bigChangeFraction * diff.cols * diff.rows)
       return pageEvent(t, samplePage, diff);
-    if (sheetInk.size >= p.triggerMinCells && diff.inked.length === 0) {
+    if (!occluded && sheetInk.size >= p.triggerMinCells && diff.inked.length === 0) {
       const cleared = diff.erased.filter((c) => sheetInk.has(c)).length;
       if (cleared >= p.pageClearFraction * sheetInk.size) return pageEvent(t, samplePage, diff);
     }
@@ -449,17 +465,23 @@ export function createDetector(params?: Partial<DetectorParams>) {
       if ((diff.counts[c] as number) >= strong) lastNewInkAt = t;
     }
 
-    // 9. An ink trigger.
+    // 9. An ink trigger: enough changed cells, or one strong one (a small correction is work),
+    // once no hand is on the page.
+    const enough =
+      diff.changed.length >= p.triggerMinCells ||
+      diff.changed.some((c) => (diff.counts[c] as number) >= p.singleCellMinPixels);
     if (
-      diff.changed.length >= p.triggerMinCells &&
+      enough &&
+      !occluded &&
       t - lastNewInkAt >= p.quietInkMs &&
       t - lastTriggerAt >= p.minTriggerIntervalMs
     ) {
       return inkTrigger(t, page, norm, dark, diff);
     }
 
-    // 10. Refresh a quiet reference.
-    if (diff.changed.length < p.triggerMinCells && t - ref.at >= p.referenceRefreshMs) {
+    // 10. Refresh a quiet reference: only with nothing pending and no hand on the page, so a
+    // refresh never absorbs an edit that hasn't gone out (Perry's audit) or takes in the hand.
+    if (!occluded && diff.changed.length === 0 && t - ref.at >= p.referenceRefreshMs) {
       adopt(page, norm, dark, t);
       stats.refAgeMs = 0;
     }
@@ -483,6 +505,7 @@ export function createDetector(params?: Partial<DetectorParams>) {
       lastNewInkAt = Number.NEGATIVE_INFINITY;
       lastTriggerAt = Number.NEGATIVE_INFINITY;
       heldPage = false;
+      wasOccluded = false;
       darkSince = new Map();
       darkGrid = '';
       triggers = 0;

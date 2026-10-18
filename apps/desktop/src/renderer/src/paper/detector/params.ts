@@ -30,6 +30,8 @@ export interface DetectorParams {
   cellMinPixels: number;
   /** Changed cells needed to trigger. */
   triggerMinCells: number;
+  /** …or one cell changed by at least this many pixels: a small correction is still work. */
+  singleCellMinPixels: number;
   /** Time with no new ink before a trigger (tunable from 1500 to 3000). */
   quietInkMs: number;
   /** At most one trigger this often; a page event inside it is held. */
@@ -54,6 +56,8 @@ export interface DetectorParams {
   staleSamples: number;
   /** A dark cell that stays dark this long is scenery, not an occluder (re-review N1). */
   sceneryMs: number;
+  /** The last page quad bridges a missed detection this long, then the page counts as lost. */
+  quadGraceMs: number;
 }
 
 export const DEFAULT_PARAMS: Readonly<DetectorParams> = Object.freeze({
@@ -70,6 +74,7 @@ export const DEFAULT_PARAMS: Readonly<DetectorParams> = Object.freeze({
   cellSize: 16,
   cellMinPixels: 6,
   triggerMinCells: 2,
+  singleCellMinPixels: 24,
   quietInkMs: 2000,
   minTriggerIntervalMs: 5000,
   bigChangeFraction: 0.4,
@@ -82,6 +87,7 @@ export const DEFAULT_PARAMS: Readonly<DetectorParams> = Object.freeze({
   solidCellFraction: 0.5,
   staleSamples: 5,
   sceneryMs: 10000,
+  quadGraceMs: 2000,
 });
 
 type Range = { min: number; max: number; whole?: boolean; odd?: boolean };
@@ -101,6 +107,7 @@ const RANGES: Record<keyof DetectorParams, Range> = {
   cellSize: { min: 4, max: 64, whole: true },
   cellMinPixels: { min: 1, max: 4096, whole: true },
   triggerMinCells: { min: 1, max: 1000, whole: true },
+  singleCellMinPixels: { min: 1, max: 4096, whole: true },
   quietInkMs: { min: 1500, max: 3000 },
   minTriggerIntervalMs: { min: 0, max: 60000 },
   bigChangeFraction: { min: 0.05, max: 1 },
@@ -113,6 +120,7 @@ const RANGES: Record<keyof DetectorParams, Range> = {
   solidCellFraction: { min: 0.05, max: 1 },
   staleSamples: { min: 1, max: 100, whole: true },
   sceneryMs: { min: 1000, max: 120000 },
+  quadGraceMs: { min: 0, max: 60000 },
 };
 
 /** Keeps the known keys whose values are finite numbers in range; drops the rest. */

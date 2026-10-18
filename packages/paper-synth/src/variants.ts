@@ -48,6 +48,7 @@ export const VARIANTS: readonly VariantName[] = [
   'printed-box',
   'dark-desk',
   'bold-pen',
+  'nudge-while-writing',
 ];
 
 const A = PAGE_ASPECT;
@@ -574,6 +575,24 @@ const builders: Record<VariantName, () => Clip> = {
       .session({ enter: 9600, leave: 12500 }, (s) => s.draw('q1', stateShape('q1'), 10000, 12000))
       .expect('page', 7500)
       .expect('ink', 15500, ['q1'])
+      .build(),
+
+  // The owner's live test (2026-10-18): the sheet never quite settles, nudged a few pixels back
+  // and forth (her hand, the camera's wobble) before, while and after she writes. Neither
+  // motion nor a page event: one ink trigger for q1 once she's done.
+  'nudge-while-writing': () =>
+    new Script('nudge-while-writing', 18000)
+      .predraw('q0', stateShape('q0'))
+      .with((s) => {
+        const nudge = 7 / 720;
+        (s.sheets[0] as Sheet).offsets = Array.from({ length: 54 }, (_, i) => ({
+          t: 2000 + i * 300,
+          dx: i % 2 ? nudge : 0,
+          dy: i % 3 === 1 ? nudge : 0,
+        }));
+      })
+      .session({ enter: 2600, leave: 9500 }, (s) => s.draw('q1', stateShape('q1'), 3000, 9000))
+      .expect('ink', 12500, ['q1'])
       .build(),
 
   'page-flip': () =>

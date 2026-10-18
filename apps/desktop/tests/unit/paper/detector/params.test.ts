@@ -7,7 +7,7 @@ import {
 } from '../../../../src/renderer/src/paper/detector/params';
 
 describe('DEFAULT_PARAMS', () => {
-  it('holds the plan’s starting values, plus the re-review’s scenery timeout', () => {
+  it('holds the plan’s starting values, the re-review’s scenery timeout, and the 2026-10-18 hand and quad rules', () => {
     expect(DEFAULT_PARAMS).toEqual({
       sampleIntervalMs: 200,
       motionWidth: 160,
@@ -22,6 +22,7 @@ describe('DEFAULT_PARAMS', () => {
       cellSize: 16,
       cellMinPixels: 6,
       triggerMinCells: 2,
+      singleCellMinPixels: 24,
       quietInkMs: 2000,
       minTriggerIntervalMs: 5000,
       bigChangeFraction: 0.4,
@@ -34,6 +35,7 @@ describe('DEFAULT_PARAMS', () => {
       solidCellFraction: 0.5,
       staleSamples: 5,
       sceneryMs: 10000,
+      quadGraceMs: 2000,
     });
     expect(Object.isFrozen(DEFAULT_PARAMS)).toBe(true);
   });
