@@ -64,7 +64,7 @@ def test_openrouter_settings_pin_cerebras_and_turn_reasoning_off():
 def test_elevenlabs_settings():
     s = elevenlabs_settings(route_for("ko"), "v-ko")
     assert (s.model, s.voice, s.language) == ("eleven_flash_v2_5", "v-ko", Language.KO)
-    assert s.apply_text_normalization == "off"
+    assert s.apply_text_normalization == "on"
 
 
 @pytest.mark.asyncio
@@ -457,3 +457,13 @@ def test_persona_without_tools_uses_tags_and_the_language_menu():
     assert "Call set_language" not in without
     assert "[[stage paper|board|split]]" in without
     assert "language menu" in without
+
+
+def test_speech_settings_are_configurable(monkeypatch):
+    monkeypatch.setenv("TASSEL_TTS_MODEL", "eleven_turbo_v2_5")
+    config = VoiceSettings(tts_stability=0.45, tts_similarity=0.8, tts_speed=1.05)
+    settings = elevenlabs_settings(route_for("en"), "voice", config)
+    assert settings.model == "eleven_turbo_v2_5"
+    assert settings.stability == 0.45
+    assert settings.similarity_boost == 0.8
+    assert settings.speed == 1.05

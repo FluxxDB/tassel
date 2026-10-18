@@ -66,10 +66,8 @@ def normalize(text: str) -> str:
 
 def is_backchannel(text: str, lang: Lang) -> bool:
     text = normalize(text).replace(" ", "")
-    return bool(text) and any(
-        re.fullmatch(f"(?:{re.escape(word.replace(' ', ''))})+", text)
-        for word in BACKCHANNELS[lang]
-    )
+    alternatives = "|".join(re.escape(word.replace(" ", "")) for word in BACKCHANNELS[lang])
+    return bool(text) and re.fullmatch(f"(?:{alternatives})+", text) is not None
 
 
 class BackchannelGuard(BaseUserTurnStartStrategy):
@@ -101,13 +99,12 @@ class BackchannelGuard(BaseUserTurnStartStrategy):
         if self.tuning.ptt:
             start = signal and self.tuning.ptt_held
         else:
-            start = (signal or transcript) and (
-                not self._bot_speaking or self.tuning.sensitivity == "high"
-            )
+            start = (signal or transcript) and (not self._bot_speaking)
             if transcript and self._bot_speaking and not start:
                 start = (
                     not is_backchannel(frame.text, self.lang)
-                    and len(frame.text.split()) >= MIN_WORDS[self.tuning.sensitivity][self.lang]
+                    and len(re.findall(r"[^\W_]+", frame.text))
+                    >= MIN_WORDS.get(self.tuning.sensitivity, MIN_WORDS["normal"])[self.lang]
                 )
                 if isinstance(frame, TranscriptionFrame) and is_backchannel(frame.text, self.lang):
                     await self.trigger_reset_aggregation()
@@ -149,7 +146,7 @@ class PushToTalkStop(BaseUserTurnStopStrategy):
 
 def make_vad():
     return SileroVADAnalyzer(
-        params=VADParams(confidence=0.7, start_secs=0.2, stop_secs=0.2, min_volume=0.6)
+        params=VADParams(confidence=0.7, start_secs=0.2, stop_secs=0.35, min_volume=0.6)
     )
 
 

@@ -72,7 +72,9 @@ from tassel.voice.prompts import language_switch_note, system_prompt
 from tassel.voice.providers import llm_tools_supported, make_llm, make_stt, make_tts, stt_kind
 from tassel.voice.routes import VoiceRoute, route_for
 from tassel.voice.settings import VoiceSettings, resolve_mode
+from tassel.voice.thinker import ThinkerOutput, TutorCoordinator, make_thinker
 from tassel.voice.tools import TOOLS
+from tassel.voice.transcripts import DevTranscript
 from tassel.voice.turns import PushToTalkFrame, TurnTuning, make_turn_strategies, make_vad
 
 TurnImage = Callable[[UUID, datetime], Awaitable[TurnPage | None]]
@@ -177,6 +179,7 @@ class _TurnContext(FrameProcessor):
     def __init__(self, session_id: UUID | None = None, turn_image: TurnImage | None = None):
         super().__init__()
         self.pending_image = None
+        self.coordinator = None
         self._last_user = None
         self.on_language = None
         self._session_id = session_id
@@ -238,10 +241,13 @@ class _TurnContext(FrameProcessor):
                 and not is_note(user["content"])
             ):
                 self._last_user = user
+                student_text = user["content"]
+                ink_image = None
                 note = None
                 page = await self._turn_page()
                 if page is not None and page.image is not None:
                     self.pending_image = (page.image, page.caption)
+                    ink_image = page.ink_image or page.image
                     logger.info(
                         "Page image for this turn: session={} bytes={}",
                         self._session_id,
@@ -258,6 +264,7 @@ class _TurnContext(FrameProcessor):
                         ]
                 if self.pending_image:
                     png, caption = self.pending_image
+                    ink_image = ink_image or png
                     user["content"] = [
                         {"type": "text", "text": user["content"]},
                         {"type": "text", "text": caption},
@@ -272,6 +279,8 @@ class _TurnContext(FrameProcessor):
                         {"type": "text", "text": user["content"]},
                         {"type": "text", "text": note},
                     ]
+                if self.coordinator:
+                    await self.coordinator.prepare(frame.context, student_text, ink_image)
         await self.push_frame(frame, direction)
 
 
@@ -426,9 +435,41 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     events = ServerEvents()
     # One board per bot, shared with the page-image seam, so [[freeze]] and paper marks resolve
     # against the exact page Ada saw.
-    beats = BeatTagProcessor(events=events, lang=lambda: ctx.lang, board=ctx.board)
+    transcript = DevTranscript(
+        ctx.session_id,
+        ctx.settings.transcript_dir,
+        secrets=[
+            value.get_secret_value()
+            for name, value in ctx.settings
+            if name.endswith("api_key") and value
+        ],
+    )
+    beats = BeatTagProcessor(
+        events=events, lang=lambda: ctx.lang, board=ctx.board, transcript=transcript
+    )
+    thinker = make_thinker(ctx.settings)
+    reasoning = []
+    if thinker is not None:
+        turn_context.coordinator = TutorCoordinator(
+            thinker, ctx.board, transcript=transcript, lang=lambda: ctx.lang
+        )
+        reasoning = [ThinkerOutput(turn_context.coordinator)]
     worker = PipelineWorker(
-        Pipeline([input, stt, user, turn_context, llm, beats, tts, monitor, output, assistant]),
+        Pipeline(
+            [
+                input,
+                stt,
+                user,
+                turn_context,
+                llm,
+                *reasoning,
+                beats,
+                tts,
+                monitor,
+                output,
+                assistant,
+            ]
+        ),
         params=PipelineParams(
             enable_metrics=True, enable_usage_metrics=True, report_only_initial_ttfb=True
         ),
@@ -454,6 +495,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         await events.send(PaperFrameEvent())
 
     turn_context.request_frame = request_frame
+    worker.add_observer(transcript)
     worker.add_observer(VadForwarder(worker))
     worker.add_observer(_SpeechStarts(turn_context))
     language_lock = asyncio.Lock()
@@ -469,7 +511,11 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         else:
             await llm.queue_frame(
                 LLMUpdateSettingsFrame(
-                    delta=llm.Settings(system_instruction=system_prompt(lang, tools=tools_ok))
+                    delta=llm.Settings(
+                        system_instruction=system_prompt(
+                            lang, tools=tools_ok, two_tier=ctx.settings.two_tier_enabled
+                        )
+                    )
                 )
             )
 

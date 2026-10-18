@@ -118,7 +118,11 @@ export async function main() {
       // The server's own output, keys never in it, goes to the terminal with a prefix-free pipe.
       const { child: server } = run.start('uv', ['run', 'tassel-server'], {
         cwd: serverDir,
-        env: { ...process.env, TASSEL_PORT: port },
+        env: {
+          ...process.env,
+          TASSEL_PORT: port,
+          TASSEL_TRANSCRIPT_DIR: join(logDir, 'transcripts'),
+        },
         stdio: ['ignore', 'inherit', 'inherit'],
         detached: true,
       });

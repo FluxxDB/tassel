@@ -183,6 +183,7 @@ class TurnPage:
 
     image: bytes | None
     caption: str
+    ink_image: bytes | None = None
 
 
 NO_VIEW = (
@@ -238,7 +239,7 @@ async def fresh_turn_image_for(
     if view is None:
         return TurnPage(None, NO_VIEW)
     view.set_context(context)
-    return TurnPage(view.marked_jpeg, CAPTION)
+    return TurnPage(view.marked_jpeg, CAPTION, ink_image=view.page_jpeg)
 
 
 def make_turn_image_for(

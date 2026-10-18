@@ -2,11 +2,13 @@
 
 import re
 from collections.abc import Callable
+from dataclasses import dataclass
 from uuid import uuid4
 
 from loguru import logger
 from pipecat.frames.frames import (
     AggregatedTextFrame,
+    DataFrame,
     InterruptionFrame,
     LLMFullResponseEndFrame,
     LLMFullResponseStartFrame,
@@ -27,12 +29,24 @@ PAPER_MARK_TAG = re.compile(
 )
 
 
+@dataclass
+class FlushSpeechFrame(DataFrame):
+    """Release a bridge sentence while keeping its LLM response open."""
+
+
 class BeatTagProcessor(FrameProcessor):
     def __init__(
-        self, *, events: ServerEvents, lang: Callable[[], Lang], board: BoardContext, **kwargs
+        self,
+        *,
+        events: ServerEvents,
+        lang: Callable[[], Lang],
+        board: BoardContext,
+        transcript=None,
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self._events = events
+        self._transcript = transcript
         self._lang = lang
         self._board = board
         self._stream = MarkupStream(board)
@@ -46,6 +60,11 @@ class BeatTagProcessor(FrameProcessor):
             # A tag that's refused, or read with parts dropped, is logged, never captioned.
             for problem in sentence.problems:
                 logger.info("Board tag rejected: {}", problem)
+            if self._transcript:
+                for problem in sentence.problems:
+                    self._transcript.record("reject", {"text": problem})
+                for tag in re.findall(r"\[\[.*?\]\]", sentence.tagged):
+                    self._transcript.record("tags", {"text": tag})
             frame = AggregatedTextFrame(
                 text=sentence.clean, aggregated_by="sentence", raw_text=sentence.tagged
             )
@@ -98,6 +117,10 @@ class BeatTagProcessor(FrameProcessor):
                 self._stream = MarkupStream(self._board)
             elif isinstance(frame, LLMTextFrame):
                 await self._feed_guarded(frame.text)
+                return
+            elif isinstance(frame, FlushSpeechFrame):
+                await self._feed_guarded("", final=True)
+                await self._emit(self._stream.flush())
                 return
             elif isinstance(frame, LLMFullResponseEndFrame):
                 await self._feed_guarded("", final=True)

@@ -59,6 +59,7 @@ def flux_settings(route: VoiceRoute) -> DeepgramFluxSTTService.Settings:
     return DeepgramFluxSTTService.Settings(
         model=route.stt_model,
         language_hints=[Language(lang) for lang in route.language_hints],
+        eot_threshold=0.8,
         keyterm=list(route.keyterms),
     )
 
@@ -84,12 +85,18 @@ def openrouter_settings(s: VoiceSettings) -> OpenRouterLLMService.Settings:
     )
 
 
-def elevenlabs_settings(route: VoiceRoute, voice_id: str) -> ElevenLabsTTSService.Settings:
+def elevenlabs_settings(
+    route: VoiceRoute, voice_id: str, s: VoiceSettings | None = None
+) -> ElevenLabsTTSService.Settings:
+    s = s or VoiceSettings()
     return ElevenLabsTTSService.Settings(
-        model="eleven_flash_v2_5",
+        model=s.tts_model,
+        stability=s.tts_stability,
+        similarity_boost=s.tts_similarity,
+        speed=s.tts_speed,
         voice=voice_id,
         language=Language(route.tts_language),
-        apply_text_normalization="off",
+        apply_text_normalization="on",
     )
 
 
@@ -306,7 +313,10 @@ def make_llm(route: VoiceRoute, s: VoiceSettings, scenario: FakeScenario | None)
     if _mode("llm", s) == "fake":
         return FakeLLMService(scenario=scenario or load_scenario(s.fake_scenario), lang=route.lang)
     return LiveLLMService(
-        s, system_instruction=system_prompt(route.lang, tools=llm_tools_supported(s))
+        s,
+        system_instruction=system_prompt(
+            route.lang, tools=llm_tools_supported(s), two_tier=s.two_tier_enabled
+        ),
     )
 
 
@@ -315,5 +325,5 @@ def make_tts(route: VoiceRoute, s: VoiceSettings) -> TTSService:
         return FakeTTSService(lang=route.lang, engine=pick_engine(s.fake_tts))
     return ElevenLabsTTSService(
         api_key=s.elevenlabs_api_key.get_secret_value(),
-        settings=elevenlabs_settings(route, getattr(s, f"voice_{route.lang}")),
+        settings=elevenlabs_settings(route, getattr(s, f"voice_{route.lang}"), s),
     )

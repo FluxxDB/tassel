@@ -22,9 +22,9 @@ def test_prompt_rules(lang):
         "one or two short sentences",
         "Never give the full solution unless the student asks",
         "failed attempt",
-        "spell out",
+        "speech normalization",
         "q zero",
-        "one zero one zero",
+        "zero one zero one",
         "no markdown",
         "lists",
         "emoji",
@@ -94,3 +94,27 @@ def test_freeze_only_for_marks_and_dfa_rules(lang):
     assert "Freeze only right before marking the paper (circle, number, check, strike)" in prompt
     assert "never when only describing" in prompt
     assert "a DFA has exactly one move per state per symbol; always give accept=" in prompt
+
+
+def test_two_tier_persona_uses_notes_and_consults_before_complex_work():
+    prompt = system_prompt("en", two_tier=True)
+    assert "[[consult]]" in prompt
+    assert "tutor notes" in prompt and "do not re-ask" in prompt
+    assert "bridge" in prompt
+    assert "[[consult]]" not in system_prompt("en")
+
+
+def test_thinker_real_case_examples_match_schema_and_diagnose_missing_final_one():
+    from tassel.voice.prompts import THINKER_EXAMPLES, thinker_system_prompt
+    from tassel.voice.thinker import GuidanceBrief
+
+    prompt = thinker_system_prompt(GuidanceBrief.model_json_schema())
+    assert "Language for 0101 ?" in prompt
+    assert "my paper" in prompt and "camera" in prompt
+    assert "small" in prompt
+    for example in THINKER_EXAMPLES:
+        brief = GuidanceBrief.model_validate(example["brief"])
+        assert "final 1" in brief.diagnosis
+        assert len(brief.plan) <= 4
+        if "my paper" in example["student"]:
+            assert brief.paper and not brief.board

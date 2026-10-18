@@ -184,6 +184,7 @@ async function main() {
   // uv passes SIGTERM on to the server, which shuts down cleanly.
   const server = start('server', 'uv', ['run', 'tassel-server'], {
     cwd: serverDir,
+    env: { ...process.env, TASSEL_TRANSCRIPT_DIR: join(root, '.cache/live/transcripts') },
     stopSignal: 'SIGTERM',
   });
   const deadline = Date.now() + SERVER_STARTUP_MS;

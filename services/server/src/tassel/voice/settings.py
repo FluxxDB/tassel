@@ -81,11 +81,31 @@ class VoiceSettings(BaseSettings):
             raise ValueError("gpt-6-astra reasoning effort must be low, medium, high, xhigh or max")
         return self
 
+    two_tier: bool | None = None
+    thinker_model: str = "gpt-6-astra"
+    thinker_effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"
+
+    @property
+    def two_tier_enabled(self) -> bool:
+        return (
+            self.two_tier is not False
+            and self.providers != "fake"
+            and self.llm_provider != "fake"
+            and _is_set(self.openai_api_key)
+            and _is_set(self.openrouter_api_key)
+        )
+
+    tts_model: Literal["eleven_flash_v2_5", "eleven_turbo_v2_5"] = "eleven_flash_v2_5"
+    tts_stability: float = Field(0.5, ge=0, le=1)
+    tts_similarity: float = Field(0.75, ge=0, le=1)
+    tts_speed: float = Field(1.0, ge=0.7, le=1.2)
+
     fake_tts: Literal["auto", "say", "tone"] = "auto"
     fake_scenario: str = "dfa-opening"
 
     ice_servers: list[IceServerConfig] = []
     voice_metrics_log: Path | None = None
+    transcript_dir: Path | None = None
 
     @field_validator("voice_en", "voice_es", "voice_ko", mode="before")
     @classmethod

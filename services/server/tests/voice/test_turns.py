@@ -49,6 +49,12 @@ def test_not_backchannels(lang, text):
     "lang,text,sensitivity,starts",
     [
         ("en", "uh huh", "normal", False),
+        ("en", "mm-hmm", "normal", False),
+        ("en", "yeah", "high", False),
+        ("en", "okay", "high", False),
+        ("en", "yeah okay", "normal", False),
+        ("en", "...", "normal", False),
+        ("en", "wait", "high", True),
         ("en", "wait", "normal", True),
         ("en", "wait", "low", False),
         ("en", "wait what", "low", True),
@@ -111,7 +117,7 @@ async def test_ptt_release_waits_for_final_after_vad():
     [
         (True, False, False, False, False),
         (True, True, False, True, True),
-        (False, False, True, True, True),
+        (False, False, True, True, False),
         (False, False, False, False, True),
     ],
 )
@@ -160,3 +166,12 @@ def test_strategy_sets_per_route():
     assert isinstance(
         make_turn_strategies("flux", TurnTuning(ptt=True), "en").stop[0], PushToTalkStop
     )
+
+
+def test_end_of_turn_wait_is_more_patient():
+    from tassel.voice.providers import flux_settings
+    from tassel.voice.routes import route_for
+    from tassel.voice.turns import make_vad
+
+    assert make_vad().params.stop_secs == 0.35
+    assert flux_settings(route_for("en")).eot_threshold == 0.8
