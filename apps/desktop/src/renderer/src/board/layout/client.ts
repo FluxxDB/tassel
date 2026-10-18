@@ -2,20 +2,25 @@
 // and caches every layout by the spec's canonical JSON, so redrawing an automaton costs nothing.
 // A call fails after LAYOUT_TIMEOUT_MS without an answer, or at once if the worker fails, so the
 // board can fall back to fallbackLayout (Task 5) instead of waiting.
-import type { AutomatonSpec } from '@tassel/shared/beats';
+import type { AutomatonSpec, DiagramSpec } from '@tassel/shared/beats';
 import type { FromLayoutWorker, ToLayoutWorker } from './messages';
-import type { AutomatonLayout } from './types';
+import type { AutomatonLayout, BoardLayout, DiagramLayout, DiagramSizes } from './types';
 
 export const LAYOUT_TIMEOUT_MS = 4000;
 
 export interface LayoutClient {
   layout(spec: AutomatonSpec): Promise<AutomatonLayout>;
+  /** A diagram, its nodes at `sizes`; cached by both. */
+  layoutDiagram(spec: DiagramSpec, sizes: DiagramSizes): Promise<DiagramLayout>;
   /** Stops the worker and fails every waiting call; a later call starts a new worker. */
   dispose(): void;
 }
 
+/** A layout to ask for: a worker message without its id. */
+type Ask = { spec: AutomatonSpec } | { diagram: DiagramSpec; sizes: DiagramSizes };
+
 interface Waiting {
-  resolve(layout: AutomatonLayout): void;
+  resolve(layout: BoardLayout): void;
   reject(error: Error): void;
   timer: ReturnType<typeof setTimeout>;
 }
@@ -30,7 +35,7 @@ export function createLayoutClient(
     opts.createWorker ??
     (() => new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' }));
   const timeoutMs = opts.timeoutMs ?? LAYOUT_TIMEOUT_MS;
-  const cache = new Map<string, Promise<AutomatonLayout>>();
+  const cache = new Map<string, Promise<BoardLayout>>();
   const waiting = new Map<number, Waiting>();
   let worker: Worker | null = null;
   let nextId = 1;
@@ -68,33 +73,40 @@ export function createLayoutClient(
     return created;
   };
 
-  const request = (spec: AutomatonSpec) =>
-    new Promise<AutomatonLayout>((resolve, reject) => {
+  const request = (ask: Ask) =>
+    new Promise<BoardLayout>((resolve, reject) => {
       const id = nextId++;
       const timer = setTimeout(() => {
         settle(id)?.reject(new Error(`No layout after ${timeoutMs} ms`));
       }, timeoutMs);
       waiting.set(id, { resolve, reject, timer });
       try {
-        const message: ToLayoutWorker = { id, spec };
+        const message: ToLayoutWorker = { id, ...ask };
         started().postMessage(message);
       } catch (error) {
         settle(id)?.reject(error instanceof Error ? error : new Error(String(error)));
       }
     });
 
+  const cached = (key: string, ask: Ask): Promise<BoardLayout> => {
+    const known = cache.get(key);
+    if (known) return known;
+    const result = request(ask);
+    cache.set(key, result);
+    // A failure isn't kept: the next call for the spec asks again.
+    result.catch(() => {
+      if (cache.get(key) === result) cache.delete(key);
+    });
+    return result;
+  };
+
   return {
     layout(spec) {
-      const key = canonicalJson(spec);
-      const cached = cache.get(key);
-      if (cached) return cached;
-      const result = request(spec);
-      cache.set(key, result);
-      // A failure isn't kept: the next call for the spec asks again.
-      result.catch(() => {
-        if (cache.get(key) === result) cache.delete(key);
-      });
-      return result;
+      return cached(canonicalJson(spec), { spec }) as Promise<AutomatonLayout>;
+    },
+    layoutDiagram(diagram, sizes) {
+      const key = JSON.stringify(['diagram', diagram, sizes]);
+      return cached(key, { diagram, sizes }) as Promise<DiagramLayout>;
     },
     dispose() {
       worker?.terminate();

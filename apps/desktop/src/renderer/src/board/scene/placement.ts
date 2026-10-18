@@ -7,7 +7,7 @@
 // verdict row wrap, in the session's language, so their sizes come through `BoardText`. The
 // constants below are the metrics Task 5's shapes draw with; a shape that set its text another
 // way would no longer match its box.
-import type { AutomatonLayout } from '../layout/types';
+import { automatonLayoutOf, type BoardLayout, isDiagramLayout } from '../layout/types';
 import type { BoardItem, BoardScene, TraceItem } from './types';
 
 export interface Box {
@@ -48,8 +48,18 @@ export const VERDICT_ROW = Object.freeze({ top: 16, padX: 18, padY: 10, gap: 12,
 /** A note: the 'note' style in an ink box at most 320 px wide, with 10 × 16 padding. */
 export const NOTE_BOX = Object.freeze({ maxWidth: 320, padX: 16, padY: 10 });
 
-/** How the board sets its text: 'note' is Geist 17/400; 'verdict' is Geist 15. */
-export type BoardTextStyle = 'note' | 'verdict';
+/**
+ * How the board sets its text: 'note' is Geist 17/400; 'verdict' is Geist 15; a diagram's node
+ * label is Geist 14/500 and its sublabel Geist Mono 12; a group's label is Geist Mono 12 uppercase
+ * and its sublabel Geist Mono 12 (diagram.ts's NODE_CARD and GROUP_LABEL).
+ */
+export type BoardTextStyle =
+  | 'note'
+  | 'verdict'
+  | 'nodeLabel'
+  | 'nodeSub'
+  | 'groupLabel'
+  | 'groupSub';
 
 /**
  * How big `text` is when the board sets it in `style` and wraps it at `maxWidth` px, keeping words
@@ -73,7 +83,7 @@ export interface BoardText {
 
 export function placeItems(
   scene: BoardScene,
-  layouts: Readonly<Record<string, AutomatonLayout>>,
+  layouts: Readonly<Record<string, BoardLayout>>,
   text: BoardText,
 ): Record<string, Box> {
   const boxes: Record<string, Box> = {};
@@ -100,13 +110,16 @@ export function placeItems(
 /** An item's size, or null while it waits for its layout. */
 export function itemSize(
   item: BoardItem,
-  layouts: Readonly<Record<string, AutomatonLayout>>,
+  layouts: Readonly<Record<string, BoardLayout>>,
   text: BoardText,
 ): { w: number; h: number } | null {
   switch (item.kind) {
-    case 'automaton': {
-      const layout: AutomatonLayout | undefined = layouts[item.id];
-      if (!layout) return null;
+    case 'automaton':
+    case 'diagram': {
+      // A layout of the other kind is one an item of the same id had before: it waits too.
+      const layout = layouts[item.id];
+      const fits = item.kind === 'diagram' ? isDiagramLayout(layout) : automatonLayoutOf(layout);
+      if (!layout || !fits) return null;
       return { w: layout.width, h: layout.height + (item.title === null ? 0 : TITLE_ROW) };
     }
     case 'trace':

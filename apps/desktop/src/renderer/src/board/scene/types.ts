@@ -1,7 +1,7 @@
-// Ada's board as data: the automata, trace cards and notes she has put on it, what of each is
+// Ada's board as data: the automata, diagrams, trace cards and notes she has put on it, what of each is
 // revealed or highlighted, and which item has the camera. reduceBoard changes it one action at a
 // time; placement.ts lays it out; Task 5 draws it with tldraw.
-import type { AutomatonSpec, ElementRef, StateId } from '@tassel/shared/beats';
+import type { AutomatonSpec, DiagramSpec, ElementRef, StateId } from '@tassel/shared/beats';
 import type { AutomatonRun } from '../automata/run';
 
 export interface AutomatonItem {
@@ -14,6 +14,20 @@ export interface AutomatonItem {
   highlighted: ElementRef[];
   /** Where a trace on this automaton is now: its token's states. */
   current: StateId[];
+}
+
+/**
+ * A general diagram (a network, a flowchart, a tree): groups, nodes and edges, laid out by the
+ * app. Its pieces are `group:ID`, `node:ID` and `edge:A>B` (diagram.ts's diagramElements).
+ */
+export interface DiagramItem {
+  kind: 'diagram';
+  id: string;
+  title: string | null;
+  spec: DiagramSpec;
+  /** What she has shown so far, in the order she showed it. */
+  revealed: 'all' | ElementRef[];
+  highlighted: ElementRef[];
 }
 
 export interface TraceItem {
@@ -43,7 +57,7 @@ export interface NoteItem {
   near: { item: string; el: ElementRef } | null;
 }
 
-export type BoardItem = AutomatonItem | TraceItem | NoteItem;
+export type BoardItem = AutomatonItem | DiagramItem | TraceItem | NoteItem;
 
 export interface BoardScene {
   items: BoardItem[];
