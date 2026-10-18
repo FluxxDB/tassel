@@ -81,6 +81,11 @@ class VoiceSettings(BaseSettings):
             raise ValueError("gpt-6-astra reasoning effort must be low, medium, high, xhigh or max")
         return self
 
+    # USD per million tokens by model, for the dev transcript's cost estimate, as JSON in
+    # TASSEL_PRICES, e.g. {"gpt-6-luna": {"prompt": 1.0, "cached": 0.1, "completion": 4.0}}.
+    # Unset: the meter logs usage only (owner: speed first, meter and log).
+    prices: dict[str, dict[str, float]] = Field(default_factory=dict)
+
     two_tier: bool | None = None
     # Measured live on the owner's page: luna 4.6 s, astra 7.4 s, same diagnosis and mark.
     thinker_model: str = "gpt-6-luna"

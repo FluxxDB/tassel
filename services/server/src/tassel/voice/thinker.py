@@ -25,7 +25,8 @@ from tassel.beats.markup import BoardContext, MarkupStream
 from tassel.beats.processor import FlushSpeechFrame
 from tassel.vision.turn_image import NO_VIEW
 from tassel.voice.action_checker import TargetLanguage, check_tags, talker_allowed
-from tassel.voice.director import rules
+from tassel.voice.director import report_usage, rules
+from tassel.voice.history import windowed
 from tassel.voice.prompts import thinker_system_prompt
 from tassel.voice.settings import VoiceSettings
 
@@ -51,6 +52,7 @@ def make_thinker(settings: VoiceSettings):
 class Thinker:
     def __init__(self, settings: VoiceSettings, *, client=None):
         self.settings = settings
+        self.on_usage = None
         self.client = client or AsyncOpenAI(
             api_key=settings.openai_api_key.get_secret_value(), max_retries=0, timeout=20
         )
@@ -85,6 +87,7 @@ class Thinker:
                         ]
                 request.append({"role": "system", "content": NO_VIEW})
                 continue
+            report_usage(self.on_usage, "thinker:" + self.settings.thinker_model, response)
             content = response.choices[0].message.content or ""
             try:
                 return GuidanceBrief.model_validate_json(content)
@@ -109,6 +112,7 @@ INTENT = re.compile(
 )
 PAPER = re.compile(r"\b(on my paper|my camera|on (?:the )?camera|circle mine)\b", re.I)
 NOTE_PREFIX = "[tutor notes]"
+THINKER_WINDOW = 12
 MARK_ID = re.compile(r"\bm\d+\b")
 
 
@@ -223,7 +227,8 @@ class TutorCoordinator:
         if not self.notes:
             self.ink = current
         self._notes_context()
-        self.messages = deepcopy(context.get_messages())
+        # The thinker sees the last 6 exchanges; the notes carry what came before.
+        self.messages = windowed(deepcopy(context.get_messages()), THINKER_WINDOW)
         if decision is not None:
             where = "board" if decision.refers_to == "board" else "paper"
             rung = RUNGS.get((decision.action, where))

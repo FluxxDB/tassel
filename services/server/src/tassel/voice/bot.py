@@ -590,6 +590,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
             for name, value in ctx.settings
             if name.endswith("api_key") and value
         ],
+        prices=ctx.settings.prices,
     )
     # Server warnings and errors (LLM failures, director fallbacks, pipeline errors) go into
     # the dev transcript too, so a live run never needs a pasted terminal log.
@@ -610,7 +611,9 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     turn_context.board = ctx.board
     turn_context.focus = "paper" if ctx.turn_image else "none"
     turn_context.director = make_director(
-        ctx.settings, log=lambda event, **data: transcript.record(event, data)
+        ctx.settings,
+        log=lambda event, **data: transcript.record(event, data),
+        on_usage=transcript.meter.llm,
     )
 
     async def follow_focus(view):
@@ -621,6 +624,8 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         events=events, lang=lambda: ctx.lang, board=ctx.board, transcript=transcript
     )
     thinker = make_thinker(ctx.settings)
+    if thinker is not None:
+        thinker.on_usage = transcript.meter.llm
     turn_context.coordinator = TutorCoordinator(
         thinker, ctx.board, transcript=transcript, lang=lambda: ctx.lang
     )
@@ -790,6 +795,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         ctx.memory.remember(ctx.session_id, context.get_messages(), ctx.lang)
 
     bot.log_sink = log_sink
+    bot.transcript = transcript
     return bot
 
 
@@ -814,4 +820,6 @@ async def run_bot(connection, ctx: BotContext) -> None:
             ctx.memory.remember(ctx.session_id, bot.context.get_messages(), ctx.lang)
             if getattr(bot, "log_sink", None) is not None:
                 logger.remove(bot.log_sink)
+            if getattr(bot, "transcript", None) is not None:
+                bot.transcript.record_cost()
         await connection.disconnect()

@@ -37,9 +37,12 @@ If a mark is unclear, ask the student rather than inventing what it says."""
     else:
         lines = TOOL_LINES if tools else TAG_LINES
     prompt = prompt.replace("@@TOOL_LINES@@", lines)
-    prompt += "\n" + BOARD_RULES
     if two_tier:
+        # The talker never draws under two-tier: the thinker and its agents own the board, so
+        # the drawing manual (~1k tokens a turn) stays out of the talker's prompt.
         prompt += "\n" + TALKER_RULES
+    else:
+        prompt += "\n" + BOARD_RULES
     if lang == "ko":
         prompt += "\nUse polite 해요체, with natural short Korean sentences."
     return prompt
@@ -131,7 +134,7 @@ TALKER_RULES = """You are the fast talker. Be brief, warm and confident from the
 Use the latest tutor notes and their followups to answer; do not re-ask what the student means
 when the notes already establish it. Keep uncertainty only where the notes identify it.
 The director chooses the route and action. Never override it with a consultation or view change.
-For a thinker turn, give one short natural bridge specific to the moment,
+For a thinker turn, give one short natural bridge specific to the moment, at most 8 words,
 that tells the student to hang on while you look, like
 'Hang on, let me look at your arrows…'. Never use a canned filler. Stop after that bridge:
 the thinker supplies the next spoken sentence and tags in this response.
