@@ -1,9 +1,12 @@
 """Live voice adapters and explicit fakes. Construction makes no network calls."""
 
+import ssl
 import time
+from copy import deepcopy
 
+import httpx
 from loguru import logger
-from openai import APIError, AsyncOpenAI
+from openai import APIConnectionError, APIError, AsyncOpenAI
 from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.services.deepgram.flux.stt import DeepgramFluxSTTService
 from pipecat.services.deepgram.stt import DeepgramSTTService
@@ -26,7 +29,30 @@ from tassel.voice.settings import ProviderKind, VoiceConfigError, VoiceSettings,
 
 OPENROUTER_PROVIDER = {"only": ["cerebras"], "allow_fallbacks": False, "require_parameters": True}
 REASONING_OFF = {"effort": "none"}
-OPENAI_MODEL = "gpt-4.1-mini"
+IMAGE_FAILED = (
+    "The page image didn't arrive this time. Do not describe or mark the paper. "
+    "Tell the student you couldn't get the picture this time and ask them to hold still."
+)
+
+
+def _without_images(context: LLMContext) -> LLMContext:
+    messages = deepcopy(context.get_messages())
+    for message in messages:
+        if isinstance(message, dict) and isinstance(message.get("content"), list):
+            message["content"] = [
+                part
+                for part in message["content"]
+                if part.get("type") not in ("image_url", "image")
+            ]
+    messages.append({"role": "system", "content": IMAGE_FAILED})
+    return LLMContext(messages, tools=context.tools, tool_choice=context.tool_choice)
+
+
+def _transport_error(error: Exception) -> bool:
+    return isinstance(
+        error,
+        (APIConnectionError, httpx.TransportError, ssl.SSLError, ConnectionError, TimeoutError),
+    )
 
 
 def flux_settings(route: VoiceRoute) -> DeepgramFluxSTTService.Settings:
@@ -138,11 +164,17 @@ class LiveLLMService(OpenRouterLLMService):
             requested != "openai" and router_key and router_key.get_secret_value().strip()
         )
         self.active_provider = "openrouter" if use_router else "openai"
+        self._openai_model = s.openai_model
+        self._openai_extra = (
+            {"reasoning_effort": s.openai_reasoning_effort}
+            if s.openai_reasoning_effort is not None
+            else {}
+        )
         settings = openrouter_settings(s)
         settings.system_instruction = system_instruction
         if not use_router:
-            settings.model = OPENAI_MODEL
-            settings.extra = {}
+            settings.model = self._openai_model
+            settings.extra = dict(self._openai_extra)
         key = router_key if use_router else s.openai_api_key
         super().__init__(
             api_key=key.get_secret_value(),
@@ -163,7 +195,7 @@ class LiveLLMService(OpenRouterLLMService):
         self.last_completion: dict | None = None
 
     def create_client(self, api_key=None, base_url=None, **kwargs):
-        # Bound latency and spend; retries belong to the session/reconnect policy.
+        # Bound latency and spend; the stream wrapper owns retries.
         return AsyncOpenAI(api_key=api_key, base_url=base_url, max_retries=0, timeout=20.0)
 
     async def get_chat_completions(self, context: LLMContext):
@@ -173,10 +205,19 @@ class LiveLLMService(OpenRouterLLMService):
         started = time.monotonic()
         self.last_completion = None
         emitted = False
+        retries = 0
         while True:
             stream = None
             try:
-                stream = await super().get_chat_completions(context)
+                # Build the same Pipecat request without its context/body debug logging.
+                params = self.get_llm_adapter().get_llm_invocation_params(
+                    context,
+                    system_instruction=self._settings.system_instruction,
+                    convert_developer_to_user=not self.supports_developer_role,
+                )
+                stream = await self._client.chat.completions.create(
+                    **self.build_chat_completion_params(params)
+                )
                 async for chunk in stream:
                     substantive = any(
                         choice.delta.content or choice.delta.tool_calls for choice in chunk.choices
@@ -194,17 +235,34 @@ class LiveLLMService(OpenRouterLLMService):
                     if substantive or chunk.usage or any(c.finish_reason for c in chunk.choices):
                         yield chunk
                 return
-            except APIError as error:
-                if not emitted and self._fallback_client is not None and _credit_refusal(error):
-                    logger.warning("OpenRouter credit refusal; this session is switching to OpenAI")
+            except Exception as error:
+                kind = type(error).__name__
+                if not emitted and _transport_error(error) and retries < 2:
+                    retries += 1
+                    if retries == 2:
+                        context = _without_images(context)
+                    logger.warning(
+                        "LLM call failed ({}), retrying {}",
+                        kind,
+                        "without image" if retries == 2 else "same request",
+                    )
+                    continue
+                if (
+                    isinstance(error, APIError)
+                    and not emitted
+                    and self._fallback_client is not None
+                    and _credit_refusal(error)
+                ):
+                    logger.warning("LLM call failed (credit refusal), retrying with OpenAI")
                     old_client = self._client
                     self._client, self._fallback_client = self._fallback_client, None
                     self.active_provider = "openai"
-                    self._settings.model = OPENAI_MODEL
-                    self._settings.extra = {}
+                    self._settings.model = self._openai_model
+                    self._settings.extra = dict(self._openai_extra)
                     self._sync_model_name_to_metrics()
                     await old_client.close()
                     continue
+                logger.warning("LLM call failed ({}), retrying stopped", kind)
                 # Do not put provider response bodies or credentials in app errors/logs.
                 raise RuntimeError(
                     f"{self.active_provider} could not serve the reply; "
@@ -212,7 +270,13 @@ class LiveLLMService(OpenRouterLLMService):
                 ) from None
             finally:
                 if stream is not None:
-                    await stream.close()
+                    try:
+                        await stream.close()
+                    except Exception as error:
+                        logger.warning(
+                            "LLM call failed ({}), retrying stopped during close",
+                            type(error).__name__,
+                        )
 
     async def cleanup(self):
         await super().cleanup()

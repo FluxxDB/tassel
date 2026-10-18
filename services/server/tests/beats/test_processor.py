@@ -138,3 +138,43 @@ async def test_conflicting_dfa_is_drawn_and_logged_as_trimmed():
     assert any(
         "Board tag trimmed:" in str(line) and line.record["level"].name == "INFO" for line in lines
     )
+
+
+@pytest.mark.parametrize(
+    "tag",
+    [
+        "",
+        "[[circle m1]]",
+        "[[wash m1]]",
+        "[[number 1 m1]]",
+        "[[check m1]]",
+        "[[strike m1]]",
+        "[[arrow m1 m2]]",
+        '[[callout m1 "Here"]]',
+    ],
+)
+@pytest.mark.parametrize("freeze", ["[[freeze]]", "[[FREEZE]]", "[[freeze latest]]"])
+async def test_freeze_requires_paper_mark_in_same_reply(tag, freeze):
+    text = freeze + "Let me describe it. " + tag + "Look here."
+    log = await capture(
+        [LLMFullResponseStartFrame(), *[LLMTextFrame(c) for c in text], LLMFullResponseEndFrame()]
+    )
+    actions = [m.action.kind for e in log if hasattr(e, "beat") for m in e.beat.markers]
+    assert ("paper.freeze" in actions) == bool(tag)
+
+
+async def test_dropped_freeze_is_logged_and_does_not_borrow_next_reply_mark():
+    from loguru import logger
+
+    lines = []
+    sink = logger.add(lambda message: lines.append(str(message)))
+    try:
+        log = await capture(
+            [*response("[[freeze]]Your page has four circles."), *response("[[circle m1]]Here.")]
+        )
+    finally:
+        logger.remove(sink)
+    assert not any(
+        m.action.kind == "paper.freeze" for e in log if hasattr(e, "beat") for m in e.beat.markers
+    )
+    assert any("Dropped [[freeze]]" in line for line in lines)

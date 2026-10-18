@@ -13,6 +13,8 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 
 import anyio
+import cv2
+import numpy as np
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from tassel.beats.markup import BoardContext
@@ -56,6 +58,27 @@ class PageView:
         context.paper_spec = None
 
 
+MODEL_LONG_SIDE = 1024
+MODEL_JPEG_BUDGET = 90_000
+
+
+def _model_jpeg(rgb: np.ndarray) -> bytes:
+    """Bound the upload even for unusually textured/noisy camera frames."""
+    h, w = rgb.shape[:2]
+    scale = min(1, MODEL_LONG_SIDE / max(h, w))
+    if scale < 1:
+        rgb = cv2.resize(rgb, (round(w * scale), round(h * scale)), interpolation=cv2.INTER_AREA)
+    while True:
+        for quality in range(85, 59, -5):
+            jpeg = encode_jpeg(rgb, quality=quality)
+            if len(jpeg) < MODEL_JPEG_BUDGET:
+                return jpeg
+        h, w = rgb.shape[:2]
+        rgb = cv2.resize(
+            rgb, (max(1, round(w * 0.85)), max(1, round(h * 0.85))), interpolation=cv2.INTER_AREA
+        )
+
+
 def _page_view(jpeg: bytes, row: Frame) -> PageView | None:
     stored_quad = row.meta.get("page_quad")
     quad = None if stored_quad is None else [Pt(**point) for point in stored_quad]
@@ -93,10 +116,12 @@ def _page_view(jpeg: bytes, row: Frame) -> PageView | None:
         )
     # Detect against faithful pixels; enhance only the model copy and draw crisp tags last.
     model_page = replace(page, rgb=enhance_for_llm(page.rgb))
+    drawn: set[int] = set()
+    marked = draw_marks(model_page, candidates, drawn=drawn, ink_page=page)
     return PageView(
-        marked_jpeg=encode_jpeg(draw_marks(model_page, candidates)),
+        marked_jpeg=_model_jpeg(marked),
         page_jpeg=encode_jpeg(page.rgb),
-        elements=tuple(elements),
+        elements=tuple(el for el in elements if int(el.id[1:]) in drawn),
         frame_id=row.id,
         captured_at=row.captured_at,
         width=page.width,

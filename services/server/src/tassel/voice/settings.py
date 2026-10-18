@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 from typing import Literal, get_args
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Mode = Literal["fake", "live", "auto"]
@@ -67,6 +67,19 @@ class VoiceSettings(BaseSettings):
 
     llm_model: str = "qwen/qwen3.8-27b"
     llm_max_tokens: int = 400
+    openai_model: str = "gpt-4.1-mini"
+    openai_reasoning_effort: (
+        Literal["none", "minimal", "low", "medium", "high", "xhigh", "max"] | None
+    ) = None
+
+    @model_validator(mode="after")
+    def validate_openai_reasoning(self):
+        if self.openai_model.startswith("gpt-6-astra") and self.openai_reasoning_effort in (
+            "none",
+            "minimal",
+        ):
+            raise ValueError("gpt-6-astra reasoning effort must be low, medium, high, xhigh or max")
+        return self
 
     fake_tts: Literal["auto", "say", "tone"] = "auto"
     fake_scenario: str = "dfa-opening"

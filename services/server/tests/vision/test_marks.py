@@ -42,7 +42,10 @@ def test_four_circles_and_one_accept(clip):
 
 
 @pytest.mark.parametrize("t_ms", [26700, 38500, 47100])
-def test_labels_cover_every_transition(clip, t_ms):
+def test_labels_cover_every_transition(clip, t_ms, monkeypatch):
+    # Exercise label detection without selection: the model cap intentionally omits
+    # smaller labels. The separate crowded-page test verifies that cap.
+    monkeypatch.setattr("tassel.vision.marks.MAX_MARKS", 40)
     page, truth = demo(clip, t_ms)
     labels = find_candidates(page).labels
     for edge in truth["dfa"]["transitions"]:
@@ -61,7 +64,7 @@ def test_numbering_is_deterministic_and_capped(clip):
     assert first == find_candidates(page)
     marks = [m.mark for m in (*first.circles, *first.labels)]
     assert marks == list(range(1, len(marks) + 1))
-    assert len(marks) <= 40
+    assert len(marks) <= 12
     # More than forty disconnected ink groups, so the cap actually has to act.
     rgb = np.full((1200, 1568, 3), 255, np.uint8)
     for row in range(6):
@@ -72,10 +75,10 @@ def test_numbering_is_deterministic_and_capped(clip):
     crowded = FlatPage(rgb, 1568, 1200, page.quad, True)
     candidates = find_candidates(crowded)
     assert candidates == find_candidates(crowded)
-    assert len(candidates.labels) == 40
+    assert len(candidates.labels) == 12
     assert not candidates.circles
     assert all(label.y > 100 for label in candidates.labels)  # smallest groups lose
-    assert [m.mark for m in candidates.labels] == list(range(1, 41))
+    assert [m.mark for m in candidates.labels] == list(range(1, 13))
 
 
 def test_draw_marks_keeps_inner_disks_clear(clip):

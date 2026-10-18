@@ -61,10 +61,10 @@ async def test_newest_page_and_targets_match_synthetic_state_circles(client, db,
     assert view is not None
     assert str(view.frame_id) == newest["id"]
     assert view.captured_at == datetime(2026, 10, 17, 14, 32, 5, tzinfo=UTC)
-    flat = decode_jpeg(view.page_jpeg)
+    assert decode_jpeg(view.page_jpeg).shape == (view.height, view.width, 3)
     marked = decode_jpeg(view.marked_jpeg)
-    assert flat.shape == marked.shape
-    assert np.any(flat != marked)
+    assert max(marked.shape[:2]) <= 1024
+    assert len(view.marked_jpeg) < 90_000
     truth = json.loads(files.truth.read_text())
     circles = [el for el in view.elements if el.kind == "circle"]
     assert len(circles) == 4
@@ -72,7 +72,8 @@ async def test_newest_page_and_targets_match_synthetic_state_circles(client, db,
         box = element.box
         x, y = state["center"]["x"] * view.width, state["center"]["y"] * view.height
         assert box.x < x < box.x + box.w and box.y < y < box.y + box.h
-    assert [el.id for el in view.elements] == [f"m{i + 1}" for i in range(len(view.elements))]
+    assert len(view.elements) <= 12
+    assert len({el.id for el in view.elements}) == len(view.elements)
     ctx = BoardContext()
     result = await turn_image_for(uuid.UUID(sid), db=db, store=store, context=ctx)
     bound = make_turn_image_for(app.state.session_factory, store, context=ctx)

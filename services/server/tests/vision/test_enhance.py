@@ -13,7 +13,7 @@ from tassel.frames.tables import Frame
 from tassel.vision.clips import frame_at
 from tassel.vision.marks import draw_marks, find_candidates
 from tassel.vision.page import decode_jpeg, encode_jpeg, flatten_page
-from tassel.vision.turn_image import _page_view
+from tassel.vision.turn_image import _model_jpeg, _page_view
 
 
 def edge_blurred(rgb):
@@ -80,8 +80,12 @@ def test_edge_soft_clip_improves_without_changing_app_page(clip):
     marked = draw_marks(unmarked_page, find_candidates(unmarked_page))
     tags = np.any(marked != original, axis=2).astype(np.uint8)
     mask &= cv2.dilate(tags, np.ones((17, 17), np.uint8)) == 0
-    before = margin_sharpness(original, mask)
-    after = margin_sharpness(decode_jpeg(view.marked_jpeg), mask)
+    model = decode_jpeg(view.marked_jpeg)
+    mask = cv2.resize(
+        mask.astype(np.uint8), (model.shape[1], model.shape[0]), interpolation=cv2.INTER_NEAREST
+    ).astype(bool)
+    before = margin_sharpness(decode_jpeg(_model_jpeg(original)), mask)
+    after = margin_sharpness(model, mask)
     print(f"margin Sobel: {before:.2f} -> {after:.2f}")
     assert after > before * 1.15
 
@@ -100,7 +104,7 @@ def test_enhancement_budget_and_numbering(clip):
     assert enhanced.shape == original.shape and enhanced.dtype == np.uint8
     candidates = find_candidates(page)
     marks = draw_marks(page, candidates)
-    enhanced_marks = draw_marks(replace(page, rgb=enhanced), candidates)
+    enhanced_marks = draw_marks(replace(page, rgb=enhanced), candidates, ink_page=page)
     # All tag pixels, including antialiased white digits, are drawn after enhancement.
     tag = np.any(marks != original, axis=2)
     assert np.array_equal(marks[tag], enhanced_marks[tag])

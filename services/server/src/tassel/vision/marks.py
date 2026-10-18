@@ -8,7 +8,7 @@ import numpy as np
 
 from tassel.vision.page import PAGE_LONG_SIDE, FlatPage, ink_mask
 
-MAX_MARKS = 40  # Bound the numbered geometry sent to the reader.
+MAX_MARKS = 12  # Bound the numbered geometry sent to the reader.
 HOUGH_BLUR_SIZE = 5  # Smooth JPEG noise before the gradient-based circle finder.
 HOUGH_DP = 1.5  # Ratio of image resolution to accumulator resolution.
 HOUGH_MIN_DISTANCE = 0.05  # Minimum circle-center separation in page widths.
@@ -34,9 +34,9 @@ LABEL_MAX_SIDE = 0.12  # Largest retained side, rejecting arrows and printed lin
 LABEL_MIN_AREA = 12  # Ignore components with fewer than this many pixels.
 ROW_HEIGHT = 0.15  # Number marks in rows of this fraction of page height.
 TAG_RGB = (29, 78, 216)  # Model-only blue tags (#1d4ed8), distinct from page ink.
-TAG_FONT_SCALE = 0.55  # Hershey font scale at the full deep-reader resolution.
-TAG_THICKNESS = 2  # Font stroke width in pixels.
-TAG_PADDING = 4  # Tag padding at the full deep-reader resolution.
+TAG_FONT_SCALE = 0.45  # Hershey font scale at the full deep-reader resolution.
+TAG_THICKNESS = 1  # Font stroke width in pixels.
+TAG_PADDING = 3  # Tag padding at the full deep-reader resolution.
 TAG_CORNER_RADIUS = 3  # Rounded tag corners at the full deep-reader resolution.
 TAG_CIRCLE_X = 0.75  # Circle tag anchor's horizontal offset in radii.
 TAG_CIRCLE_Y = -0.95  # Circle tag anchor's vertical offset in radii.
@@ -189,7 +189,13 @@ def find_candidates(page: FlatPage, mask: np.ndarray | None = None) -> Candidate
     return Candidates(tuple(circles), labels)
 
 
-def draw_marks(page: FlatPage, c: Candidates) -> np.ndarray:
+def draw_marks(
+    page: FlatPage,
+    c: Candidates,
+    *,
+    drawn: set[int] | None = None,
+    ink_page: FlatPage | None = None,
+) -> np.ndarray:
     """Draw on a copy, keeping tags clear of circle interiors and other tags."""
     result = page.rgb.copy()
     scale = page.width / PAGE_LONG_SIDE
@@ -201,7 +207,12 @@ def draw_marks(page: FlatPage, c: Candidates) -> np.ndarray:
         protected |= (xx - circle.cx) ** 2 + (yy - circle.cy) ** 2 <= (
             PROTECTED_RADIUS * circle.r
         ) ** 2
-    occupied = protected.copy()
+    # Include solid dark regions as well as locally contrasted strokes. Dilate to
+    # protect anti-aliased edges around handwriting too.
+    source = ink_page if ink_page is not None else page
+    ink = (ink_mask(source) != 0) | (source.rgb.min(axis=2) < 180)
+    ink = cv2.dilate(ink.astype(np.uint8), np.ones((5, 5), np.uint8)) != 0
+    occupied = protected | ink
     anchors = [(m.mark, m.cx + TAG_CIRCLE_X * m.r, m.cy + TAG_CIRCLE_Y * m.r) for m in c.circles]
     anchors += [(m.mark, m.x + m.w, m.y) for m in c.labels]
     for mark, ax, ay in anchors:
@@ -214,11 +225,15 @@ def draw_marks(page: FlatPage, c: Candidates) -> np.ndarray:
         y = max(0, min(page.height - bh - 1, round(ay) - bh))
         # Keep the requested anchor if free, then search above and below it. Other
         # columns are a bounded fallback for tags at the page edge or crowded states.
-        columns = [x, *range(0, max(1, page.width - bw), bw + padding)]
+        columns = [
+            tx
+            for tx in (x, x - bw - 2 * padding - 2, x + bw + 2 * padding + 2)
+            if 0 <= tx < page.width - bw
+        ]
         rows = [
-            y,
-            *range(y - bh - padding, -1, -bh - padding),
-            *range(y + bh + padding, page.height - bh, bh + padding),
+            ty
+            for ty in (y, y - bh - 2 * padding - 2, y + bh + 2 * padding + 2)
+            if 0 <= ty < page.height - bh
         ]
         position = next(
             (
@@ -229,8 +244,11 @@ def draw_marks(page: FlatPage, c: Candidates) -> np.ndarray:
             ),
             None,
         )
-        if position is not None:
-            x, y = position
+        if position is None:
+            continue
+        x, y = position
+        if drawn is not None:
+            drawn.add(mark)
         occupied[
             max(0, y - padding) : y + bh + padding + 1, max(0, x - padding) : x + bw + padding + 1
         ] = True

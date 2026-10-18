@@ -1,4 +1,5 @@
 import json
+import ssl
 from dataclasses import asdict
 
 import httpx
@@ -306,3 +307,123 @@ async def test_qwen_on_cerebras_is_the_default_and_gets_the_page_image():
     assert body["provider"] == OPENROUTER_PROVIDER
     assert page in body["messages"][-1]["content"]
     assert llm.active_provider == "openrouter"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failures", [1, 2, 3])
+async def test_transport_retry_then_image_free_request(failures):
+    from loguru import logger
+
+    calls = []
+    logs = []
+
+    def respond(request):
+        calls.append(json.loads(request.content))
+        if len(calls) <= failures:
+            raise httpx.ConnectError("secret body must not be logged", request=request)
+        return sse()
+
+    llm = make_llm(route_for("en"), VoiceSettings(llm_provider="openai", openai_api_key="oa"), None)
+    await llm._client.close()
+    llm._client = AsyncOpenAI(
+        api_key="oa",
+        max_retries=0,
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+    )
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Read this"},
+                {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,test"}},
+            ],
+        }
+    ]
+    context = LLMContext(messages)
+    sink = logger.add(lambda message: logs.append(message), level="WARNING")
+    try:
+        down, up = await run_test(llm, frames_to_send=[LLMContextFrame(context)])
+    finally:
+        logger.remove(sink)
+    failures_logged = [line for line in logs if "LLM call failed (" in str(line)]
+    assert len(failures_logged) == failures
+    assert all(line.record["level"].name == "WARNING" for line in failures_logged)
+    assert not any("secret body" in str(line) or "data:image" in str(line) for line in logs)
+    assert len(calls) == min(failures + 1, 3)
+    assert calls[0] == calls[1]
+    if failures >= 2:
+        assert "image_url" not in json.dumps(calls[2])
+        assert any(
+            m["role"] == "system" and "hold still" in m["content"] for m in calls[2]["messages"]
+        )
+    assert "image_url" in json.dumps(context.get_messages())
+    assert any(isinstance(f, ErrorFrame) for f in down + up) == (failures == 3)
+
+
+@pytest.mark.asyncio
+async def test_openai_model_and_reasoning_from_environment(monkeypatch):
+    monkeypatch.setenv("TASSEL_LLM_PROVIDER", "openai")
+    monkeypatch.setenv("TASSEL_OPENAI_MODEL", "gpt-6-astra")
+    monkeypatch.setenv("TASSEL_OPENAI_REASONING_EFFORT", "low")
+    calls = []
+
+    def respond(request):
+        calls.append(json.loads(request.content))
+        return sse()
+
+    llm = make_llm(route_for("en"), VoiceSettings(openai_api_key="oa"), None)
+    await llm._client.close()
+    llm._client = AsyncOpenAI(
+        api_key="oa", http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond))
+    )
+    await run_test(
+        llm, frames_to_send=[LLMContextFrame(LLMContext([{"role": "user", "content": "Hi"}]))]
+    )
+    assert calls[0]["model"] == "gpt-6-astra"
+    assert calls[0]["reasoning_effort"] == "low"
+
+
+@pytest.mark.parametrize("effort", ["minimal", "bogus"])
+def test_astra_rejects_invalid_effort(effort):
+    with pytest.raises(ValueError):
+        VoiceSettings(openai_model="gpt-6-astra", openai_reasoning_effort=effort)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("partial", [False, True])
+@pytest.mark.parametrize(
+    "failure", [httpx.ReadTimeout, ConnectionResetError, BrokenPipeError, ssl.SSLError]
+)
+async def test_stream_transport_failure_retries_only_before_output(partial, failure):
+    calls = []
+
+    class BrokenStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            if partial:
+                yield sse("Already spoken").content.split(b"data: [DONE]")[0]
+            raise failure("private transport details")
+
+    def respond(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return httpx.Response(
+                200, headers={"content-type": "text/event-stream"}, stream=BrokenStream()
+            )
+        return sse("Recovered")
+
+    service = make_llm(
+        route_for("en"), VoiceSettings(llm_provider="openai", openai_api_key="oa"), None
+    )
+    await service._client.close()
+    service._client = AsyncOpenAI(
+        api_key="oa",
+        max_retries=0,
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+    )
+    context = LLMContext([{"role": "user", "content": "Help"}])
+    down, up = await run_test(service, frames_to_send=[LLMContextFrame(context)])
+    assert len(calls) == (1 if partial else 2)
+    assert [f.text for f in down if isinstance(f, LLMTextFrame)] == [
+        "Already spoken" if partial else "Recovered"
+    ]
+    assert any(isinstance(f, ErrorFrame) for f in down + up) == partial
