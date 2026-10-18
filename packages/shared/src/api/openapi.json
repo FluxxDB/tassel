@@ -1,6 +1,90 @@
 {
   "components": {
     "schemas": {
+      "Blame": {
+        "additionalProperties": false,
+        "description": "The first step of the counterexample where her machine leaves the right track (P4-R10).",
+        "properties": {
+          "kind": {
+            "enum": [
+              "transition",
+              "missing_transition",
+              "accept_flag"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "prefix": {
+            "title": "Prefix",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          },
+          "symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          }
+        },
+        "required": [
+          "step",
+          "kind",
+          "state",
+          "symbol",
+          "target",
+          "prefix"
+        ],
+        "title": "Blame",
+        "type": "object"
+      },
+      "BoardEditIn": {
+        "additionalProperties": false,
+        "properties": {
+          "image_png": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Png"
+          },
+          "reading": {
+            "$ref": "#/components/schemas/DfaReading"
+          }
+        },
+        "required": [
+          "reading",
+          "image_png"
+        ],
+        "title": "BoardEditIn",
+        "type": "object"
+      },
       "Body_upload_frame_v1_sessions__session_id__frames_post": {
         "properties": {
           "crop": {
@@ -82,6 +166,59 @@
         "title": "CellMask",
         "type": "object"
       },
+      "Counterexample": {
+        "additionalProperties": false,
+        "properties": {
+          "blame": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Blame"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "direction": {
+            "enum": [
+              "false_accept",
+              "false_reject"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "input": {
+            "title": "Input",
+            "type": "string"
+          },
+          "reference_trace": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reference Trace",
+            "type": "array"
+          },
+          "student_trace": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Student Trace",
+            "type": "array"
+          }
+        },
+        "required": [
+          "input",
+          "direction",
+          "student_trace",
+          "reference_trace",
+          "blame"
+        ],
+        "title": "Counterexample",
+        "type": "object"
+      },
       "DetectorInfo": {
         "additionalProperties": false,
         "description": "What the detector counted when it chose the frame, and which rules it ran.",
@@ -133,6 +270,247 @@
           "token"
         ],
         "title": "DeviceRegistration",
+        "type": "object"
+      },
+      "DfaReading": {
+        "additionalProperties": false,
+        "properties": {
+          "alphabet": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Alphabet",
+            "type": "array"
+          },
+          "frame_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frame Id"
+          },
+          "kind": {
+            "enum": [
+              "dfa",
+              "nfa"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LanguageGuess"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "page": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PageGeometry"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          },
+          "problem_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "dfa",
+                  "nfa"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem Kind"
+          },
+          "source": {
+            "enum": [
+              "paper",
+              "board",
+              "fixture"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "states": {
+            "items": {
+              "$ref": "#/components/schemas/ReadState"
+            },
+            "title": "States",
+            "type": "array"
+          },
+          "transitions": {
+            "items": {
+              "$ref": "#/components/schemas/ReadTransition"
+            },
+            "title": "Transitions",
+            "type": "array"
+          },
+          "uncertain": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Uncertain",
+            "type": "array"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "frame_id",
+          "source",
+          "kind",
+          "alphabet",
+          "states",
+          "transitions",
+          "page",
+          "problem",
+          "problem_kind",
+          "language",
+          "uncertain"
+        ],
+        "title": "DfaReading",
+        "type": "object"
+      },
+      "DfaVerdict": {
+        "additionalProperties": false,
+        "properties": {
+          "computed": {
+            "title": "Computed",
+            "type": "boolean"
+          },
+          "counterexample": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Counterexample"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fixes": {
+            "items": {
+              "$ref": "#/components/schemas/Fix"
+            },
+            "title": "Fixes",
+            "type": "array"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/Issue"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "correct",
+              "wrong",
+              "unsure",
+              "unknown",
+              "unreadable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "computed",
+          "counterexample",
+          "issues",
+          "fixes",
+          "reference"
+        ],
+        "title": "DfaVerdict",
+        "type": "object"
+      },
+      "Fix": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "flip_accept",
+              "redirect",
+              "add_transition",
+              "remove_transition"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          }
+        },
+        "required": [
+          "kind",
+          "state",
+          "symbol",
+          "target"
+        ],
+        "title": "Fix",
         "type": "object"
       },
       "FrameList": {
@@ -372,6 +750,58 @@
         "title": "FrameOut",
         "type": "object"
       },
+      "GateDebug": {
+        "additionalProperties": false,
+        "properties": {
+          "ms": {
+            "title": "Ms",
+            "type": "integer"
+          },
+          "probs": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "enum": [
+                "diagram_attempt_complete",
+                "new_work_worth_checking",
+                "student_seems_stuck",
+                "not_schoolwork"
+              ]
+            },
+            "title": "Probs",
+            "type": "object"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "frame",
+              "speech",
+              "stall",
+              "board"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "stage": {
+            "const": "gate",
+            "default": "gate",
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "probs",
+          "ms",
+          "provider"
+        ],
+        "title": "GateDebug",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -502,6 +932,125 @@
         "title": "IceServersOut",
         "type": "object"
       },
+      "Issue": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "implicit_dead_state",
+              "nondeterminism",
+              "epsilon_in_dfa",
+              "missing_start",
+              "multiple_starts",
+              "no_accept",
+              "unreachable",
+              "unknown_symbol",
+              "unlabeled_transition",
+              "dangling_transition"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "states": {
+            "items": {
+              "type": "string"
+            },
+            "title": "States",
+            "type": "array"
+          },
+          "symbols": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Symbols",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "states",
+          "symbols"
+        ],
+        "title": "Issue",
+        "type": "object"
+      },
+      "LanguageGuess": {
+        "additionalProperties": false,
+        "description": "The language the problem statement asks for, as a regex in Task 4's dialect.",
+        "properties": {
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "regex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regex"
+          }
+        },
+        "required": [
+          "regex",
+          "confidence"
+        ],
+        "title": "LanguageGuess",
+        "type": "object"
+      },
+      "MachineSpec": {
+        "additionalProperties": false,
+        "description": "A complete DFA: every state has a move on every symbol.",
+        "properties": {
+          "accepts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Accepts",
+            "type": "array"
+          },
+          "alphabet": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Alphabet",
+            "type": "array"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "states": {
+            "items": {
+              "type": "string"
+            },
+            "title": "States",
+            "type": "array"
+          },
+          "transitions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Transitions",
+            "type": "object"
+          }
+        },
+        "required": [
+          "states",
+          "alphabet",
+          "start",
+          "accepts",
+          "transitions"
+        ],
+        "title": "MachineSpec",
+        "type": "object"
+      },
       "MeOut": {
         "properties": {
           "learner_id": {
@@ -524,6 +1073,36 @@
           "ui_language"
         ],
         "title": "MeOut",
+        "type": "object"
+      },
+      "NormBox": {
+        "additionalProperties": false,
+        "description": "A box in page coordinates (0\u20131): its top-left corner, width and height.",
+        "properties": {
+          "h": {
+            "title": "H",
+            "type": "number"
+          },
+          "w": {
+            "title": "W",
+            "type": "number"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "w",
+          "h"
+        ],
+        "title": "NormBox",
         "type": "object"
       },
       "NormRect": {
@@ -673,6 +1252,41 @@
         "title": "OfferRequestData",
         "type": "object"
       },
+      "PageGeometry": {
+        "additionalProperties": false,
+        "description": "The flattened page's size in pixels, and the page's quad in the full JPEG's pixels.",
+        "properties": {
+          "height": {
+            "title": "Height",
+            "type": "integer"
+          },
+          "quad": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Pt"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quad"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "width",
+          "height",
+          "quad"
+        ],
+        "title": "PageGeometry",
+        "type": "object"
+      },
       "Point": {
         "additionalProperties": false,
         "description": "A point in pixels of the full JPEG.",
@@ -693,6 +1307,269 @@
           "y"
         ],
         "title": "Point",
+        "type": "object"
+      },
+      "PolicyDebug": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "hold",
+              "speak",
+              "drop",
+              "holding-line"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "rung": {
+            "anyOf": [
+              {
+                "enum": [
+                  "hint",
+                  "guiding_question",
+                  "counterexample",
+                  "walkthrough",
+                  "solution"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rung"
+          },
+          "stage": {
+            "const": "policy",
+            "default": "policy",
+            "title": "Stage",
+            "type": "string"
+          },
+          "why": {
+            "title": "Why",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "rung",
+          "why"
+        ],
+        "title": "PolicyDebug",
+        "type": "object"
+      },
+      "Pt": {
+        "additionalProperties": false,
+        "description": "A point in page coordinates (0\u20131), or in pixels where a field says so.",
+        "properties": {
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "Pt",
+        "type": "object"
+      },
+      "ReadState": {
+        "additionalProperties": false,
+        "properties": {
+          "accept": {
+            "title": "Accept",
+            "type": "boolean"
+          },
+          "box": {
+            "$ref": "#/components/schemas/NormBox"
+          },
+          "center": {
+            "$ref": "#/components/schemas/Pt"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "mark": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mark"
+          },
+          "r": {
+            "title": "R",
+            "type": "number"
+          },
+          "snapped": {
+            "title": "Snapped",
+            "type": "boolean"
+          },
+          "start": {
+            "title": "Start",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "start",
+          "accept",
+          "center",
+          "r",
+          "box",
+          "mark",
+          "snapped",
+          "confidence"
+        ],
+        "title": "ReadState",
+        "type": "object"
+      },
+      "ReadTransition": {
+        "additionalProperties": false,
+        "properties": {
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label_box": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NormBox"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mark": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mark"
+          },
+          "snapped": {
+            "title": "Snapped",
+            "type": "boolean"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "symbols": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Symbols",
+            "type": "array"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "target",
+          "symbols",
+          "label_box",
+          "mark",
+          "snapped",
+          "confidence"
+        ],
+        "title": "ReadTransition",
+        "type": "object"
+      },
+      "ReferenceInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "machine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MachineSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "regex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regex"
+          },
+          "source": {
+            "enum": [
+              "catalog",
+              "llm-checked",
+              "llm-unchecked"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "trusted": {
+            "title": "Trusted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "trusted",
+          "regex",
+          "title",
+          "machine"
+        ],
+        "title": "ReferenceInfo",
         "type": "object"
       },
       "SessionCreate": {
@@ -936,6 +1813,95 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VisionSnapshot": {
+        "properties": {
+          "frames_seen": {
+            "default": 0,
+            "title": "Frames Seen",
+            "type": "integer"
+          },
+          "hints": {
+            "default": 0,
+            "title": "Hints",
+            "type": "integer"
+          },
+          "last_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PolicyDebug"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_gate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GateDebug"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pen_busy": {
+            "default": false,
+            "title": "Pen Busy",
+            "type": "boolean"
+          },
+          "pending_note": {
+            "default": false,
+            "title": "Pending Note",
+            "type": "boolean"
+          },
+          "reading": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DfaReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rung": {
+            "anyOf": [
+              {
+                "enum": [
+                  "hint",
+                  "guiding_question",
+                  "counterexample",
+                  "walkthrough",
+                  "solution"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rung"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DfaVerdict"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "waiting_for_frame": {
+            "default": false,
+            "title": "Waiting For Frame",
+            "type": "boolean"
+          }
+        },
+        "title": "VisionSnapshot",
         "type": "object"
       }
     },
@@ -1559,6 +2525,113 @@
         "summary": "Frame Page",
         "tags": [
           "frames"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/vision": {
+      "get": {
+        "operationId": "snapshot_v1_sessions__session_id__vision_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisionSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Snapshot",
+        "tags": [
+          "vision"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/vision/board": {
+      "post": {
+        "operationId": "board_v1_sessions__session_id__vision_board_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoardEditIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "413": {
+            "description": "Image exceeds 2 MiB"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Board",
+        "tags": [
+          "vision"
         ]
       }
     },

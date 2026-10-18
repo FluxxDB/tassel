@@ -159,6 +159,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sessions/{session_id}/vision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Snapshot */
+        get: operations["snapshot_v1_sessions__session_id__vision_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/vision/board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Board */
+        post: operations["board_v1_sessions__session_id__vision_board_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sessions/{session_id}/voice/offer": {
         parameters: {
             query?: never;
@@ -198,6 +232,33 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * Blame
+         * @description The first step of the counterexample where her machine leaves the right track (P4-R10).
+         */
+        Blame: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "transition" | "missing_transition" | "accept_flag";
+            /** Prefix */
+            prefix: string;
+            /** State */
+            state: string;
+            /** Step */
+            step: number;
+            /** Symbol */
+            symbol: string | null;
+            /** Target */
+            target: string | null;
+        };
+        /** BoardEditIn */
+        BoardEditIn: {
+            /** Image Png */
+            image_png: string | null;
+            reading: components["schemas"]["DfaReading"];
+        };
         /** Body_upload_frame_v1_sessions__session_id__frames_post */
         Body_upload_frame_v1_sessions__session_id__frames_post: {
             /**
@@ -231,6 +292,21 @@ export interface components {
             /** Rows */
             rows: number;
         };
+        /** Counterexample */
+        Counterexample: {
+            blame: components["schemas"]["Blame"] | null;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "false_accept" | "false_reject";
+            /** Input */
+            input: string;
+            /** Reference Trace */
+            reference_trace: string[];
+            /** Student Trace */
+            student_trace: string[][];
+        };
         /**
          * DetectorInfo
          * @description What the detector counted when it chose the frame, and which rules it ran.
@@ -254,6 +330,71 @@ export interface components {
             device_id: string;
             /** Token */
             token: string;
+        };
+        /** DfaReading */
+        DfaReading: {
+            /** Alphabet */
+            alphabet: string[];
+            /** Frame Id */
+            frame_id: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "dfa" | "nfa";
+            language: components["schemas"]["LanguageGuess"] | null;
+            page: components["schemas"]["PageGeometry"] | null;
+            /** Problem */
+            problem: string | null;
+            /** Problem Kind */
+            problem_kind: ("dfa" | "nfa") | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "paper" | "board" | "fixture";
+            /** States */
+            states: components["schemas"]["ReadState"][];
+            /** Transitions */
+            transitions: components["schemas"]["ReadTransition"][];
+            /** Uncertain */
+            uncertain: string[];
+            /**
+             * Version
+             * @default 1
+             * @constant
+             */
+            version: 1;
+        };
+        /** DfaVerdict */
+        DfaVerdict: {
+            /** Computed */
+            computed: boolean;
+            counterexample: components["schemas"]["Counterexample"] | null;
+            /** Fixes */
+            fixes: components["schemas"]["Fix"][];
+            /** Issues */
+            issues: components["schemas"]["Issue"][];
+            reference: components["schemas"]["ReferenceInfo"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "correct" | "wrong" | "unsure" | "unknown" | "unreadable";
+        };
+        /** Fix */
+        Fix: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "flip_accept" | "redirect" | "add_transition" | "remove_transition";
+            /** State */
+            state: string;
+            /** Symbol */
+            symbol: string | null;
+            /** Target */
+            target: string | null;
         };
         /** FrameList */
         FrameList: {
@@ -348,6 +489,28 @@ export interface components {
             /** Width */
             width: number;
         };
+        /** GateDebug */
+        GateDebug: {
+            /** Ms */
+            ms: number;
+            /** Probs */
+            probs: {
+                [key: string]: number;
+            };
+            /** Provider */
+            provider: string;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "frame" | "speech" | "stall" | "board";
+            /**
+             * Stage
+             * @default gate
+             * @constant
+             */
+            stage: "gate";
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -393,6 +556,48 @@ export interface components {
             /** Ice Servers */
             ice_servers: components["schemas"]["IceServerOut"][];
         };
+        /** Issue */
+        Issue: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "implicit_dead_state" | "nondeterminism" | "epsilon_in_dfa" | "missing_start" | "multiple_starts" | "no_accept" | "unreachable" | "unknown_symbol" | "unlabeled_transition" | "dangling_transition";
+            /** States */
+            states: string[];
+            /** Symbols */
+            symbols: string[];
+        };
+        /**
+         * LanguageGuess
+         * @description The language the problem statement asks for, as a regex in Task 4's dialect.
+         */
+        LanguageGuess: {
+            /** Confidence */
+            confidence: number;
+            /** Regex */
+            regex: string | null;
+        };
+        /**
+         * MachineSpec
+         * @description A complete DFA: every state has a move on every symbol.
+         */
+        MachineSpec: {
+            /** Accepts */
+            accepts: string[];
+            /** Alphabet */
+            alphabet: string[];
+            /** Start */
+            start: string;
+            /** States */
+            states: string[];
+            /** Transitions */
+            transitions: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
+        };
         /** MeOut */
         MeOut: {
             /**
@@ -405,6 +610,20 @@ export interface components {
              * @enum {string}
              */
             ui_language: "en" | "es" | "ko";
+        };
+        /**
+         * NormBox
+         * @description A box in page coordinates (0–1): its top-left corner, width and height.
+         */
+        NormBox: {
+            /** H */
+            h: number;
+            /** W */
+            w: number;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
         };
         /**
          * NormRect
@@ -464,6 +683,18 @@ export interface components {
             sensitivity: "low" | "normal" | "high";
         };
         /**
+         * PageGeometry
+         * @description The flattened page's size in pixels, and the page's quad in the full JPEG's pixels.
+         */
+        PageGeometry: {
+            /** Height */
+            height: number;
+            /** Quad */
+            quad: components["schemas"]["Pt"][] | null;
+            /** Width */
+            width: number;
+        };
+        /**
          * Point
          * @description A point in pixels of the full JPEG.
          */
@@ -472,6 +703,90 @@ export interface components {
             x: number;
             /** Y */
             y: number;
+        };
+        /** PolicyDebug */
+        PolicyDebug: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "hold" | "speak" | "drop" | "holding-line";
+            /** Rung */
+            rung: ("hint" | "guiding_question" | "counterexample" | "walkthrough" | "solution") | null;
+            /**
+             * Stage
+             * @default policy
+             * @constant
+             */
+            stage: "policy";
+            /** Why */
+            why: string;
+        };
+        /**
+         * Pt
+         * @description A point in page coordinates (0–1), or in pixels where a field says so.
+         */
+        Pt: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /** ReadState */
+        ReadState: {
+            /** Accept */
+            accept: boolean;
+            box: components["schemas"]["NormBox"];
+            center: components["schemas"]["Pt"];
+            /** Confidence */
+            confidence: number;
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Mark */
+            mark: number | null;
+            /** R */
+            r: number;
+            /** Snapped */
+            snapped: boolean;
+            /** Start */
+            start: boolean;
+        };
+        /** ReadTransition */
+        ReadTransition: {
+            /** Confidence */
+            confidence: number;
+            /** Id */
+            id: string;
+            label_box: components["schemas"]["NormBox"] | null;
+            /** Mark */
+            mark: number | null;
+            /** Snapped */
+            snapped: boolean;
+            /** Source */
+            source: string;
+            /** Symbols */
+            symbols: string[];
+            /** Target */
+            target: string;
+        };
+        /** ReferenceInfo */
+        ReferenceInfo: {
+            /** Id */
+            id: string;
+            machine: components["schemas"]["MachineSpec"] | null;
+            /** Regex */
+            regex: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "catalog" | "llm-checked" | "llm-unchecked";
+            /** Title */
+            title: string | null;
+            /** Trusted */
+            trusted: boolean;
         };
         /** SessionCreate */
         SessionCreate: {
@@ -567,6 +882,40 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** VisionSnapshot */
+        VisionSnapshot: {
+            /**
+             * Frames Seen
+             * @default 0
+             */
+            frames_seen: number;
+            /**
+             * Hints
+             * @default 0
+             */
+            hints: number;
+            last_decision?: components["schemas"]["PolicyDebug"] | null;
+            last_gate?: components["schemas"]["GateDebug"] | null;
+            /**
+             * Pen Busy
+             * @default false
+             */
+            pen_busy: boolean;
+            /**
+             * Pending Note
+             * @default false
+             */
+            pending_note: boolean;
+            reading?: components["schemas"]["DfaReading"] | null;
+            /** Rung */
+            rung?: ("hint" | "guiding_question" | "counterexample" | "walkthrough" | "solution") | null;
+            verdict?: components["schemas"]["DfaVerdict"] | null;
+            /**
+             * Waiting For Frame
+             * @default false
+             */
+            waiting_for_frame: boolean;
         };
     };
     responses: never;
@@ -1005,6 +1354,79 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    snapshot_v1_sessions__session_id__vision_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisionSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    board_v1_sessions__session_id__vision_board_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BoardEditIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Image exceeds 2 MiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };

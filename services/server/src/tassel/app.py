@@ -14,6 +14,9 @@ from tassel.frames.objects import make_object_store
 from tassel.storage.db import make_engine, session_factory
 from tassel.voice import api as voice_api
 from tassel.voice.settings import VoiceConfigError, VoiceSettings, check_voice_settings
+from tassel.vision import api as vision
+from tassel.vision.registry import VisionRegistry
+from tassel.vision.settings import VisionConfigError, VisionSettings, check_vision_settings
 
 
 @asynccontextmanager
@@ -29,7 +32,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine = make_engine(app.state.settings.database_url)
     app.state.engine = engine
     app.state.session_factory = session_factory(engine)
+    registry = None
     try:
+        vision_settings = app.state.vision_settings or VisionSettings.load()
+        vision_problems = check_vision_settings(vision_settings)
+        if vision_problems:
+            raise VisionConfigError("\n".join(vision_problems))
+        registry = VisionRegistry(settings=vision_settings, sessions=app.state.session_factory)
+        app.state.vision = registry
         app.state.voice = VoiceRegistry(
             settings=voice_settings,
             sessions=app.state.session_factory,
@@ -43,16 +53,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         finally:
             await app.state.voice.shutdown()
     finally:
-        await engine.dispose()
+        try:
+            if registry is not None:
+                await registry.shutdown()
+        finally:
+            await engine.dispose()
 
 
 def create_app(
-    settings: Settings | None = None, voice_settings: VoiceSettings | None = None
+    settings: Settings | None = None,
+    voice_settings: VoiceSettings | None = None,
+    *,
+    vision_settings: VisionSettings | None = None,
 ) -> FastAPI:
     if settings is None:
         settings = Settings()
     app = FastAPI(title="Tassel", version=__version__, lifespan=lifespan)
     app.state.settings = settings
+    app.state.vision_settings = vision_settings
     # Here, not in the lifespan, so tests can swap it. The S3 store connects on first use.
     app.state.object_store = make_object_store(settings)
     app.state.voice_settings = voice_settings
@@ -70,6 +88,7 @@ def create_app(
         sessions.router,
         frames.router,
         voice_api.router,
+        vision.router,
     ):
         app.include_router(router, prefix="/v1")
     for error in frames.STORE_ERRORS:

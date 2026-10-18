@@ -329,5 +329,16 @@
       "switching": "Cambiando a {language}…",
       "current": "Idioma de la sesión: {language}"
     }
+  },
+  "vision": {
+    "readback": {
+      "title": "Así leí tu AFD",
+      "deadState": "Las flechas que faltan van a un estado muerto.",
+      "uncertain": "? No estoy segura de esta parte.",
+      "collapse": "Ocultar mi lectura",
+      "expand": "Mostrar mi lectura",
+      "srState": "{state}{start, select, true {, inicial} other {}}{accept, select, true {, de aceptación} other {}}",
+      "srTransition": "De {from} a {to} con {symbols}"
+    }
   }
 }

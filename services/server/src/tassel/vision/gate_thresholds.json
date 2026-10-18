@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "fake": {
+    "diagram_attempt_complete": 0.5,
+    "new_work_worth_checking": 0.5,
+    "student_seems_stuck": 0.5,
+    "not_schoolwork": 0.5
+  },
+  "openai": {
+    "diagram_attempt_complete": 0.6,
+    "new_work_worth_checking": 0.55,
+    "student_seems_stuck": 0.7,
+    "not_schoolwork": 0.8
+  },
+  "clef": {
+    "diagram_attempt_complete": 0.6,
+    "new_work_worth_checking": 0.55,
+    "student_seems_stuck": 0.7,
+    "not_schoolwork": 0.8
+  }
+}
