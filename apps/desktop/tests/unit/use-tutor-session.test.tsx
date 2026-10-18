@@ -5,8 +5,10 @@ import type { ReactNode } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRoute } from '../../src/renderer/src/app/route-store';
+import { useCurrentSession } from '../../src/renderer/src/features/session/current-session';
 import { SessionScreen } from '../../src/renderer/src/features/session/SessionScreen';
 import { useStageStore } from '../../src/renderer/src/features/session/stage-store';
+import { useVoiceDebug } from '../../src/renderer/src/features/voice/voice-debug';
 import { initI18n } from '../../src/renderer/src/i18n';
 import { ApiProvider } from '../../src/renderer/src/lib/api';
 import type { TutorClient, TutorEvent } from '../../src/renderer/src/tutor/types';
@@ -105,6 +107,29 @@ describe('useTutorSession', () => {
     expect(stage().tutorState).toBe('speaking');
   });
 
+  it('routes connection, mic, language and debug events', async () => {
+    const { client, emit } = scriptedTutor();
+    const { api } = fakeApi();
+    const { result } = renderHook(
+      () => {
+        useTutorSession(SESSION.id, client, true);
+        return useCurrentSession();
+      },
+      { wrapper: ({ children }) => <ApiProvider client={api}>{children}</ApiProvider> },
+    );
+    await act(async () => result.current.load(SESSION.id));
+    emit({ type: 'connection', status: 'reconnecting' });
+    emit({ type: 'mic', status: 'denied' });
+    emit({ type: 'language', lang: 'ko' });
+    emit({
+      type: 'voice-debug',
+      event: { kind: 'route', lang: 'ko', stt: 'nova-3', llm: 'fake', tts: 'fake' },
+    });
+    expect(stage()).toMatchObject({ connection: 'reconnecting', mic: 'denied' });
+    expect(useVoiceDebug.getState().route?.lang).toBe('ko');
+    expect(result.current.session?.language).toBe('ko');
+  });
+
   it('stage event calls requestMode', () => {
     const { client, emit } = scriptedTutor();
     renderTutor(client);
@@ -125,9 +150,14 @@ describe('useTutorSession', () => {
       previous: { speaker: 'student', text: 'Hola Ada.', lang: 'es' },
       current: { speaker: 'tutor', text: 'Great, draw it.', lang: 'en' },
     });
-    // A line still being heard isn't shown until it's final.
+    // Interim speech is visible immediately.
     emit({ type: 'caption', speaker: 'student', text: 'I think', lang: 'en', final: false });
-    expect(stage().caption.current?.text).toBe('Great, draw it.');
+    expect(stage().caption.current).toEqual({
+      speaker: 'student',
+      text: 'I think',
+      lang: 'en',
+      interim: true,
+    });
   });
 });
 
@@ -230,6 +260,28 @@ describe('the session screen with its tutor', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Strings that start with 010' }),
     ).toBeInTheDocument();
+  });
+
+  it("the live tutor's titles patch locally only: the server saved them (P2)", async () => {
+    const { client: scripted, emit } = scriptedTutor();
+    const client: TutorClient = {
+      ...scripted,
+      voice: {
+        setTalking: vi.fn(),
+        setSensitivity: vi.fn(),
+        reportClientMetrics: vi.fn(),
+        reconnect: vi.fn(async () => {}),
+        connectionCount: 1,
+      },
+    };
+    const { PATCH } = await renderScreen(client);
+    await screen.findByRole('heading', { level: 1, name: 'Untitled Session' });
+    emit({ type: 'title', title: 'Strings that start with 010', subject: null });
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Strings that start with 010' }),
+    ).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(PATCH).not.toHaveBeenCalled();
   });
 
   it('stops listening when she ends the session', async () => {

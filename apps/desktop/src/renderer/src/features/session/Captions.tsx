@@ -17,7 +17,12 @@ export function Captions() {
     count: 0,
   });
   if (current !== lines.current.line) {
-    lines.current = { line: current, count: lines.current.count + 1 };
+    lines.current = {
+      line: current,
+      count:
+        lines.current.count +
+        (lines.current.line?.interim && lines.current.line.speaker === current?.speaker ? 0 : 1),
+    };
   }
   if (!on) return null;
   return (
@@ -40,7 +45,10 @@ export function Captions() {
             key={lines.current.count}
             line={current}
             // The incoming line fades in, within 150 ms.
-            className="text-[21px] leading-[1.35] font-[450] motion-safe:animate-[caption-in_150ms_ease-out]"
+            className={cn(
+              'text-[21px] leading-[1.35] font-[450]',
+              !current.interim && 'motion-safe:animate-[caption-in_150ms_ease-out]',
+            )}
           />
         )}
       </div>

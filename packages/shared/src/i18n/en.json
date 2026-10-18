@@ -206,5 +206,67 @@
       "start": "the start arrow",
       "point": "a spot on your paper"
     }
+  },
+  "voice": {
+    "connection": {
+      "notConfigured": "Voice tutoring is not configured on the server.",
+      "unreachable": "Cannot reach the voice server. Check your connection and try again.",
+      "reconnecting": "Reconnecting…",
+      "retry": "Retry"
+    },
+    "settings": {
+      "title": "Audio",
+      "open": "Audio settings",
+      "close": "Close audio settings",
+      "input": "Microphone",
+      "output": "Speaker",
+      "systemDefault": "System default",
+      "presenter": "Presenter mode",
+      "presenterHint": "Ada also plays on a second output, like room speakers. Push-to-talk turns on, because room speakers echo.",
+      "presenterOutput": "Room output",
+      "chooseOutput": "Choose a room output",
+      "noRoomOutput": "Connect a different speaker to use presenter mode.",
+      "pushToTalk": "Push-to-talk",
+      "pushToTalkHint": "Hold Space while you talk.",
+      "sensitivityLabel": "Interruptions",
+      "sensitivity": {
+        "low": "Fewer",
+        "normal": "Normal",
+        "high": "Instant"
+      },
+      "sensitivityHint": "Short replies like “uh-huh” never interrupt Ada, except on Instant."
+    },
+    "device": {
+      "input": "Microphone {n}",
+      "output": "Speaker {n}",
+      "lost": "{device} was disconnected. Using the system default.",
+      "presenterLost": "Room output was disconnected. Choose another speaker.",
+      "unavailable": "Audio devices could not be listed. Try again."
+    },
+    "mic": {
+      "holdSpace": "Hold Space to talk"
+    },
+    "hud": {
+      "title": "Latency",
+      "firstAudio": "First audio",
+      "bargeIn": "Barge-in",
+      "yield": "Yield",
+      "budget": "Budget {ms} ms",
+      "backchannels": "Backchannels ignored",
+      "connections": "Connections",
+      "micOpenedAt": "Mic opened at",
+      "server": "server",
+      "stt": "STT",
+      "llm": "LLM",
+      "tts": "TTS",
+      "duration": "{ms} ms",
+      "percentiles": "p50 {p50} · p90 {p90}",
+      "unavailable": "—"
+    },
+    "dev": {
+      "label": "Student message",
+      "placeholder": "Type what the student says",
+      "send": "Send"
+    }
   }
 }

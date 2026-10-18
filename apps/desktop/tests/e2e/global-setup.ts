@@ -8,7 +8,7 @@
 // the server tests, and TASSEL_E2E_PORT at another port (fixtures.ts reads it), so checkouts
 // can run E2E side by side.
 import type { ChildProcess } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import spawn from 'cross-spawn';
 import { E2E_SERVER_URL } from './fixtures';
@@ -43,9 +43,46 @@ finally:
     admin.dispose()
 `;
 
+/** Fake is the only mode reachable from the default Playwright configuration. */
 export default async function globalSetup(): Promise<(() => Promise<void>) | undefined> {
   // Workers inherit this, and launchApp passes it to every launch as TASSEL_FAKE_CLIP.
   process.env.TASSEL_E2E_CLIP_DFA_SHORT = generateClip('dfa-short');
+  return startE2EServer({ mode: 'fake' });
+}
+
+export function e2eServerEnv(base: NodeJS.ProcessEnv, mode: 'fake' | 'live'): NodeJS.ProcessEnv {
+  const env = { ...base };
+  const keys = new Set([
+    'DEEPGRAM_API_KEY',
+    'OPENROUTER_API_KEY',
+    'ELEVENLABS_API_KEY',
+    'OPENAI_API_KEY',
+    'ANTHROPIC_API_KEY',
+    'VULTR_INFERENCE_API_KEY',
+  ]);
+  for (const key of Object.keys(env)) {
+    if (
+      keys.has(key) ||
+      (key.startsWith('TASSEL_') && key.includes('PROVIDER')) ||
+      key.startsWith('TASSEL_VOICE_') ||
+      key.startsWith('TASSEL_FAKE_')
+    )
+      delete env[key];
+  }
+  env.TASSEL_PROVIDERS = mode === 'fake' ? 'fake' : 'auto';
+  if (mode === 'fake') {
+    for (const name of ['STT', 'LLM', 'TTS', 'TITLES']) env[`TASSEL_${name}_PROVIDER`] = 'fake';
+    env.TASSEL_VOICE_ENV_FILE = '';
+    env.TASSEL_FAKE_SCENARIO = 'dfa-opening';
+    env.TASSEL_FAKE_TTS = 'tone';
+  }
+  env.TASSEL_VOICE_METRICS_LOG = join(__dirname, '../../test-results/voice-metrics.jsonl');
+  return env;
+}
+
+export async function startE2EServer(opts: {
+  mode: 'fake' | 'live';
+}): Promise<(() => Promise<void>) | undefined> {
   if (!existsSync(serverDir)) {
     console.log(`[e2e] ${serverDir} doesn't exist, so the E2E server won't start.`);
     return undefined;
@@ -54,10 +91,11 @@ export default async function globalSetup(): Promise<(() => Promise<void>) | und
     throw new Error(`[e2e] Something already answers ${healthUrl}. Stop it, then rerun.`);
   }
   const env = {
-    ...process.env,
+    ...e2eServerEnv(process.env, opts.mode),
     TASSEL_DATABASE_URL: databaseUrl,
     TASSEL_PORT: new URL(E2E_SERVER_URL).port,
   };
+  mkdirSync(join(__dirname, '../../test-results'), { recursive: true });
   uvSync('create the E2E database', ['python', '-c', CREATE_DATABASE_PY], env);
   uvSync('migrate the E2E database', ['alembic', 'upgrade', 'head'], env);
   const server = spawn('uv', ['run', '--directory', serverDir, 'tassel-server'], {

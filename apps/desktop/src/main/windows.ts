@@ -46,6 +46,7 @@ export function createMainWindow(): BrowserWindow {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
+      backgroundThrottling: false,
     },
   });
   window.once('ready-to-show', () => window.show());
@@ -66,8 +67,14 @@ export function hardenWebContents(contents: WebContents): void {
 
 /** Grants permission requests and checks (camera, microphone and so on) only to the renderer's origin. */
 export function restrictPermissions(session: Session): void {
-  session.setPermissionRequestHandler((_contents, _permission, callback, details) => {
-    callback(isTrustedUrl(details.requestingUrl));
+  session.setPermissionRequestHandler((_contents, permission, callback, details) => {
+    const fakeDenied =
+      !app.isPackaged &&
+      process.env.TASSEL_FAKE_MIC_ACCESS === 'denied' &&
+      permission === 'media' &&
+      'mediaTypes' in details &&
+      details.mediaTypes?.includes('audio');
+    callback(isTrustedUrl(details.requestingUrl) && !fakeDenied);
   });
   session.setPermissionCheckHandler((_contents, _permission, requestingOrigin) =>
     isTrustedUrl(requestingOrigin),

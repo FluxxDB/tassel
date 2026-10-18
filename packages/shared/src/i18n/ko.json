@@ -206,5 +206,67 @@
       "start": "시작 화살표",
       "point": "종이의 한 곳"
     }
+  },
+  "voice": {
+    "connection": {
+      "notConfigured": "Voice tutoring is not configured on the server.",
+      "unreachable": "Cannot reach the voice server. Check your connection and try again.",
+      "reconnecting": "Reconnecting…",
+      "retry": "Retry"
+    },
+    "settings": {
+      "title": "오디오",
+      "open": "오디오 설정",
+      "close": "오디오 설정 닫기",
+      "input": "마이크",
+      "output": "스피커",
+      "systemDefault": "시스템 기본 장치",
+      "presenter": "발표 모드",
+      "presenterHint": "Ada의 목소리가 강의실 스피커 같은 두 번째 장치에서도 나와요. 스피커 소리가 마이크에 다시 들어갈 수 있어서 눌러서 말하기가 켜져요.",
+      "presenterOutput": "발표용 출력",
+      "chooseOutput": "발표용 스피커를 선택하세요",
+      "noRoomOutput": "발표 모드를 사용하려면 다른 스피커를 연결해 주세요.",
+      "pushToTalk": "눌러서 말하기",
+      "pushToTalkHint": "말하는 동안 스페이스 바를 누르고 계세요.",
+      "sensitivityLabel": "말 끊기",
+      "sensitivity": {
+        "low": "적게",
+        "normal": "보통",
+        "high": "즉시"
+      },
+      "sensitivityHint": "“응” 같은 짧은 맞장구는 Ada의 말을 끊지 않아요. 단, 즉시 모드에서는 말을 끊어요."
+    },
+    "device": {
+      "input": "마이크 {n}",
+      "output": "스피커 {n}",
+      "lost": "{device} 연결이 끊어졌어요. 시스템 기본 장치를 사용해요.",
+      "presenterLost": "발표용 출력 연결이 끊어졌어요. 다른 스피커를 선택해 주세요.",
+      "unavailable": "오디오 장치 목록을 불러오지 못했어요. 다시 시도해 주세요."
+    },
+    "mic": {
+      "holdSpace": "스페이스 바를 누르고 말하세요"
+    },
+    "hud": {
+      "title": "Latency",
+      "firstAudio": "First audio",
+      "bargeIn": "Barge-in",
+      "yield": "Yield",
+      "budget": "Budget {ms} ms",
+      "backchannels": "Backchannels ignored",
+      "connections": "Connections",
+      "micOpenedAt": "Mic opened at",
+      "server": "server",
+      "stt": "STT",
+      "llm": "LLM",
+      "tts": "TTS",
+      "duration": "{ms} ms",
+      "percentiles": "p50 {p50} · p90 {p90}",
+      "unavailable": "—"
+    },
+    "dev": {
+      "label": "Student message",
+      "placeholder": "Type what the student says",
+      "send": "Send"
+    }
   }
 }

@@ -159,6 +159,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sessions/{session_id}/voice/offer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Offer */
+        post: operations["offer_v1_sessions__session_id__voice_offer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Ice */
+        patch: operations["patch_ice_v1_sessions__session_id__voice_offer_patch"];
+        trace?: never;
+    };
+    "/v1/voice/ice-servers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ice Servers */
+        get: operations["ice_servers_v1_voice_ice_servers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -317,6 +352,36 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** IceCandidateIn */
+        IceCandidateIn: {
+            /** Candidate */
+            candidate: string;
+            /** Sdp Mid */
+            sdp_mid: string;
+            /** Sdp Mline Index */
+            sdp_mline_index: number;
+        };
+        /** IcePatch */
+        IcePatch: {
+            /** Candidates */
+            candidates: components["schemas"]["IceCandidateIn"][];
+            /** Pc Id */
+            pc_id: string;
+        };
+        /** IceServerOut */
+        IceServerOut: {
+            /** Credential */
+            credential?: string | null;
+            /** Urls */
+            urls: string[];
+            /** Username */
+            username?: string | null;
+        };
+        /** IceServersOut */
+        IceServersOut: {
+            /** Ice Servers */
+            ice_servers: components["schemas"]["IceServerOut"][];
+        };
         /** MeOut */
         MeOut: {
             /**
@@ -343,6 +408,49 @@ export interface components {
             x: number;
             /** Y */
             y: number;
+        };
+        /** OfferAnswer */
+        OfferAnswer: {
+            /** Pc Id */
+            pc_id: string;
+            /** Sdp */
+            sdp: string;
+            /** Type */
+            type: string;
+        };
+        /** OfferBody */
+        OfferBody: {
+            /** Pc Id */
+            pc_id?: string | null;
+            requestData?: components["schemas"]["OfferRequestData"] | null;
+            /** Restart Pc */
+            restart_pc?: boolean | null;
+            /** Sdp */
+            sdp: string;
+            /**
+             * Type
+             * @constant
+             */
+            type: "offer";
+        };
+        /**
+         * OfferRequestData
+         * @description The RTVI ``requestData`` of a voice offer.
+         */
+        OfferRequestData: {
+            /**
+             * Ptt
+             * @default false
+             */
+            ptt: boolean;
+            /** Scenario */
+            scenario?: string | null;
+            /**
+             * Sensitivity
+             * @default normal
+             * @enum {string}
+             */
+            sensitivity: "low" | "normal" | "high";
         };
         /**
          * Point
@@ -886,6 +994,122 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    offer_v1_sessions__session_id__voice_offer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferAnswer"];
+                };
+            };
+            /** @description Session not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Peer connection ended or unknown */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Voice unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patch_ice_v1_sessions__session_id__voice_offer_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IcePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Session or peer connection not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ice_servers_v1_voice_ice_servers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IceServersOut"];
+                };
             };
         };
     };

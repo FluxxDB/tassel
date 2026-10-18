@@ -4,11 +4,11 @@ and an HTTP client.
 Set ``TASSEL_TEST_DATABASE_URL`` to test against another database. The default is
 ``tassel_test`` on the Docker Compose Postgres (``docker compose up -d db``).
 
-Every test runs without the developer's vision settings and keys (``scrub_vision_env``), and
-without the network: the real ``httpx`` and ``httpx2`` transports refuse every host but loopback
-(``no_provider_network``). Both also hold for the whole run, from ``pytest_configure`` on, so
-session-scoped fixtures and import-time code are covered too. ``tests/test_isolation.py`` checks
-them.
+Every test runs without the developer's vision and voice settings and keys
+(``scrub_vision_env`` and ``scrub_voice_env``), and without the network: the real ``httpx`` and
+``httpx2`` transports refuse every host but loopback (``no_provider_network``). Both also hold for
+the whole run, from ``pytest_configure`` on, so session-scoped fixtures and import-time code are
+covered too. ``tests/test_isolation.py`` checks them.
 """
 
 import asyncio
@@ -57,6 +57,15 @@ _VISION_SETTINGS = (
     "TASSEL_VISION_*",
     "TASSEL_FAKE_TRUTH",
     "TASSEL_FAKE_READING",
+    # P2's voice providers (P2-R16): their keys, and every TASSEL_VOICE_* setting. The scrub sets
+    # TASSEL_VOICE_ENV_FILE back to empty afterwards.
+    "DEEPGRAM_*",
+    "OPENROUTER_*",
+    "ELEVENLABS_*",
+    "TASSEL_DEEPGRAM_*",
+    "TASSEL_OPENROUTER_*",
+    "TASSEL_ELEVENLABS_*",
+    "TASSEL_VOICE_*",
 )
 
 
@@ -79,6 +88,18 @@ def scrub_vision_env(monkeypatch: pytest.MonkeyPatch) -> None:
     ``TASSEL_FAKE_TRUTH`` and ``TASSEL_FAKE_READING``, and sets ``TASSEL_VOICE_ENV_FILE`` to empty,
     so ``VisionSettings.load()`` reads no file and the gate and the deep check are fake. A test
     that wants live settings constructs ``VisionSettings(...)`` with test values.
+    """
+    _scrub_vision_env(monkeypatch)
+
+
+@pytest.fixture(autouse=True)
+def scrub_voice_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test reaches a live voice provider or reads services/server/.env (P2-R16).
+
+    The same scrub as ``scrub_vision_env``, which covers the voice keys (``DEEPGRAM_*``,
+    ``OPENROUTER_*``, ``ELEVENLABS_*``, ``OPENAI_*``) and every ``TASSEL_VOICE_*`` and
+    ``TASSEL_*PROVIDER*`` variable, so ``VoiceSettings.load()`` reads no file and every provider is
+    fake. A test that wants live settings constructs ``VoiceSettings(...)``.
     """
     _scrub_vision_env(monkeypatch)
 

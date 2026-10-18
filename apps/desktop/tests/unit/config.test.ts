@@ -13,11 +13,11 @@ beforeEach(() => {
 });
 
 describe('readConfig', () => {
-  it('defaults to the local dev server and the fake tutor', () => {
+  it('defaults to the local dev server and the live tutor', () => {
     expect(readConfig({})).toEqual({
       serverUrl: 'http://127.0.0.1:8787',
       uiLanguage: 'en',
-      tutorMode: 'fake',
+      tutorMode: 'live',
       fakeScript: 'dfa-opening',
       fakeSpeed: 1,
     });
@@ -54,8 +54,9 @@ describe('readConfig', () => {
   it.each(['0', '-2', 'fast', ''])('ignores TASSEL_FAKE_SPEED=%j', (speed) => {
     expect(readConfig({ TASSEL_FAKE_SPEED: speed }).fakeSpeed).toBe(1);
   });
-  it('treats any TASSEL_TUTOR other than live as fake', () => {
-    expect(readConfig({ TASSEL_TUTOR: 'LIVE!' }).tutorMode).toBe('fake');
+  it('only enables the script with the explicit fake flag', () => {
+    expect(readConfig({ TASSEL_TUTOR: 'LIVE!' }).tutorMode).toBe('live');
+    expect(readConfig({ TASSEL_TUTOR: 'fake' }).tutorMode).toBe('fake');
   });
   it('drops trailing slashes from the server URL', () => {
     expect(readConfig({ TASSEL_SERVER_URL: 'http://127.0.0.1:8799//' }).serverUrl).toBe(

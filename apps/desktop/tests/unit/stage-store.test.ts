@@ -94,3 +94,18 @@ describe('cycleBoardView (R17)', () => {
     expect(state()).toMatchObject({ pinned: 'paper', mode: 'paper' });
   });
 });
+
+it('interim updates and the final replace in place, retaining each language', () => {
+  state().pushCaption('tutor', 'Hello', 'en');
+  state().showInterim('student', '안', 'ko');
+  state().showInterim('student', '안녕', 'ko');
+  expect(state().caption).toEqual({
+    previous: { speaker: 'tutor', text: 'Hello', lang: 'en' },
+    current: { speaker: 'student', text: '안녕', lang: 'ko', interim: true },
+  });
+  state().pushCaption('student', '안녕하세요', 'ko');
+  expect(state().caption.previous?.text).toBe('Hello');
+  expect(state().caption.current?.interim).toBeUndefined();
+  state().pushCaption('tutor', 'Hola', 'es');
+  expect(state().caption.previous).toEqual({ speaker: 'student', text: '안녕하세요', lang: 'ko' });
+});

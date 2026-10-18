@@ -241,6 +241,17 @@ describe('SessionScreen', () => {
     expect(repeated).not.toBe(current);
   });
 
+  it('keeps the interim DOM line in place without restarting its animation', async () => {
+    await renderSession();
+    act(() => stage().showInterim('student', 'I', 'en'));
+    const line = screen.getByText('I').closest('p');
+    expect(line?.className).not.toContain('animate-');
+    act(() => stage().showInterim('student', 'I think', 'en'));
+    expect(screen.getByText('I think').closest('p')).toBe(line);
+    act(() => stage().pushCaption('student', 'I think so', 'en'));
+    expect(screen.getByText('I think so').closest('p')).toBe(line);
+  });
+
   it("doesn't animate Ada's speaking ring under reduced motion", async () => {
     await renderSession();
     const tile = screen.getByTestId('tutor-tile');

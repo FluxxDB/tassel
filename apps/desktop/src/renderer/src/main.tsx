@@ -6,7 +6,6 @@ import { I18nextProvider } from 'react-i18next';
 import { App } from './app/App';
 import { initI18n } from './i18n';
 import { apiClientFromBridge } from './lib/api';
-import { createTutorClient } from './tutor/create-client';
 import './styles/global.css';
 
 const root = document.getElementById('root');
@@ -14,16 +13,13 @@ if (!root) throw new Error('index.html has no #root element');
 
 async function boot(container: HTMLElement): Promise<void> {
   const config = await window.tassel.getConfig();
+  const voiceConfig = await window.tassel.voice.getConfig();
   const i18n = await initI18n(config.uiLanguage);
   const api = apiClientFromBridge(config.serverUrl);
   createRoot(container).render(
     <StrictMode>
       <I18nextProvider i18n={i18n}>
-        <App
-          api={api}
-          tokenReset={config.tokenReset}
-          createTutor={() => createTutorClient(config)}
-        />
+        <App api={api} tokenReset={config.tokenReset} config={config} voiceConfig={voiceConfig} />
       </I18nextProvider>
     </StrictMode>,
   );

@@ -1,4 +1,7 @@
-"""Server settings, read from ``TASSEL_*`` environment variables."""
+"""Server settings, read from ``TASSEL_*`` environment variables.
+
+The voice providers' settings and keys are ``tassel.voice.settings.VoiceSettings`` (P2-R10).
+"""
 
 from typing import Literal
 
@@ -12,8 +15,6 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8787
     cors_origins: list[str] = ["http://localhost:5173", "app://tassel"]
-    providers: Literal["fake", "live"] = "fake"
-
     # Frame images. "s3" defaults to the compose service `s3` (local Versity); "memory" is for
     # unit tests. The dev values are not secrets. Versity checks the region inside each
     # request's signature, so s3_region must equal the service's VGW_REGION.

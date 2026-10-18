@@ -1,6 +1,7 @@
 // The typed preload bridge, window.tassel: the renderer's only way into the main process.
 import type { Lang } from '@tassel/shared/i18n';
 import type { PaperBridge } from './paper-bridge';
+import type { VoiceBridge } from './voice-bridge';
 
 export type Platform = 'darwin' | 'win32' | 'linux';
 
@@ -18,6 +19,7 @@ export interface AppConfig {
 }
 
 export interface TasselBridge {
+  voice: VoiceBridge;
   platform: Platform;
   getConfig(): Promise<AppConfig>;
   getToken(): Promise<string>;

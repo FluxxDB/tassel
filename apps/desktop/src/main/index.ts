@@ -24,6 +24,9 @@ import { registerPaperIpc } from './paper/ipc';
 import { bindHelperToApp } from './paper/lifecycle';
 import { applyPaperSwitches } from './paper/switches';
 import { createTokenStore } from './token-store';
+import { readVoiceConfig, registerVoiceIpc } from './voice/ipc';
+import { createMicAccess } from './voice/mic-access';
+import { applyVoiceSwitches } from './voice/switches';
 import { createMainWindow, hardenWebContents, isTrustedUrl, restrictPermissions } from './windows';
 
 // First, because the single-instance lock lives in userData: E2E runs, each with its own
@@ -34,6 +37,7 @@ const paper = readPaperSettings();
 applyPaperSwitches(app.commandLine, paper);
 registerAppScheme();
 app.enableSandbox();
+applyVoiceSwitches(app.commandLine);
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -59,6 +63,14 @@ if (!app.requestSingleInstanceLock()) {
           serverUrl: readConfig().serverUrl,
         }),
       );
+      registerVoiceIpc({
+        access: createMicAccess({
+          platform: process.platform,
+          prefs: systemPreferences,
+          open: (url) => shell.openExternal(url),
+        }),
+        config: readVoiceConfig(),
+      });
       createMainWindow();
       app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
