@@ -2,7 +2,15 @@
 
 A live AI tutor for the desktop. Tassel watches the student's paper (macOS Desk View) or screen, talks with her in real time, and explains by drawing on a shared board and over her own work, in English, Spanish and Korean. See `PRODUCT.md` for the product and `docs/superpowers/specs/2026-10-17-tassel-design.md` for the design.
 
-This is the P1 foundation: the session library, the new session sheet, the session screen ("one stage") and a scripted fake tutor. The live voice loop arrives in P2.
+The integrated app includes live voice, paper/webcam capture, screen tutoring with a collapsible overlay, board drawing, and tutor appearance, memory and personality controls.
+
+## One app, one launcher
+
+On Windows, run **`Start-Tassel.cmd`** from this checkout. On any platform, `pnpm start` uses the same tracked startup logic. Choose Paper/webcam, Screen, voice, board and tutor settings inside the app; there are no feature-specific launchers. `--check` prints a safe startup summary without opening the app or contacting providers.
+
+The launcher starts the code in the checkout containing it and shares local profile/backend settings across Git worktrees through the primary checkout's ignored `.local/start.json`. Existing avatar appearance and primary development sessions are retained. It does not start the older `.local/live-test` clone; that clone's provider settings may be referenced by path during migration, without copying keys.
+
+Close an existing Tassel instance before restarting onto another branch. A branch must merge the feature code to contain that feature; startup never switches branches behind your back. See [the startup contract](docs/startup.md) for cross-branch integration and configuration.
 
 ## What you need
 

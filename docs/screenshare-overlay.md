@@ -4,7 +4,7 @@ Implemented on `codex/screenshare-overlay`, based on `origin/claude/live` at `23
 
 ## Run and use
 
-On this Windows workspace, close any existing Tassel window, then run `Start-Tassel-Screenshare.cmd`. This launches the current checkout, rather than the older `.local/live-test` checkout used by the earlier shortcuts. It uses an isolated local server/database (`8865`, `tassel_t2_screen_dev`) and the existing `.local/avatar-app-data` profile so the saved tutor appearance is retained. Its session library is separate from the older development database. It uses the existing provider-settings file when the current checkout has none; the launcher does not copy or print credentials. Docker Desktop and the existing local tooling are required. This owner-run launcher uses live providers; automated checks never launch it.
+On Windows, close any existing Tassel window, then run `Start-Tassel.cmd`. It is the single shared launcher for all app features and starts the current checkout. `pnpm start` uses the same code. The saved avatar profile, primary development database and provider-settings path are shared across worktrees through the ignored `.local/start.json`. See `docs/startup.md`. Feature-specific CMD files have been removed.
 
 For a normal development environment, run the existing `pnpm dev` from this checkout with the desired provider configuration. Choose a Screen session (or Share screen inside an existing session), then:
 
