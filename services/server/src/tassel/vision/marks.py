@@ -198,13 +198,68 @@ def find_candidates(page: FlatPage, mask: np.ndarray | None = None) -> Candidate
             groups += _text_chunks(components, labels_mask, index, s, page, size // 2)
     groups.sort(key=lambda s: (-s[4], s[1], s[0]))
     groups = groups[: MAX_MARKS - len(circles)]
-    # Lines number after the small labels, so adding them never renumbers existing marks.
-    groups.sort(key=lambda s: (s[5], int(s[1] / (ROW_HEIGHT * h)), s[0], s[1]))
+    # A line whose glyphs stand apart ("10.0.0.0/24" in a spaced hand) is several small labels:
+    # it gets one more marker for the whole line, so Ada can underline it, not just its "1".
+    groups += _glyph_lines(groups, w)[: max(0, MAX_MARKS - len(circles) - len(groups))]
+    # Lines number after the small labels, and glyph lines after those, so adding them never
+    # renumbers existing marks.
+    groups.sort(key=lambda s: (int(s[5]), int(s[1] / (ROW_HEIGHT * h)), s[0], s[1]))
     labels = tuple(
         LabelMark(len(circles) + i + 1, float(x), float(y), float(bw), float(bh))
         for i, (x, y, bw, bh, _, _) in enumerate(groups)
     )
     return Candidates(tuple(circles), labels)
+
+
+def _glyph_lines(groups: list, page_width: int) -> list:
+    """Rows of small labels that sit side by side on one line, each as one more group (kind 2):
+    boxes overlapping vertically by half the shorter one, at most one glyph height apart, and
+    together wider than any single label can be. Rows a handwritten-line chunk already covers
+    are left out."""
+    small = sorted((g for g in groups if g[5] is False), key=lambda g: g[0])
+    chunks = [g for g in groups if g[5] is True]
+    parent = list(range(len(small)))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for i, a in enumerate(small):
+        for j in range(i + 1, len(small)):
+            b = small[j]
+            overlap = min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1])
+            gap = max(0, b[0] - (a[0] + a[2]), a[0] - (b[0] + b[2]))
+            if overlap >= 0.5 * min(a[3], b[3]) and gap <= max(a[3], b[3]):
+                parent[find(j)] = find(i)
+    rows: dict[int, list] = {}
+    for i, g in enumerate(small):
+        rows.setdefault(find(i), []).append(g)
+    out = []
+    for members in rows.values():
+        if len(members) < 2:
+            continue
+        x0 = min(g[0] for g in members)
+        y0 = min(g[1] for g in members)
+        x1 = max(g[0] + g[2] for g in members)
+        y1 = max(g[1] + g[3] for g in members)
+        if x1 - x0 <= LABEL_MAX_SIDE * page_width:
+            continue
+        line = (x0, y0, x1 - x0, y1 - y0)
+        if any(_overlap(line, c[:4]) > 0.5 for c in chunks):
+            continue
+        out.append((*line, sum(g[4] for g in members), 2))
+    return out
+
+
+def _overlap(a, b) -> float:
+    """Intersection over union of two (x, y, w, h) boxes."""
+    ix = max(0, min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0]))
+    iy = max(0, min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1]))
+    inter = ix * iy
+    union = a[2] * a[3] + b[2] * b[3] - inter
+    return inter / union if union else 0.0
 
 
 def _runs(ink: np.ndarray) -> np.ndarray:

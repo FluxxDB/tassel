@@ -133,3 +133,25 @@ def test_a_gently_curved_long_stroke_with_a_label_is_not_text():
 def test_a_printed_rule_under_nothing_and_a_tall_scribble_get_no_text_marker():
     s = render([Rule(0.3), Rule(0.6, 0.2, 0.5), Arrow((0.3, 0.2), (0.35, 0.8), bend=0.3)])
     assert find_candidates(s.page).labels == ()
+
+
+def test_a_line_of_separate_glyphs_also_gets_one_marker():
+    """Real-token eval (2026-10-18): on its IP page each glyph of "10.0.0.0/24" stood apart, so
+    the line came out as eight small labels and the Pointer underlined the leading "1" (m1)."""
+    from tassel.domains.dfa.contract import Pt
+    from tassel.evals.fixtures import render as render_fixture
+    from tassel.vision.page import FlatPage
+    from tassel.vision.turn_image import decode_jpeg
+
+    fixture = render_fixture("ip-page")
+    rgb = decode_jpeg(fixture.jpeg)
+    h, w = rgb.shape[:2]
+    corners = (Pt(x=0, y=0), Pt(x=w, y=0), Pt(x=w, y=h), Pt(x=0, y=h))
+    found = find_candidates(FlatPage(rgb, w, h, corners, False))
+    ip = fixture.truths["ip"].box
+    lines = [label for label in found.labels if iou(box(label), ip) >= 0.5]
+    assert len(lines) == 1
+    # Added after the glyph labels, which keep their numbers.
+    glyphs = [g for g in found.labels if g is not lines[0] and covered(box(g), ip) > 0.8]
+    assert len(glyphs) >= 6
+    assert all(glyph.mark < lines[0].mark for glyph in glyphs)
