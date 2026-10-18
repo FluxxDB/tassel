@@ -222,10 +222,46 @@ function Editor({ open, onClose }: { open: boolean; onClose(): void }) {
           <div role="tabpanel" id={`avatar-panel-${tab}`} aria-labelledby={`avatar-tab-${tab}`}>
             {tab === 'style' ? (
               <>
+                {row('hat', HATS)}
+                <div
+                  className="avatar-hat-colors"
+                  data-expanded={draft.hat !== 'none'}
+                  aria-hidden={draft.hat === 'none'}
+                  inert={draft.hat === 'none'}
+                >
+                  <div className="min-h-0 overflow-hidden">
+                    <fieldset className="ml-4 border-l border-hairline py-3 pl-4">
+                      <legend className="text-xs text-smoke-text">
+                        {t('avatar.fields.hatColor')}
+                      </legend>
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {HAT_COLORS.map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            className="avatar-hat-swatch"
+                            aria-label={`${t('avatar.fields.hatColor')}: ${t(`avatar.options.${color}`)}`}
+                            title={t(`avatar.options.${color}`)}
+                            aria-pressed={draft.hatColor === color}
+                            onClick={() => update('hatColor', color)}
+                            style={{ backgroundColor: COLORS.hair[color] }}
+                          >
+                            {draft.hatColor === color && (
+                              <span
+                                aria-hidden="true"
+                                className="rounded-full bg-paper px-1 text-xs text-ink"
+                              >
+                                ✓
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </fieldset>
+                  </div>
+                </div>
                 {row('hair', HAIR)}
                 {row('hairColor', HAIR_COLORS)}
-                {row('hat', HATS)}
-                {row('hatColor', HAT_COLORS)}
                 {row('outfit', OUTFITS)}
                 {row('outfitColor', OUTFIT_COLORS)}
                 {row('accessory', ACCESSORIES)}
