@@ -1,5 +1,7 @@
 """Regressions from the owner's retest #6 (2026-10-17 23:41)."""
 
+import pytest
+
 from tassel.voice.director import Decision, guard, rules
 from tassel.voice.prompts import TALKER_RULES, system_prompt, thinker_system_prompt
 from tassel.voice.providers import leading_system_only
@@ -56,3 +58,30 @@ def test_short_definitions_stay_with_the_talker():
     )
     assert guard("What is a DFA?", thinker).route == "talker"
     assert guard("What is wrong with my DFA on my paper?", thinker).route == "thinker"
+
+
+@pytest.mark.asyncio
+async def test_eleven_v3_uses_http_streaming():
+    # eleven_v3 is rejected on the streaming WebSocket (HTTP 400); it runs over HTTP streaming.
+    from pipecat.services.elevenlabs.tts import ElevenLabsHttpTTSService, ElevenLabsTTSService
+
+    from tassel.voice.providers import make_tts
+    from tassel.voice.routes import route_for
+    from tassel.voice.settings import VoiceSettings
+
+    v3 = make_tts(
+        route_for("en"),
+        VoiceSettings(tts_model="eleven_v3", elevenlabs_api_key="el", providers="live"),
+    )
+    assert isinstance(v3, ElevenLabsHttpTTSService)
+    await v3.cleanup()
+    flash = make_tts(route_for("en"), VoiceSettings(elevenlabs_api_key="el", providers="live"))
+    assert isinstance(flash, ElevenLabsTTSService)
+
+
+def test_owner_voice_pick_is_the_default():
+    from tassel.voice.settings import VoiceSettings
+
+    s = VoiceSettings()
+    assert s.tts_model == "eleven_multilingual_v2" and s.tts_speed == 1.15
+    assert s.voice_en == "XrExE9yKIg1WjnnlVkGX"  # Matilda

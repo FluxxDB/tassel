@@ -96,10 +96,17 @@ class VoiceSettings(BaseSettings):
             and _is_set(self.openrouter_api_key)
         )
 
-    tts_model: Literal["eleven_flash_v2_5", "eleven_turbo_v2_5"] = "eleven_flash_v2_5"
+    # eleven_v3 (most expressive) has no streaming WebSocket; it runs over HTTP streaming.
+    # The owner's pick (2026-10-17 by ear): Matilda on Multilingual v2, faster. Over the
+    # streaming WebSocket it starts in ~0.5–0.7 s (HTTP was ~1.9 s).
+    tts_model: Literal[
+        "eleven_flash_v2_5", "eleven_turbo_v2_5", "eleven_multilingual_v2", "eleven_v3"
+    ] = "eleven_multilingual_v2"
+    tts_style: float = Field(0.15, ge=0, le=1)
+    tts_speaker_boost: bool = True
     tts_stability: float = Field(0.5, ge=0, le=1)
     tts_similarity: float = Field(0.75, ge=0, le=1)
-    tts_speed: float = Field(1.0, ge=0.7, le=1.2)
+    tts_speed: float = Field(1.15, ge=0.7, le=1.2)
 
     fake_tts: Literal["auto", "say", "tone"] = "auto"
     fake_scenario: str = "dfa-opening"

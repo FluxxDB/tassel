@@ -63,7 +63,7 @@ def test_openrouter_settings_pin_cerebras_and_turn_reasoning_off():
 
 def test_elevenlabs_settings():
     s = elevenlabs_settings(route_for("ko"), "v-ko")
-    assert (s.model, s.voice, s.language) == ("eleven_flash_v2_5", "v-ko", Language.KO)
+    assert (s.model, s.voice, s.language) == ("eleven_multilingual_v2", "v-ko", Language.KO)
     assert s.apply_text_normalization == "on"
 
 

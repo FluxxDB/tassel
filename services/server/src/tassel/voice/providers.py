@@ -4,13 +4,14 @@ import ssl
 import time
 from copy import deepcopy
 
+import aiohttp
 import httpx
 from loguru import logger
 from openai import NOT_GIVEN, APIConnectionError, APIError, AsyncOpenAI
 from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.services.deepgram.flux.stt import DeepgramFluxSTTService
 from pipecat.services.deepgram.stt import DeepgramSTTService
-from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
+from pipecat.services.elevenlabs.tts import ElevenLabsHttpTTSService, ElevenLabsTTSService
 from pipecat.services.llm_service import LLMService
 from pipecat.services.openrouter.llm import OpenRouterLLMService
 from pipecat.services.stt_service import STTService
@@ -122,10 +123,24 @@ def elevenlabs_settings(
         stability=s.tts_stability,
         similarity_boost=s.tts_similarity,
         speed=s.tts_speed,
+        style=s.tts_style,
+        use_speaker_boost=s.tts_speaker_boost,
         voice=voice_id,
         language=Language(route.tts_language),
         apply_text_normalization="on",
     )
+
+
+class _HttpTTS(ElevenLabsHttpTTSService):
+    """ElevenLabs over HTTP streaming (eleven_v3 has no WebSocket), with its own session."""
+
+    def __init__(self, **kwargs):
+        self._own_session = aiohttp.ClientSession()
+        super().__init__(aiohttp_session=self._own_session, **kwargs)
+
+    async def cleanup(self):
+        await super().cleanup()
+        await self._own_session.close()
 
 
 def _mode(kind: ProviderKind, s: VoiceSettings) -> str:
@@ -351,7 +366,24 @@ def make_llm(route: VoiceRoute, s: VoiceSettings, scenario: FakeScenario | None)
 def make_tts(route: VoiceRoute, s: VoiceSettings) -> TTSService:
     if _mode("tts", s) == "fake":
         return FakeTTSService(lang=route.lang, engine=pick_engine(s.fake_tts))
+    voice = getattr(s, f"voice_{route.lang}")
+    if s.tts_model == "eleven_v3":
+        ws = elevenlabs_settings(route, voice, s)
+        return _HttpTTS(
+            api_key=s.elevenlabs_api_key.get_secret_value(),
+            settings=ElevenLabsHttpTTSService.Settings(
+                model=s.tts_model,
+                voice=voice,
+                language=ws.language,
+                stability=s.tts_stability,
+                similarity_boost=s.tts_similarity,
+                style=s.tts_style,
+                use_speaker_boost=s.tts_speaker_boost,
+                speed=s.tts_speed,
+                apply_text_normalization="on",
+            ),
+        )
     return ElevenLabsTTSService(
         api_key=s.elevenlabs_api_key.get_secret_value(),
-        settings=elevenlabs_settings(route, getattr(s, f"voice_{route.lang}"), s),
+        settings=elevenlabs_settings(route, voice, s),
     )
