@@ -38,3 +38,8 @@ graphify-out/.graphify_labels.json
 native/deskview-helper/.build/
 native/deskview-helper/.swiftpm/
 docs/research/spikes/p3-tcc/.out/
+
+# Next.js (apps/web)
+.next/
+next-env.d.ts
+*.tsbuildinfo
