@@ -57,8 +57,8 @@ def test_a_stage_tag_and_a_stage_event_are_view_rows():
 
 def test_a_mark_on_her_image_names_its_mark_and_the_image():
     board = BoardContext(image=StageImage("a-1"))
+    shown = MessageAction(kind="view", side="image", item=None, attachment_id="a-1")
     marked = MessageAction(kind="mark", side="image", item="m1", attachment_id="a-1")
-    # Showing the image makes no row of its own: the mark's row shows it.
-    assert rows("[[image show]][[image circle m3]]This one.", board) == [marked]
+    assert rows("[[image show]][[image circle m3]]This one.", board) == [shown, marked]
     cleared = MessageAction(kind="clear", side="image", item=None, attachment_id="a-1")
     assert rows("All clean. [[image clear]]", board) == [cleared]

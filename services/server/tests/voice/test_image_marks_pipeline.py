@@ -73,7 +73,7 @@ async def test_circle_the_diagram_on_my_image_shows_and_marks_it():
         await until(lambda: any("worksheet" in m["text"] for m in finals(out, "tutor")))
         await typed(bot, "Circle the diagram on my image.", client_id="c-2")
         await until(lambda: any(a["kind"] == "image.mark" for a in beat_actions(out)))
-        await until(lambda: finals(out, "action"))
+        await until(lambda: len(finals(out, "action")) >= 2)
         actions = [a for a in beat_actions(out) if a["kind"].startswith("image.")]
         assert [(a["kind"], a["attachmentId"]) for a in actions] == [
             ("image.show", "a-1"),
@@ -83,8 +83,11 @@ async def test_circle_the_diagram_on_my_image_shows_and_marks_it():
         assert mark["type"] == "circle" and mark["target"] == {"el": diagram.id}
         # The Pointer saw her image, numbered, in its own pixels.
         assert len(client.requests) == 1
-        [row] = [m["action"] for m in finals(out, "action")]
-        assert row == {"kind": "mark", "side": "image", "item": mark["id"], "attachment_id": "a-1"}
+        rows = [m["action"] for m in finals(out, "action")]
+        assert rows == [
+            {"kind": "view", "side": "image", "item": None, "attachment_id": "a-1"},
+            {"kind": "mark", "side": "image", "item": mark["id"], "attachment_id": "a-1"},
+        ]
         await until(lambda: "This is the diagram to look at." in out.text())
 
 
