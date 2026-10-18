@@ -57,7 +57,7 @@ test('a helper clip or a fake display is not the real camera', () => {
   );
 });
 
-test("the camera run passes the shell's TASSEL_* with real defaults, never requireFake", () => {
+test("the camera run passes the shell's desktop settings with real defaults, never requireFake", () => {
   const pairs = cameraEnv(
     {
       HOME: '/Users/her',
