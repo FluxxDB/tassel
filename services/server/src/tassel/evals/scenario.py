@@ -92,6 +92,10 @@ class Expect(_Strict):
     # Each of these kinds reaches beats; [] means no action at all.
     tags: list[str] | None = None
     no_tags: list[str] = Field(default_factory=list)
+    # How many of each kind reach beats: {"board.traceStep": {"min": 3}}.
+    counts: dict[str, Count] = Field(default_factory=dict)
+    # Ada's reply ends with a question (True) or doesn't (False).
+    asks: bool | None = None
     board: BoardExpect | None = None
     marks: list[MarkExpect] = Field(default_factory=list)
     forbid: list[str] = Field(default_factory=list)
@@ -142,7 +146,7 @@ class Scenario(_Strict):
                 if image not in FIXTURES:
                     raise ValueError(f"{where}: unknown image fixture {image!r}")
             expect = turn.expect
-            for kind in [*(expect.tags or []), *expect.no_tags]:
+            for kind in [*(expect.tags or []), *expect.no_tags, *expect.counts]:
                 if kind not in TAG_KINDS:
                     raise ValueError(f"{where}: unknown tag kind {kind!r}")
             same = expect.board.same_as_turn if expect.board else None

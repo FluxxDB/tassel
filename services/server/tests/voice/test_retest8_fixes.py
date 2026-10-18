@@ -11,6 +11,7 @@ from test_two_tier import brief
 from tassel.beats.markup import BoardContext
 from tassel.voice.action_checker import TargetLanguage, check_tags
 from tassel.voice.director import Decision, escalate, guard
+from tassel.voice.ladder import Ladder
 from tassel.voice.prompts import TALKER_RULES, TUTOR_PLAYBOOK, thinker_system_prompt
 from tassel.voice.thinker import TutorCoordinator, compose
 
@@ -129,15 +130,21 @@ def test_trace_steps_land_one_per_sentence():
     ],
 )
 def test_confusion_after_an_explanation_escalates_to_drawing(text):
-    first = escalate(text, decision(action="explain", focus="paper"), confusions=1)
-    assert first.route == "thinker" and first.action == "mark_paper"
-    again = escalate(text, decision(action="mark_paper"), confusions=2)
-    assert (again.action, again.focus) == ("trace", "split") and again.needs_vision
+    # The whiteboard ladder replaced the confusion counter: still confused about her paper
+    # after an explanation means her machine redrawn and traced on the board (step 1), and
+    # still lost after that means the correct one (step 2). Board only: no paper marks.
+    ladder = Ladder()
+    first = escalate(text, decision(action="explain", focus="paper"), ladder=ladder)
+    assert (first.route, first.action, first.focus) == ("thinker", "draw_board", "split")
+    assert first.needs_vision and ladder.take() == (1, False)
+    ladder.record(1, False, brief().model_copy(update={"board": [YOURS]}))
+    again = escalate(text, decision(action="explain"), ladder=ladder)
+    assert again.action == "draw_board" and ladder.take() == (2, False)
 
 
 def test_no_escalation_without_confusion():
     d = decision(action="explain")
-    assert escalate("Okay, what next?", d, confusions=0) == d
+    assert escalate("Okay, what next?", d, ladder=Ladder()) == d
 
 
 def test_help_me_make_is_not_a_request_for_the_answer():
@@ -328,7 +335,7 @@ async def test_still_lost_after_her_trace_moves_to_the_contrast_rung():
     for _ in range(2):
         await c.prepare(ctx, "lost", decision=decision(action="trace", focus="split"))
         await c.result()
-    assert "rung c" in seen[0] and "rung d" in seen[1]
+    assert "Ladder step 1" in seen[0] and "Ladder step 2" in seen[1]
     await c.close()
 
 

@@ -12,6 +12,8 @@ from tassel.voice.bot import VIEW_ACKS
 
 # Never in what Ada says: a stalling bridge, a promise she can't keep, bracketed meta text.
 FORBIDDEN = ("hang on", "let me", "i'll look again")
+# Except the ladder's step 1, which draws in the same turn: "Okay, let me help you out."
+ALLOWED = ("let me help you",)
 BRACKETED = re.compile(r"\[[^\[\]]{0,120}\]")
 # A sentence repeated from an earlier turn counts only when it says something (4+ words).
 REPEAT_MIN_WORDS = 4
@@ -61,6 +63,8 @@ def _normal(text: str) -> str:
 
 def forbidden_phrases(spoken: str, extra=()) -> list[str]:
     said = _normal(spoken)
+    for allowed in ALLOWED:
+        said = said.replace(allowed, " ")
     found = [p for p in (*FORBIDDEN, *(_normal(e) for e in extra)) if p in said]
     return found + BRACKETED.findall(spoken)
 
@@ -239,6 +243,20 @@ def check_turn(turn: Turn, obs: Observation, *, earlier: list[Observation]) -> l
             add("tags", [f"unexpected {', '.join(kinds)}"] if kinds else [])
     if expect.no_tags:
         add("no tags", [f"unexpected {k}" for k in expect.no_tags if k in kinds])
+    if expect.counts:
+        reached = Counter(kinds)
+        add(
+            "counts",
+            [
+                f"{k} {reached[k]}, wanted {_describe(wanted)}"
+                for k, wanted in expect.counts.items()
+                if not _within(reached[k], wanted)
+            ],
+        )
+    if expect.asks is not None:
+        asked = obs.spoken.rstrip().endswith("?")
+        wrong = "doesn't end with a question" if expect.asks else "ends with a question"
+        add("asks", [] if asked == expect.asks else [wrong])
     if expect.board is not None:
         add("board", _board_problems(expect.board, obs, earlier))
     if expect.marks:

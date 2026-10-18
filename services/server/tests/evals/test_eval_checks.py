@@ -47,6 +47,9 @@ def failed(results):
         ("Sure [assistant turn omitted] here.", ["[assistant turn omitted]"]),
         ("Here's the board.", []),
         ("Let's trace it.", []),
+        # The ladder's step 1 opens with it, and draws in the same turn (owner, 2026-10-18).
+        ("Okay, let me help you out. Here's your machine.", []),
+        ("Let me help you out. Let me check the rest.", ["let me"]),
     ],
 )
 def test_forbidden_phrases(spoken, found):
@@ -229,3 +232,32 @@ def test_timing_limits():
 
 def test_an_unfinished_turn_fails():
     assert "finished" in failed(check_turn(turn(), obs(finished=False), earlier=[]))
+
+
+def test_counts_of_kinds_and_a_closing_question():
+    steps = [{"kind": "board.traceStep", "item": "t"}] * 2
+    results = check_turn(
+        turn(counts={"board.traceStep": {"min": 3}}, asks=True),
+        obs(actions=steps, spoken="Zero. One. Can you fix it"),
+        earlier=[],
+    )
+    assert failed(results) == {"counts", "asks"}
+    results = check_turn(
+        turn(counts={"board.traceStep": {"min": 3}, "board.automaton": 0}, asks=True),
+        obs(actions=steps * 2, spoken="Zero. One. Zero. One. Can you fix it?"),
+        earlier=[],
+    )
+    assert not failed(results)
+
+
+def test_unknown_count_kinds_are_refused():
+    from tassel.evals.scenario import Scenario
+
+    with pytest.raises(ValueError, match="unknown tag kind"):
+        Scenario.model_validate(
+            {
+                "name": "x",
+                "title": "X",
+                "turns": [{"student": "a", "expect": {"counts": {"no": 1}}}],
+            }
+        )

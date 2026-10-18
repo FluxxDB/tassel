@@ -78,3 +78,15 @@ def test_the_fake_chat_run_passes(tmp_path, monkeypatch):
     assert len(student["attachments"]) == 1
     assert first["audio"] is True and second["audio"] is False
     assert second["spoken"]
+
+
+def test_a_turn_is_checked_on_the_ladders_decision_not_the_directors():
+    # Live eval 20261018-144149: the director said trace, the ladder ran explain (step 0), and
+    # the check read the director's.
+    from tassel.evals.session import turn_decision
+
+    director = {"event": "director", "decision": {"route": "thinker", "action": "trace"}}
+    ladder = {"event": "escalate", "decision": {"route": "thinker", "action": "explain"}}
+    assert turn_decision([director, ladder])["action"] == "explain"
+    assert turn_decision([director])["action"] == "trace"
+    assert turn_decision([]) is None

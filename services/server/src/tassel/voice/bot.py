@@ -62,7 +62,6 @@ from tassel.screen.session import ScreenSession
 from tassel.storage import sessions_repo
 from tassel.vision.turn_image import NO_VIEW, TurnPage
 from tassel.voice.director import (
-    CONFUSED,
     Decision,
     Director,
     escalate,
@@ -278,7 +277,6 @@ class _TurnContext(FrameProcessor):
         self.frozen = False
         self.page_revision = 0
         self.seen_revision = 0
-        self.confusions = 0
         # Her spoken view requests: the app pins them (build_bot sets this and lang).
         self.on_view = None
         self.lang = lambda: "en"
@@ -457,27 +455,23 @@ class _TurnContext(FrameProcessor):
                         ),
                         image=sent_image,
                     )
-                    # The playbook's ladder: still confused after an explanation means drawing.
+                    # The whiteboard ladder: her problem's stored step routes this turn ("no"
+                    # after Ada's question climbs it; voice/ladder.py).
                     answered = any(m.get("role") == "assistant" for m in messages)
-                    self.confusions = (
-                        self.confusions + 1 if answered and CONFUSED.search(student_text) else 0
-                    )
-                    last = (
-                        self.coordinator.notes[-1]
-                        if self.coordinator and self.coordinator.notes
+                    ladder = (
+                        self.coordinator.ladder
+                        if self.coordinator is not None and self.coordinator.thinker is not None
                         else None
                     )
                     escalated = escalate(
-                        student_text,
-                        self.decision,
-                        confusions=self.confusions,
-                        drew_last=bool(last and (last.board or last.paper or last.image)),
+                        student_text, self.decision, ladder=ladder, answered=answered
                     )
-                    if escalated != self.decision:
+                    if escalated != self.decision or (ladder and ladder.turn is not None):
                         if self.director.log:
                             self.director.log(
                                 "escalate",
-                                confusions=self.confusions,
+                                ladder=ladder.turn if ladder else None,
+                                attempt=bool(ladder and ladder.attempt),
                                 decision=escalated.model_dump(),
                             )
                         self.decision = escalated
