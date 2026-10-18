@@ -16,3 +16,5 @@ SET_LANGUAGE = FunctionSchema(
     required=["language"],
 )
 TOOLS = ToolsSchema(standard_tools=[SHOW_STAGE, SET_LANGUAGE])
+# The director owns views; a talker show_stage call triggered a second, unplanned reply.
+TALKER_TOOLS = ToolsSchema(standard_tools=[SET_LANGUAGE])

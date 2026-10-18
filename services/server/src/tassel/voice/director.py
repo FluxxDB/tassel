@@ -26,11 +26,17 @@ class Decision(BaseModel):
         return self
 
 
-PAPER = re.compile(r"\b(paper|page|camera|circle mine)\b", re.I)
+PAPER = re.compile(
+    r"\b(paper|page|camera|circle mine|on top of my|my drawing|my work|my sketch)\b", re.I
+)
+SIMPLE = re.compile(r"^\W*(what(?: is|'s| are)|define|what does .{1,30} mean)\b", re.I)
 BOARD = re.compile(r"\b(board|whiteboard)\b", re.I)
 DRAW = re.compile(r"\b(draw|mark|highlight|circle|wash|strike|callout)\b", re.I)
 COMPLEX = re.compile(
-    r"\b(check|diagnos\w*|find (?:a |the |my )?mistake|why|prove|derive|step.by.step)\b", re.I
+    r"\b(check|diagnos\w*|find (?:a |the |my )?mistake|why|prove|derive|step.by.step|"
+    r"(?:show|draw|build|construct|make|design|convert|modify)\b[^.?!]{0,40}\b(?:nfa|dfa|"
+    r"automat\w*|machine|version)|modified version|minimi[sz]e|trace)\b",
+    re.I,
 )
 
 
@@ -64,8 +70,28 @@ def rules(text, *, focus="none", page_changed=False, **_):
     )
 
 
+def guard(text, decision):
+    """Explicit words beat the model: naming the paper or camera (and not the board) means
+    paper marks; any construction or diagnosis request goes to the thinker."""
+    paper, board = bool(PAPER.search(text)), bool(BOARD.search(text))
+    update = {}
+    if paper and not board and decision.action == "draw_board":
+        update.update(action="mark_paper", focus="paper", refers_to="paper", needs_vision=True)
+    if (DRAW.search(text) or COMPLEX.search(text)) and decision.route == "talker":
+        update["route"] = "thinker"
+    elif (
+        decision.route == "thinker"
+        and SIMPLE.search(text)
+        and not (paper or board or DRAW.search(text) or COMPLEX.search(text))
+        and len(text.split()) <= 12
+    ):
+        # Short definitional questions are the fast talker's: instant, no brief needed.
+        update.update(route="talker", action="explain")
+    return decision.model_copy(update=update) if update else decision
+
+
 class Director:
-    def __init__(self, *, client=None, budget_s=0.5, log=None):
+    def __init__(self, *, client=None, budget_s=0.8, log=None):
         self.client, self.budget_s, self.log = client, budget_s, log
 
     async def decide(
@@ -137,6 +163,9 @@ class Director:
             except Exception as error:
                 # No provider details in the transcript; rules preserve the turn.
                 logger.warning("Director fell back to rules ({})", type(error).__name__)
+                if self.log:
+                    self.log("director_fallback", reason=type(error).__name__)
+        decision = guard(text, decision)
         if self.log:
             self.log(
                 "director",
@@ -162,6 +191,6 @@ def make_director(settings, *, log=None):
             api_key=settings.openrouter_api_key.get_secret_value(),
             base_url="https://openrouter.ai/api/v1",
             max_retries=0,
-            timeout=0.5,
+            timeout=0.8,
         )
     return Director(client=client, log=log)

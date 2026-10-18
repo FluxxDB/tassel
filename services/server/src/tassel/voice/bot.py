@@ -76,7 +76,7 @@ from tassel.voice.providers import llm_tools_supported, make_llm, make_stt, make
 from tassel.voice.routes import VoiceRoute, route_for
 from tassel.voice.settings import VoiceSettings, resolve_mode
 from tassel.voice.thinker import ThinkerOutput, TutorCoordinator, make_thinker
-from tassel.voice.tools import TOOLS
+from tassel.voice.tools import TALKER_TOOLS, TOOLS
 from tassel.voice.transcripts import DevTranscript
 from tassel.voice.turns import PushToTalkFrame, TurnTuning, make_turn_strategies, make_vad
 
@@ -473,7 +473,9 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     # The live factory installs Ada's persona in the constructor, before tool
     # synchronization; duplicating it here would create competing instructions.
     tools_ok = llm_tools_supported(ctx.settings)
-    context = LLMContext(saved, tools=TOOLS) if tools_ok else LLMContext(saved)
+    two_tier = ctx.settings.two_tier_enabled
+    tools = TALKER_TOOLS if two_tier else TOOLS
+    context = LLMContext(saved, tools=tools) if tools_ok else LLMContext(saved)
     llm = make_llm(route, ctx.settings, scenario)
     stt = _RoutedService(lambda lang: make_stt(route_for(lang), ctx.settings, scenario), ctx.lang)
     tts = _RoutedService(lambda lang: make_tts(route_for(lang), ctx.settings), ctx.lang)
@@ -502,6 +504,22 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
             for name, value in ctx.settings
             if name.endswith("api_key") and value
         ],
+    )
+    # Server warnings and errors (LLM failures, director fallbacks, pipeline errors) go into
+    # the dev transcript too, so a live run never needs a pasted terminal log.
+    log_sink = logger.add(
+        lambda m: transcript.record(
+            "server_warning",
+            {
+                "level": m.record["level"].name,
+                "source": m.record["name"],
+                "text": str(m.record["message"])[:300],
+            },
+        ),
+        level="WARNING",
+        filter=lambda r: str(r["name"]).startswith(
+            ("tassel.voice", "pipecat.pipeline.worker", "pipecat.processors.frame_processor")
+        ),
     )
     turn_context.board = ctx.board
     turn_context.focus = "paper" if ctx.turn_image else "none"
@@ -679,6 +697,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     async def finished(worker, frame):
         ctx.memory.remember(ctx.session_id, context.get_messages(), ctx.lang)
 
+    bot.log_sink = log_sink
     return bot
 
 
@@ -701,4 +720,6 @@ async def run_bot(connection, ctx: BotContext) -> None:
     finally:
         if bot is not None:
             ctx.memory.remember(ctx.session_id, bot.context.get_messages(), ctx.lang)
+            if getattr(bot, "log_sink", None) is not None:
+                logger.remove(bot.log_sink)
         await connection.disconnect()

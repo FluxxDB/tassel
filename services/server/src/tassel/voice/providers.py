@@ -70,6 +70,9 @@ def leading_system_only(messages: list) -> list:
             out.append({**message, "role": "user", "content": content})
         else:
             out.append(message)
+    if not any(m.get("role") in ("user", "assistant") for m in out if isinstance(m, dict)):
+        # The opening greeting runs with no student turn yet; Cerebras needs a user message.
+        out.append({"role": "user", "content": "[session start] Greet the student briefly."})
     return out
 
 
