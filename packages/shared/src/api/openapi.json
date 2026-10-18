@@ -2641,7 +2641,7 @@
     },
     "/v1/sessions/{session_id}": {
       "delete": {
-        "description": "Deletes the session's frame images first, then the session, whose frame rows cascade.",
+        "description": "Deletes the session's frame and chat images first, then the session, whose frame, chat\nand attachment rows cascade.",
         "operationId": "delete_session_v1_sessions__session_id__delete",
         "parameters": [
           {
@@ -2839,6 +2839,15 @@
             },
             "description": "Successful Response"
           },
+          "404": {
+            "description": "No such session, or frame, for this learner"
+          },
+          "413": {
+            "description": "The image is over 8 MiB"
+          },
+          "415": {
+            "description": "The image isn't a JPEG, PNG or WebP that decodes"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -2848,6 +2857,9 @@
               }
             },
             "description": "Validation Error"
+          },
+          "503": {
+            "description": "The frame store is unavailable; try again later"
           }
         },
         "security": [
@@ -2894,6 +2906,9 @@
             },
             "description": "Successful Response"
           },
+          "404": {
+            "description": "No such image for this learner"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -2903,6 +2918,9 @@
               }
             },
             "description": "Validation Error"
+          },
+          "503": {
+            "description": "The frame store is unavailable; try again later"
           }
         },
         "security": [
@@ -3314,6 +3332,9 @@
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "description": "No such session for this learner"
           },
           "422": {
             "content": {

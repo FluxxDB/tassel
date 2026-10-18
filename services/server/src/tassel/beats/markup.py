@@ -170,6 +170,9 @@ class Sentence:
     anchors: list[tuple[int, BeatAction]]
     """Each tag's action at the index of its word; len(words) for after the last one."""
     problems: list[str]
+    origins: list[str] = field(default_factory=list)
+    """The tag each anchor's action came from, as written, in the anchors' order: one [[undo]]
+    can give several actions."""
 
 
 class MarkupError(ValueError):
@@ -366,7 +369,9 @@ def _sentences(tokens: list[_Token]) -> list[Sentence]:
             raw += token.raw
 
     units = _units(clean)
-    anchors = [(_anchor(units, at), tag.action) for at, _, tag in tags if tag.action is not None]
+    acted = [(at, tag) for at, _, tag in tags if tag.action is not None]
+    anchors = [(_anchor(units, at), tag.action) for at, tag in acted]
+    origins = [tag.raw for _, tag in acted]
     if not units and not anchors and not any(tag.problem for _, _, tag in tags):
         return []
 
@@ -376,18 +381,24 @@ def _sentences(tokens: list[_Token]) -> list[Sentence]:
         last = b == len(units)
         start = 0 if a == 0 else raw_at[units[a - 1][1] - 1] + 1
         end = len(raw) if last else raw_at[units[b - 1][1] - 1] + 1
-        mine = [
-            (index - a, action)
-            for index, action in anchors
+        picked = [
+            n
+            for n, (index, _) in enumerate(anchors)
             if a <= index < b or (last and index == len(units))
         ]
+        mine = [(anchors[n][0] - a, anchors[n][1]) for n in picked]
+        whence = [origins[n] for n in picked]
         problems = [tag.problem for _, at, tag in tags if tag.problem and start <= at < end]
         words = " ".join(clean[s:e] for s, e in units[a:b])
         # More than MARKERS_MAX tags on one word: the rest go in wordless beats after it.
-        out.append(Sentence(words, raw[start:end].strip(), mine[:MARKERS_MAX], problems))
+        out.append(
+            Sentence(
+                words, raw[start:end].strip(), mine[:MARKERS_MAX], problems, whence[:MARKERS_MAX]
+            )
+        )
         for overflow in range(MARKERS_MAX, len(mine), MARKERS_MAX):
             extra = [(0, action) for _, action in mine[overflow : overflow + MARKERS_MAX]]
-            out.append(Sentence("", "", extra, []))
+            out.append(Sentence("", "", extra, [], whence[overflow : overflow + MARKERS_MAX]))
     return out
 
 
