@@ -2,7 +2,7 @@
 // messages. services/server/src/tassel/voice/messages.py mirrors it, and ./fixtures.json holds
 // the examples both sides' tests check, with the scripted student lines the fakes speak.
 // Wire keys are snake_case, like the REST API's.
-import { type BeatDoc, parseBeatDoc } from '../beats/doc';
+import { type BeatDoc, parseBeatDoc } from '../beats';
 import type { Lang } from '../i18n';
 
 /**
@@ -41,15 +41,14 @@ export type TurnMetricsEvent = { kind: 'turn-metrics'; metrics: TurnMetrics };
 export type BackchannelEvent = { kind: 'backchannel'; text: string };
 
 export type ServerEvent =
+  | { kind: 'beat'; beat: BeatDoc }
   | RouteEvent
   | TurnMetricsEvent
   | BackchannelEvent
   | { kind: 'title'; title: string; subject: string | null }
   | { kind: 'stage'; view: 'paper' | 'board' | 'split' }
   | { kind: 'language'; lang: Lang }
-  | { kind: 'vad'; speaking: boolean }
-  /** One sentence of Ada's with its board and paper actions, sent before its words (P5). */
-  | { kind: 'beat'; beat: BeatDoc };
+  | { kind: 'vad'; speaking: boolean };
 
 /**
  * What the app measured, in milliseconds: Ada's first audio after a turn, or how soon she yielded
@@ -180,6 +179,10 @@ function readTurnMetrics(m: unknown): TurnMetrics | null {
 const SERVER_EVENT_READERS: {
   [K in ServerEvent['kind']]: (e: Fields) => Extract<ServerEvent, { kind: K }> | null;
 } = {
+  beat: (e) => {
+    const { doc: beat } = parseBeatDoc(e.beat);
+    return beat ? { kind: 'beat', beat } : null;
+  },
   route: (e) =>
     isLang(e.lang) && isSttKind(e.stt) && isLlmKind(e.llm) && isTtsKind(e.tts)
       ? { kind: 'route', lang: e.lang, stt: e.stt, llm: e.llm, tts: e.tts }
@@ -196,9 +199,4 @@ const SERVER_EVENT_READERS: {
   stage: (e) => (isView(e.view) ? { kind: 'stage', view: e.view } : null),
   language: (e) => (isLang(e.lang) ? { kind: 'language', lang: e.lang } : null),
   vad: (e) => (isBoolean(e.speaking) ? { kind: 'vad', speaking: e.speaking } : null),
-  // parseBeatDoc checks the document; one it can't read (a null doc) rejects the event.
-  beat: (e) => {
-    const { doc } = parseBeatDoc(e.beat);
-    return doc ? { kind: 'beat', beat: doc } : null;
-  },
 };
