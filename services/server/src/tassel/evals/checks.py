@@ -31,6 +31,8 @@ class Observation:
     actions: list[dict] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
     rejects: list[dict] = field(default_factory=list)
+    # The titler's name for the session, when this turn produced one.
+    title: dict | None = None
     decision: dict | None = None
     view_request: str | None = None
     board_before: dict = field(default_factory=lambda: {"automata": {}, "diagrams": {}})
@@ -228,7 +230,16 @@ def _board_problems(expect, obs: Observation, earlier: list[Observation]) -> lis
     for icon, wanted in expect.icons.items():
         if not _within(icons[icon], wanted):
             problems.append(f"{icon} icons {icons[icon]}, wanted {_describe(wanted)}")
+    # An item, or one of its parts as ITEM.PART: a zone, a node or a state.
     items = set(automata) | set(diagrams)
+    items |= {
+        f"{item}.{part['id']}"
+        for item, spec in diagrams.items()
+        for part in [*spec.get("groups", []), *spec.get("nodes", [])]
+    }
+    items |= {
+        f"{item}.{s['id']}" for item, spec in automata.items() for s in spec.get("states", [])
+    }
     problems += [f"missing item {item}" for item in expect.has if item not in items]
     problems += [f"item {item} still there" for item in expect.lacks if item in items]
     problems += _detail_problems(expect, diagrams)

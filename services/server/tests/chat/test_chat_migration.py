@@ -19,7 +19,9 @@ def _config() -> Config:
 
 
 def test_there_is_one_head_and_it_is_the_chat_migration():
-    assert ScriptDirectory.from_config(_config()).get_heads() == ["0007"]
+    assert ScriptDirectory.from_config(_config()).get_heads() == [
+        "0008"
+    ]  # 0008 (preferences-only memory) follows 0007
 
 
 @pytest.fixture

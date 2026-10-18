@@ -182,7 +182,9 @@
           "image": "Switched to your image"
         },
         "undo": "Undid that",
-        "redo": "Redid that"
+        "redo": "Redid that",
+        "removed": "Removed {name}",
+        "renamed": "Renamed {name}"
       },
       "show": {
         "board": "Show the board",

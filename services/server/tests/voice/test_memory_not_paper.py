@@ -18,12 +18,9 @@ from tassel.voice.pointer import Pointer
 from tassel.voice.settings import VoiceSettings
 from tassel.voice.thinker import Thinker, TutorCoordinator
 
-MEMORY = memory_instruction(
-    MemoryOut(
-        enabled=True,
-        content="Ongoing topic: subnetting 10.0.0.0/24 for an office network.",
-        revision=2,
-    )
+# A leaky note as an older document rendered it; the guard holds whatever the notes carry.
+MEMORY = memory_instruction(MemoryOut(enabled=True, content="Likes diagrams.", revision=2)).replace(
+    '["Likes diagrams."]', '["Ongoing topic: subnetting 10.0.0.0/24 for an office network."]'
 )
 FIRST_READ = "Problem 2: 192.168.1.0/24; subnet mask 255.255.255.128; 64 usable addresses."
 LEAKED_READ = "Problem 2 shows “10.0.0.0/24” and a subnet mask; m1 is the handwritten IP address."
@@ -168,7 +165,7 @@ async def test_an_ambiguous_disagreement_drops_the_fact_instead_of_guessing():
 
 
 @pytest.mark.asyncio
-async def test_the_thinker_request_labels_the_memory_as_earlier_sessions():
+async def test_the_thinker_request_labels_the_memory_as_preferences():
     calls = []
 
     async def complete(**kwargs):
@@ -183,8 +180,8 @@ async def test_the_thinker_request_labels_the_memory_as_earlier_sessions():
     t.learner_notes = MEMORY
     await t.think([{"role": "user", "content": "What do you see on my paper?"}])
     system = calls[0]["messages"][0]["content"]
-    assert "From earlier sessions" in system
-    rules = system[: system.index("From earlier sessions")]
+    assert "Learner preferences" in system
+    rules = system[: system.index("Learner preferences")]
     assert "page describes this turn's image only" in rules
     assert "10.0.0.0/24" not in rules
 

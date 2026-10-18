@@ -60,10 +60,33 @@ async def patch_for(
     if "title" in changes:
         # The source records who set the current title; a cleared title has none.
         changes["title_source"] = None if changes["title"] is None else "student"
+    # A rename is not activity: a title-only patch keeps its place in the Recent sort.
+    if not changes or set(changes) - {"title", "title_source", "subject"}:
+        changes["last_activity_at"] = func.now()
     session = await db.scalar(
         update(TutoringSession)
         .where(*_owned(learner_id, session_id))
-        .values(**changes, last_activity_at=func.now())
+        .values(**changes)
+        .returning(TutoringSession)
+    )
+    await db.commit()
+    return session
+
+
+async def name_by_ai(
+    db: AsyncSession,
+    learner_id: uuid.UUID,
+    session_id: uuid.UUID,
+    title: str,
+    subject: str | None,
+) -> TutoringSession | None:
+    """The titler's name, with ``title_source="ai"`` and no activity bump. None when the session
+    is gone or the student named it herself: hers stays."""
+    session = await db.scalar(
+        update(TutoringSession)
+        .where(*_owned(learner_id, session_id))
+        .where(TutoringSession.title_source.is_distinct_from("student"))
+        .values(title=title, subject=subject, title_source="ai")
         .returning(TutoringSession)
     )
     await db.commit()

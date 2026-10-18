@@ -151,28 +151,26 @@ class ChatClient:
         await self.client.close()
 
 
-# Fully worked wire examples, kept compact so the model spends its budget on the drawing. Their
-# values are documentation ranges, never a network of hers (c194768a drew this example's
-# addresses over a page it couldn't see).
+# Fully worked wire examples, kept compact so the model spends its budget on the drawing.
 EXAMPLES = [
     {
         "intent": "network zones",
         "item": "net",
         "spec": {
             "direction": "LR",
-            "groups": [{"id": "lan", "label": "LAN", "sublabel": "198.51.100.0/26"}],
+            "groups": [{"id": "lan", "label": "<zone name>", "sublabel": "<zone cidr>"}],
             "nodes": [
                 {
                     "id": "r",
                     "label": "Router",
-                    "sublabel": "198.51.100.1",
+                    "sublabel": "<first usable IP>",
                     "icon": "router",
                     "group": "lan",
                 },
                 {
                     "id": "pc",
                     "label": "PC",
-                    "sublabel": "198.51.100.2",
+                    "sublabel": "<next usable IP>",
                     "icon": "pc",
                     "group": "lan",
                 },
@@ -236,8 +234,11 @@ references must exist. CIDRs must not overlap, and all
 addressed devices including routers/gateways must be usable hosts (not network/broadcast).
 Schema: """
     + json.dumps(drawing_schema())
-    + "\nWorked examples: "
+    + "\nWorked examples (wire shape only; values in angle brackets are placeholders): "
     + json.dumps(EXAMPLES)
+    + "\nNever copy example values: every label, sublabel, address, count and name comes from "
+    "the intent and the existing board items, never from these examples. If the intent "
+    "gives no addresses, leave sublabels out rather than inventing any."
 )
 
 EXTRACT = """You list what a requested board drawing must show, as a checklist for checking it.

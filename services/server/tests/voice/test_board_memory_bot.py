@@ -131,9 +131,13 @@ async def test_board_item_inventory_includes_adas_diagrams_and_notes():
         }
     )
     turn.board.diagrams["d"] = diagram.spec
-    note = {"kind": "board.note", "item": "n", "text": "Ada's note"}
-    turn.board_history = SimpleNamespace(board_items={"n": note})
-    assert turn._board_items() == {"d": diagram.spec.model_dump(mode="json"), "n": note}
+    # Her notes are the board context's (replayed from the history, tracked by the markup).
+    turn.board.notes["n"] = ("Ada's note", None, None)
+    turn.board_history = SimpleNamespace(board_items={})
+    assert turn._board_items() == {
+        "d": 'd: diagram; no zone [d.n box "Node"]; 0 links',
+        "n": 'n: note "Ada\'s note"',
+    }
 
 
 async def test_snapshot_revision_distinguishes_updates_on_a_coarse_platform_clock(monkeypatch):

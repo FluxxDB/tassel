@@ -76,13 +76,14 @@ class EdgeExpect(_Strict):
 class BoardExpect(_Strict):
     automata: Count | None = None
     diagrams: Count | None = None
+    # Items, or their parts as ITEM.PART (a zone, node or state).
     has: list[str] = Field(default_factory=list)
     lacks: list[str] = Field(default_factory=list)
     nodes: Count | None = None
     groups: Count | None = None
     icons: dict[str, Count] = Field(default_factory=dict)
     # Each text appears in some diagram's title, group or node label or sublabel (case, spaces
-    # and punctuation ignored), or in none of them.
+    # and punctuation ignored), or in none of them: a zone, node or diagram name included.
     labels: list[str] = Field(default_factory=list)
     lacks_labels: list[str] = Field(default_factory=list)
     # Icon counts inside the group whose label contains the key; "*" means every group.

@@ -566,6 +566,27 @@ describe('reduceBoard', () => {
       { kind: 'board.focus', item: 'wrong' },
     ).scene;
 
+    it('a partial removal (the item redrawn without a part) drops only the notes by that part', () => {
+      const withNotes = run(noted, {
+        kind: 'board.note',
+        item: 'end',
+        text: 'Accepts.',
+        near: { item: 'wrong', el: 'state:q3' },
+      }).scene;
+      const { scene, problems } = run(withNotes, {
+        kind: 'board.automaton',
+        item: 'wrong',
+        spec: {
+          ...WRONG,
+          states: WRONG.states.filter((s) => s.id !== 'q3'),
+          transitions: WRONG.transitions.filter((t) => t.from !== 'q3' && t.to !== 'q3'),
+        },
+      });
+
+      expect(problems).toEqual([]);
+      expect(scene.items.map((i) => i.id)).toEqual(['wrong', 'fix', 'why', 'aside']);
+    });
+
     it('removes one item and the notes near it', () => {
       const { scene } = run(noted, { kind: 'board.clear', item: 'wrong' });
 

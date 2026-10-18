@@ -2,7 +2,8 @@
 paper mark and view switch, never for the animation steps between them."""
 
 from tassel.beats.markup import BoardContext, MarkupStream, StageImage
-from tassel.chat.actions import rows_for, view_row
+from tassel.beats.models import DiagramSpec
+from tassel.chat.actions import named_rows, rows_for, view_row
 from tassel.voice.messages import MessageAction
 
 
@@ -17,6 +18,29 @@ def rows(text, board=None):
 
 def row(kind, side, item=None):
     return MessageAction(kind=kind, side=side, item=item, attachment_id=None)
+
+
+def test_a_removal_or_rename_of_a_part_names_the_part():
+    board = BoardContext()
+    sentences("[[dfa d start=q0 accept=q1 q0-0-q1 q1-0-q2]] Here.", board)
+    board.diagrams["net"] = DiagramSpec.model_validate(
+        {
+            "title": "Net",
+            "direction": "LR",
+            "groups": [{"id": "guest", "label": "Guest", "sublabel": "10.0.9.0/24"}],
+            "nodes": [
+                {"id": "r1", "label": "R1", "icon": "router"},
+                {"id": "ap", "label": "AP", "icon": "box", "group": "guest"},
+            ],
+            "edges": [],
+        }
+    )
+    said = sentences('Gone. [[remove net.guest]] [[remove d.q2]] [[rename net.r1 "Edge"]]', board)
+    assert [pair for s in said for pair in named_rows(s)] == [
+        (row("clear", "board", "net.guest"), "Guest 10.0.9.0/24"),
+        (row("clear", "board", "d.q2"), "q2"),
+        (row("draw", "board", "net.r1"), "Edge"),
+    ]
 
 
 def test_a_drawing_is_one_draw_row_named_by_its_item():

@@ -120,12 +120,17 @@ defined automaton MACHINE, like [[trace t yours 010 student]] (no word "ON").
 [[step TRACE]] advances that trace one symbol, like [[step t]].
 [[verdict ITEM accept|reject [expected=accept|reject] [note="TEXT"]]] gives its verdict.
 [[focus [ITEM]]] focuses an item, or all items.
+[[remove ITEM.PART ...]] takes exactly those parts off: a diagram's zone (with its nodes) or
+node, or an automaton's state, by the ids in the board outline, like [[remove net.guest]] or
+[[remove net.pc1 net.pc2]]. Remove only what she named, never the whole item for a part of it.
+[[rename ITEM.PART "NAME"]] renames a zone or node; [[rename ITEM "NAME"]] retitles the item.
 [[clear [ITEM]]] clears an item, or the board: a bare [[clear]] only when she asks for everything.
 [[undo]] takes back your last drawing turn: what it added goes, what it changed comes back.
 [[redo]] puts back what your last [[undo]] took ("put it back" after an undo);
 after a clear, use [[undo]].
-Network diagrams, flowcharts and trees change only through the brief's draw field: the
-Illustrator edits the same item. [[add]], [[edge]] and [[node]]-style tags are for automata only.
+Network diagrams, flowcharts and trees change only through the brief's draw field (the
+Illustrator edits the same item, keeping its ids), except [[remove]] and [[rename]] of parts.
+[[add]], [[edge]] and [[node]]-style tags are for automata only.
 [[stage paper|board|split]] changes the shared view with the next words.
 [[circle EL]] circles a paper mark.
 [[wash EL]] softly shades a paper mark.
@@ -183,7 +188,7 @@ The director chooses the route and action. Never override it with a consultation
 Never announce or promise what you're about to do ("let me check", "I'll look again", "one
 moment"): say it or do it.
 Never say text in square brackets: bracketed lines are the app's notes, not speech.
-Never say something is on the board unless the director's Board items list it.
+Never say something is on the board unless the director's board outline lists it.
 Never say you switched views or drew anything yourself: only the app does those, and shows them.
 For a simple follow-up such as 'why that state?' or 'what next?', use the notes without consulting.
 Never invent complex drawing tags yourself. Use the brief's validated tags.
@@ -364,10 +369,16 @@ def thinker_system_prompt(schema: dict, *, ideal_tutor: str = "") -> str:
         "machine unless requested. Her copy as yours is exempt from the target check; your "
         "own machines must be correct. "
         "Examples use m4 only because it is visible there; use only IDs in the actual turn image.\n"
-        "page describes this turn's image only: never carry a value from the notes of earlier "
-        "sessions, the conversation or an earlier turn into page or a mark target. Where a note "
-        "and the image disagree, the image wins; a past session's exercise is on this page only "
-        "when you can read it there.\n"
+        "page describes this turn's image only: never carry a value from the learner "
+        "preferences, the conversation or an earlier turn into page or a mark target. Where a "
+        "note and the image disagree, the image wins.\n"
+        "Never copy example values from this prompt: the worked examples' zone names, host "
+        "counts, addresses, labels and IDs are placeholders in angle brackets; every value in "
+        "page, say and draw comes from her words, her page, her image or the board. When she "
+        "asks to draw or design something 'from problem N', 'from my page', 'from the "
+        "assignment' or the like and no page or image of hers is in this turn (or it does not "
+        "show that problem), do not draw and do not invent one: leave draw empty and ask to "
+        "see the page.\n"
         + BOARD_RULES
         + "\nWorked guidance briefs:\n"
         + json.dumps(THINKER_EXAMPLES)
@@ -379,9 +390,9 @@ def thinker_system_prompt(schema: dict, *, ideal_tutor: str = "") -> str:
                 "diagnosis": "",
                 "plan": ["Draw the zones and connections"],
                 "say": "Each subnet has its own router and hosts.",
-                "draw": "3 zones: 10.0.0.0/26 (40 hosts), 10.0.0.64/27 (20), "
-                "10.0.0.96/28 (8); each has a router at the first usable IP "
-                "and 2 PCs with IPs wired to it; routers connect to one core switch",
+                "draw": "<N> zones from her words: <zone A> <cidr A> (<hosts A> hosts), "
+                "<zone B> <cidr B> (<hosts B>), ...; each has a router at the first usable IP "
+                "and <M> PCs with IPs wired to it; routers connect to one core switch",
                 "board": [],
                 "paper": [],
                 "confidence": 1.0,

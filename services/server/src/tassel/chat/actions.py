@@ -1,6 +1,7 @@
 """The chat's action rows: what Ada did on the stage, read from the tags of one of her sentences
 (``beats.markup.Sentence``) or from a stage event, for the app to show and click to."""
 
+import re
 from typing import Literal
 
 from tassel.beats.markup import Sentence
@@ -28,22 +29,41 @@ def view_row(view: Literal["paper", "board", "split"]) -> MessageAction:
 
 
 def rows_for(sentence: Sentence) -> list[MessageAction]:
-    """One row per thing this sentence's tags did, in order: an [[undo]] or [[redo]] is one row
-    however many items it changed, and several actions on one item are one drawing."""
-    rows: list[MessageAction] = []
+    return [row for row, _ in named_rows(sentence)]
+
+
+# [[remove ITEM.PART …]] and [[rename ITEM.PART "…"]]: rows that name the part.
+_EDIT = re.compile(r"\[\[\s*(remove|rename)\s+([\w-]+)(?:\.([\w-]+)|\s+([\w-]+))?", re.I)
+
+
+def named_rows(sentence: Sentence) -> list[tuple[MessageAction, str]]:
+    """One row per thing this sentence's tags did, in order, each with the name the app shows
+    for it ("" for its own words): an [[undo]] or [[redo]] is one row however many items it
+    changed, and several actions on one item are one drawing. A removal or rename of a part
+    is its own row, with the item as ITEM.PART and the part's name (CONTRACT?, B)."""
+    rows: list[tuple[MessageAction, str]] = []
     origins = sentence.origins or [""] * len(sentence.anchors)
+    named = sentence.named or [""] * len(sentence.anchors)
     last_step = None
-    for (_, action), origin in zip(sentence.anchors, origins, strict=False):
+    for (_, action), origin, name in zip(sentence.anchors, origins, named, strict=False):
         step = origin[2:-2].strip().lower() if origin.startswith("[[") else ""
+        edit = _EDIT.match(origin)
+        if edit and action.kind in ("board.diagram", "board.automaton"):
+            verb, item, part, loose = edit.groups()
+            kind = "clear" if verb.lower() == "remove" else "draw"
+            target = f"{item}.{part or loose}" if part or loose else item
+            rows.append((_row(kind, "board", target), name))
+            last_step = None
+            continue
         if step in ("undo", "redo"):
             if origin is not last_step:
-                rows.append(_row(step, "board"))
+                rows.append((_row(step, "board"), ""))
             last_step = origin
             continue
         last_step = None
         row = _action_row(action)
-        if row is not None and row not in rows:
-            rows.append(row)
+        if row is not None and row not in [r for r, _ in rows]:
+            rows.append((row, ""))
     return rows
 
 

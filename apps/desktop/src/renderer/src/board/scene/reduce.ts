@@ -48,7 +48,7 @@ export function reduceBoard(scene: BoardScene, action: BoardAction): BoardResult
         highlighted: [],
         current: [],
       };
-      return changed(scene, { items: put(scene.items, item), focus: item.id });
+      return changed(scene, { items: redrawn(scene.items, item), focus: item.id });
     }
 
     case 'board.diagram': {
@@ -70,7 +70,7 @@ export function reduceBoard(scene: BoardScene, action: BoardAction): BoardResult
         revealed: action.reveal === 'none' ? kept(before?.revealed ?? []) : 'all',
         highlighted: kept(before?.highlighted ?? []),
       };
-      return changed(scene, { items: put(scene.items, item), focus: item.id });
+      return changed(scene, { items: redrawn(scene.items, item), focus: item.id });
     }
 
     case 'board.addState': {
@@ -290,6 +290,18 @@ function changed(
   effects: BoardEffect[] = [],
 ): BoardResult {
   return { scene: { ...scene, ...changes, rev: scene.rev + 1 }, effects, problem };
+}
+
+/**
+ * `items` with `drawing` drawn again in place, and without the notes beside a piece it no
+ * longer has: Ada's [[remove net.guest]] redraws the diagram without the zone, and a note by it
+ * goes with it.
+ */
+function redrawn(items: BoardItem[], drawing: Drawing): BoardItem[] {
+  return put(items, drawing).filter(
+    (i) =>
+      !(i.kind === 'note' && i.near?.item === drawing.id && pieceOf(drawing, i.near.el) === null),
+  );
 }
 
 /** `items` with `item` in place of the one with its id, or at the end. */

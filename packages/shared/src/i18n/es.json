@@ -182,7 +182,9 @@
           "image": "Cambió a tu imagen"
         },
         "undo": "Deshizo eso",
-        "redo": "Rehízo eso"
+        "redo": "Rehízo eso",
+        "removed": "Quitó {name}",
+        "renamed": "Cambió el nombre a {name}"
       },
       "show": {
         "board": "Mostrar la pizarra",

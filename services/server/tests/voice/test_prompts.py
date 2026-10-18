@@ -130,4 +130,4 @@ def test_thinker_page_and_marks_come_from_this_turns_image_only():
 
     prompt = thinker_system_prompt(GuidanceBrief.model_json_schema())
     assert "page describes this turn's image only" in prompt
-    assert "earlier sessions" in prompt and "the image wins" in prompt
+    assert "learner preferences" in prompt and "the image wins" in prompt
