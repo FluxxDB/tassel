@@ -68,7 +68,7 @@ from tassel.voice.director import (
     make_director,
     view_request,
 )
-from tassel.voice.erase import CONFIRM, pick_rename
+from tassel.voice.erase import CONFIRM, ERASING, pick_rename
 from tassel.voice.events import ServerEvents, VadForwarder
 from tassel.voice.fakes.llm import FakeLLMService
 from tassel.voice.fakes.scenario import load_scenario, scripted_turn
@@ -476,9 +476,13 @@ class _TurnContext(FrameProcessor):
                     if self.coordinator is not None and (
                         (self.coordinator.pending_removal and CONFIRM.match(student_text))
                         or pick_rename(student_text, self.board)
+                        or (
+                            ERASING.search(student_text)
+                            and (self.board.specs or self.board.diagrams)
+                        )
                     ):
                         # Her yes to "Should I go ahead?" carries out the removal she asked for;
-                        # "rename the guest zone to …" renames it. Both are board edits.
+                        # "rename the guest zone to …" and "clear everything" are board edits too.
                         self.decision = Decision(
                             focus="board",
                             needs_vision=False,
