@@ -104,6 +104,9 @@ class VoiceSettings(BaseSettings):
     # The longest a thinker turn waits for its brief before Ada says she couldn't finish
     # (paper-marks turn 3 waited 90 s in silence).
     thinker_reply_timeout_s: float = Field(30.0, gt=0)
+    # The ladder's next step thought ahead while Ada speaks (voice/prefetch.py): one extra
+    # thinker call per ladder step, unused when she says something other than "no".
+    ladder_prefetch: bool = True
 
     @property
     def two_tier_enabled(self) -> bool:
