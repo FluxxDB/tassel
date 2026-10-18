@@ -211,6 +211,13 @@ class VoiceRegistry:
                 )
             )
 
+    async def finish(self, learner_id: UUID, session_id: UUID) -> None:
+        """Explicitly leaving a screen, unlike a transient transport reconnect."""
+        async with self._lock(learner_id):
+            bot = self.live_bot(learner_id)
+            if bot and bot.session_id == session_id:
+                await self._stop(bot)
+
     async def shutdown(self) -> None:
         self._closing = True
         # Wait for in-flight offers/patches before closing their connections.

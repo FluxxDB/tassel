@@ -413,5 +413,23 @@
     "playPreview": "Escuchar {language}",
     "stopPreview": "Detener muestra {language}",
     "previewUnavailable": "Muestra no disponible. No se generó audio."
+  },
+  "memory": {
+    "settingsTitle": "Ajustes del tutor",
+    "settingsDescription": "Personaliza tu tutor y lo que recuerda.",
+    "appearance": "Apariencia y voz",
+    "title": "Memoria",
+    "enabled": "Recordar entre sesiones",
+    "description": "Recuerda objetivos, preferencias y temas en curso. Las notas se actualizan una vez al salir de una sesión. Desactivar la memoria deja de usar y actualizar las notas, pero las conserva. Borrar memoria elimina las notas.",
+    "notes": "Lo que recuerda tu tutor",
+    "empty": "Aquí aparecerán notas útiles de tus sesiones. También puedes añadir las tuyas.",
+    "save": "Guardar cambios",
+    "clear": "Borrar memoria",
+    "reload": "Recargar notas",
+    "loading": "Cargando memoria…",
+    "loadError": "No se pudo cargar la memoria. Inténtalo de nuevo.",
+    "saveError": "No se pudo guardar. Tus cambios siguen aquí.",
+    "conflict": "La memoria cambió. Copia los cambios que quieras conservar y recarga las notas.",
+    "saved": "Guardado"
   }
 }

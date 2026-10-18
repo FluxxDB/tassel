@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../components/Button';
+import { SegmentedControl } from '../components/SegmentedControl';
 import { Sheet } from '../components/Sheet';
 import { Avatar } from './Avatar';
 import {
@@ -21,6 +22,7 @@ import {
   VOICE_LANGUAGES,
   VOICES,
 } from './catalog';
+import { MemoryPanel } from './MemoryPanel';
 import { useAvatar } from './store';
 import { type PreviewState, publicPreviewUrl, VoicePreviewPlayer } from './voice-preview';
 import './avatar.css';
@@ -33,16 +35,32 @@ export function AvatarCustomizer({
   onOpenChange(open: boolean): void;
 }) {
   const { t } = useTranslation();
+  const [section, setSection] = useState<'appearance' | 'memory'>('appearance');
   return (
     <Sheet
       open={open}
       onOpenChange={onOpenChange}
-      title={t('avatar.title')}
-      description={t('avatar.description')}
+      title={t('memory.settingsTitle')}
+      description={t('memory.settingsDescription')}
       className="avatar-customizer isolate max-w-[860px]"
     >
       {/* Sheet owns unmounting after its exit animation; keep the editor intact until then. */}
-      <Editor open={open} onClose={() => onOpenChange(false)} />
+      <SegmentedControl<'appearance' | 'memory'>
+        label={t('memory.settingsTitle')}
+        value={section}
+        onChange={(next) => {
+          if (open) setSection(next);
+        }}
+        options={[
+          { value: 'appearance', label: t('memory.appearance') },
+          { value: 'memory', label: t('memory.title') },
+        ]}
+      />
+      {section === 'appearance' ? (
+        <Editor open={open} onClose={() => onOpenChange(false)} />
+      ) : (
+        <MemoryPanel open={open} />
+      )}
     </Sheet>
   );
 }

@@ -104,10 +104,10 @@ export function LibraryScreen({
           size="sm"
           className="ml-auto"
           onClick={() => setCustomizing(true)}
-          aria-label={t('avatar.open')}
+          aria-label={t('memory.settingsTitle')}
         >
           <Avatar profile={avatar} className="h-8 w-8 rounded-full bg-blush" />
-          <span className="hidden lg:inline">{t('avatar.open')}</span>
+          <span className="hidden lg:inline">{t('memory.settingsTitle')}</span>
         </Button>
         <Button size="sm" onClick={newSession}>
           <Plus className="-ml-1 size-[18px]" />

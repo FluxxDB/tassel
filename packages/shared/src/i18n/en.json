@@ -413,5 +413,23 @@
     "playPreview": "Preview {language}",
     "stopPreview": "Stop preview {language}",
     "previewUnavailable": "Preview unavailable. No audio was generated."
+  },
+  "memory": {
+    "settingsTitle": "Tutor settings",
+    "settingsDescription": "Personalize your tutor and what they remember.",
+    "appearance": "Appearance & voice",
+    "title": "Memory",
+    "enabled": "Remember across sessions",
+    "description": "Remember learning goals, preferences, and ongoing topics. Notes update once when you leave a session. Turning memory off stops using and updating these notes, but keeps them saved. Clear memory deletes the notes.",
+    "notes": "What your tutor remembers",
+    "empty": "Useful notes from your sessions will appear here. You can also add your own.",
+    "save": "Save changes",
+    "clear": "Clear memory",
+    "reload": "Reload notes",
+    "loading": "Loading memory…",
+    "loadError": "Could not load memory. Please try again.",
+    "saveError": "Could not save memory. Your changes are still here.",
+    "conflict": "Memory changed since you opened it. Copy any edits you want to keep, then reload notes.",
+    "saved": "Saved"
   }
 }
