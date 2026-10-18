@@ -46,8 +46,11 @@ export interface Obstructions {
   captions: Rect | null;
 }
 
-/** How the fit went: clear of everything, over the captions band, or the plain fit. */
-export type FitStage = 'clear' | 'no-captions' | 'plain';
+/**
+ * How the fit went: clear of everything; over the captions band; the top of the board at the
+ * minimum zoom, clear of the tiles, its bottom running off the panel; or the plain fit.
+ */
+export type FitStage = 'clear' | 'no-captions' | 'top' | 'plain';
 
 export interface BoardFit {
   zoom: number;
@@ -90,7 +93,10 @@ export function boardObstructions({ panel, main, captions, tiles }: StageGeometr
 
 /**
  * Fits `content` (board px) into the stage's board panel: clear of her tile, the TopLine and the
- * captions band, then over the band, then plain. Null while the panel is too small to fit in.
+ * captions band, then over the band, then its top at the minimum zoom with the bottom running
+ * off (a tall board: Ada's automaton with her trace card under it keeps the automaton whole and
+ * clear of her tile, and gives up the card's last rows instead), then plain. Null while the panel
+ * is too small to fit in.
  */
 export function fitBoard(content: Rect, stage: StageGeometry): BoardFit | null {
   const { panel } = stage;
@@ -107,6 +113,8 @@ export function fitBoard(content: Rect, stage: StageGeometry): BoardFit | null {
     const best = besideTiles(content, panel, obstructions, attempt.band);
     if (best && best.zoom >= FIT.minZoom) return { ...best, stage: attempt.stage };
   }
+  const top = topBesideTiles(content, panel, obstructions);
+  if (top) return { ...top, stage: 'top' };
   return { ...plainFit(content, panel), stage: 'plain' };
 }
 
@@ -139,8 +147,46 @@ function besideTiles(
   { tiles, topLine }: Obstructions,
   band: Rect | null,
 ): Omit<BoardFit, 'stage'> | null {
-  const top = topLine.h;
-  const bottom = band ? band.y : panel.h;
+  let best: { fit: Omit<BoardFit, 'stage'>; area: number } | null = null;
+  for (const region of freeRegions(panel, tiles, topLine.h, band ? band.y : panel.h)) {
+    const fit = fitIn(content, region);
+    const area = region.w * region.h;
+    if (
+      fit &&
+      (!best || fit.zoom > best.fit.zoom || (fit.zoom === best.fit.zoom && area > best.area))
+    ) {
+      best = { fit, area };
+    }
+  }
+  return best?.fit ?? null;
+}
+
+/**
+ * The content's top at the minimum zoom in the tallest region free of the tiles and under the
+ * TopLine that takes its width (with FIT.pad around it), centered there and FIT.pad below the
+ * region's top, its bottom running off; null when no region takes its width.
+ */
+function topBesideTiles(
+  content: Rect,
+  panel: Rect,
+  { tiles, topLine }: Obstructions,
+): Omit<BoardFit, 'stage'> | null {
+  const zoom = FIT.minZoom;
+  const width = content.w * zoom + 2 * FIT.pad;
+  let best: Rect | null = null;
+  for (const region of freeRegions(panel, tiles, topLine.h, panel.h)) {
+    if (region.w < width) continue;
+    if (!best || region.h > best.h || (region.h === best.h && region.w > best.w)) best = region;
+  }
+  if (!best) return null;
+  return { zoom, x: best.x + (best.w - content.w * zoom) / 2, y: best.y + FIT.pad };
+}
+
+/**
+ * Every rectangle spanning the panel's and the tiles' edges between `top` and `bottom` that no
+ * tile overlaps.
+ */
+function freeRegions(panel: Rect, tiles: Rect[], top: number, bottom: number): Rect[] {
   const within = (n: number, lo: number, hi: number) => Math.min(Math.max(n, lo), hi);
   const xs = [...new Set([0, panel.w, ...tiles.flatMap((t) => [t.x, t.x + t.w])])]
     .map((x) => within(x, 0, panel.w))
@@ -148,26 +194,20 @@ function besideTiles(
   const ys = [...new Set([top, bottom, ...tiles.flatMap((t) => [t.y, t.y + t.h])])]
     .map((y) => within(y, top, bottom))
     .sort((a, b) => a - b);
-  let best: { fit: Omit<BoardFit, 'stage'>; area: number } | null = null;
+  const regions: Rect[] = [];
   for (const [i, x1] of xs.entries()) {
     for (const x2 of xs.slice(i + 1)) {
       for (const [j, y1] of ys.entries()) {
         for (const y2 of ys.slice(j + 1)) {
           const region = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
-          if (region.w <= 0 || region.h <= 0 || tiles.some((t) => overlaps(region, t))) continue;
-          const fit = fitIn(content, region);
-          const area = region.w * region.h;
-          if (
-            fit &&
-            (!best || fit.zoom > best.fit.zoom || (fit.zoom === best.fit.zoom && area > best.area))
-          ) {
-            best = { fit, area };
+          if (region.w > 0 && region.h > 0 && !tiles.some((t) => overlaps(region, t))) {
+            regions.push(region);
           }
         }
       }
     }
   }
-  return best?.fit ?? null;
+  return regions;
 }
 
 function overlaps(a: Rect, b: Rect): boolean {

@@ -91,7 +91,12 @@ describe('focusBox', () => {
   it('frames the automaton, its notes and the tape while a trace runs, never the card alone', () => {
     const board = scene(
       { kind: 'board.automaton', item: 'fix', spec: CORRECT },
-      { kind: 'board.note', item: 'why', text: 'qd is the dead state.', near: { item: 'fix', el: 'state:qd' } },
+      {
+        kind: 'board.note',
+        item: 'why',
+        text: 'qd is the dead state.',
+        near: { item: 'fix', el: 'state:qd' },
+      },
       { kind: 'board.trace', item: 'run', spec: CORRECT, input: '0100', on: 'fix' },
       { kind: 'board.traceStep', item: 'run' },
     );

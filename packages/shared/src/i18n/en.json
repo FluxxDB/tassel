@@ -341,7 +341,9 @@
       "label": "Board camera controls",
       "in": "Zoom in",
       "out": "Zoom out",
-      "fit": "Fit"
+      "fit": "Fit",
+      "download": "Download board",
+      "downloadEmpty": "Nothing on the board to download yet"
     },
     "icon": {
       "router": "router",

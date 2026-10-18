@@ -19,6 +19,7 @@ import dfaOpening from './scripts/dfa-opening.json';
 import diagramDemo from './scripts/diagram-demo.json';
 import imageDemo from './scripts/image-demo.json';
 import marksDemo from './scripts/marks-demo.json';
+import traceDemo from './scripts/trace-demo.json';
 import type { FakeScript, TutorClient } from './types';
 
 /**
@@ -36,6 +37,8 @@ export const SCRIPTS: Record<string, AuthoredScript | FakeScript> = {
   'board-snapshot': boardSnapshot as FakeScript,
   // The student's image on the stage, marked up as her paper is (the chat sidebar).
   'image-demo': imageDemo as AuthoredScript,
+  // Ada draws the reference DFA, then steps 0100 through it on a trace card under it.
+  'trace-demo': traceDemo as FakeScript,
 };
 
 export interface LiveDeps {

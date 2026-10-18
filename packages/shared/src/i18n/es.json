@@ -341,7 +341,9 @@
       "label": "Board camera controls",
       "in": "Zoom in",
       "out": "Zoom out",
-      "fit": "Fit"
+      "fit": "Fit",
+      "download": "Descargar la pizarra",
+      "downloadEmpty": "Aún no hay nada en la pizarra para descargar"
     },
     "icon": {
       "router": "router",

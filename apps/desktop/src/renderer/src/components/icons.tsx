@@ -176,3 +176,6 @@ export const ImageIcon = icon(
 
 /** Undo; mirrored, it's redo. */
 export const Undo = icon('Undo', <path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />);
+
+/** An arrow down onto a tray: a file saved to the desk. */
+export const Download = icon('Download', <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />);

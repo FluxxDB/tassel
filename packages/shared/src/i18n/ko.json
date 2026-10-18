@@ -341,7 +341,9 @@
       "label": "Board camera controls",
       "in": "Zoom in",
       "out": "Zoom out",
-      "fit": "Fit"
+      "fit": "Fit",
+      "download": "보드 다운로드",
+      "downloadEmpty": "아직 다운로드할 내용이 보드에 없어요"
     },
     "icon": {
       "router": "라우터",

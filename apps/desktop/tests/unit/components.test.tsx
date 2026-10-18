@@ -13,6 +13,7 @@ import {
   Camera,
   Captions,
   Close,
+  Download,
   Globe,
   Mic,
   MicOff,
@@ -345,6 +346,7 @@ describe('icons', () => {
     Retry,
     Close,
     Pin,
+    Download,
   };
 
   it.each(Object.entries(ICONS))(
