@@ -16,12 +16,15 @@ export interface DisplayMediaOptions {
   requireFake: boolean;
   getSources: typeof desktopCapturer.getSources;
   isTrusted(url: string): boolean;
+  screenGrantActive?: boolean;
+  takeScreenGrant?(request: DisplayMediaRequestHandlerHandlerRequest): Promise<Streams | null>;
 }
 
 export function registerDisplayMedia(session: Session, opts: DisplayMediaOptions): void {
   // macOS 15+ has the system picker (experimental in Electron). When it exists the handler is
   // never invoked, so neither the self fake nor requireFake may turn it on.
   const systemPicker =
+    !opts.screenGrantActive &&
     opts.fakeDisplay === null &&
     !opts.requireFake &&
     opts.platform === 'darwin' &&
@@ -51,6 +54,7 @@ async function answer(
 ): Promise<Streams | null> {
   // A frame grant captures its whole webContents, so only the app's own pages get one.
   if (!opts.isTrusted(request.securityOrigin)) return null;
+  if (opts.screenGrantActive) return opts.takeScreenGrant?.(request) ?? null;
   // E2E: the tab holding the requesting frame, with no picker and no OS permission.
   if (opts.fakeDisplay === 'self') return request.frame ? { video: request.frame } : null;
   if (opts.requireFake) return null;

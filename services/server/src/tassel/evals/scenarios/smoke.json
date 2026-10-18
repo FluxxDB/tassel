@@ -1,0 +1,27 @@
+{
+  "name": "smoke",
+  "title": "Smoke test: a view request, a drawing, a reply",
+  "description": "Three turns that pass on fake providers (--fake: the dfa-board script) and cost little live.",
+  "default": false,
+  "fake_script": "dfa-board",
+  "stage": { "view": "board" },
+  "turns": [
+    {
+      "student": "Back to camera, please.",
+      "expect": { "route": "view", "stage": [{ "view": "paper", "pinned": true }], "tags": [] }
+    },
+    {
+      "student": "Can you show me the answer?",
+      "expect": {
+        "route": "thinker",
+        "action": "draw_board",
+        "tags": ["board.automaton"],
+        "board": { "automata": 1 }
+      }
+    },
+    {
+      "student": "Thanks, that helps.",
+      "expect": { "route": "talker", "tags": [], "board": { "unchanged": true } }
+    }
+  ]
+}

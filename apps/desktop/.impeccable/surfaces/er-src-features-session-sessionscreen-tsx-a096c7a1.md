@@ -2,7 +2,7 @@
 version: 1
 slug: "er-src-features-session-sessionscreen-tsx-a096c7a1"
 primary_target: "apps/desktop/src/renderer/src/features/session/SessionScreen.tsx"
-related_targets: ["apps/desktop/src/renderer/src/features/session/Stage.tsx","apps/desktop/src/renderer/src/features/session/Dock.tsx","apps/desktop/src/renderer/src/features/session/TutorTile.tsx","apps/desktop/src/renderer/src/features/session/Captions.tsx","apps/desktop/src/renderer/src/features/session/TitleStrip.tsx"]
+related_targets: ["apps/desktop/src/renderer/src/features/session/Stage.tsx","apps/desktop/src/renderer/src/features/session/Dock.tsx","apps/desktop/src/renderer/src/features/session/TutorTile.tsx","apps/desktop/src/renderer/src/features/session/Captions.tsx","apps/desktop/src/renderer/src/features/session/TitleStrip.tsx","apps/desktop/src/renderer/src/features/chat/ChatSidebar.tsx"]
 ---
 
 # Session screen: "One stage, her work first"
@@ -40,3 +40,22 @@ FORM: One stage, her work first. It was the second of three structures dealt in 
 - seed: 73b7d851c29a5f41
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+
+## Extension: the chat sidebar (2026-10-18, owner's decision)
+
+The owner chose a right sidebar for the conversation, which overrides the THESIS's refusal of "a right rail" for this one element. Everything else in the contract stands: the rail is subordinate to her work, and the stage keeps its world. Extension of an established surface: no concept round, code-led.
+
+### Direction contract (sidebar)
+
+THESIS: A transcript with hands, not a messenger. The rail is the session's written record beside her work: Ada speaks unboxed, the student's lines are the only boxes, and what Ada did on the stage reads as small pills that take you there. It refuses chat-app chrome: avatars, bubbles on both sides, timestamps on every line, typing dots, a coloured header.
+
+OWN-WORLD: The window's bone ground continues into the rail; one hairline on its left edge, no shadow. Ada's label is mono uppercase iris-ink, her text ink 14/21 on bone. Student lines are paper cards (12px radius, hairline), right-aligned; spoken ones italic behind a 12px mic glyph. Action rows are hairline pills on paper with a 14px line icon and an optional mono item tag. The composer is one paper card (16px radius, hairline) at the rail's foot: chips, the textarea, then a row of 32px round icon controls, the voice pill and the ink send circle.
+
+STORY: She glances right and sees what was said and done, in order, and can type when talking won't do: a photo of part b, a question while Ada speaks. Clicking "Drew on the board" brings the board back.
+
+FIRST VIEWPORT: 1440x900, a fresh session, rail open: title strip across the window; the stage, captions and dock re-centred in the 1080px left of the rail; the rail 360 wide from under the strip to the window's bottom: a 44px header (CONVERSATION label, close), the log, and the composer card 12px from the edges. Under 1120 window width the rail lies over the stage's right side instead, and the tiles, captions and dock move clear of it.
+
+FORM: Extension. Signature interaction: Ada's line grows in step with her voice and settles; cut off, it ends with a quiet mono CUT OFF. The rail opens and closes in 200ms (exponential ease-out), the stage re-fitting once; instant under reduced motion.
+- seed: none (extension of an established surface)
+
+FINISH: an impeccable-finish-reviewer pass on the E2E screenshots (open and closed at 1440x900 and 1024x680, a full conversation), with its material findings fixed.

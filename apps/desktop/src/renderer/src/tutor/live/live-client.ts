@@ -11,7 +11,7 @@ import {
 import type { Lang } from '@tassel/shared/i18n';
 import { type ClientEvent, type OfferRequestData, voiceOfferPath } from '@tassel/shared/voice';
 import { systemClock } from '../clock';
-import type { Clock, TutorClient, TutorEvent, VoiceControls } from '../types';
+import type { Clock, OutgoingMessage, TutorClient, TutorEvent, VoiceControls } from '../types';
 import { asTransportMediaManager, TasselMediaManager } from './media-manager';
 import type { Mic, MicOptions } from './mic';
 import { initialMapState, type MapState, mapRtvi, type RtviInput } from './rtvi-map';
@@ -64,6 +64,8 @@ export class LiveTutorClient implements TutorClient {
   private retries = 0;
   private successes = 0;
   private talking = false;
+  private screenEpoch = 0;
+  private responseBlocked = false;
   constructor(private readonly deps: LiveClientDeps) {
     this.clock = deps.clock ?? systemClock;
     this.backoff = deps.backoffMs ?? [1000, 2000, 4000];
@@ -77,6 +79,9 @@ export class LiveTutorClient implements TutorClient {
       },
       setSensitivity(level) {
         self.send({ kind: 'sensitivity', level });
+      },
+      reportStageState(state) {
+        self.send({ kind: 'stage-state', ...state });
       },
       reportClientMetrics(metrics) {
         self.send({ kind: 'client-metrics', ...metrics });
@@ -112,6 +117,14 @@ export class LiveTutorClient implements TutorClient {
       this.listeners.delete(listener);
     };
   }
+  interrupt(epoch: number) {
+    if (epoch < this.screenEpoch) return;
+    this.screenEpoch = epoch;
+    this.responseBlocked = true;
+    this.state = initialMapState(this.state.lang);
+    this.deps.audio.interrupt(true);
+    this.emit({ type: 'state', state: 'listening' });
+  }
   sendText(text: string) {
     this.emit({ type: 'caption', speaker: 'student', text, final: true, lang: this.state.lang });
     const connection = this.current;
@@ -119,6 +132,15 @@ export class LiveTutorClient implements TutorClient {
     void connection.client
       .sendText(text, { run_immediately: true, audio_response: true })
       .catch(() => this.failed(connection));
+  }
+  sendMessage({ clientId, text, attachmentIds, voice }: OutgoingMessage) {
+    return this.send({
+      kind: 'student-message',
+      client_id: clientId,
+      text,
+      attachment_ids: attachmentIds,
+      voice,
+    });
   }
   private async restart() {
     if (this.sessionId === null) return;
@@ -266,6 +288,39 @@ export class LiveTutorClient implements TutorClient {
     });
   }
   private map(input: RtviInput) {
+    // Normal voice interruption is released by the next bot response. Screen reset stays
+    // latched until the matching screen-turn barrier below has arrived.
+    if (input.kind === 'bot-started' && !this.responseBlocked) this.deps.audio.interrupt(false);
+    if (input.kind === 'server' && input.data && typeof input.data === 'object') {
+      const envelope = input.data as {
+        tassel?: { kind?: string; epoch?: number };
+        screen_epoch?: number;
+      };
+      const event = envelope.tassel;
+      if (event?.kind === 'screen-turn') {
+        if (event.epoch === this.screenEpoch) {
+          this.responseBlocked = false;
+          this.state = initialMapState(this.state.lang);
+          this.deps.audio.interrupt(false);
+        }
+        return;
+      }
+      if (event?.kind === 'screen-marks') {
+        if (!this.responseBlocked && event.epoch === this.screenEpoch)
+          this.emit({ type: 'screen-marks', data: event });
+        return;
+      }
+      if (envelope.screen_epoch !== undefined && envelope.screen_epoch < this.screenEpoch) return;
+    }
+    if (
+      this.responseBlocked &&
+      (input.kind === 'bot-started' || input.kind === 'bot-stopped' || input.kind === 'bot-output')
+    )
+      return;
+    if (this.responseBlocked && input.kind === 'server') {
+      const data = input.data as { tassel?: { kind?: string } };
+      if (['beat', 'actions', 'stage', 'stage-hint'].includes(data?.tassel?.kind ?? '')) return;
+    }
     const result = mapRtvi(this.state, input);
     this.state = result.state;
     for (const event of result.events) this.emit(event);
@@ -310,10 +365,12 @@ export class LiveTutorClient implements TutorClient {
       .catch(() => {});
     return connection.closing;
   }
-  private send(event: ClientEvent) {
+  /** Whether it went: false without a live connection. */
+  private send(event: ClientEvent): boolean {
     const connection = this.current;
-    if (connection?.client && !connection.retired)
-      connection.client.sendClientMessage('tassel', event);
+    if (!connection?.client || connection.retired) return false;
+    connection.client.sendClientMessage('tassel', event);
+    return true;
   }
   private emit(event: TutorEvent) {
     for (const listener of this.listeners) listener(event);

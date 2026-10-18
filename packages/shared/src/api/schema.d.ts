@@ -41,6 +41,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/learner/memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Memory */
+        get: operations["get_memory_v1_learner_memory_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Memory */
+        patch: operations["patch_memory_v1_learner_memory_patch"];
+        trace?: never;
+    };
+    "/v1/learner/personalization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Personalization */
+        get: operations["get_personalization_v1_learner_personalization_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Personalization */
+        patch: operations["patch_personalization_v1_learner_personalization_patch"];
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -89,13 +125,90 @@ export interface paths {
         post?: never;
         /**
          * Delete Session
-         * @description Deletes the session's frame images first, then the session, whose frame rows cascade.
+         * @description Deletes the session's frame and chat images first, then the session, whose frame, chat
+         *     and attachment rows cascade.
          */
         delete: operations["delete_session_v1_sessions__session_id__delete"];
         options?: never;
         head?: never;
         /** Patch Session */
         patch: operations["patch_session_v1_sessions__session_id__patch"];
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Attachment
+         * @description A JPEG or PNG the student sends (8 MiB at most), or ``frame_id``: her latest paper frame
+         *     ("Snap my paper"). Stored downscaled to 2048 px on the long side.
+         */
+        post: operations["upload_attachment_v1_sessions__session_id__attachments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/attachments/{attachment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Attachment */
+        get: operations["get_attachment_v1_sessions__session_id__attachments__attachment_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/attachments/{attachment_id}/elements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Attachment Elements
+         * @description The image's numbered Set-of-Mark boxes in its own pixels: the markers Ada's marks on it
+         *     name (``image.mark`` with ``el: mN``), the same ones she was shown.
+         */
+        get: operations["get_attachment_elements_v1_sessions__session_id__attachments__attachment_id__elements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/board/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Snapshot */
+        post: operations["upload_snapshot_v1_sessions__session_id__board_snapshot_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/sessions/{session_id}/frames": {
@@ -159,6 +272,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sessions/{session_id}/memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finish Memory */
+        post: operations["finish_memory_v1_sessions__session_id__memory_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Messages
+         * @description The session's saved conversation, oldest first.
+         */
+        get: operations["list_messages_v1_sessions__session_id__messages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/screen/control": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Control */
+        post: operations["control_v1_sessions__session_id__screen_control_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/screen/frame": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload */
+        post: operations["upload_v1_sessions__session_id__screen_frame_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/vision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Snapshot */
+        get: operations["snapshot_v1_sessions__session_id__vision_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sessions/{session_id}/vision/board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Board */
+        post: operations["board_v1_sessions__session_id__vision_board_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sessions/{session_id}/voice/offer": {
         parameters: {
             query?: never;
@@ -198,6 +416,63 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AttachmentOut
+         * @description An uploaded image: its id for ``student-message`` and its stored size in pixels.
+         */
+        AttachmentOut: {
+            /** H */
+            h: number;
+            /** Id */
+            id: string;
+            /** W */
+            w: number;
+        };
+        /**
+         * Blame
+         * @description The first step of the counterexample where her machine leaves the right track (P4-R10).
+         */
+        Blame: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "transition" | "missing_transition" | "accept_flag";
+            /** Prefix */
+            prefix: string;
+            /** State */
+            state: string;
+            /** Step */
+            step: number;
+            /** Symbol */
+            symbol: string | null;
+            /** Target */
+            target: string | null;
+        };
+        /** BoardEditIn */
+        BoardEditIn: {
+            /** Image Png */
+            image_png: string | null;
+            reading: components["schemas"]["DfaReading"];
+        };
+        /**
+         * BoardSnapshotUpload
+         * @description The board as a base64 PNG, or `empty`: nothing to show, so Ada's turn needn't wait.
+         */
+        BoardSnapshotUpload: {
+            /**
+             * Empty
+             * @default false
+             */
+            empty: boolean;
+            /** Image Png */
+            image_png?: string | null;
+        };
+        /** Body_upload_attachment_v1_sessions__session_id__attachments_post */
+        Body_upload_attachment_v1_sessions__session_id__attachments_post: {
+            /** Image */
+            image?: string | null;
+        };
         /** Body_upload_frame_v1_sessions__session_id__frames_post */
         Body_upload_frame_v1_sessions__session_id__frames_post: {
             /**
@@ -231,6 +506,52 @@ export interface components {
             /** Rows */
             rows: number;
         };
+        /** ChatHistoryOut */
+        ChatHistoryOut: {
+            /** Messages */
+            messages: components["schemas"]["ChatMessageOut"][];
+        };
+        /**
+         * ChatMessageOut
+         * @description A saved line of the conversation, as the ``message`` event carried it when final.
+         */
+        ChatMessageOut: {
+            action: components["schemas"]["MessageAction"] | null;
+            /** Attachments */
+            attachments: components["schemas"]["MessageAttachment"][];
+            /** Client Id */
+            client_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Interrupted */
+            interrupted: boolean;
+            /** Role */
+            role: string;
+            /** Source */
+            source: string | null;
+            /** Text */
+            text: string;
+        };
+        /** Counterexample */
+        Counterexample: {
+            blame: components["schemas"]["Blame"] | null;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "false_accept" | "false_reject";
+            /** Input */
+            input: string;
+            /** Reference Trace */
+            reference_trace: string[];
+            /** Student Trace */
+            student_trace: string[][];
+        };
         /**
          * DetectorInfo
          * @description What the detector counted when it chose the frame, and which rules it ran.
@@ -254,6 +575,82 @@ export interface components {
             device_id: string;
             /** Token */
             token: string;
+        };
+        /** DfaReading */
+        DfaReading: {
+            /** Alphabet */
+            alphabet: string[];
+            /** Frame Id */
+            frame_id: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "dfa" | "nfa";
+            language: components["schemas"]["LanguageGuess"] | null;
+            page: components["schemas"]["PageGeometry"] | null;
+            /** Problem */
+            problem: string | null;
+            /** Problem Kind */
+            problem_kind: ("dfa" | "nfa") | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "paper" | "board" | "fixture";
+            /** States */
+            states: components["schemas"]["ReadState"][];
+            /** Transitions */
+            transitions: components["schemas"]["ReadTransition"][];
+            /** Uncertain */
+            uncertain: string[];
+            /**
+             * Version
+             * @default 1
+             * @constant
+             */
+            version: 1;
+        };
+        /** DfaVerdict */
+        DfaVerdict: {
+            /** Computed */
+            computed: boolean;
+            counterexample: components["schemas"]["Counterexample"] | null;
+            /** Fixes */
+            fixes: components["schemas"]["Fix"][];
+            /** Issues */
+            issues: components["schemas"]["Issue"][];
+            reference: components["schemas"]["ReferenceInfo"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "correct" | "wrong" | "unsure" | "unknown" | "unreadable";
+        };
+        /** ElementBoxOut */
+        ElementBoxOut: {
+            /** H */
+            h: number;
+            /** W */
+            w: number;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /** Fix */
+        Fix: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "flip_accept" | "redirect" | "add_transition" | "remove_transition";
+            /** State */
+            state: string;
+            /** Symbol */
+            symbol: string | null;
+            /** Target */
+            target: string | null;
         };
         /** FrameList */
         FrameList: {
@@ -286,7 +683,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "deskview-helper" | "window-capture" | "fake-clip" | "screen";
+            source: "deskview-helper" | "window-capture" | "fake-clip" | "screen" | "webcam";
             /**
              * Trigger
              * @default detector
@@ -339,7 +736,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "deskview-helper" | "window-capture" | "fake-clip" | "screen";
+            source: "deskview-helper" | "window-capture" | "fake-clip" | "screen" | "webcam";
             /**
              * Trigger
              * @enum {string}
@@ -347,6 +744,28 @@ export interface components {
             trigger: "detector" | "turn";
             /** Width */
             width: number;
+        };
+        /** GateDebug */
+        GateDebug: {
+            /** Ms */
+            ms: number;
+            /** Probs */
+            probs: {
+                [key: string]: number;
+            };
+            /** Provider */
+            provider: string;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "frame" | "speech" | "stall" | "board";
+            /**
+             * Stage
+             * @default gate
+             * @constant
+             */
+            stage: "gate";
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -393,6 +812,71 @@ export interface components {
             /** Ice Servers */
             ice_servers: components["schemas"]["IceServerOut"][];
         };
+        /** ImageElementOut */
+        ImageElementOut: {
+            box: components["schemas"]["ElementBoxOut"];
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "circle" | "label";
+        };
+        /**
+         * ImageElementsOut
+         * @description An image's Set-of-Mark: the beats ``DetectedElements`` shape, in the image's pixels.
+         */
+        ImageElementsOut: {
+            /** Height */
+            height: number;
+            /** Items */
+            items: components["schemas"]["ImageElementOut"][];
+            /** Width */
+            width: number;
+        };
+        /** Issue */
+        Issue: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "implicit_dead_state" | "nondeterminism" | "epsilon_in_dfa" | "missing_start" | "multiple_starts" | "no_accept" | "unreachable" | "unknown_symbol" | "unlabeled_transition" | "dangling_transition";
+            /** States */
+            states: string[];
+            /** Symbols */
+            symbols: string[];
+        };
+        /**
+         * LanguageGuess
+         * @description The language the problem statement asks for, as a regex in Task 4's dialect.
+         */
+        LanguageGuess: {
+            /** Confidence */
+            confidence: number;
+            /** Regex */
+            regex: string | null;
+        };
+        /**
+         * MachineSpec
+         * @description A complete DFA: every state has a move on every symbol.
+         */
+        MachineSpec: {
+            /** Accepts */
+            accepts: string[];
+            /** Alphabet */
+            alphabet: string[];
+            /** Start */
+            start: string;
+            /** States */
+            states: string[];
+            /** Transitions */
+            transitions: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
+        };
         /** MeOut */
         MeOut: {
             /**
@@ -405,6 +889,73 @@ export interface components {
              * @enum {string}
              */
             ui_language: "en" | "es" | "ko";
+        };
+        /** MemoryOut */
+        MemoryOut: {
+            /** Content */
+            content: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Revision */
+            revision: number;
+        };
+        /** MemoryPatch */
+        MemoryPatch: {
+            /** Content */
+            content: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Revision */
+            revision: number;
+        };
+        /**
+         * MessageAction
+         * @description What Ada did on the stage, shown as a row in the chat that moves the stage there.
+         *
+         *     ``item`` names what she drew, cleared or marked (a board item or a marker id) when there is
+         *     one; ``attachment_id`` is the image she marked when ``side`` is ``image``.
+         */
+        MessageAction: {
+            /** Attachment Id */
+            attachment_id: string | null;
+            /** Item */
+            item: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "draw" | "clear" | "undo" | "redo" | "mark" | "view";
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "board" | "paper" | "image";
+        };
+        /**
+         * MessageAttachment
+         * @description An image the student sent (``POST /v1/sessions/{id}/attachments``), in pixels.
+         */
+        MessageAttachment: {
+            /** H */
+            h: number;
+            /** Id */
+            id: string;
+            /** W */
+            w: number;
+        };
+        /**
+         * NormBox
+         * @description A box in page coordinates (0–1): its top-left corner, width and height.
+         */
+        NormBox: {
+            /** H */
+            h: number;
+            /** W */
+            w: number;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
         };
         /**
          * NormRect
@@ -464,6 +1015,45 @@ export interface components {
             sensitivity: "low" | "normal" | "high";
         };
         /**
+         * PageGeometry
+         * @description The flattened page's size in pixels, and the page's quad in the full JPEG's pixels.
+         */
+        PageGeometry: {
+            /** Height */
+            height: number;
+            /** Quad */
+            quad: components["schemas"]["Pt"][] | null;
+            /** Width */
+            width: number;
+        };
+        /** PersonalizationOut */
+        PersonalizationOut: {
+            /**
+             * Content
+             * @default
+             */
+            content: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Revision
+             * @default 0
+             */
+            revision: number;
+        };
+        /** PersonalizationPatch */
+        PersonalizationPatch: {
+            /** Content */
+            content: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Revision */
+            revision: number;
+        };
+        /**
          * Point
          * @description A point in pixels of the full JPEG.
          */
@@ -472,6 +1062,106 @@ export interface components {
             x: number;
             /** Y */
             y: number;
+        };
+        /** PolicyDebug */
+        PolicyDebug: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "hold" | "speak" | "drop" | "holding-line";
+            /** Rung */
+            rung: ("hint" | "guiding_question" | "counterexample" | "walkthrough" | "solution") | null;
+            /**
+             * Stage
+             * @default policy
+             * @constant
+             */
+            stage: "policy";
+            /** Why */
+            why: string;
+        };
+        /**
+         * Pt
+         * @description A point in page coordinates (0–1), or in pixels where a field says so.
+         */
+        Pt: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /** ReadState */
+        ReadState: {
+            /** Accept */
+            accept: boolean;
+            box: components["schemas"]["NormBox"];
+            center: components["schemas"]["Pt"];
+            /** Confidence */
+            confidence: number;
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Mark */
+            mark: number | null;
+            /** R */
+            r: number;
+            /** Snapped */
+            snapped: boolean;
+            /** Start */
+            start: boolean;
+        };
+        /** ReadTransition */
+        ReadTransition: {
+            /** Confidence */
+            confidence: number;
+            /** Id */
+            id: string;
+            label_box: components["schemas"]["NormBox"] | null;
+            /** Mark */
+            mark: number | null;
+            /** Snapped */
+            snapped: boolean;
+            /** Source */
+            source: string;
+            /** Symbols */
+            symbols: string[];
+            /** Target */
+            target: string;
+        };
+        /** ReferenceInfo */
+        ReferenceInfo: {
+            /** Id */
+            id: string;
+            machine: components["schemas"]["MachineSpec"] | null;
+            /** Regex */
+            regex: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "catalog" | "llm-checked" | "llm-unchecked";
+            /** Title */
+            title: string | null;
+            /** Trusted */
+            trusted: boolean;
+        };
+        /** ScreenAck */
+        ScreenAck: {
+            /** Active */
+            active: boolean;
+            /** Epoch */
+            epoch: number;
+        };
+        /** ScreenControl */
+        ScreenControl: {
+            /** Active */
+            active: boolean;
+            /** Epoch */
+            epoch: number;
+            /** Source */
+            source: string;
         };
         /** SessionCreate */
         SessionCreate: {
@@ -568,6 +1258,40 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** VisionSnapshot */
+        VisionSnapshot: {
+            /**
+             * Frames Seen
+             * @default 0
+             */
+            frames_seen: number;
+            /**
+             * Hints
+             * @default 0
+             */
+            hints: number;
+            last_decision?: components["schemas"]["PolicyDebug"] | null;
+            last_gate?: components["schemas"]["GateDebug"] | null;
+            /**
+             * Pen Busy
+             * @default false
+             */
+            pen_busy: boolean;
+            /**
+             * Pending Note
+             * @default false
+             */
+            pending_note: boolean;
+            reading?: components["schemas"]["DfaReading"] | null;
+            /** Rung */
+            rung?: ("hint" | "guiding_question" | "counterexample" | "walkthrough" | "solution") | null;
+            verdict?: components["schemas"]["DfaVerdict"] | null;
+            /**
+             * Waiting For Frame
+             * @default false
+             */
+            waiting_for_frame: boolean;
+        };
     };
     responses: never;
     parameters: never;
@@ -613,6 +1337,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthOut"];
+                };
+            };
+        };
+    };
+    get_memory_v1_learner_memory_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryOut"];
+                };
+            };
+        };
+    };
+    patch_memory_v1_learner_memory_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemoryPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryOut"];
+                };
+            };
+            /** @description Memory changed; reload before saving */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_personalization_v1_learner_personalization_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalizationOut"];
+                };
+            };
+        };
+    };
+    patch_personalization_v1_learner_personalization_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonalizationPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalizationOut"];
+                };
+            };
+            /** @description Tutor style changed; reload before saving */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -792,6 +1636,197 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SessionOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_attachment_v1_sessions__session_id__attachments_post: {
+        parameters: {
+            query?: {
+                frame_id?: string | null;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_attachment_v1_sessions__session_id__attachments_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentOut"];
+                };
+            };
+            /** @description No such session, or frame, for this learner */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The image is over 8 MiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The image isn't a JPEG, PNG or WebP that decodes */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description The frame store is unavailable; try again later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_attachment_v1_sessions__session_id__attachments__attachment_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": unknown;
+                    "image/png": unknown;
+                };
+            };
+            /** @description No such image for this learner */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description The frame store is unavailable; try again later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_attachment_elements_v1_sessions__session_id__attachments__attachment_id__elements_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageElementsOut"];
+                };
+            };
+            /** @description No such image for this learner */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description The frame store is unavailable; try again later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    upload_snapshot_v1_sessions__session_id__board_snapshot_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BoardSnapshotUpload"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -1005,6 +2040,217 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    finish_memory_v1_sessions__session_id__memory_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_messages_v1_sessions__session_id__messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatHistoryOut"];
+                };
+            };
+            /** @description No such session for this learner */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    control_v1_sessions__session_id__screen_control_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScreenControl"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenAck"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_v1_sessions__session_id__screen_frame_post: {
+        parameters: {
+            query: {
+                source: string;
+                epoch: number;
+                revision: number;
+                frame_id: string;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenAck"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    snapshot_v1_sessions__session_id__vision_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisionSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    board_v1_sessions__session_id__vision_board_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BoardEditIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Image exceeds 2 MiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };

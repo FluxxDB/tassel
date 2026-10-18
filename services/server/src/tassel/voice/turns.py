@@ -1,6 +1,7 @@
 """Turn controls needed by the session pipeline, shared with the Task 5 lane."""
 
 import re
+import time
 import unicodedata
 from dataclasses import dataclass
 
@@ -55,13 +56,38 @@ BACKCHANNELS = {
         "네, 넵, 예, 응, 어, 음, 아, 오, 아하, 그렇구나, 그래요, 맞아요, 알겠어요".split(", ")
     ),
 }
-MIN_WORDS = {"normal": {"en": 1, "es": 1, "ko": 1}, "low": {"en": 2, "es": 2, "ko": 1}}
+# Words needed to cut Ada off (or a pending answer). Retest #7: background music at one word
+# interrupted her; real interruptions are a stop phrase or a short question.
+MIN_WORDS = {"normal": {"en": 3, "es": 3, "ko": 2}, "low": {"en": 4, "es": 4, "ko": 3}}
+STOP_PHRASES = {
+    "en": ("wait", "stop", "hold on", "hang on", "sorry", "excuse me", "no", "nope", "actually"),
+    "es": ("espera", "para", "un momento", "perdón", "perdon", "no", "oye"),
+    "ko": ("잠깐", "멈춰", "아니", "아니요", "저기요"),
+}
+# A finished turn waits this long for Ada's reply before noise may start a new one.
+REPLY_WAIT_S = 8.0
 
 
 def normalize(text: str) -> str:
     return " ".join(
         re.sub(r"""[.,!?¡¿…~'"“”‘’]""", "", unicodedata.normalize("NFC", text).casefold()).split()
     )
+
+
+def is_stop_phrase(text: str, lang: Lang) -> bool:
+    text = normalize(text)
+    return any(text == p or text.startswith(p + " ") for p in STOP_PHRASES[lang])
+
+
+def interrupts(text: str, lang: Lang, sensitivity: Sensitivity) -> bool:
+    """Real words, not music or a backchannel: a stop phrase (except at low sensitivity), or
+    enough words."""
+    if is_backchannel(text, lang):
+        return False
+    if sensitivity != "low" and is_stop_phrase(text, lang):
+        return True
+    needed = MIN_WORDS.get(sensitivity, MIN_WORDS["normal"])[lang]
+    return len(re.findall(r"[^\W_]+", text)) >= needed
 
 
 def is_backchannel(text: str, lang: Lang) -> bool:
@@ -71,10 +97,15 @@ def is_backchannel(text: str, lang: Lang) -> bool:
 
 
 class BackchannelGuard(BaseUserTurnStartStrategy):
-    def __init__(self, *, tuning: TurnTuning, lang: Lang, on_ignored=None):
+    """Starts a student turn. While Ada speaks, waits for her reply, or has an answer pending
+    (busy), only real words start one; noise or music alone never cuts her off."""
+
+    def __init__(self, *, tuning: TurnTuning, lang: Lang, on_ignored=None, busy=None):
         super().__init__()
         self.tuning, self.lang, self.on_ignored = tuning, lang, on_ignored
+        self.busy = busy or (lambda: False)
         self._bot_speaking = self._final = False
+        self._awaiting_until = 0.0
 
     @property
     def resolves_proposed_turn_start_frames(self):
@@ -82,12 +113,20 @@ class BackchannelGuard(BaseUserTurnStartStrategy):
 
     async def handle_user_turn_started(self):
         self._bot_speaking = False
+        self._awaiting_until = 0.0
+
+    async def handle_user_turn_stopped(self):
+        self._awaiting_until = time.monotonic() + REPLY_WAIT_S
+
+    def _guarded(self):
+        return self._bot_speaking or time.monotonic() < self._awaiting_until or self.busy()
 
     async def process_frame(self, frame):
         signal = isinstance(frame, (VADUserStartedSpeakingFrame, ProposedUserStartedSpeakingFrame))
         transcript = isinstance(frame, (InterimTranscriptionFrame, TranscriptionFrame))
         if isinstance(frame, BotStartedSpeakingFrame):
             self._bot_speaking = True
+            self._awaiting_until = 0.0
         elif isinstance(frame, BotStoppedSpeakingFrame):
             self._bot_speaking = False
         if signal:
@@ -99,13 +138,10 @@ class BackchannelGuard(BaseUserTurnStartStrategy):
         if self.tuning.ptt:
             start = signal and self.tuning.ptt_held
         else:
-            start = (signal or transcript) and (not self._bot_speaking)
-            if transcript and self._bot_speaking and not start:
-                start = (
-                    not is_backchannel(frame.text, self.lang)
-                    and len(re.findall(r"[^\W_]+", frame.text))
-                    >= MIN_WORDS.get(self.tuning.sensitivity, MIN_WORDS["normal"])[self.lang]
-                )
+            guarded = self._guarded()
+            start = (signal or transcript) and not guarded
+            if transcript and guarded:
+                start = interrupts(frame.text, self.lang, self.tuning.sensitivity)
                 if isinstance(frame, TranscriptionFrame) and is_backchannel(frame.text, self.lang):
                     await self.trigger_reset_aggregation()
                     if self.on_ignored:
@@ -150,7 +186,7 @@ def make_vad():
     )
 
 
-def make_turn_strategies(stt: SttKind, tuning: TurnTuning, lang: Lang, on_ignored=None):
+def make_turn_strategies(stt: SttKind, tuning: TurnTuning, lang: Lang, on_ignored=None, busy=None):
     if tuning.ptt:
         stop = PushToTalkStop(tuning=tuning)
     elif stt == "flux":
@@ -158,5 +194,6 @@ def make_turn_strategies(stt: SttKind, tuning: TurnTuning, lang: Lang, on_ignore
     else:
         stop = TurnAnalyzerUserTurnStopStrategy(turn_analyzer=LocalSmartTurnAnalyzerV3())
     return UserTurnStrategies(
-        start=[BackchannelGuard(tuning=tuning, lang=lang, on_ignored=on_ignored)], stop=[stop]
+        start=[BackchannelGuard(tuning=tuning, lang=lang, on_ignored=on_ignored, busy=busy)],
+        stop=[stop],
     )

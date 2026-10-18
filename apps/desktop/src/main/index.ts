@@ -13,8 +13,10 @@ import {
   systemPreferences,
 } from 'electron';
 import { handleAppProtocol, registerAppScheme } from './app-protocol';
-import { applyUserDataOverride, readConfig, tokenStoreMode } from './config';
+import { applyUserDataOverride, downloadDir, readConfig, tokenStoreMode } from './config';
+import { registerDownloads } from './downloads';
 import { registerIpc } from './ipc';
+import { registerScreenOverlay } from './overlay/controller';
 import { createCameraAccess } from './paper/camera-access';
 import { readPaperSettings } from './paper/config';
 import { registerDisplayMedia } from './paper/display-media';
@@ -52,6 +54,11 @@ if (!app.requestSingleInstanceLock()) {
     .then(() => {
       handleAppProtocol(join(__dirname, '../renderer'));
       restrictPermissions(session.defaultSession);
+      // The board's PNG lands in Downloads with no dialog; macOS bounces the Downloads stack.
+      registerDownloads(session.defaultSession, {
+        dir: downloadDir(),
+        finished: (path) => app.dock?.downloadFinished(path),
+      });
       registerPaper();
       registerIpc(
         createTokenStore({
@@ -71,9 +78,31 @@ if (!app.requestSingleInstanceLock()) {
         }),
         config: readVoiceConfig(),
       });
-      createMainWindow();
+      const main = createMainWindow();
+      registerScreenOverlay(main, {
+        platform: process.platform,
+        macosMajor:
+          process.platform === 'darwin' ? Number.parseInt(process.getSystemVersion(), 10) : null,
+        fakeDisplay: paper.fakeDisplay,
+        requireFake: paper.requireFake,
+        getSources: (options) => desktopCapturer.getSources(options),
+        isTrusted: isTrustedUrl,
+      });
       app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+        if (BrowserWindow.getAllWindows().length === 0) {
+          const main = createMainWindow();
+          registerScreenOverlay(main, {
+            platform: process.platform,
+            macosMajor:
+              process.platform === 'darwin'
+                ? Number.parseInt(process.getSystemVersion(), 10)
+                : null,
+            fakeDisplay: paper.fakeDisplay,
+            requireFake: paper.requireFake,
+            getSources: (options) => desktopCapturer.getSources(options),
+            isTrusted: isTrustedUrl,
+          });
+        }
       });
     })
     .catch((error: unknown) => {

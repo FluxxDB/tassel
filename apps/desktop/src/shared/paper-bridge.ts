@@ -1,7 +1,12 @@
 // The paper part of the preload bridge, window.tassel.paper (P3): the paper source config, the
 // Desk View helper's lifecycle and camera access. Task 9 wires it into TasselBridge.
 
-export type PaperSourceKind = 'deskview-helper' | 'window-capture' | 'fake-clip' | 'screen';
+export type PaperSourceKind =
+  | 'deskview-helper'
+  | 'window-capture'
+  | 'fake-clip'
+  | 'screen'
+  | 'webcam';
 
 export type CameraAccess = 'granted' | 'denied' | 'restricted' | 'not-determined' | 'unknown';
 

@@ -1,5 +1,5 @@
 // The session's 52px strip: the wordmark, the title and its chips centered in the free space,
-// and on the right the source, the timer and the session's language. In a live voice session the
+// and on the right the source, the timer, the session's language and the chat sidebar's toggle. In a live voice session the
 // language opens the language menu, and a title Ada gives the session types on (spec §5.1).
 import type { Session, Source } from '@tassel/shared/api';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -9,7 +9,9 @@ import { prefersReducedMotion } from '../../board/motion';
 import { Chip } from '../../components/Chip';
 import { Wordmark } from '../../components/Wordmark';
 import { cn } from '../../lib/cn';
+import { usePaperStore } from '../../paper/paper-store';
 import { usePaperLive } from '../../paper/use-paper-capture';
+import { ChatToggle } from '../chat/ChatToggle';
 import { LanguageMenu } from '../voice/LanguageMenu';
 import { useLiveVoice } from '../voice/live-voice';
 import { useElapsed } from './use-elapsed';
@@ -93,6 +95,8 @@ export function TitleStrip({ session, failed, startedAt }: TitleStripProps) {
             <span className="sr-only">{t(`newSession.language.${session.language}`)}</span>
           </Chip>
         )}
+        {/* Rightmost, above where the chat sidebar opens. */}
+        <ChatToggle />
       </div>
     </AppFrame>
   );
@@ -146,6 +150,7 @@ function TypedTitle({ title, opening }: { title: string; opening: string | null 
  * captured (P3's paper feed); otherwise it stays neutral and the label doesn't claim "Live".
  */
 function SourceLabel({ source, live = false }: { source: Source; live?: boolean }) {
+  const webcam = usePaperStore((state) => state.kind === 'webcam');
   const { t } = useTranslation();
   return (
     <span className="mono flex items-center gap-1.5 text-[11px] leading-[14px] text-ink">
@@ -153,7 +158,11 @@ function SourceLabel({ source, live = false }: { source: Source; live?: boolean 
         aria-hidden="true"
         className={cn('size-[7px] rounded-pill', live ? 'bg-live' : 'bg-smoke')}
       />
-      {live ? t(`session.liveSource.${source}`) : t(`session.source.${source}`)}
+      {source === 'paper' && webcam
+        ? t(live ? 'paper.webcam.live' : 'paper.webcam.source')
+        : live
+          ? t(`session.liveSource.${source}`)
+          : t(`session.source.${source}`)}
     </span>
   );
 }

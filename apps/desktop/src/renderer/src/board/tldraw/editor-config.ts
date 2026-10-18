@@ -3,6 +3,8 @@
 // these, and the engine's unit tests build a real editor from them.
 import { ArrowShapeUtil, type TLShape } from 'tldraw';
 import { AdaEffectsOverlayUtil } from './effects';
+import { GroupShapeUtil } from './shapes/GroupShape';
+import { NodeShapeUtil } from './shapes/NodeShape';
 import { NoteShapeUtil } from './shapes/NoteShape';
 import { StateShapeUtil } from './shapes/StateShape';
 import { TraceShapeUtil } from './shapes/TraceShape';
@@ -11,6 +13,8 @@ export const SHAPE_UTILS = [
   StateShapeUtil,
   TraceShapeUtil,
   NoteShapeUtil,
+  NodeShapeUtil,
+  GroupShapeUtil,
   // Ada's transitions label in Geist Mono 15, smaller than tldraw's thinnest size sets them.
   ArrowShapeUtil.configure({
     getCustomDisplayValues: (_editor, shape) =>

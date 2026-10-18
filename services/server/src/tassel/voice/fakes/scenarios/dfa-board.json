@@ -8,7 +8,26 @@
       "turns": [
         {
           "when": "show me the answer",
-          "say": "[[dfa fix hidden start=q0 accept=q3 q0-0-q1 q1-1-q2 q2-0-q3 q3-0,1-q3 q0-1-qd q1-0-qd q2-1-qd qd-0,1-qd]][[stage split]]Here's one that works. [[reveal fix start q0]]We start at q zero. [[reveal fix q0>q1]]A zero takes us to q one."
+          "say": "Sure, I'll draw one that works on the board.",
+          "decision": {
+            "focus": "split",
+            "needs_vision": false,
+            "route": "thinker",
+            "action": "draw_board",
+            "refers_to": "board"
+          },
+          "brief": {
+            "say": "Here's one that works. We start at q zero. A zero takes us to q one.",
+            "board": [
+              "[[dfa fix hidden start=q0 accept=q3 q0-0-q1 q1-1-q2 q2-0-q3 q3-0,1-q3 q0-1-qd q1-0-qd q2-1-qd qd-0,1-qd]]",
+              "[[reveal fix start q0]]",
+              "[[reveal fix q0>q1]]"
+            ],
+            "language": {
+              "regex": "010(0|1)*",
+              "alphabet": ["0", "1"]
+            }
+          }
         }
       ],
       "student": ["Can you show me the answer?"]
@@ -20,7 +39,26 @@
       "turns": [
         {
           "when": "show me the answer",
-          "say": "[[dfa fix hidden start=q0 accept=q3 q0-0-q1 q1-1-q2 q2-0-q3 q3-0,1-q3 q0-1-qd q1-0-qd q2-1-qd qd-0,1-qd]][[stage split]]Here's one that works. [[reveal fix start q0]]We start at q zero. [[reveal fix q0>q1]]A zero takes us to q one."
+          "say": "Claro, dibujo uno que funciona en la pizarra.",
+          "decision": {
+            "focus": "split",
+            "needs_vision": false,
+            "route": "thinker",
+            "action": "draw_board",
+            "refers_to": "board"
+          },
+          "brief": {
+            "say": "Here's one that works. We start at q zero. A zero takes us to q one.",
+            "board": [
+              "[[dfa fix hidden start=q0 accept=q3 q0-0-q1 q1-1-q2 q2-0-q3 q3-0,1-q3 q0-1-qd q1-0-qd q2-1-qd qd-0,1-qd]]",
+              "[[reveal fix start q0]]",
+              "[[reveal fix q0>q1]]"
+            ],
+            "language": {
+              "regex": "010(0|1)*",
+              "alphabet": ["0", "1"]
+            }
+          }
         }
       ],
       "student": ["Can you show me the answer?"]
@@ -32,7 +70,26 @@
       "turns": [
         {
           "when": "show me the answer",
-          "say": "[[dfa fix hidden start=q0 accept=q3 q0-0-q1 q1-1-q2 q2-0-q3 q3-0,1-q3 q0-1-qd q1-0-qd q2-1-qd qd-0,1-qd]][[stage split]]Here's one that works. [[reveal fix start q0]]We start at q zero. [[reveal fix q0>q1]]A zero takes us to q one."
+          "say": "좋아요, 칠판에 맞는 걸 하나 그려 볼게요.",
+          "decision": {
+            "focus": "split",
+            "needs_vision": false,
+            "route": "thinker",
+            "action": "draw_board",
+            "refers_to": "board"
+          },
+          "brief": {
+            "say": "Here's one that works. We start at q zero. A zero takes us to q one.",
+            "board": [
+              "[[dfa fix hidden start=q0 accept=q3 q0-0-q1 q1-1-q2 q2-0-q3 q3-0,1-q3 q0-1-qd q1-0-qd q2-1-qd qd-0,1-qd]]",
+              "[[reveal fix start q0]]",
+              "[[reveal fix q0>q1]]"
+            ],
+            "language": {
+              "regex": "010(0|1)*",
+              "alphabet": ["0", "1"]
+            }
+          }
         }
       ],
       "student": ["Can you show me the answer?"]

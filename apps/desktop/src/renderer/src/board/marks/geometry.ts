@@ -27,6 +27,11 @@ export interface Resolved {
   path: Pt[] | null;
   /** The side of its edge the label is on, as seen on screen; null without a label. */
   labelSide: 'above' | 'below' | null;
+  /**
+   * A `box` target's own box: the server put its bottom where an underline goes, in the gap
+   * under her ink and above the next line, so an underline runs right on it.
+   */
+  exact?: boolean;
 }
 
 /** A state's ring, × its radius. */
@@ -92,13 +97,14 @@ export function resolveTarget(
       bbox,
       path: null,
       labelSide: null,
+      exact: true,
     };
   }
   const detected = elements?.detected;
   const item = detected?.items.find((item) => item.id === target.el);
   if (detected && item) {
     const { x, y, w, h } = item.box;
-    return resolveTarget(
+    const resolved = resolveTarget(
       {
         box: {
           x: x / detected.width,
@@ -111,6 +117,8 @@ export function resolveTarget(
       project,
       fit,
     );
+    // A marker's box is padded around her ink: an underline keeps its gap under it.
+    return resolved && { ...resolved, exact: false };
   }
   const ref = parseElementRef(target.el);
   if (!ref || !elements) return null;
@@ -158,6 +166,8 @@ export function targetExists(target: PaperTarget, elements: PaperElements | null
   if (!ref || !elements) return false;
   if (ref.kind === 'state') return Object.hasOwn(elements.states, ref.id);
   if (ref.kind === 'start') return elements.start !== undefined;
+  // Diagram refs (node:, group:) name board items, never ink on her paper.
+  if (ref.kind !== 'edge') return false;
   return Object.hasOwn(elements.edges, `${ref.from}>${ref.to}`);
 }
 
@@ -276,6 +286,35 @@ export function arrowFor(
     return { x: end.x + back.x * ARROW_HEAD, y: end.y + back.y * ARROW_HEAD };
   };
   return { line: [start, end], head: [tip(ARROW_HEAD_ANGLE), end, tip(-ARROW_HEAD_ANGLE)] };
+}
+
+/** How far under its target an underline runs, in panel px. */
+const UNDERLINE_GAP = 4;
+
+/**
+ * A line just under a target, as wide as it: under her handwriting's box, under a state's
+ * circle, or under an edge's midpoint. Live test: "underline the IP and the subnet" had no mark.
+ */
+export function underlineFor(r: Resolved): [Pt, Pt] {
+  if (r.radius > 0) {
+    const y = r.center.y + r.radius + UNDERLINE_GAP;
+    return [
+      { x: r.center.x - r.radius, y },
+      { x: r.center.x + r.radius, y },
+    ];
+  }
+  const { x, y, w, h } = r.bbox;
+  if (w > 0) {
+    const gap = r.exact ? 0 : UNDERLINE_GAP;
+    return [
+      { x, y: y + h + gap },
+      { x: x + w, y: y + h + gap },
+    ];
+  }
+  return [
+    { x: r.center.x - 12, y: r.center.y + UNDERLINE_GAP },
+    { x: r.center.x + 12, y: r.center.y + UNDERLINE_GAP },
+  ];
 }
 
 /** A strike through a target: across a state, a slash over an edge, corner to corner on a box. */

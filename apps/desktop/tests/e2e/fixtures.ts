@@ -57,6 +57,9 @@ export async function launchApp(
       TASSEL_TOKEN_STORE: 'file',
       TASSEL_FAKE_SPEED: '20',
       TASSEL_TUTOR: 'fake',
+      // The chat sidebar starts hidden, so every screen lays out as it did before it existed;
+      // the chat specs pass TASSEL_CHAT_SIDEBAR: 'open', the product's default.
+      TASSEL_CHAT_SIDEBAR: 'closed',
       ...(ownUserData && { TASSEL_USER_DATA: ownUserData }),
       ...paperEnv,
     }),

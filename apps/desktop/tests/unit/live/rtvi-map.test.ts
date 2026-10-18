@@ -158,9 +158,19 @@ describe('mapRtvi', () => {
     ]);
     expect(effects).toEqual([{ type: 'duck', on: false }]);
   });
+  it('a pinned stage event, her own spoken view request, stays pinned', () => {
+    const { events } = run([
+      { kind: 'server', data: { tassel: { kind: 'stage', view: 'paper', pinned: true } } },
+    ]);
+    expect(events).toEqual([{ type: 'stage', mode: 'paper', pinned: true }]);
+  });
   it("the server's paper-frame request asks the app for her paper as it is now", () => {
     const { events } = run([{ kind: 'server', data: { tassel: { kind: 'paper-frame' } } }]);
     expect(events).toEqual([{ type: 'paper-request' }]);
+  });
+  it("the server's board-snapshot request asks the app for her board as it is now", () => {
+    const { events } = run([{ kind: 'server', data: { tassel: { kind: 'board-snapshot' } } }]);
+    expect(events).toEqual([{ type: 'board-snapshot' }]);
   });
   it('vad ducks only while Ada speaks and always unducks when speech ends', () => {
     const vad = (speaking: boolean): RtviInput => ({
@@ -246,4 +256,10 @@ describe('mapRtvi', () => {
       ]);
     });
   });
+});
+
+it('maps restored actions directly to the board renderer', () => {
+  const actions = [{ kind: 'board.clear' }];
+  const result = run([{ kind: 'server', data: { tassel: { kind: 'actions', actions } } }]);
+  expect(result.events).toEqual([{ type: 'actions', actions }]);
 });

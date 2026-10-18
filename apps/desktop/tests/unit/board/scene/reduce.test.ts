@@ -354,7 +354,7 @@ describe('reduceBoard', () => {
   });
 
   describe('board.trace', () => {
-    it('adds a trace that runs its spec on the input, shows no step yet, and focuses it', () => {
+    it('adds a trace that runs its spec on the input, shows no step yet, and frames the whole board', () => {
       const { scene, problems } = run(BOTH, {
         kind: 'board.trace',
         item: 'run',
@@ -375,7 +375,24 @@ describe('reduceBoard', () => {
         on: null,
         verdict: null,
       });
-      expect(scene.focus).toBe('run');
+      // The camera frames everything, so the automaton she traces on stays in view, not the card
+      // alone; the steps keep it so.
+      expect(scene.focus).toBeNull();
+      const stepped = run(scene, { kind: 'board.traceStep', item: 'run' }).scene;
+      expect(stepped.focus).toBeNull();
+    });
+
+    it('frames the whole board again when a trace follows her focus on one item', () => {
+      const focused = run(BOTH, { kind: 'board.focus', item: 'fix' }).scene;
+      expect(focused.focus).toBe('fix');
+      const { scene } = run(focused, {
+        kind: 'board.trace',
+        item: 'run',
+        spec: CORRECT,
+        input: '0100',
+        on: 'fix',
+      });
+      expect(scene.focus).toBeNull();
     });
 
     it("sets the automaton it's on to the run's starting states", () => {
@@ -582,7 +599,8 @@ describe('reduceBoard', () => {
       { kind: 'board.trace', item: 'run', spec: WRONG, input: '1' },
       { kind: 'board.traceStep', item: 'run' },
       { kind: 'board.verdict', item: 'run', got: 'reject' },
-      { kind: 'board.focus' },
+      // The trace left the whole board framed, so a focus on one item is the change here.
+      { kind: 'board.focus', item: 'fix' },
       { kind: 'board.clear', item: 'why' },
       { kind: 'board.clear' },
     ] satisfies BoardAction[]) {

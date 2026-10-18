@@ -3,10 +3,32 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC, type Platform, type TasselBridge } from '../shared/bridge';
 import { PAPER_IPC } from '../shared/paper-bridge';
+import {
+  type OverlayIntent,
+  type OverlayState,
+  SCREEN_IPC,
+  type ScreenPoint,
+} from '../shared/screen-bridge';
 import { VOICE_IPC } from '../shared/voice-bridge';
 
 const tassel: TasselBridge = {
   platform: process.platform as Platform,
+  screen: {
+    displays: () => ipcRenderer.invoke(SCREEN_IPC.displays),
+    select: (id) => ipcRenderer.invoke(SCREEN_IPC.select, id),
+    prepare: () => ipcRenderer.invoke(SCREEN_IPC.prepare),
+    collapse: () => ipcRenderer.invoke(SCREEN_IPC.collapse),
+    restore: () => ipcRenderer.invoke(SCREEN_IPC.restore),
+    close: () => ipcRenderer.invoke(SCREEN_IPC.close),
+    capture: (clean) => ipcRenderer.invoke(SCREEN_IPC.capture, clean),
+    publish: (state) => ipcRenderer.send(SCREEN_IPC.publish, state),
+    intent: (intent) => ipcRenderer.send(SCREEN_IPC.intent, intent),
+    stroke: (points) => ipcRenderer.send(SCREEN_IPC.stroke, points),
+    ready: () => ipcRenderer.send(SCREEN_IPC.ready),
+    onState: (listener) => subscribe<OverlayState>(SCREEN_IPC.state, listener),
+    onIntent: (listener) => subscribe<OverlayIntent>(SCREEN_IPC.intent, listener),
+    onStroke: (listener) => subscribe<ScreenPoint[]>(SCREEN_IPC.stroke, listener),
+  },
   voice: {
     getConfig: () => ipcRenderer.invoke(VOICE_IPC.getConfig),
     micAccess: () => ipcRenderer.invoke(VOICE_IPC.micAccess),
@@ -27,3 +49,9 @@ const tassel: TasselBridge = {
 };
 
 contextBridge.exposeInMainWorld('tassel', tassel);
+
+function subscribe<T>(channel: string, listener: (value: T) => void): () => void {
+  const handler = (_event: Electron.IpcRendererEvent, value: T) => listener(value);
+  ipcRenderer.on(channel, handler);
+  return () => ipcRenderer.removeListener(channel, handler);
+}

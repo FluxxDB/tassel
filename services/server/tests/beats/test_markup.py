@@ -384,6 +384,70 @@ class TestParseCommand:
         assert parse_command("trace run fix " + "01" * 32 + "0", ctx) is None
 
 
+class TestBoxTargets:
+    """[[verb box=x,y,w,h]]: a page region (fractions of its width and height) when no numbered
+    marker covers her ink, as the Pointer falls back to."""
+
+    BOX = {"x": 0.36, "y": 0.27, "w": 0.21, "h": 0.052}
+
+    @pytest.mark.parametrize(
+        "command,mark",
+        [
+            ("underline box=0.36,0.27,0.21,0.052", {"type": "underline"}),
+            ("circle box=0.36,0.27,0.21,0.052", {"type": "circle"}),
+            ("wash box=0.36,0.27,0.21,0.052", {"type": "circle", "wash": True}),
+            ("strike box=0.36,0.27,0.21,0.052", {"type": "strike"}),
+            ("check box=0.36,0.27,0.21,0.052", {"type": "check"}),
+            ("number 2 box=0.36,0.27,0.21,0.052", {"type": "step", "n": 2}),
+            (
+                'callout box=0.36,0.27,0.21,0.052 "Your subnet"',
+                {"type": "callout", "text": "Your subnet"},
+            ),
+        ],
+    )
+    def test_each_paper_mark_takes_a_box(self, command, mark):
+        action = dump(parse_command(command, BoardContext(specs={})))
+        assert action["kind"] == "paper.mark"
+        assert action["mark"] == {"id": "m1", "target": {"box": self.BOX}, **mark}
+
+    def test_a_box_tag_streams_like_any_mark(self):
+        [sentence] = read("[[underline box=0.36,0.27,0.21,0.052]]That's your subnet.")
+        [(word, action)] = sentence.anchors
+        assert word == 0 and not sentence.problems
+        assert dump(action)["mark"]["target"] == {"box": self.BOX}
+        assert sentence.clean == "That's your subnet."
+
+    @pytest.mark.parametrize(
+        "box",
+        [
+            "box=0.36,0.27,0.21",  # three numbers
+            "box=0.36,0.27,0.21,0.05,0.1",
+            "box=a,0.27,0.21,0.05",
+            "box=nan,0.27,0.21,0.05",
+            "box=inf,0.27,0.21,0.05",
+            "box=-0.1,0.27,0.21,0.05",  # outside the page
+            "box=0.9,0.27,0.21,0.05",  # runs off the right edge
+            "box=0.36,0.98,0.21,0.05",  # off the bottom
+            "box=0.36,0.27,0,0.05",  # no width
+            "box=0.36,0.27,0.001,0.05",  # too thin to be ink
+            "box=0.02,0.01,0.97,0.05",  # the whole page is no target
+            "box=",
+        ],
+    )
+    def test_a_bad_box_is_none(self, box):
+        assert parse_command(f"underline {box}", BoardContext(specs={})) is None
+        assert parse_command(f'callout {box} "Here"', BoardContext(specs={})) is None
+
+    def test_a_box_formats_and_parses_back(self):
+        from tassel.beats.markup import box_arg, paper_box
+
+        text = box_arg(0.3612, 0.2701, 0.2089, 0.0523)
+        assert text == "box=0.361,0.270,0.209,0.052"
+        assert paper_box(text) == {"x": 0.361, "y": 0.27, "w": 0.209, "h": 0.052}
+        # Rounding never pushes a box that touched the edge off the page.
+        assert paper_box(box_arg(0.7996, 0.9, 0.2004, 0.1)) is not None
+
+
 # What Qwen 3.8 actually wrote with Ada's persona, asked to draw a DFA for strings that start
 # with 010 (main's live run, 2026-10-17): commas, a state list, arrows, an edge with no symbol,
 # and an ellipsis. The tolerant reading keeps everything unambiguous and says what it dropped.

@@ -2,6 +2,7 @@
 // the shapes' own (figures.tsx's TEXT_STYLE), in the session's language, so a note or a verdict
 // pill wraps where it was measured, Korean words whole.
 import type { Lang } from '@tassel/shared/i18n';
+import type { CSSProperties } from 'react';
 import type { MeasureText } from '../scene/placement';
 import { TEXT_STYLE } from './shapes/figures';
 
@@ -21,7 +22,8 @@ export function createTextMeasure(host: HTMLElement, lang: () => Lang): TextMeas
     visibility: 'hidden',
     pointerEvents: 'none',
     width: 'max-content',
-    whiteSpace: 'normal',
+    // Ada's line breaks hold, as her note draws them.
+    whiteSpace: 'pre-wrap',
     overflowWrap: 'break-word',
   });
   const text = document.createElement('span');
@@ -35,19 +37,23 @@ export function createTextMeasure(host: HTMLElement, lang: () => Lang): TextMeas
     const key = JSON.stringify([language, style, maxWidth, value]);
     const known = sizes.get(key);
     if (known) return known;
-    const { fontFamily, fontSize, fontWeight, lineHeight } = TEXT_STYLE[style];
+    const set: CSSProperties = TEXT_STYLE[style];
     box.lang = language;
     Object.assign(box.style, {
-      fontFamily,
-      fontSize: `${fontSize}px`,
-      fontWeight: String(fontWeight),
-      lineHeight,
+      fontFamily: set.fontFamily,
+      fontSize: `${set.fontSize}px`,
+      fontWeight: String(set.fontWeight),
+      lineHeight: set.lineHeight,
+      // A style without its own tracking or case inherits the host's, as its shape does.
+      letterSpacing: set.letterSpacing ?? '',
+      textTransform: set.textTransform ?? '',
       maxWidth: `${maxWidth}px`,
     });
     text.textContent = value;
     // The widest line: one client rect per line the text wraps onto.
     range.selectNodeContents(text);
-    const lines = [...range.getClientRects()];
+    // jsdom has no getClientRects on a range: there, nothing is laid out, so no lines.
+    const lines = typeof range.getClientRects === 'function' ? [...range.getClientRects()] : [];
     const w = Math.ceil(Math.max(0, ...lines.map((line) => line.width)));
     const h = Math.ceil(box.getBoundingClientRect().height);
     const size = { w, h };

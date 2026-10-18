@@ -100,7 +100,7 @@ test('groups by topic, and searches titles and topics', async () => {
   await app.close();
 });
 
-test('moves by keyboard from the search through New session and the sort to a card', async () => {
+test('moves by keyboard from the search through Tutor settings, New session and the sort to a card', async () => {
   const { app, page } = await launchApp();
   await expect(page.getByRole('region', { name: 'No sessions yet' })).toBeVisible();
   await seed(page, SEEDS.slice(0, 1));
@@ -108,6 +108,8 @@ test('moves by keyboard from the search through New session and the sort to a ca
   await expect(cardsOf(page)).toHaveCount(1);
 
   await page.getByRole('searchbox', { name: 'Search sessions' }).focus();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Tutor settings' })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'New session' })).toBeFocused();
   await page.keyboard.press('Tab');

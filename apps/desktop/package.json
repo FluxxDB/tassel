@@ -11,7 +11,8 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.worker.json",
-    "e2e:camera": "playwright test -c playwright.camera.config.ts"
+    "e2e:camera": "playwright test -c playwright.camera.config.ts",
+    "e2e:screen": "playwright test -c playwright.screen.config.ts"
   },
   "devDependencies": {
     "@pipecat-ai/client-js": "1.14.0",

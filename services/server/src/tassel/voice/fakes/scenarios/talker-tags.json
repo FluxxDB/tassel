@@ -1,0 +1,43 @@
+{
+  "name": "talker-tags",
+  "langs": {
+    "en": {
+      "greeting": "Hi, I'm Ada. What are we working on today?",
+      "after_switch": "Okay, we'll keep going in English.",
+      "fallback": "Tell me more about what you're trying.",
+      "turns": [
+        {
+          "when": "show me the answer",
+          "say": "[[dfa fix hidden start=q0 accept=q3 q0-0-q1 q1-1-q2 q2-0-q3 q3-0,1-q3 q0-1-qd q1-0-qd q2-1-qd qd-0,1-qd]][[stage split]]Here's one that works. [[reveal fix start q0]]We start at q zero. [[reveal fix q0>q1]]A zero takes us to q one."
+        }
+      ],
+      "student": ["Can you show me the answer?"]
+    },
+    "es": {
+      "greeting": "Hola, soy Ada. ¿En qué vamos a trabajar hoy?",
+      "after_switch": "Perfecto, seguimos en español.",
+      "fallback": "Cuéntame un poco más sobre lo que estás intentando.",
+      "turns": [
+        {
+          "when": "show me the answer",
+          "say": "[[dfa fix hidden start=q0 accept=q3 q0-0-q1 q1-1-q2 q2-0-q3 q3-0,1-q3 q0-1-qd q1-0-qd q2-1-qd qd-0,1-qd]][[stage split]]Here's one that works. [[reveal fix start q0]]We start at q zero. [[reveal fix q0>q1]]A zero takes us to q one."
+        }
+      ],
+      "student": ["Can you show me the answer?"]
+    },
+    "ko": {
+      "greeting": "안녕하세요, 에이다예요. 오늘은 무엇을 공부할까요?",
+      "after_switch": "좋아요, 이제 한국어로 계속할게요.",
+      "fallback": "어떻게 풀고 있는지 조금 더 말씀해 주세요.",
+      "turns": [
+        {
+          "when": "show me the answer",
+          "say": "[[dfa fix hidden start=q0 accept=q3 q0-0-q1 q1-1-q2 q2-0-q3 q3-0,1-q3 q0-1-qd q1-0-qd q2-1-qd qd-0,1-qd]][[stage split]]Here's one that works. [[reveal fix start q0]]We start at q zero. [[reveal fix q0>q1]]A zero takes us to q one."
+        }
+      ],
+      "student": ["Can you show me the answer?"]
+    }
+  },
+  "title": "Strings that start with 010",
+  "subject": "Automata · DFA"
+}

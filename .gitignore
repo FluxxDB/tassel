@@ -39,6 +39,9 @@ native/deskview-helper/.build/
 native/deskview-helper/.swiftpm/
 docs/research/spikes/p3-tcc/.out/
 
+# Machine-local tools, shared startup paths and saved app profiles
+/.local/
+
 # Next.js (apps/web)
 .next/
 next-env.d.ts

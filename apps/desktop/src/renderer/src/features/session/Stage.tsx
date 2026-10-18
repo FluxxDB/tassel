@@ -1,23 +1,42 @@
-// The stage: her paper, Ada's board, or both side by side at exactly 1:1, with Ada's tile in the
-// top right corner. A change of view reflows the panels over 240 ms with an exponential
+// The stage: her paper, Ada's board, or both side by side at exactly 1:1, with Ada's tile floating
+// in its top right corner and, while the board has the stage to itself, her desk camera small in
+// its bottom right one (both move and resize, FloatingTile). A change of view reflows the panels over 240 ms with an exponential
 // ease-out while their contents cross-fade: the same for Ada's requests and the Board control,
 // instant under reduced motion, and never on first mount. P5 mounts Ada's board in the board
 // panel and her paper marks over the paper's body; both stay mounted while their panel hides.
 import type { Source } from '@tassel/shared/api';
 import { type ReactNode, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { BoardCameraControls } from '../../board/BoardCameraControls';
 import { BoardPanel } from '../../board/BoardPanel';
+import { ImageTag, StageImage, useImageOnStage } from '../../board/marks/ImageLayer';
 import { PaperMarksLayer } from '../../board/marks/PaperMarksLayer';
 import { SnapshotTag } from '../../board/marks/SnapshotTag';
 import { Mic, Pin, Screen } from '../../components/icons';
 import { cn } from '../../lib/cn';
 import { PaperPanel } from '../../paper/PaperPanel';
 import { PaperTopLineExtras } from '../../paper/PaperTopLineExtras';
+import { usePaperStore } from '../../paper/paper-store';
 import { usePaperTag } from '../../paper/use-paper-capture';
+import { ScreenPanel } from '../../screen/ScreenControls';
+import { useScreen } from '../../screen/store';
+import { useStageInset } from '../chat/chat-layout';
+import { CameraPip } from './CameraPip';
 import { type StageMode, useStageStore } from './stage-store';
 import { TutorTile } from './TutorTile';
 
 // Only the panels' share of the width, their gap and their opacity move.
+/** The floating tiles' inset from the stage's edges: the panels' TopLine inset too. */
+const TILE_INSET = 14;
+/**
+ * The floating tiles' bottom corners stay clear of the captions: their band ends 14px above the
+ * stage's bottom (main's 118 less the stage's 104) and is at most 84px tall (Captions.tsx), and
+ * 12px more keeps a gap.
+ */
+const CAPTIONS_CLEARANCE = 14 + 84 + 12;
+/** The panels' top lines, whose controls the floating tiles never rest over. */
+const TOP_LINE = '[data-top-line]';
+
 const REFLOW =
   'motion-safe:transition-[flex-grow,margin-left,opacity] motion-safe:duration-[240ms] motion-safe:ease-[cubic-bezier(0.16,1,0.3,1)]';
 
@@ -37,21 +56,47 @@ export function Stage({ source, onUnpinned }: StageProps) {
   const paperTag = usePaperTag();
   const paperShown = mode !== 'board';
   const boardShown = mode !== 'paper';
-  const paper = source === 'paper';
-  const tag = paper ? paperTag : t(`session.placeholder.${source}.tag`);
+  const screenActive = useScreen((state) => state.selected !== null);
+  const paper = source === 'paper' && !screenActive;
+  // The student's image, from the chat, takes this panel's slot while it's shown: the panel is
+  // tagged as hers, and the paper's own pills wait under it until Back to paper.
+  const imageOnStage = useImageOnStage();
+  const tag = imageOnStage
+    ? t('session.stage.image.tag')
+    : paper
+      ? paperTag
+      : t(`session.placeholder.${source}.tag`);
+  // Her camera's picture in picture: any paper source's stream, only while the board is alone.
+  const stream = usePaperStore((state) => state.stream);
+  const cameraOn = useStageStore((state) => state.cameraOn);
+  // Clear of the chat sidebar while it lies over the stage in split.
+  const inset = useStageInset();
   return (
-    <div data-testid="stage" className="absolute top-2 right-4 bottom-[104px] left-4 flex">
+    <div
+      data-testid="stage"
+      className="absolute top-2 right-4 bottom-[104px] left-4 flex"
+      style={inset}
+    >
       <Panel shown={paperShown} label={tag}>
-        {paper ? <PaperPanel fallback={<Waiting source="paper" />} /> : <Waiting source={source} />}
+        {paper ? (
+          <PaperPanel fallback={<Waiting source="paper" />} />
+        ) : source === 'screen' || screenActive ? (
+          <ScreenPanel />
+        ) : (
+          <Waiting source={source} />
+        )}
         {/* Ada's marks over a snapshot of her paper (P5-R8). */}
-        <PaperMarksLayer />
+        {paper && <PaperMarksLayer />}
+        {/* The student's image, with Ada's marks on it, over whatever the panel shows. */}
+        <StageImage />
         <TopLine
           pinIndicator={paperShown}
           onUnpinned={onUnpinned}
           trailing={
             <>
-              {paper && <PaperTopLineExtras />}
-              <SnapshotTag />
+              {paper && !imageOnStage && <PaperTopLineExtras />}
+              {!imageOnStage && <SnapshotTag />}
+              <ImageTag />
             </>
           }
         >
@@ -68,9 +113,19 @@ export function Stage({ source, onUnpinned }: StageProps) {
         {/* The leftmost panel carries the pin indicator: the board only when it's alone. */}
         <TopLine pinIndicator={!paperShown} onUnpinned={onUnpinned}>
           <Tag className="bg-ink text-paper">{t('session.board.tag')}</Tag>
+          {/* The student's −/+/Fit, beside the tag: clear of the captions and the tiles. */}
+          <BoardCameraControls />
         </TopLine>
       </Panel>
-      <TutorTile />
+      {mode === 'board' && cameraOn && stream && (
+        <CameraPip
+          stream={stream}
+          inset={TILE_INSET}
+          bottomClearance={CAPTIONS_CLEARANCE}
+          clearOf={TOP_LINE}
+        />
+      )}
+      <TutorTile inset={TILE_INSET} bottomClearance={CAPTIONS_CLEARANCE} clearOf={TOP_LINE} />
     </div>
   );
 }
@@ -124,7 +179,10 @@ function TopLine({
   children: ReactNode;
 }) {
   return (
-    <div className="pointer-events-none absolute top-3.5 right-3.5 left-3.5 z-10 flex flex-wrap items-center gap-2">
+    <div
+      data-top-line=""
+      className="pointer-events-none absolute top-3.5 right-3.5 left-3.5 z-10 flex flex-wrap items-center gap-2"
+    >
       {children}
       {pinIndicator && <PinIndicator onUnpinned={onUnpinned} />}
       {trailing}

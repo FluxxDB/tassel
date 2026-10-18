@@ -5,6 +5,7 @@ import { toGray } from '../../../../src/renderer/src/paper/detector/gray';
 import { compareSize } from '../../../../src/renderer/src/paper/detector/homography';
 import { DEFAULT_PARAMS } from '../../../../src/renderer/src/paper/detector/params';
 import {
+  cellsOf,
   expectMaskOn,
   expectTheTriggers,
   FRAME_H,
@@ -80,11 +81,8 @@ describe('the variants through the detector', () => {
       expectTheTriggers('hand-rests', result);
       const [trigger] = result.triggers;
       expect(handAt('hand-rests', trigger?.t ?? 0)).toBe(false);
-      // While it rests the hand reads as an occluder, so nothing is compared under it.
-      const resting = result.log.filter(
-        (s) => s.t > 5000 && s.t < 10000 && s.stats.quiet === 0 && !s.stats.busy,
-      );
-      expect(resting.length).toBeGreaterThan(0);
+      // While it rests the hand reads as an occluder: nothing is compared under it and nothing
+      // goes out, though the rest of the page stays quiet and compared (2026-10-18).
       expect(
         result.log.filter((s) => s.t > 4600 && s.t < 10000).some((s) => s.stats.occluded),
       ).toBe(true);
@@ -270,6 +268,27 @@ describe('the re-review’s variants', () => {
       expect(compared?.stats.solid.length).toBeGreaterThan(0);
       expectTheTriggers('bold-pen', result);
       expectMaskOn('bold-pen', result.triggers[0], ['q0']);
+    },
+    SLOW,
+  );
+});
+
+describe('slight movement (owner, 2026-10-18)', () => {
+  it(
+    'nudge-while-writing: a sheet that never quite settles still gives one ink trigger for q1',
+    () => {
+      // The original detector never sent anything here: every sample read as motion.
+      const result = run('nudge-while-writing');
+      expectTheTriggers('nudge-while-writing', result);
+      // The crop covers q1; a few pixels of jitter may spill a stray cell or two past it.
+      const trigger = result.triggers[0];
+      const { cols, rows, cells } = trigger?.mask ?? { cols: 0, rows: 0, cells: [] };
+      const [q1] = makeClip('nudge-while-writing').truth.groups.filter((g) => g.id === 'q1');
+      if (!q1) throw new Error('no q1 in the truth');
+      const near = new Set(cellsOf(q1.bbox, cols, rows, 1));
+      const inside = cells.filter(([c, r]) => near.has(r * cols + c));
+      expect(inside.length).toBeGreaterThan(0);
+      expect(cells.length - inside.length).toBeLessThanOrEqual(2);
     },
     SLOW,
   );

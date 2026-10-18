@@ -2,7 +2,31 @@
 
 A live AI tutor for the desktop. Tassel watches the student's paper (macOS Desk View) or screen, talks with her in real time, and explains by drawing on a shared board and over her own work, in English, Spanish and Korean. See `PRODUCT.md` for the product and `docs/superpowers/specs/2026-10-17-tassel-design.md` for the design.
 
-This is the P1 foundation: the session library, the new session sheet, the session screen ("one stage") and a scripted fake tutor. The live voice loop arrives in P2.
+The integrated app includes live voice, paper/webcam capture, screen tutoring with a collapsible overlay, board drawing, and tutor appearance, memory and personality controls.
+
+## One app, one launcher
+
+On Windows, run **`Start-Tassel.cmd`** from this checkout. On any platform, `pnpm start` uses the same tracked startup logic. Choose Paper/webcam, Screen, voice, board and tutor settings inside the app; there are no feature-specific launchers. `--check` prints a safe startup summary without opening the app or contacting providers.
+
+The launcher starts the code in the checkout containing it and shares local profile/backend settings across Git worktrees through the primary checkout's ignored `.local/start.json`. Existing avatar appearance and primary development sessions are retained. It does not start the older `.local/live-test` clone; that clone's provider settings may be referenced by path during migration, without copying keys.
+
+Close an existing Tassel instance before restarting onto another branch. A branch must merge the feature code to contain that feature; startup never switches branches behind your back. See [the startup contract](docs/startup.md) for cross-branch integration and configuration.
+
+## Same setup for every collaborator
+
+Everyone runs the same backend, in Docker, on macOS and Windows alike. **Docker Desktop is required** (on Windows, the WSL 2 backend).
+
+| Where | What |
+|---|---|
+| Docker (`docker-compose.yml`) | `db` (Postgres 17 + pgvector, 127.0.0.1:54329), `s3` (Versity, 127.0.0.1:7070) and `server` (FastAPI + Pipecat, `services/server/Dockerfile`, Python 3.12 on Linux, 127.0.0.1:8787) |
+| The host | Electron, the Desk View helper, the camera and the microphone; tests (pytest, and the E2E server on 8799, via uv) |
+
+`pnpm dev`, `pnpm live` and `pnpm start` (`Start-Tassel.cmd`) all start it the same way, `docker compose up -d --wait --build db s3 server`, then open the app against http://127.0.0.1:8787. The server's container creates and migrates its database, and reloads when `services/server/src` changes; after a new migration, `docker compose restart server`. Ending the run stops the server container; `db` and `s3` keep running.
+
+- **Canonical names:** port 8787, database `tassel`, bucket `tassel-frames`.
+- **Overrides:** `.local/start.json` (`port`, `databaseUrl`, `s3Bucket`, for `pnpm start`) or `TASSEL_PORT`, `TASSEL_DATABASE_URL`, `TASSEL_S3_BUCKET`. The host port follows the override; inside Docker the server still listens on 8787 and reaches `db` and `s3` by name. Existing databases and buckets keep their data.
+- **Provider keys:** the file `TASSEL_VOICE_ENV_FILE` names (else `services/server/.env`), mounted read-only; the server reads it. It's never in the image or the container's environment. With no file, the server runs its fake providers.
+- **Debugging:** `pnpm dev --host-server` (or `TASSEL_HOST_SERVER=1`, or `pnpm start --host-server`) runs the server with uv on the host, as before.
 
 ## What you need
 
@@ -10,8 +34,8 @@ macOS (the primary target) or Windows, with:
 
 - **Node 22.18 or later.** `.node-version` names 22.
 - **pnpm 12.** The `packageManager` field pins 12.6.0; `corepack enable` gives you that version.
-- **[uv](https://docs.astral.sh/uv/)**, which installs Python 3.12 for the server on first use.
-- **Docker Desktop**, for Postgres 17 with pgvector. On Windows, use the WSL 2 backend.
+- **Docker Desktop**, for the backend: Postgres, local S3 and the server. On Windows, use the WSL 2 backend.
+- **[uv](https://docs.astral.sh/uv/)**, for the tests, `pnpm check` and `--host-server` (it installs Python 3.12 on first use).
 
 ## Set up
 
@@ -28,13 +52,11 @@ pnpm dev
 ```
 
 `pnpm dev` (`scripts/dev.mjs`) runs, in order:
-1. it starts Postgres and local S3 (`docker compose up -d --wait db s3`, on 127.0.0.1:54329 and 127.0.0.1:7070);
-2. it migrates the dev database;
-3. on macOS, it builds the Desk View helper (`node scripts/native.mjs build`), with a warning if Swift is missing;
-4. it starts the server on http://127.0.0.1:8787;
-5. once the server answers, it opens the app with the fake tutor.
+1. it starts the backend in Docker (`docker compose up -d --wait --build db s3 server`): Postgres and local S3 on 127.0.0.1:54329 and 127.0.0.1:7070, and the server, which migrates the dev database, on http://127.0.0.1:8787;
+2. on macOS, it builds the Desk View helper (`node scripts/native.mjs build`), with a warning if Swift is missing;
+3. once the server answers, it opens the app with the fake tutor.
 
-Logs from both carry `[server]` and `[app]` prefixes. Ctrl+C stops both, and so does either one exiting.
+Logs from both carry `[server]` and `[app]` prefixes. Ctrl+C stops both (the server's container stops; `db` and `s3` stay up), and so does either one exiting.
 
 ## Paper view
 

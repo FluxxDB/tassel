@@ -24,6 +24,11 @@ def test_frame_meta_example_validates(ink_meta):
     )
 
 
+def test_webcam_frame_source_validates(ink_meta):
+    meta = FrameMeta.model_validate({**ink_meta, "source": "webcam"})
+    assert meta.source == "webcam"
+
+
 def invalid(ink_meta, **changes) -> bool:
     try:
         FrameMeta.model_validate({**ink_meta, **changes})

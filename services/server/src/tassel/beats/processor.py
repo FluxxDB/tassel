@@ -25,7 +25,8 @@ from .markup import BoardContext, MarkupStream, Sentence
 
 FREEZE_TAG = re.compile(r"\[\[\s*freeze(?:\s+[^\]]*)?\]\]", re.IGNORECASE)
 PAPER_MARK_TAG = re.compile(
-    r"\[\[\s*(?:circle|wash|number|check|strike|arrow|callout)\s+[^\]]+\]\]", re.IGNORECASE
+    r"\[\[\s*(?:circle|wash|number|check|strike|underline|arrow|callout)\s+[^\]]+\]\]",
+    re.IGNORECASE,
 )
 
 
@@ -42,11 +43,17 @@ class BeatTagProcessor(FrameProcessor):
         lang: Callable[[], Lang],
         board: BoardContext,
         transcript=None,
+        on_actions=None,
+        on_sentence=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
+        # Told each sentence before its words go on, with its text frame's id (None when it has
+        # no words): the chat's action rows.
+        self._on_sentence = on_sentence
         self._events = events
         self._transcript = transcript
+        self._on_actions = on_actions
         self._lang = lang
         self._board = board
         self._stream = MarkupStream(board)
@@ -77,6 +84,10 @@ class BeatTagProcessor(FrameProcessor):
                 lang=self._lang(),
             )
             await self._events.send(BeatEvent(beat=beat))
+            if self._on_actions:
+                self._on_actions([marker.action for marker in beat.markers])
+            if self._on_sentence:
+                await self._on_sentence(sentence, frame.id if sentence.clean else None)
             if sentence.clean:
                 await self.push_frame(frame)
 
@@ -109,8 +120,11 @@ class BeatTagProcessor(FrameProcessor):
         if isinstance(frame, InterruptionFrame):
             self._guard_buffer = self._reply_text = ""
             self._stream = MarkupStream(self._board)
+            # What she drew before the interruption is still a step [[undo]] can take back.
+            self._board.end_turn()
         if direction == FrameDirection.DOWNSTREAM:
             if isinstance(frame, LLMFullResponseStartFrame):
+                self._board.begin_turn()
                 self._turn = uuid4().hex[:8]
                 self._sequence = 0
                 self._guard_buffer = self._reply_text = ""
@@ -125,4 +139,5 @@ class BeatTagProcessor(FrameProcessor):
             elif isinstance(frame, LLMFullResponseEndFrame):
                 await self._feed_guarded("", final=True)
                 await self._emit(self._stream.flush())
+                self._board.end_turn()
         await self.push_frame(frame, direction)

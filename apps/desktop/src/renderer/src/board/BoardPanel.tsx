@@ -15,7 +15,10 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useFloatingTiles } from '../components/FloatingTile';
+import { useChatCover } from '../features/chat/chat-layout';
 import { useStageStore } from '../features/session/stage-store';
+import { useBoardCamera } from './BoardCameraControls';
 import { BoardDescription } from './BoardDescription';
 import { type BoardState, useBoardStore } from './board-store';
 import type { BoardEngine, StageGeometry, StageRect } from './engine';
@@ -46,8 +49,11 @@ export function BoardPanel(): JSX.Element {
   const onEngine = useCallback((next: BoardEngine | null) => {
     detach.current?.();
     engine.current = next;
+    // The student's camera controls live in the stage's top line (BoardCameraControls).
+    useBoardCamera.setState({ camera: next?.camera });
     detach.current = next ? useBoardStore.getState().attach(next) : null;
   }, []);
+  useEffect(() => () => useBoardCamera.setState({ camera: undefined }), []);
 
   // What the stage lays over the board, measured when the camera fits (P5-R9): this panel, the
   // session's main area, which places the captions, and whether captions are on.
@@ -55,12 +61,44 @@ export function BoardPanel(): JSX.Element {
   const stage = useCallback((): StageGeometry | null => {
     const element = panel.current;
     if (!element) return null;
+    const main = boxOf(element.closest('main') ?? document.documentElement);
+    // The chat sidebar, while it lies over the stage: the captions centre in what it leaves of
+    // main, and her drawing keeps clear of it like a tile.
+    const cover = useChatCover.getState().cover;
+    const sidebar =
+      cover > 0 ? [{ x: main.x + main.w - cover, y: main.y, w: cover, h: main.h }] : [];
     return {
       panel: boxOf(element),
-      main: boxOf(element.closest('main') ?? document.documentElement),
+      main: cover > 0 ? { ...main, w: main.w - cover } : main,
       captions: useStageStore.getState().captionsOn,
+      tiles: [
+        ...Object.values(useFloatingTiles.getState().tiles).map((tile) => tile.rect),
+        ...sidebar,
+      ],
     };
   }, []);
+
+  // The overlaying sidebar opens or closes over the board, which keeps its size: fit again.
+  useEffect(
+    () =>
+      useChatCover.subscribe((now, before) => {
+        if (now.cover === before.cover) return;
+        engine.current?.focus(useBoardStore.getState().scene.focus, { animate: true });
+      }),
+    [],
+  );
+
+  // Her tile and her desk camera move and resize: fit again when one does, or comes or goes.
+  useEffect(
+    () =>
+      useFloatingTiles.subscribe((now, before) => {
+        const rects = (state: typeof now) =>
+          JSON.stringify(Object.entries(state.tiles).map(([id, tile]) => [id, tile.rect]));
+        if (rects(now) === rects(before)) return;
+        engine.current?.focus(useBoardStore.getState().scene.focus, { animate: true });
+      }),
+    [],
+  );
 
   // The captions band is kept free whenever captions are on, so the camera fits again when
   // they're turned on or off, and never as their lines come and go.

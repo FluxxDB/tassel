@@ -1,12 +1,19 @@
 // The board store: Ada's scene, her automata's layouts, her effects, and the engine that draws
 // them. A fake layout client and a fake engine stand in for Graphviz and tldraw.
-import type { AutomatonSpec, BoardAction } from '@tassel/shared/beats';
+import type { AutomatonSpec, BoardAction, DiagramSpec } from '@tassel/shared/beats';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyBoardAction, useBoardStore } from '../../../src/renderer/src/board/board-store';
 import type { BoardEngine } from '../../../src/renderer/src/board/engine';
-import { fallbackLayout } from '../../../src/renderer/src/board/layout/fallback';
-import type { AutomatonLayout } from '../../../src/renderer/src/board/layout/types';
-import { CORRECT } from './fixtures';
+import {
+  fallbackDiagramLayout,
+  fallbackLayout,
+} from '../../../src/renderer/src/board/layout/fallback';
+import type {
+  AutomatonLayout,
+  DiagramLayout,
+  DiagramSizes,
+} from '../../../src/renderer/src/board/layout/types';
+import { CORRECT, NETWORK } from './fixtures';
 
 /** Layout calls the test settles by hand, in order. */
 const layouts = vi.hoisted(() => {
@@ -15,11 +22,22 @@ const layouts = vi.hoisted(() => {
     resolve(layout: AutomatonLayout): void;
     reject(error: Error): void;
   }> = [];
+  const diagrams: Array<{
+    spec: DiagramSpec;
+    sizes: DiagramSizes;
+    resolve(layout: DiagramLayout): void;
+    reject(error: Error): void;
+  }> = [];
   return {
     calls,
+    diagrams,
     client: {
       layout: (spec: AutomatonSpec) =>
         new Promise<AutomatonLayout>((resolve, reject) => calls.push({ spec, resolve, reject })),
+      layoutDiagram: (spec: DiagramSpec, sizes: DiagramSizes) =>
+        new Promise<DiagramLayout>((resolve, reject) =>
+          diagrams.push({ spec, sizes, resolve, reject }),
+        ),
       dispose: () => {},
     },
   };
@@ -57,6 +75,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 let warn: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   layouts.calls.length = 0;
+  layouts.diagrams.length = 0;
   store().reset();
   warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
@@ -66,6 +85,34 @@ afterEach(() => {
 });
 
 describe('the board store', () => {
+  it('notifies the camera after rendering actions, including effects and repeated focus', () => {
+    const events: string[] = [];
+    const engine: BoardEngine = {
+      ...fakeEngine(),
+      render: () => {
+        events.push('render');
+      },
+      camera: {
+        zoom() {},
+        fit() {},
+        adaAction: () => {
+          events.push('action');
+        },
+      },
+    };
+    attach(engine);
+    events.length = 0;
+    applyBoardAction(DRAW);
+    expect(events).toEqual(['render', 'action']);
+    events.length = 0;
+    applyBoardAction(PULSE);
+    expect(events).toEqual(['action']);
+    applyBoardAction({ kind: 'board.focus', item: 'fix' });
+    events.length = 0;
+    applyBoardAction({ kind: 'board.focus', item: 'fix' });
+    expect(events.at(-1)).toBe('action');
+  });
+
   it('a scene that arrives before an engine renders when one attaches', async () => {
     applyBoardAction(DRAW);
     expect(layouts.calls.map((call) => call.spec)).toEqual([CORRECT]);
@@ -161,5 +208,44 @@ describe('the board store', () => {
     await settle();
     expect(store().layouts).toEqual({});
     expect(engine.play).not.toHaveBeenCalled();
+  });
+  describe('a diagram', () => {
+    const DIAGRAM: BoardAction = { kind: 'board.diagram', item: 'net', spec: NETWORK };
+
+    it('is laid out with its measured sizes, once per spec, and its pulse waits for it', async () => {
+      const engine = fakeEngine();
+      attach(engine);
+      applyBoardAction(DIAGRAM);
+      applyBoardAction({ kind: 'board.pulse', item: 'net', el: 'node:core' });
+      applyBoardAction({ kind: 'board.highlight', item: 'net', el: 'node:rA', on: true });
+      await settle();
+      expect(layouts.diagrams).toHaveLength(1);
+      const [call] = layouts.diagrams;
+      expect(call.spec).toEqual(NETWORK);
+      expect(Object.keys(call.sizes.nodes)).toHaveLength(10);
+      expect(Object.keys(call.sizes.groups)).toEqual(['zoneA', 'zoneB', 'zoneC']);
+      expect(engine.play).not.toHaveBeenCalled();
+      const laid = fallbackDiagramLayout(NETWORK, call.sizes);
+      call.resolve(laid);
+      await settle();
+      expect(store().layouts.net).toBe(laid);
+      expect(store().layoutSources.net).toBe('graphviz');
+      expect(engine.play).toHaveBeenCalledWith({ type: 'pulse', item: 'net', el: 'node:core' });
+      expect(engine.render).toHaveBeenLastCalledWith(store().scene, store().layouts);
+    });
+
+    it('falls back to the grid when Graphviz fails, and forgets it once cleared', async () => {
+      applyBoardAction(DIAGRAM);
+      await settle();
+      layouts.diagrams[0].reject(new Error('no wasm'));
+      await settle();
+      expect(store().layoutSources.net).toBe('fallback');
+      expect(store().layouts.net).toEqual(
+        fallbackDiagramLayout(NETWORK, layouts.diagrams[0].sizes),
+      );
+      expect(warn).toHaveBeenCalledTimes(1);
+      applyBoardAction({ kind: 'board.clear', item: 'net' });
+      expect(store().layouts).toEqual({});
+    });
   });
 });

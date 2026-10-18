@@ -2,10 +2,13 @@
 // but its origin is bottom-left, so y flips against `bb`, and everything moves LAYOUT_MARGIN in.
 // Each edge's curve becomes a bend, which tldraw's arrows reproduce (Task 5), a label point and,
 // for a self-loop, the side of its state it sits on.
-import type { AutomatonSpec, Pt } from '@tassel/shared/beats';
+import type { AutomatonSpec, DiagramSpec, Pt } from '@tassel/shared/beats';
 import { mergedEdges } from '../automata/run';
+import { diagramEdges } from '../scene/diagram';
 import {
   type AutomatonLayout,
+  type DiagramLayout,
+  type DiagramSizes,
   type EdgeLayout,
   LAYOUT_MARGIN,
   type LoopSide,
@@ -17,7 +20,8 @@ import {
 export interface GraphvizJson0 {
   /** "llx,lly,urx,ury", in points. */
   bb: string;
-  objects?: Array<{ name: string; pos?: string }>;
+  /** Nodes, and subgraphs such as a diagram's clusters, which carry their own `bb`. */
+  objects?: Array<{ name: string; pos?: string; bb?: string }>;
   edges?: Array<{ id?: string; tail: number; head: number; pos?: string; lp?: string }>;
 }
 
@@ -71,6 +75,70 @@ export function fromGraphvizJson(json: GraphvizJson0, spec: AutomatonSpec): Auto
   };
 }
 
+/** A diagram's edges bend less than an automaton's: at most this many chords. */
+const DIAGRAM_MAX_BEND = 0.3;
+/** A diagram edge's bend under this many px is drawn straight. */
+const DIAGRAM_MIN_BEND = 10;
+
+/**
+ * Graphviz's json0 for diagramToDot's graph as a DiagramLayout: each node's box at its measured
+ * size around the center dot gave it, each cluster's `bb` as its group's frame, and each edge's
+ * bend from the middle of its curve.
+ */
+export function fromGraphvizDiagram(
+  json: GraphvizJson0,
+  spec: DiagramSpec,
+  sizes: DiagramSizes,
+): DiagramLayout {
+  const [llx, lly, urx, ury] = numbers(json.bb, 4, 'bb');
+  const toBoard = ({ x, y }: Pt): Pt => ({
+    x: x - llx + LAYOUT_MARGIN,
+    y: ury - y + LAYOUT_MARGIN,
+  });
+  const objects = new Map((json.objects ?? []).map((object) => [object.name, object]));
+
+  const nodes: DiagramLayout['nodes'] = {};
+  const centers: Record<string, Pt> = {};
+  for (const { id } of spec.nodes) {
+    const pos = objects.get(id)?.pos;
+    if (!pos) throw new Error(`Graphviz placed no ${id}`);
+    const center = toBoard(point(pos));
+    const { w, h } = sizes.nodes[id];
+    centers[id] = center;
+    nodes[id] = { x: center.x - w / 2, y: center.y - h / 2, w, h };
+  }
+
+  const groups: DiagramLayout['groups'] = {};
+  for (const { id } of spec.groups) {
+    const bb = objects.get(`cluster_${id}`)?.bb;
+    if (!bb) throw new Error(`Graphviz drew no cluster for ${id}`);
+    const [x0, y0, x1, y1] = numbers(bb, 4, 'bb');
+    const top = toBoard({ x: x0, y: y1 });
+    groups[id] = { x: top.x, y: top.y, w: x1 - x0, h: y1 - y0 };
+  }
+
+  const drawn = new Map((json.edges ?? []).map((edge) => [edge.id, edge]));
+  const edges: DiagramLayout['edges'] = {};
+  for (const { from, to } of diagramEdges(spec)) {
+    const key = `${from}>${to}`;
+    const edge = drawn.get(key);
+    if (!edge?.pos) throw new Error(`Graphviz drew no edge ${key}`);
+    const middle = halfway(spline(edge.pos).map(toBoard));
+    edges[key] = {
+      bend: bendOf(centers[from], centers[to], middle, DIAGRAM_MAX_BEND, DIAGRAM_MIN_BEND),
+    };
+  }
+
+  return {
+    kind: 'diagram',
+    width: urx - llx + 2 * LAYOUT_MARGIN,
+    height: ury - lly + 2 * LAYOUT_MARGIN,
+    nodes,
+    groups,
+    edges,
+  };
+}
+
 /** The start arrow points into the start state's edge from `tail`'s side. */
 function startArrow(
   state: { x: number; y: number; r: number },
@@ -93,14 +161,14 @@ function startArrow(
  * tail → head on a y-down board, where the left of (dx, dy) is (dy, −dx). Clamped to MAX_BEND
  * chords; under MIN_BEND px it is 0.
  */
-function bendOf(tail: Pt, head: Pt, middle: Pt): number {
+function bendOf(tail: Pt, head: Pt, middle: Pt, most = MAX_BEND, least = MIN_BEND): number {
   const dx = head.x - tail.x;
   const dy = head.y - tail.y;
   const chord = Math.hypot(dx, dy);
   if (chord === 0) return 0;
   const offset = ((middle.x - tail.x) * dy - (middle.y - tail.y) * dx) / chord;
-  const bend = Math.max(-MAX_BEND * chord, Math.min(MAX_BEND * chord, offset));
-  return Math.abs(bend) < MIN_BEND ? 0 : bend;
+  const bend = Math.max(-most * chord, Math.min(most * chord, offset));
+  return Math.abs(bend) < least ? 0 : bend;
 }
 
 /** Which side of `center` a self-loop's label is on. */

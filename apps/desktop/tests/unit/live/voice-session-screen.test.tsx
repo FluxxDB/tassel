@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { ApiClient } from '@tassel/shared/api';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, expect, it, vi } from 'vitest';
 import { SessionScreen } from '../../../src/renderer/src/features/session/SessionScreen';
@@ -34,7 +34,7 @@ it.each(['not-configured', 'unreachable'] as const)(
       fakeSpeed: 1,
       tokenReset: false,
     };
-    const config = { devTools: true, fakeMic: true, devConsole: false, canOpenMicSettings: true };
+    const config = { devTools: true, fakeMic: true, canOpenMicSettings: true };
     const api = {
       GET: vi.fn(async () => ({
         data: { id: 's', title: null, subject: null, language: 'ko', source: 'talk' },
@@ -58,50 +58,5 @@ it.each(['not-configured', 'unreachable'] as const)(
         : 'Cannot reach the voice server. Check your connection and try again.',
     );
     expect(useStageStore.getState().caption).toEqual({});
-  },
-);
-it.each([true, false])(
-  'the developer console shows only when enabled (%s), and sends typed lines',
-  async (devConsole) => {
-    vi.stubGlobal('tassel', { platform: 'darwin' });
-    const client: TutorClient = {
-      connect: vi.fn(async () => {}),
-      disconnect: vi.fn(async () => {}),
-      on: () => () => {},
-      sendText: vi.fn(),
-    };
-    useVoiceSession.mockReturnValue({ resources: null, client });
-    const app = {
-      serverUrl: 'http://localhost:8821',
-      uiLanguage: 'en' as const,
-      tutorMode: 'live' as const,
-      fakeScript: 'dfa-board',
-      fakeSpeed: 1,
-      tokenReset: false,
-    };
-    const config = { devTools: true, fakeMic: true, devConsole, canOpenMicSettings: true };
-    const api = {
-      GET: vi.fn(async () => ({
-        data: { id: 's', title: null, subject: null, language: 'en', source: 'talk' },
-        response: new Response(null),
-      })),
-    } as unknown as ApiClient;
-    render(
-      <I18nextProvider i18n={await initI18n('en')}>
-        <ApiProvider client={api}>
-          <SessionScreen sessionId="s" app={app} voiceConfig={config} />
-        </ApiProvider>
-      </I18nextProvider>,
-    );
-    await screen.findByRole('heading', { name: 'Untitled Session' });
-    const input = screen.queryByRole('textbox', { name: 'Student message' });
-    if (!devConsole) {
-      expect(input).toBeNull();
-      return;
-    }
-    expect(input).not.toBeNull();
-    fireEvent.change(input as HTMLElement, { target: { value: 'Can you show me the answer?' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    expect(client.sendText).toHaveBeenCalledWith('Can you show me the answer?');
   },
 );

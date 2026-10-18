@@ -15,6 +15,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): EnvConfig {
     tutorMode: env.TASSEL_TUTOR === 'fake' ? 'fake' : 'live',
     fakeScript: env.TASSEL_FAKE_SCRIPT || 'dfa-opening',
     fakeSpeed: positiveNumber(env.TASSEL_FAKE_SPEED) ?? 1,
+    ...(env.TASSEL_CHAT_SIDEBAR === 'closed' && { chatSidebar: 'closed' as const }),
   };
 }
 
@@ -24,6 +25,11 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): EnvConfig {
  */
 export function applyUserDataOverride(env: NodeJS.ProcessEnv = process.env): void {
   if (env.TASSEL_USER_DATA) app.setPath('userData', env.TASSEL_USER_DATA);
+}
+
+/** Where downloads (the board's PNG) go: TASSEL_DOWNLOAD_DIR (E2E), else the Downloads folder. */
+export function downloadDir(env: NodeJS.ProcessEnv = process.env): string {
+  return env.TASSEL_DOWNLOAD_DIR || app.getPath('downloads');
 }
 
 /** 'file' (plaintext JSON) when TASSEL_TOKEN_STORE=file, as dev scripts and E2E set; else 'safe'. */

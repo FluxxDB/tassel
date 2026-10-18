@@ -13,9 +13,17 @@ to whole milliseconds.
 import math
 from typing import Annotated, Final, Literal, TypedDict
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    model_serializer,
+    model_validator,
+)
 
-from tassel.beats.models import BeatDoc
+from tassel.beats.models import BeatAction, BeatDoc
 from tassel.models import Lang
 
 ENVELOPE: Final = "tassel"
@@ -69,9 +77,33 @@ class BeatEvent(_Message):
     beat: BeatDoc
 
 
+class BoardSnapshotEvent(_Message):
+    kind: Literal["board-snapshot"] = "board-snapshot"
+
+
+class ActionsEvent(_Message):
+    kind: Literal["actions"] = "actions"
+    actions: list[BeatAction]
+
+
 class StageEvent(_Message):
     kind: Literal["stage"] = "stage"
     view: Literal["paper", "board", "split"]
+    # True for the student's own spoken view request, which the app pins; Ada's requests leave it
+    # out, so they read as they always have.
+    pinned: bool = False
+
+    @model_serializer(mode="wrap")
+    def _pinned_only_when_true(self, handler):
+        data = handler(self)
+        if not self.pinned:
+            data.pop("pinned", None)
+        return data
+
+
+class StageHintEvent(_Message):
+    kind: Literal["stage-hint"] = "stage-hint"
+    side: Literal["paper", "board"]
 
 
 class LanguageEvent(_Message):
@@ -117,7 +149,63 @@ class TurnMetricsEvent(_Message):
     metrics: TurnMetrics
 
 
+class MessageAttachment(_Message):
+    """An image the student sent (``POST /v1/sessions/{id}/attachments``), in pixels."""
+
+    id: str
+    w: int = Field(gt=0)
+    h: int = Field(gt=0)
+
+
+class MessageAction(_Message):
+    """What Ada did on the stage, shown as a row in the chat that moves the stage there.
+
+    ``item`` names what she drew, cleared or marked (a board item or a marker id) when there is
+    one; ``attachment_id`` is the image she marked when ``side`` is ``image``.
+    """
+
+    kind: Literal["draw", "clear", "undo", "redo", "mark", "view"]
+    side: Literal["board", "paper", "image"]
+    item: str | None
+    attachment_id: str | None
+
+
+class ChatMessageEvent(_Message):
+    """One line of the session's conversation, for the app's chat sidebar.
+
+    A tutor line updates in place by ``id`` while Ada speaks it (``final`` false), then once
+    more when it ends; ``interrupted`` when she was cut off. ``client_id`` echoes the app's own
+    id for a typed student message. ``source`` is how the line was said (None for an action
+    row); ``action`` is set exactly when ``role`` is ``action``.
+    """
+
+    kind: Literal["message"] = "message"
+    id: str
+    client_id: str | None
+    role: Literal["student", "tutor", "action"]
+    source: Literal["voice", "typed"] | None
+    text: str
+    final: bool
+    interrupted: bool
+    attachments: list[MessageAttachment]
+    action: MessageAction | None
+
+    @model_validator(mode="after")
+    def _action_rows_carry_an_action(self):
+        if (self.role == "action") != (self.action is not None):
+            raise ValueError("action is set exactly when role is action")
+        return self
+
+
 # Client events, app to bot.
+
+
+class StageStateEvent(_Message):
+    kind: Literal["stage-state"] = "stage-state"
+    view: Literal["paper", "board", "split"]
+    pinned: Literal["paper", "board", "split"] | None = None
+    frozen: bool
+    page_revision: int = Field(ge=0)
 
 
 class PushToTalkEvent(_Message):
@@ -144,6 +232,29 @@ class ClientMetricsEvent(_Message):
     sensitivity: Sensitivity
 
 
+MESSAGE_MAX_CHARS: Final = 4000
+MESSAGE_MAX_ATTACHMENTS: Final = 4
+
+
+class StudentMessageEvent(_Message):
+    """A message the student typed in the chat, with up to four uploaded images.
+
+    Like speaking over Ada, it interrupts her. ``voice`` false asks for a text-only reply.
+    """
+
+    kind: Literal["student-message"] = "student-message"
+    client_id: str = Field(min_length=1, max_length=64)
+    text: str = Field(max_length=MESSAGE_MAX_CHARS)
+    attachment_ids: list[str] = Field(max_length=MESSAGE_MAX_ATTACHMENTS)
+    voice: bool
+
+    @model_validator(mode="after")
+    def _says_something(self):
+        if not self.text.strip() and not self.attachment_ids:
+            raise ValueError("A message needs text or an image")
+        return self
+
+
 class OfferRequestData(_Message):
     """The RTVI ``requestData`` of a voice offer."""
 
@@ -159,14 +270,19 @@ ServerEvent = Annotated[
     | BackchannelEvent
     | TitleEvent
     | StageEvent
+    | StageHintEvent
     | LanguageEvent
     | VadEvent
     | BeatEvent
-    | PaperFrameEvent,
+    | PaperFrameEvent
+    | BoardSnapshotEvent
+    | ActionsEvent
+    | ChatMessageEvent,
     Field(discriminator="kind"),
 ]
 ClientEvent = Annotated[
-    PushToTalkEvent | SensitivityEvent | ClientMetricsEvent, Field(discriminator="kind")
+    PushToTalkEvent | SensitivityEvent | ClientMetricsEvent | StageStateEvent | StudentMessageEvent,
+    Field(discriminator="kind"),
 ]
 SERVER_EVENTS: Final = TypeAdapter(ServerEvent)
 CLIENT_EVENTS: Final = TypeAdapter(ClientEvent)

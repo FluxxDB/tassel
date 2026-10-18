@@ -4,8 +4,10 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
 import { App } from './app/App';
+import { useChatPrefs } from './features/chat/chat-prefs';
 import { initI18n } from './i18n';
 import { apiClientFromBridge } from './lib/api';
+import { Overlay } from './overlay/Overlay';
 import { setPaperConfig } from './paper/paper-config';
 import './styles/global.css';
 
@@ -21,12 +23,18 @@ async function boot(container: HTMLElement): Promise<void> {
   // Before the first render, so render-time code (the new session sheet, the paper panel) reads
   // the paper config synchronously.
   setPaperConfig(paperConfig);
+  // Before the first render too, so a sidebar that starts hidden never slides shut.
+  useChatPrefs.getState().setDefaultOpen(config.chatSidebar !== 'closed');
   const i18n = await initI18n(config.uiLanguage);
   const api = apiClientFromBridge(config.serverUrl);
   createRoot(container).render(
     <StrictMode>
       <I18nextProvider i18n={i18n}>
-        <App api={api} tokenReset={config.tokenReset} config={config} voiceConfig={voiceConfig} />
+        {location.hash.startsWith('#overlay-') ? (
+          <Overlay kind={location.hash === '#overlay-ink' ? 'ink' : 'hud'} />
+        ) : (
+          <App api={api} tokenReset={config.tokenReset} config={config} voiceConfig={voiceConfig} />
+        )}
       </I18nextProvider>
     </StrictMode>,
   );

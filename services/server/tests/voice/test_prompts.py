@@ -91,16 +91,18 @@ def test_the_board_examples_are_complete_and_every_tag_in_them_reads_cleanly():
 @pytest.mark.parametrize("lang", ["en", "es", "ko"])
 def test_freeze_only_for_marks_and_dfa_rules(lang):
     prompt = system_prompt(lang)
-    assert "Freeze only right before marking the paper (circle, number, check, strike)" in prompt
+    marks = "(circle, number, check, strike, underline)"
+    assert f"Freeze only right before marking the paper {marks}" in prompt
     assert "never when only describing" in prompt
     assert "a DFA has exactly one move per state per symbol; always give accept=" in prompt
 
 
-def test_two_tier_persona_uses_notes_and_consults_before_complex_work():
+def test_two_tier_persona_uses_notes_and_follows_director_without_reconfirmation():
     prompt = system_prompt("en", two_tier=True)
-    assert "[[consult]]" in prompt
+    assert "director chooses the route" in prompt
+    assert "do not repeatedly reconfirm meaning" in prompt
     assert "tutor notes" in prompt and "do not re-ask" in prompt
-    assert "bridge" in prompt
+    assert "bridge" not in prompt
     assert "[[consult]]" not in system_prompt("en")
 
 
@@ -117,4 +119,15 @@ def test_thinker_real_case_examples_match_schema_and_diagnose_missing_final_one(
         assert "final 1" in brief.diagnosis
         assert len(brief.plan) <= 4
         if "my paper" in example["student"]:
-            assert brief.paper and not brief.board
+            # Her paper gets marks, never a board diagram, except the playbook's board trace.
+            traced = any(t.startswith("[[trace") for t in brief.board)
+            assert traced or (brief.paper and not brief.board)
+
+
+def test_thinker_page_and_marks_come_from_this_turns_image_only():
+    from tassel.voice.prompts import thinker_system_prompt
+    from tassel.voice.thinker import GuidanceBrief
+
+    prompt = thinker_system_prompt(GuidanceBrief.model_json_schema())
+    assert "page describes this turn's image only" in prompt
+    assert "earlier sessions" in prompt and "the image wins" in prompt

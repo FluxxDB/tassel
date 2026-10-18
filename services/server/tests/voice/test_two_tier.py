@@ -36,7 +36,7 @@ class FakeThinker:
         self.active = self.peak = 0
         self.gate = gate
 
-    async def think(self, messages):
+    async def think(self, messages, effort=None):
         self.calls += 1
         self.active += 1
         self.peak = max(self.peak, self.active)
@@ -145,9 +145,11 @@ async def test_invalid_json_retried_once_and_no_tools_sent():
     assert (await thinker.think([{"role": "user", "content": "check"}])).say
     assert len(requests) == 2
     assert all(
-        "tools" not in r and r["reasoning_effort"] == "low" and r["model"] == "gpt-6-astra"
+        "tools" not in r and r["reasoning_effort"] == "none" and r["model"] == "gpt-6-luna"
         for r in requests
     )
+    # Measured live on the owner's page: luna 3.1–4.6 s vs astra 7.4 s, same diagnosis.
+    assert VoiceSettings().thinker_model == "gpt-6-luna"
 
 
 def test_two_tier_defaults_require_both_keys_and_allow_opt_out():
@@ -194,12 +196,17 @@ def test_bad_tags_dropped_and_my_paper_never_draws_on_board():
 
 
 @pytest.mark.asyncio
-async def test_bot_wires_fake_talker_and_thinker(monkeypatch, tmp_path):
+async def test_a_thinker_turn_speaks_only_the_brief_and_never_runs_the_talker(
+    monkeypatch, tmp_path
+):
+    """One reply per turn: no "Hang on, let me…" bridge from the talker before the brief."""
     from test_bot_pipeline import context, running, say, until
 
     import tassel.voice.bot as bot_module
     from tassel.voice.fakes.llm import FakeLLMService
     from tassel.voice.fakes.scenario import load_scenario
+
+    talker_turns = []
 
     class Talker(FakeLLMService):
         async def process_frame(self, frame, direction):
@@ -208,8 +215,9 @@ async def test_bot_wires_fake_talker_and_thinker(monkeypatch, tmp_path):
             if isinstance(frame, LLMContextFrame):
                 if not any(m.get("role") == "user" for m in frame.context.get_messages()):
                     return
+                talker_turns.append(frame)
                 await self.push_frame(LLMFullResponseStartFrame())
-                await self.push_frame(LLMTextFrame("[[consult]]Let me look at your arrows. "))
+                await self.push_frame(LLMTextFrame("Hang on, let me look at your arrows. "))
                 await self.push_frame(LLMFullResponseEndFrame())
             else:
                 await super().process_frame(frame, direction)
@@ -226,13 +234,13 @@ async def test_bot_wires_fake_talker_and_thinker(monkeypatch, tmp_path):
         settings=VoiceSettings(providers="fake", fake_tts="tone", transcript_dir=tmp_path)
     )
     async with running(ctx) as (bot, output):
-        await say(bot, "Help with this")
-        await until(lambda: "arrows" in output.text())
-        assert "final one" not in output.text()
+        await say(bot, "Check this")
+        await asyncio.sleep(0.3)
+        assert output.text() == ""
         gate.set()
         await until(lambda: "final one" in output.text())
-        assert "Let me look" in output.text()
-        assert "consult" not in output.text()
+        assert "Hang on" not in output.text()
+        assert talker_turns == []
         assert fake.calls == 1
         import json
 
@@ -245,9 +253,28 @@ async def test_bot_wires_fake_talker_and_thinker(monkeypatch, tmp_path):
             "ada_spoken",
             "thinker_brief",
             "thinker_duration",
-            "first_token",
             "first_audio",
         }
+
+
+@pytest.mark.asyncio
+async def test_bracketed_meta_text_is_never_spoken():
+    """Qwen once said "[assistant turn omitted]" aloud, copying the app's bracketed notes."""
+    coordinator = TutorCoordinator(None, BoardContext())
+    frames, _ = await run_test(
+        ThinkerOutput(coordinator),
+        frames_to_send=[
+            LLMFullResponseStartFrame(),
+            LLMTextFrame("[assistant turn "),
+            LLMTextFrame("omitted] Yes, these fit. [[reveal fix start q0]]Next."),
+            LLMFullResponseEndFrame(),
+        ],
+    )
+    words = "".join(f.text for f in frames if isinstance(f, LLMTextFrame))
+    assert "omitted" not in words and "[assistant" not in words
+    assert words.strip().startswith("Yes, these fit.")
+    assert "[[reveal fix start q0]]" in words
+    await coordinator.close()
 
 
 def test_spoken_guidance_cannot_bypass_tag_validation():
@@ -294,7 +321,7 @@ async def test_notes_expire_with_time_and_keep_older_summaries():
 @pytest.mark.asyncio
 async def test_failed_thinker_speaks_failure_after_bridge():
     class FailedThinker(FakeThinker):
-        async def think(self, messages):
+        async def think(self, messages, effort=None):
             raise TimeoutError("secret provider details")
 
     c = TutorCoordinator(FailedThinker(), BoardContext())

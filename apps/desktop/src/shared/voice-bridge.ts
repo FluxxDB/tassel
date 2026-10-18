@@ -3,7 +3,6 @@ export type MicAccess = 'granted' | 'denied' | 'not-determined' | 'restricted' |
 export interface VoiceConfig {
   devTools: boolean;
   fakeMic: boolean;
-  devConsole: boolean;
   canOpenMicSettings: boolean;
 }
 export interface VoiceBridge {

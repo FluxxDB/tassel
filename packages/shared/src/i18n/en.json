@@ -93,7 +93,15 @@
     "stage": {
       "paper": "Paper",
       "board": "Board",
-      "split": "Paper and board"
+      "split": "Paper and board",
+      "image": {
+        "tag": "Your image",
+        "backToPaper": "Back to paper",
+        "loading": "Getting your image…",
+        "failed": "Couldn't load your image",
+        "alt": "The image you sent",
+        "marksLabel": "Ada's marks on your image"
+      }
     },
     "placeholder": {
       "paper": {
@@ -135,6 +143,77 @@
       "title": "End this session?",
       "confirm": "End session",
       "cancel": "Keep going"
+    },
+    "tile": {
+      "ada": "Ada's tile",
+      "hint": "Drag it anywhere. The arrow keys move it to another corner, and Shift with the arrow keys resizes it."
+    },
+    "pip": {
+      "label": "Your desk",
+      "live": "Live",
+      "hint": "Double-click it, or press Enter, to show your paper beside the board."
+    },
+    "chat": {
+      "title": "Conversation",
+      "toggle": "Chat",
+      "hide": "Hide chat",
+      "empty": "Talk to Ada, or type to her here. What you both say shows up here.",
+      "spoken": "Spoken",
+      "cutOff": "Cut off",
+      "action": {
+        "draw": {
+          "board": "Drew on the board",
+          "paper": "Drew on your paper",
+          "image": "Drew on your image"
+        },
+        "clear": {
+          "board": "Cleared the board",
+          "paper": "Cleared her marks on your paper",
+          "image": "Cleared her marks on your image"
+        },
+        "mark": {
+          "board": "Marked the board",
+          "paper": "Marked your paper",
+          "image": "Marked your image"
+        },
+        "view": {
+          "board": "Switched to the board",
+          "paper": "Switched to your paper",
+          "image": "Switched to your image"
+        },
+        "undo": "Undid that",
+        "redo": "Redid that"
+      },
+      "show": {
+        "board": "Show the board",
+        "paper": "Show your paper",
+        "image": "Show your image"
+      },
+      "composer": {
+        "label": "Message to Ada",
+        "placeholder": "Message Ada",
+        "attach": "Attach images",
+        "snap": "Snap my paper",
+        "voiceOn": "Ada speaks replies",
+        "voiceOff": "Text replies only",
+        "voiceOnHint": "Ada answers your messages aloud. Switch to text replies only.",
+        "voiceOffHint": "Ada answers your messages in text only. Switch to spoken replies.",
+        "send": "Send message",
+        "removeImage": "Remove image {n}",
+        "count": "{count} of {max} characters",
+        "limit": "Up to {max} images in a message",
+        "unreadable": "That image couldn't be read. Try a PNG or a JPEG.",
+        "snapFailed": "Couldn't snap your paper. Try again in a moment.",
+        "drop": "Drop images to send them"
+      },
+      "image": "Image {n}",
+      "sending": "Sending",
+      "failed": "Not sent",
+      "retry": "Retry",
+      "viewer": {
+        "title": "Your image",
+        "close": "Close"
+      }
     }
   },
   "paper": {
@@ -185,6 +264,22 @@
       "toggle": "Heatmap",
       "stats": "{kind} · {changed} changed · quiet {quiet}/{stable} · {sent} sent",
       "noOpenCv": "OpenCV didn't load: using the central crop"
+    },
+    "webcam": {
+      "choice": "Paper · Camera",
+      "hint": "Use a webcam or a connected phone camera to show your paper.",
+      "camera": "Paper camera",
+      "tag": "Your paper · Camera",
+      "source": "Camera",
+      "live": "Camera · Live",
+      "denied": {
+        "title": "Camera access is blocked",
+        "body": "Allow desktop apps to access your camera in Windows Settings → Privacy & security → Camera, then retry."
+      },
+      "unavailable": {
+        "title": "Camera unavailable",
+        "body": "Connect your camera or start your phone camera app, close other apps using it, then retry."
+      }
     }
   },
   "platform": {
@@ -211,7 +306,16 @@
       "transition": "{from} to {to} on {symbols}",
       "step": "Step {n}: read {symbol}, {from} to {to}",
       "stuck": "Step {n}: read {symbol}, no move from {from}: rejected",
-      "note": "Note: {text}"
+      "note": "Note: {text}",
+      "diagram": "Diagram: {title}",
+      "group": "{name}: {list}",
+      "groupEmpty": "{name}: empty",
+      "node": "{label}: {kind}",
+      "nodeSub": "{label}: {kind}, {sublabel}",
+      "link": "{from} connected to {to}",
+      "linkLabeled": "{from} connected to {to}, {label}",
+      "arrow": "{from} to {to}",
+      "arrowLabeled": "{from} to {to}, {label}"
     },
     "trace": {
       "title": "Trace · input {input}",
@@ -232,6 +336,27 @@
     },
     "state": {
       "accepting": "{id}, accepting"
+    },
+    "camera": {
+      "label": "Board camera controls",
+      "in": "Zoom in",
+      "out": "Zoom out",
+      "fit": "Fit",
+      "download": "Download board",
+      "downloadEmpty": "Nothing on the board to download yet"
+    },
+    "icon": {
+      "router": "router",
+      "switch": "switch",
+      "pc": "PC",
+      "laptop": "laptop",
+      "server": "server",
+      "cloud": "cloud",
+      "firewall": "firewall",
+      "phone": "phone",
+      "database": "database",
+      "box": "box",
+      "circle": "circle"
     }
   },
   "marks": {
@@ -247,6 +372,7 @@
       "note": "Note: {text}",
       "arrow": "Arrow to {target}",
       "strike": "Crossed out: {target}",
+      "underline": "Underlined: {target}",
       "check": "Checked: {target}",
       "trace": "Tracing {input}, now at {state}"
     },
@@ -319,15 +445,166 @@
       "percentiles": "p50 {p50} · p90 {p90}",
       "unavailable": "—"
     },
-    "dev": {
-      "label": "Student message",
-      "placeholder": "Type what the student says",
-      "send": "Send"
-    },
     "language": {
       "menu": "Session language",
       "switching": "Switching to {language}…",
       "current": "Session language: {language}"
     }
+  },
+  "vision": {
+    "readback": {
+      "title": "How I read your DFA",
+      "deadState": "Missing arrows go to a dead state.",
+      "uncertain": "? I'm not sure about this part.",
+      "collapse": "Hide my reading",
+      "expand": "Show my reading",
+      "srState": "{state}{start, select, true {, start} other {}}{accept, select, true {, accepting} other {}}",
+      "srTransition": "{from} to {to} on {symbols}"
+    }
+  },
+  "avatar": {
+    "open": "Customize tutor",
+    "title": "Make your tutor your own",
+    "description": "A little personality for your study companion.",
+    "previewHint": "Your tutor, in every session.",
+    "name": "Tutor name",
+    "tabs": "Customization",
+    "style": "Style",
+    "body": "Body",
+    "skin": "Skin color",
+    "skinTone": "Skin tone {number}",
+    "previous": "Previous {part}",
+    "next": "Next {part}",
+    "voice": "Voice type",
+    "voicePlaceholder": "Coming soon · current voice unchanged",
+    "reset": "Reset to default",
+    "save": "Save changes",
+    "saved": "Looking good!",
+    "saveError": "Could not save on this device. Your changes are still here; please try again.",
+    "fields": {
+      "hair": "Hair style",
+      "hairColor": "Hair color",
+      "outfit": "Outfit",
+      "outfitColor": "Outfit color",
+      "accessory": "Accessory",
+      "face": "Face style",
+      "hat": "Hat",
+      "hatColor": "Hat color"
+    },
+    "options": {
+      "ponytail": "Ponytail",
+      "bob": "Bob",
+      "long": "Long",
+      "pixie": "Pixie",
+      "curls": "Curls",
+      "buns": "Space buns",
+      "headscarf": "Headscarf",
+      "espresso": "Espresso",
+      "chestnut": "Chestnut",
+      "copper": "Copper",
+      "gold": "Golden",
+      "silver": "Silver",
+      "rose": "Rose",
+      "plum": "Plum",
+      "blue": "Blue",
+      "sweater": "Sweater",
+      "collar": "Collared shirt",
+      "hoodie": "Hoodie",
+      "overalls": "Overalls",
+      "lilac": "Lilac",
+      "sage": "Sage",
+      "peach": "Peach",
+      "navy": "Navy",
+      "cream": "Cream",
+      "none": "None",
+      "clip": "Hair clip",
+      "glasses": "Glasses",
+      "earrings": "Earrings",
+      "stars": "Star clip",
+      "soft": "Soft",
+      "happy": "Happy",
+      "sideways": "Side glance",
+      "sleepy": "Sleepy",
+      "gentle": "Gentle",
+      "bright": "Bright",
+      "calm": "Calm",
+      "dress": "Dress",
+      "cap": "Cap",
+      "beanie": "Beanie"
+    },
+    "voiceOff": "Off · no ElevenLabs audio",
+    "voiceDisabled": "ElevenLabs is off. These choices are saved for later and will not generate audio.",
+    "voiceLibraryNote": "Play listens to an existing public sample for up to 8 seconds. Live speech stays off.",
+    "voiceLanguages": {
+      "en": "English voice",
+      "es": "Spanish voice",
+      "ko": "Korean voice"
+    },
+    "play": "Play",
+    "stop": "Stop",
+    "playPreview": "Preview {language}",
+    "stopPreview": "Stop preview {language}",
+    "previewUnavailable": "Preview unavailable. No audio was generated."
+  },
+  "memory": {
+    "settingsTitle": "Tutor settings",
+    "settingsDescription": "Personalize your tutor and what they remember.",
+    "appearance": "Appearance & voice",
+    "title": "Memory",
+    "enabled": "Remember across sessions",
+    "description": "Remember learning goals, preferences, and ongoing topics. Notes update once when you leave a session. Turning memory off stops using and updating these notes, but keeps them saved. Clear memory deletes the notes.",
+    "notes": "What your tutor remembers",
+    "empty": "Useful notes from your sessions will appear here. You can also add your own.",
+    "save": "Save changes",
+    "clear": "Clear memory",
+    "reload": "Reload notes",
+    "loading": "Loading memory…",
+    "loadError": "Could not load memory. Please try again.",
+    "saveError": "Could not save memory. Your changes are still here.",
+    "conflict": "Memory changed since you opened it. Copy any edits you want to keep, then reload notes.",
+    "saved": "Saved",
+    "personalizationTitle": "Personalization & memory",
+    "savedTitle": "Saved memories"
+  },
+  "screen": {
+    "choose": "Share a display",
+    "noDisplays": "No displays available. Try again.",
+    "ready": "Open your assignment and share a display with Ada.",
+    "sharing": "Screen shared",
+    "paused": "Screen sharing paused",
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop sharing",
+    "reset": "Reset annotations",
+    "resetHint": "Clear annotations and interrupt Ada (Ctrl/Cmd+Shift+Backspace)",
+    "restore": "Open Tassel",
+    "collapse": "Collapse to bar",
+    "draw": "Draw",
+    "drawHint": "Draw on your screen · Escape to finish",
+    "undo": "Undo ink",
+    "look": "Look again",
+    "listening": "Listening",
+    "thinking": "Thinking",
+    "speaking": "Speaking",
+    "failed": "Screen sharing needs attention. Restore Tassel and retry.",
+    "micOn": "Mic on",
+    "micOff": "Mic off",
+    "resetDone": "Annotations reset · Ada is listening",
+    "board": "Open board"
+  },
+  "personalization": {
+    "title": "Your ideal tutor",
+    "enabled": "Use tutor personalization",
+    "description": "Describe the personality, tone, energy, humor, and teaching approach you want. Only you edit this description; session memories never rewrite it. Your selected voice controls how the tutor sounds.",
+    "notes": "Describe your ideal tutor",
+    "empty": "Be calm and casual, like a patient older sister. Give one small step at a time, use gentle humor, and keep encouragement understated.",
+    "save": "Save tutor style",
+    "clear": "Reset tutor style",
+    "reload": "Reload style",
+    "loading": "Loading tutor style…",
+    "loadError": "Could not load tutor style. Please try again.",
+    "saveError": "Could not save tutor style. Your edits are still here.",
+    "conflict": "Tutor style changed since you opened it. Copy any edits you want to keep, then reload.",
+    "saved": "Tutor style saved"
   }
 }

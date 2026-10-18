@@ -26,6 +26,52 @@ export interface NormRect {
 
 export type StageView = 'paper' | 'board' | 'split';
 
+/** Icons a diagram node may show; the renderer draws each as an inline stroke icon. */
+export const DIAGRAM_ICONS = [
+  'router',
+  'switch',
+  'pc',
+  'laptop',
+  'server',
+  'cloud',
+  'firewall',
+  'phone',
+  'database',
+  'box',
+  'circle',
+] as const;
+export type DiagramIcon = (typeof DIAGRAM_ICONS)[number];
+/** A diagram stays small enough to read on the board. Labels count code points. */
+export const DIAGRAM_LIMITS = { nodes: 24, groups: 6, edges: 40, label: 40 } as const;
+
+export interface DiagramGroup {
+  id: StateId;
+  label: string;
+  sublabel?: string;
+}
+export interface DiagramNode {
+  id: StateId;
+  label: string;
+  sublabel?: string;
+  icon: DiagramIcon;
+  group?: StateId;
+}
+export interface DiagramEdge {
+  from: StateId;
+  to: StateId;
+  label?: string;
+  directed: boolean;
+  style: 'solid' | 'dashed';
+}
+/** A general diagram (networks, flowcharts, trees): structure only, laid out by the app. */
+export interface DiagramSpec {
+  title?: string;
+  direction: 'LR' | 'TB';
+  groups: DiagramGroup[];
+  nodes: DiagramNode[];
+  edges: DiagramEdge[];
+}
+
 export type BoardAction =
   | {
       kind: 'board.automaton';
@@ -34,6 +80,8 @@ export type BoardAction =
       title?: string;
       reveal?: 'all' | 'none';
     }
+  /** A whole diagram; the same item again replaces it, so edits redraw in place. */
+  | { kind: 'board.diagram'; item: string; spec: DiagramSpec; reveal?: 'all' | 'none' }
   | { kind: 'board.addState'; item: string; id: StateId; accept?: boolean }
   | { kind: 'board.addTransition'; item: string; from: StateId; to: StateId; symbols: string[] }
   /** Without `els`, everything in the item. */
@@ -72,6 +120,7 @@ export type PaperMark =
   /** `text` is at most 280 characters. */
   | { type: 'callout'; id: string; target: PaperTarget; text: string }
   | { type: 'strike'; id: string; target: PaperTarget }
+  | { type: 'underline'; id: string; target: PaperTarget }
   | { type: 'check'; id: string; target: PaperTarget };
 
 export type FrameRef =
@@ -117,7 +166,17 @@ export type PaperAction =
 
 export type StageAction = { kind: 'stage'; view: StageView };
 
-export type BeatAction = BoardAction | PaperAction | StageAction;
+/**
+ * The student's image (an attachment she sent in the chat), shown in the paper panel's slot and
+ * marked up as her paper is: `el` names a detected id from the image's Set-of-Mark (`mN`); `at`
+ * and `box` are normalized to the image. `attachmentId` is 1–64 characters.
+ */
+export type ImageAction =
+  | { kind: 'image.show'; attachmentId: string }
+  | { kind: 'image.mark'; attachmentId: string; mark: PaperMark }
+  | { kind: 'image.clear'; attachmentId: string };
+
+export type BeatAction = BoardAction | PaperAction | StageAction | ImageAction;
 
 /**
  * The action in `data`, or null if any field is wrong. The rules, which the server's mirror
@@ -131,6 +190,8 @@ export type BeatAction = BoardAction | PaperAction | StageAction;
  * - A trace's `input`, on the board or the paper, is at most 64 symbols of one character (code
  *   point) each; it may be empty.
  * - A paper target has exactly one of `el`, `at` and `box`; an edge path has at least 2 points.
+ * - A diagram has 1–24 nodes, at most 6 groups and 40 edges, labels of 1–40 characters, ids
+ *   (state-id rule) unique across its nodes and groups, and every group and edge end defined.
  */
 export function parseAction(data: unknown): BeatAction | null {
   try {
@@ -276,6 +337,69 @@ function spec(value: unknown, board = false): AutomatonSpec {
   return checkAutomaton(parsed).length === 0 ? parsed : invalid();
 }
 
+function label(value: unknown): string {
+  const s = string(value);
+  const n = [...s].length;
+  if (n < 1 || n > DIAGRAM_LIMITS.label) invalid();
+  return s;
+}
+
+function diagram(value: unknown): DiagramSpec {
+  const f = fields(value, ['direction', 'groups', 'nodes', 'edges'], ['title']);
+  const groups = list(f.groups, (g): DiagramGroup => {
+    const x = fields(g, ['id', 'label'], ['sublabel']);
+    return compact({
+      id: stateId(x.id),
+      label: label(x.label),
+      sublabel: optional(x.sublabel, label),
+    });
+  });
+  const nodes = list(
+    f.nodes,
+    (n): DiagramNode => {
+      const x = fields(n, ['id', 'label', 'icon'], ['sublabel', 'group']);
+      return compact({
+        id: stateId(x.id),
+        label: label(x.label),
+        sublabel: optional(x.sublabel, label),
+        icon: oneOf(DIAGRAM_ICONS)(x.icon),
+        group: optional(x.group, stateId),
+      });
+    },
+    1,
+  );
+  const edges = list(f.edges, (e): DiagramEdge => {
+    const x = fields(e, ['from', 'to', 'directed', 'style'], ['label']);
+    return compact({
+      from: stateId(x.from),
+      to: stateId(x.to),
+      label: optional(x.label, label),
+      directed: bool(x.directed),
+      style: oneOf(['solid', 'dashed'] as const)(x.style),
+    });
+  });
+  if (
+    nodes.length > DIAGRAM_LIMITS.nodes ||
+    groups.length > DIAGRAM_LIMITS.groups ||
+    edges.length > DIAGRAM_LIMITS.edges
+  ) {
+    invalid();
+  }
+  const ids = [...groups, ...nodes].map((x) => x.id);
+  if (new Set(ids).size !== ids.length) invalid();
+  const groupIds = new Set(groups.map((g) => g.id));
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  if (nodes.some((n) => n.group !== undefined && !groupIds.has(n.group))) invalid();
+  if (edges.some((e) => !nodeIds.has(e.from) || !nodeIds.has(e.to))) invalid();
+  return compact({
+    title: optional(f.title, text),
+    direction: oneOf(['LR', 'TB'] as const)(f.direction),
+    groups,
+    nodes,
+    edges,
+  });
+}
+
 function symbols(value: unknown): string[] {
   return list(value, (s) => (isSymbol(s) ? s : invalid()), 1);
 }
@@ -296,10 +420,6 @@ function frame(value: unknown): FrameRef {
   switch (kind) {
     case 'paper': {
       const f = fields(value, ['kind', 'id', 'capturedAt']);
-      const docId = (v: unknown) => {
-        const s = string(v);
-        return [...s].length >= 1 && [...s].length <= 64 ? s : invalid();
-      };
       return { kind, id: docId(f.id), capturedAt: docId(f.capturedAt) };
     }
     case 'frame': {
@@ -316,6 +436,13 @@ function frame(value: unknown): FrameRef {
     default:
       return invalid();
   }
+}
+
+/** A document id (a frame's, an attachment's, a capture time): 1–64 code points. */
+function docId(value: unknown): string {
+  const s = string(value);
+  const length = [...s].length;
+  return length >= 1 && length <= 64 ? s : invalid();
 }
 
 export function isDetectedId(value: unknown): value is DetectedId {
@@ -400,6 +527,7 @@ function mark(value: unknown): PaperMark {
       return { type, id: id(f.id), target: target(f.target), text: text(f.text) };
     }
     case 'strike':
+    case 'underline':
     case 'check': {
       const f = fields(value, ['type', 'id', 'target']);
       return { type, id: id(f.id), target: target(f.target) };
@@ -442,6 +570,15 @@ function readAction(data: unknown): BeatAction {
         to: stateId(f.to),
         symbols: symbols(f.symbols),
       };
+    }
+    case 'board.diagram': {
+      const f = fields(data, ['kind', 'item', 'spec'], ['reveal']);
+      return compact({
+        kind,
+        item: id(f.item),
+        spec: diagram(f.spec),
+        reveal: optional(f.reveal, oneOf(['all', 'none'] as const)),
+      });
     }
     case 'board.reveal': {
       const f = fields(data, ['kind', 'item'], ['els']);
@@ -530,6 +667,13 @@ function readAction(data: unknown): BeatAction {
         kind,
         view: oneOf(['paper', 'board', 'split'] as const)(fields(data, ['kind', 'view']).view),
       };
+    case 'image.show':
+    case 'image.clear':
+      return { kind, attachmentId: docId(fields(data, ['kind', 'attachmentId']).attachmentId) };
+    case 'image.mark': {
+      const f = fields(data, ['kind', 'attachmentId', 'mark']);
+      return { kind, attachmentId: docId(f.attachmentId), mark: mark(f.mark) };
+    }
     default:
       return invalid();
   }

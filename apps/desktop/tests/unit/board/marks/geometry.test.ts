@@ -11,6 +11,7 @@ import {
   stepDotFor,
   strikeFor,
   targetExists,
+  underlineFor,
 } from '../../../../src/renderer/src/board/marks/geometry';
 import {
   containFit,
@@ -247,6 +248,28 @@ describe('the other marks', () => {
     expect(Math.hypot(b.x - a.x, b.y - a.y)).toBeGreaterThan(2 * q2.radius);
     const [, corner] = checkFor(q2);
     expect(Math.hypot(corner.x - q2.anchor.x, corner.y - q2.anchor.y)).toBeLessThan(10);
+  });
+});
+
+describe('underline', () => {
+  it("runs on a box target's bottom, the width of its box", () => {
+    // Live test: "underline the IP and the subnet" drew callout bubbles instead. The server
+    // puts a box's bottom in the gap under her ink (2026-10-18: an underline 4 px lower ran
+    // through the next line), so the underline runs right on it.
+    const box = resolve({ box: { x: 0.1, y: 0.2, w: 0.2, h: 0.1 } });
+    const [a, b] = underlineFor(box);
+    const bottom = box.bbox.y + box.bbox.h;
+    expect(a.y).toBeCloseTo(b.y, 6);
+    expect(a.y).toBeCloseTo(bottom, 6);
+    expect(a.x).toBeCloseTo(box.bbox.x, 6);
+    expect(b.x).toBeCloseTo(box.bbox.x + box.bbox.w, 6);
+  });
+
+  it('runs under a state, the width of the circle', () => {
+    const q2 = resolve({ el: 'state:q2' });
+    const [a, b] = underlineFor(q2);
+    expect(a.y).toBeGreaterThan(q2.center.y + q2.radius);
+    expect(b.x - a.x).toBeCloseTo(2 * q2.radius, 6);
   });
 });
 

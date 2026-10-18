@@ -40,3 +40,44 @@ export interface AutomatonLayout {
   /** `to` is on the start state's edge; `from` is START_ARROW_LENGTH out from it. */
   start: { from: Pt; to: Pt };
 }
+
+/** A box on the board: its top-left, width and height, in px. */
+export interface LayoutBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** What a diagram's layout needs measured first: each node card's size and group label block's. */
+export interface DiagramSizes {
+  nodes: Record<StateId, { w: number; h: number }>;
+  groups: Record<StateId, { w: number; h: number }>;
+}
+
+/**
+ * A diagram laid out (board.diagram), in board px with the origin top-left: each node card's box,
+ * each group's frame around its nodes (its label block at its top-left), and each drawn edge's
+ * bend, keyed 'a>b', as AutomatonLayout's EdgeLayout.bend measures it. Graphviz makes it
+ * (layoutDiagramWithViz); fallbackDiagramLayout makes one on a grid, to the same contract.
+ */
+export interface DiagramLayout {
+  kind: 'diagram';
+  width: number;
+  height: number;
+  nodes: Record<StateId, LayoutBox>;
+  groups: Record<StateId, LayoutBox>;
+  edges: Record<string, { bend: number }>;
+}
+
+/** What the board store holds for an item: an automaton's layout or a diagram's. */
+export type BoardLayout = AutomatonLayout | DiagramLayout;
+
+export function isDiagramLayout(layout: BoardLayout | undefined): layout is DiagramLayout {
+  return layout !== undefined && 'kind' in layout && layout.kind === 'diagram';
+}
+
+/** `layout` when it's an automaton's. */
+export function automatonLayoutOf(layout: BoardLayout | undefined): AutomatonLayout | undefined {
+  return layout === undefined || isDiagramLayout(layout) ? undefined : layout;
+}

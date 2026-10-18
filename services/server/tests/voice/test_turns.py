@@ -57,9 +57,9 @@ def test_not_backchannels(lang, text):
         ("en", "wait", "high", True),
         ("en", "wait", "normal", True),
         ("en", "wait", "low", False),
-        ("en", "wait what", "low", True),
+        ("en", "wait what is that", "low", True),
         ("ko", "네", "normal", False),
-        ("ko", "잠깐만요", "low", True),
+        ("ko", "잠깐만요 다시 설명해 주세요", "low", True),
     ],
 )
 async def test_guard_in_real_aggregator(lang, text, sensitivity, starts):

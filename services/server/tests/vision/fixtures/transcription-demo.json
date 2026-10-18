@@ -1,0 +1,134 @@
+{
+  "machine_kind": "dfa",
+  "problem_kind": "dfa",
+  "states": [
+    {
+      "label": "q0",
+      "circle_mark": 1,
+      "box": {
+        "x1": 196,
+        "y1": 580,
+        "x2": 370,
+        "y2": 753
+      },
+      "accept": false,
+      "start": true,
+      "confidence": 0.95
+    },
+    {
+      "label": "q1",
+      "circle_mark": 2,
+      "box": {
+        "x1": 525,
+        "y1": 581,
+        "x2": 699,
+        "y2": 754
+      },
+      "accept": false,
+      "start": false,
+      "confidence": 0.95
+    },
+    {
+      "label": "q2",
+      "circle_mark": 3,
+      "box": {
+        "x1": 855,
+        "y1": 581,
+        "x2": 1028,
+        "y2": 753
+      },
+      "accept": false,
+      "start": false,
+      "confidence": 0.95
+    },
+    {
+      "label": "q3",
+      "circle_mark": 4,
+      "box": {
+        "x1": 1184,
+        "y1": 580,
+        "x2": 1357,
+        "y2": 752
+      },
+      "accept": true,
+      "start": false,
+      "confidence": 0.95
+    }
+  ],
+  "transitions": [
+    {
+      "source": "q0",
+      "target": "q1",
+      "symbols": ["0"],
+      "label_mark": 14,
+      "label_box": {
+        "x1": 374.0,
+        "y1": 593.0,
+        "x2": 523.0,
+        "y2": 690.0
+      },
+      "confidence": 0.95
+    },
+    {
+      "source": "q1",
+      "target": "q2",
+      "symbols": ["1"],
+      "label_mark": 16,
+      "label_box": {
+        "x1": 703.0,
+        "y1": 591.0,
+        "x2": 853.0,
+        "y2": 691.0
+      },
+      "confidence": 0.95
+    },
+    {
+      "source": "q2",
+      "target": "q3",
+      "symbols": ["0"],
+      "label_mark": 18,
+      "label_box": {
+        "x1": 1032.0,
+        "y1": 593.0,
+        "x2": 1183.0,
+        "y2": 690.0
+      },
+      "confidence": 0.95
+    },
+    {
+      "source": "q3",
+      "target": "q3",
+      "symbols": ["0", "1"],
+      "label_mark": 10,
+      "label_box": {
+        "x1": 1212.0,
+        "y1": 424.0,
+        "x2": 1343.0,
+        "y2": 595.0
+      },
+      "confidence": 0.95
+    },
+    {
+      "source": "q0",
+      "target": "q0",
+      "symbols": ["1"],
+      "label_mark": 9,
+      "label_box": {
+        "x1": 224.0,
+        "y1": 435.0,
+        "x2": 356.0,
+        "y2": 594.0
+      },
+      "confidence": 0.95
+    }
+  ],
+  "alphabet": ["0", "1"],
+  "problem_statement": "Binary strings that start with 010",
+  "language": {
+    "regex": "010(0|1)*",
+    "confidence": 0.9
+  },
+  "intent": "Checking a completed DFA attempt",
+  "intent_confidence": 0.9,
+  "unreadable": []
+}

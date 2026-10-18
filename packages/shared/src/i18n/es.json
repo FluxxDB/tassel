@@ -93,7 +93,15 @@
     "stage": {
       "paper": "Papel",
       "board": "Pizarra",
-      "split": "Papel y pizarra"
+      "split": "Papel y pizarra",
+      "image": {
+        "tag": "Tu imagen",
+        "backToPaper": "Volver al papel",
+        "loading": "Cargando tu imagen…",
+        "failed": "No se pudo cargar tu imagen",
+        "alt": "La imagen que enviaste",
+        "marksLabel": "Las marcas de Ada en tu imagen"
+      }
     },
     "placeholder": {
       "paper": {
@@ -135,6 +143,77 @@
       "title": "¿Terminar esta sesión?",
       "confirm": "Terminar sesión",
       "cancel": "Seguir"
+    },
+    "tile": {
+      "ada": "Recuadro de Ada",
+      "hint": "Arrástralo a donde quieras. Las flechas lo llevan a otra esquina, y Mayús con las flechas cambia su tamaño."
+    },
+    "pip": {
+      "label": "Tu mesa",
+      "live": "En vivo",
+      "hint": "Haz doble clic o pulsa Intro para ver tu papel junto a la pizarra."
+    },
+    "chat": {
+      "title": "Conversación",
+      "toggle": "Chat",
+      "hide": "Ocultar el chat",
+      "empty": "Habla con Ada o escríbele aquí. Lo que digan las dos aparece aquí.",
+      "spoken": "Hablado",
+      "cutOff": "Interrumpida",
+      "action": {
+        "draw": {
+          "board": "Dibujó en la pizarra",
+          "paper": "Dibujó en tu papel",
+          "image": "Dibujó en tu imagen"
+        },
+        "clear": {
+          "board": "Borró la pizarra",
+          "paper": "Borró sus marcas en tu papel",
+          "image": "Borró sus marcas en tu imagen"
+        },
+        "mark": {
+          "board": "Marcó la pizarra",
+          "paper": "Marcó tu papel",
+          "image": "Marcó tu imagen"
+        },
+        "view": {
+          "board": "Cambió a la pizarra",
+          "paper": "Cambió a tu papel",
+          "image": "Cambió a tu imagen"
+        },
+        "undo": "Deshizo eso",
+        "redo": "Rehízo eso"
+      },
+      "show": {
+        "board": "Mostrar la pizarra",
+        "paper": "Mostrar tu papel",
+        "image": "Mostrar tu imagen"
+      },
+      "composer": {
+        "label": "Mensaje para Ada",
+        "placeholder": "Escribe a Ada",
+        "attach": "Adjuntar imágenes",
+        "snap": "Fotografiar mi papel",
+        "voiceOn": "Ada responde en voz alta",
+        "voiceOff": "Solo respuestas escritas",
+        "voiceOnHint": "Ada responde a tus mensajes en voz alta. Cambiar a solo respuestas escritas.",
+        "voiceOffHint": "Ada responde a tus mensajes solo por escrito. Cambiar a respuestas habladas.",
+        "send": "Enviar mensaje",
+        "removeImage": "Quitar la imagen {n}",
+        "count": "{count} de {max} caracteres",
+        "limit": "Hasta {max} imágenes por mensaje",
+        "unreadable": "No se pudo leer esa imagen. Prueba con un PNG o un JPEG.",
+        "snapFailed": "No se pudo fotografiar tu papel. Inténtalo de nuevo en un momento.",
+        "drop": "Suelta las imágenes para enviarlas"
+      },
+      "image": "Imagen {n}",
+      "sending": "Enviando",
+      "failed": "No enviado",
+      "retry": "Reintentar",
+      "viewer": {
+        "title": "Tu imagen",
+        "close": "Cerrar"
+      }
     }
   },
   "paper": {
@@ -185,6 +264,22 @@
       "toggle": "Mapa de calor",
       "stats": "{kind} · {changed} cambiadas · quieto {quiet}/{stable} · {sent} enviadas",
       "noOpenCv": "OpenCV no se cargó: se usa el recorte central"
+    },
+    "webcam": {
+      "choice": "Papel · Cámara",
+      "hint": "Usa una cámara web o la cámara de un teléfono conectado para mostrar tu papel.",
+      "camera": "Cámara del papel",
+      "tag": "Tu papel · Cámara",
+      "source": "Cámara",
+      "live": "Cámara · En directo",
+      "denied": {
+        "title": "Acceso a la cámara bloqueado",
+        "body": "Permite que las aplicaciones de escritorio accedan a la cámara en Configuración de Windows → Privacidad y seguridad → Cámara e inténtalo de nuevo."
+      },
+      "unavailable": {
+        "title": "Cámara no disponible",
+        "body": "Conecta la cámara o inicia la aplicación de cámara del teléfono, cierra otras aplicaciones que la usen e inténtalo de nuevo."
+      }
     }
   },
   "platform": {
@@ -211,7 +306,16 @@
       "transition": "De {from} a {to} con {symbols}",
       "step": "Paso {n}: lee {symbol}, de {from} a {to}",
       "stuck": "Paso {n}: lee {symbol}, sin transición desde {from}: rechaza",
-      "note": "Nota: {text}"
+      "note": "Nota: {text}",
+      "diagram": "Diagrama: {title}",
+      "group": "{name}: {list}",
+      "groupEmpty": "{name}: vacío",
+      "node": "{label}: {kind}",
+      "nodeSub": "{label}: {kind}, {sublabel}",
+      "link": "{from} conectado a {to}",
+      "linkLabeled": "{from} conectado a {to}, {label}",
+      "arrow": "De {from} a {to}",
+      "arrowLabeled": "De {from} a {to}, {label}"
     },
     "trace": {
       "title": "Traza · entrada {input}",
@@ -232,6 +336,27 @@
     },
     "state": {
       "accepting": "{id}, de aceptación"
+    },
+    "camera": {
+      "label": "Board camera controls",
+      "in": "Zoom in",
+      "out": "Zoom out",
+      "fit": "Fit",
+      "download": "Descargar la pizarra",
+      "downloadEmpty": "Aún no hay nada en la pizarra para descargar"
+    },
+    "icon": {
+      "router": "router",
+      "switch": "switch",
+      "pc": "PC",
+      "laptop": "portátil",
+      "server": "servidor",
+      "cloud": "nube",
+      "firewall": "cortafuegos",
+      "phone": "teléfono",
+      "database": "base de datos",
+      "box": "caja",
+      "circle": "círculo"
     }
   },
   "marks": {
@@ -247,6 +372,7 @@
       "note": "Nota: {text}",
       "arrow": "Flecha hacia {target}",
       "strike": "Tachado: {target}",
+      "underline": "Subrayado: {target}",
       "check": "Visto bueno: {target}",
       "trace": "Trazando {input}, ahora en {state}"
     },
@@ -319,15 +445,166 @@
       "percentiles": "p50 {p50} · p90 {p90}",
       "unavailable": "—"
     },
-    "dev": {
-      "label": "Student message",
-      "placeholder": "Type what the student says",
-      "send": "Send"
-    },
     "language": {
       "menu": "Idioma de la sesión",
       "switching": "Cambiando a {language}…",
       "current": "Idioma de la sesión: {language}"
     }
+  },
+  "vision": {
+    "readback": {
+      "title": "Así leí tu AFD",
+      "deadState": "Las flechas que faltan van a un estado muerto.",
+      "uncertain": "? No estoy segura de esta parte.",
+      "collapse": "Ocultar mi lectura",
+      "expand": "Mostrar mi lectura",
+      "srState": "{state}{start, select, true {, inicial} other {}}{accept, select, true {, de aceptación} other {}}",
+      "srTransition": "De {from} a {to} con {symbols}"
+    }
+  },
+  "avatar": {
+    "open": "Personalizar tutora",
+    "title": "Dale tu estilo a tu tutora",
+    "description": "Un poco de personalidad para tu compañera de estudio.",
+    "previewHint": "Tu tutora, en cada sesión.",
+    "name": "Nombre de la tutora",
+    "tabs": "Personalización",
+    "style": "Estilo",
+    "body": "Cuerpo",
+    "skin": "Color de piel",
+    "skinTone": "Tono de piel {number}",
+    "previous": "Anterior: {part}",
+    "next": "Siguiente: {part}",
+    "voice": "Tipo de voz",
+    "voicePlaceholder": "Próximamente · la voz actual no cambia",
+    "reset": "Restablecer",
+    "save": "Guardar cambios",
+    "saved": "¡Qué bien!",
+    "saveError": "No se pudo guardar en este dispositivo. Tus cambios siguen aquí; inténtalo de nuevo.",
+    "fields": {
+      "hair": "Peinado",
+      "hairColor": "Color de pelo",
+      "outfit": "Ropa",
+      "outfitColor": "Color de ropa",
+      "accessory": "Accesorio",
+      "face": "Expresión",
+      "hat": "Sombrero",
+      "hatColor": "Color del sombrero"
+    },
+    "options": {
+      "ponytail": "Coleta",
+      "bob": "Bob",
+      "long": "Largo",
+      "pixie": "Pixie",
+      "curls": "Rizos",
+      "buns": "Dos moños",
+      "headscarf": "Pañuelo",
+      "espresso": "Ébano",
+      "chestnut": "Castaño",
+      "copper": "Cobre",
+      "gold": "Dorado",
+      "silver": "Plateado",
+      "rose": "Rosa",
+      "plum": "Ciruela",
+      "blue": "Azul",
+      "sweater": "Jersey",
+      "collar": "Camisa",
+      "hoodie": "Sudadera",
+      "overalls": "Peto",
+      "lilac": "Lila",
+      "sage": "Salvia",
+      "peach": "Melocotón",
+      "navy": "Azul marino",
+      "cream": "Crema",
+      "none": "Ninguno",
+      "clip": "Pasador",
+      "glasses": "Gafas",
+      "earrings": "Pendientes",
+      "stars": "Estrella",
+      "soft": "Suave",
+      "happy": "Feliz",
+      "sideways": "Mirada lateral",
+      "sleepy": "Soñolienta",
+      "gentle": "Suave",
+      "bright": "Alegre",
+      "calm": "Tranquila",
+      "dress": "Vestido",
+      "cap": "Gorra",
+      "beanie": "Gorro"
+    },
+    "voiceOff": "Desactivada · sin audio de ElevenLabs",
+    "voiceDisabled": "ElevenLabs está desactivado. Estas opciones se guardan para más adelante y no generarán audio.",
+    "voiceLibraryNote": "Escuchar reproduce una muestra pública de hasta 8 segundos. La voz en directo sigue desactivada.",
+    "voiceLanguages": {
+      "en": "Voz en inglés",
+      "es": "Voz en español",
+      "ko": "Voz en coreano"
+    },
+    "play": "Escuchar",
+    "stop": "Detener",
+    "playPreview": "Escuchar {language}",
+    "stopPreview": "Detener muestra {language}",
+    "previewUnavailable": "Muestra no disponible. No se generó audio."
+  },
+  "memory": {
+    "settingsTitle": "Ajustes del tutor",
+    "settingsDescription": "Personaliza tu tutor y lo que recuerda.",
+    "appearance": "Apariencia y voz",
+    "title": "Memoria",
+    "enabled": "Recordar entre sesiones",
+    "description": "Recuerda objetivos, preferencias y temas en curso. Las notas se actualizan una vez al salir de una sesión. Desactivar la memoria deja de usar y actualizar las notas, pero las conserva. Borrar memoria elimina las notas.",
+    "notes": "Lo que recuerda tu tutor",
+    "empty": "Aquí aparecerán notas útiles de tus sesiones. También puedes añadir las tuyas.",
+    "save": "Guardar cambios",
+    "clear": "Borrar memoria",
+    "reload": "Recargar notas",
+    "loading": "Cargando memoria…",
+    "loadError": "No se pudo cargar la memoria. Inténtalo de nuevo.",
+    "saveError": "No se pudo guardar. Tus cambios siguen aquí.",
+    "conflict": "La memoria cambió. Copia los cambios que quieras conservar y recarga las notas.",
+    "saved": "Guardado",
+    "personalizationTitle": "Personalización y memoria",
+    "savedTitle": "Recuerdos guardados"
+  },
+  "screen": {
+    "choose": "Share a display",
+    "noDisplays": "No displays available. Try again.",
+    "ready": "Open your assignment and share a display with Ada.",
+    "sharing": "Screen shared",
+    "paused": "Screen sharing paused",
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop sharing",
+    "reset": "Reset annotations",
+    "resetHint": "Clear annotations and interrupt Ada (Ctrl/Cmd+Shift+Backspace)",
+    "restore": "Open Tassel",
+    "collapse": "Collapse to bar",
+    "draw": "Draw",
+    "drawHint": "Draw on your screen · Escape to finish",
+    "undo": "Undo ink",
+    "look": "Look again",
+    "listening": "Listening",
+    "thinking": "Thinking",
+    "speaking": "Speaking",
+    "failed": "Screen sharing needs attention. Restore Tassel and retry.",
+    "micOn": "Mic on",
+    "micOff": "Mic off",
+    "resetDone": "Annotations reset · Ada is listening",
+    "board": "Open board"
+  },
+  "personalization": {
+    "title": "Tu tutor ideal",
+    "enabled": "Usar personalización del tutor",
+    "description": "Describe la personalidad, el tono, la energía, el humor y la forma de enseñar que prefieres. Solo tú editas esta descripción; los recuerdos de las sesiones nunca la modifican. La voz seleccionada determina cómo suena el tutor.",
+    "notes": "Describe a tu tutor ideal",
+    "empty": "Sé tranquilo y cercano, como una hermana mayor paciente. Explica un paso pequeño a la vez, usa humor suave y anima con discreción.",
+    "save": "Guardar estilo",
+    "clear": "Restablecer estilo",
+    "reload": "Recargar estilo",
+    "loading": "Cargando estilo del tutor…",
+    "loadError": "No se pudo cargar el estilo. Inténtalo de nuevo.",
+    "saveError": "No se pudo guardar el estilo. Tus cambios siguen aquí.",
+    "conflict": "El estilo cambió. Copia los cambios que quieras conservar y recarga.",
+    "saved": "Estilo guardado"
   }
 }

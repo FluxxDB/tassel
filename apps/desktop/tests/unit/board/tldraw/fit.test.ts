@@ -27,6 +27,13 @@ function split(width: number, height: number, captions = true): StageGeometry {
   return { panel: { x: stage.x + half + 12, y: stage.y, w: half, h: stage.h }, main, captions };
 }
 
+/** The board pinned: its panel is the whole stage. */
+function boardOnly(width: number, height: number): StageGeometry {
+  const main = { x: 0, y: 52, w: width, h: height - 52 };
+  const panel = { x: 16, y: main.y + 8, w: width - 32, h: main.h - 8 - 104 };
+  return { panel, main, captions: true };
+}
+
 const AT_1440 = split(1440, 900);
 const AT_1024 = split(1024, 680);
 
@@ -53,8 +60,8 @@ describe('boardObstructions', () => {
   it("is her tile's corner, the TopLine and the captions band, in the panel's px", () => {
     expect(AT_1440.panel).toEqual({ x: 726, y: 60, w: 698, h: 736 });
     expect(boardObstructions(AT_1440)).toEqual({
-      // 212×176, 14 px in from the panel's top right.
-      tile: { x: 472, y: 14, w: 212, h: 176 },
+      // Without tiles reported, her default: 212×176, 14 px in from the panel's top right.
+      tiles: [{ x: 472, y: 14, w: 212, h: 176 }],
       topLine: { x: 0, y: 0, w: 698, h: 54 },
       // The captions (880 px centered on main, 118 px up from its bottom) over the panel's left
       // 434 px, two lines tall: 84 px, ending 14 px above the panel's bottom.
@@ -82,8 +89,8 @@ describe('fitBoard', () => {
     // The region below her tile: 698 × 448, 24 px kept free inside it.
     expect(fit.zoom).toBeCloseTo(400 / 333.8, 6);
     const box = placed(CORRECT_BOX, fit);
-    const { tile, topLine, captions } = boardObstructions(AT_1440);
-    expect(overlaps(box, tile)).toBe(false);
+    const { tiles, topLine, captions } = boardObstructions(AT_1440);
+    expect(tiles.some((tile) => overlaps(box, tile))).toBe(false);
     expect(overlaps(box, topLine)).toBe(false);
     expect(captions && overlaps(box, captions)).toBe(false);
     expect(inside(box, { x: 0, y: 0, w: AT_1440.panel.w, h: AT_1440.panel.h })).toBe(true);
@@ -108,8 +115,8 @@ describe('fitBoard', () => {
     expect(fit.zoom).toBeGreaterThanOrEqual(FIT.minZoom);
     expect(fit.zoom).toBeCloseTo((516 - 190 - 2 * FIT.pad) / 333.8, 6);
     const box = placed(CORRECT_BOX, fit);
-    const { tile, topLine, captions } = boardObstructions(AT_1024);
-    expect(overlaps(box, tile)).toBe(false);
+    const { tiles, topLine, captions } = boardObstructions(AT_1024);
+    expect(tiles.some((tile) => overlaps(box, tile))).toBe(false);
     expect(overlaps(box, topLine)).toBe(false);
     // What it gives up: the captions, when they show, cover the drawing's bottom.
     expect(captions && overlaps(box, captions)).toBe(true);
@@ -144,6 +151,134 @@ describe('fitBoard', () => {
   it('fits nothing while the panel is hidden or still opening', () => {
     expect(fitBoard(CORRECT_BOX, { ...AT_1440, panel: { ...AT_1440.panel, w: 0 } })).toBeNull();
     expect(fitBoard(CORRECT_BOX, { ...AT_1440, panel: { ...AT_1440.panel, h: 60 } })).toBeNull();
+  });
+});
+
+describe('the whole board while a trace runs', () => {
+  /**
+   * The demo DFA with a trace card under it: the card (480 × 300 for four steps) ITEM_GAP (64)
+   * below the DFA, so the camera frames 494.72 × 697.8 board px.
+   */
+  const WITH_TRACE: Rect = { x: 0, y: 0, w: 494.72, h: 333.8 + 64 + 300 };
+  /** The DFA's own box inside it: the top of the column. */
+  const DFA_PART = (fit: BoardFit): Rect => ({
+    x: fit.x,
+    y: fit.y,
+    w: CORRECT_BOX.w * fit.zoom,
+    h: CORRECT_BOX.h * fit.zoom,
+  });
+  const panelOf = ({ panel }: StageGeometry): Rect => ({ x: 0, y: 0, w: panel.w, h: panel.h });
+
+  it('at 1440 split, fits left of her tile, clear of everything, labels readable', () => {
+    const fit = fitted(WITH_TRACE, AT_1440);
+    expect(fit.stage).toBe('clear');
+    expect(fit.zoom).toBeGreaterThanOrEqual(FIT.minZoom);
+    const box = placed(WITH_TRACE, fit);
+    const { tiles, topLine, captions } = boardObstructions(AT_1440);
+    expect(tiles.some((tile) => overlaps(box, tile))).toBe(false);
+    expect(overlaps(box, topLine)).toBe(false);
+    expect(captions && overlaps(box, captions)).toBe(false);
+    expect(inside(box, panelOf(AT_1440))).toBe(true);
+  });
+
+  it("at 1024 split, gives up the captions band, then the card's bottom, never the DFA", () => {
+    const fit = fitted(WITH_TRACE, AT_1024);
+    // Too tall to show readably beside the tile even over the captions: its top at the minimum
+    // zoom, below her tile, the card's last rows running off the panel's bottom.
+    expect(fit.stage).toBe('top');
+    expect(fit.zoom).toBe(FIT.minZoom);
+    const { tiles, topLine } = boardObstructions(AT_1024);
+    const box = placed(WITH_TRACE, fit);
+    expect(box.y).toBe(190 + FIT.pad);
+    expect(box.y + box.h).toBeGreaterThan(AT_1024.panel.h);
+    expect(tiles.some((tile) => overlaps(box, tile))).toBe(false);
+    expect(overlaps(box, topLine)).toBe(false);
+    const dfa = DFA_PART(fit);
+    expect(inside(dfa, panelOf(AT_1024))).toBe(true);
+    expect(tiles.some((tile) => overlaps(dfa, tile))).toBe(false);
+  });
+
+  it('at 1440 split with the chat beside the stage, the same: the DFA whole below her tile', () => {
+    // The stage pushed 360 px left: the board panel is 518 wide.
+    const pushed = split(1440 - 360, 900);
+    const fit = fitted(WITH_TRACE, pushed);
+    expect(fit.stage).toBe('top');
+    const dfa = DFA_PART(fit);
+    expect(inside(dfa, panelOf(pushed))).toBe(true);
+    const { tiles } = boardObstructions(pushed);
+    expect(tiles.some((tile) => overlaps(dfa, tile))).toBe(false);
+  });
+
+  it('at 1024 with the chat sidebar over the board, keeps the DFA clear of it and her tile', () => {
+    // The board alone on the stage (992 × 516), the sidebar's 360 px over the window's right.
+    const stage = boardOnly(1024, 680);
+    const sidebar = { x: 1024 - 360, y: 52, w: 360, h: 628 };
+    const ada = { x: 1024 - 360 - 14 - 212, y: 74, w: 212, h: 176 };
+    const withSidebar: StageGeometry = {
+      ...stage,
+      main: { ...stage.main, w: stage.main.w - 360 },
+      tiles: [ada, sidebar],
+    };
+    const fit = fitted(WITH_TRACE, withSidebar);
+    expect(fit.stage).toBe('top');
+    const dfa = DFA_PART(fit);
+    expect(inside(dfa, panelOf(withSidebar))).toBe(true);
+    const { tiles } = boardObstructions(withSidebar);
+    expect(tiles.some((tile) => overlaps(dfa, tile))).toBe(false);
+    expect(tiles.some((tile) => overlaps(placed(WITH_TRACE, fit), tile))).toBe(false);
+  });
+
+  it('is the plain fit when no tile-free region takes the board at the minimum zoom', () => {
+    // 310 px panels: 1024 split with the sidebar beside the stage. 371 px of board won't go.
+    const narrow = split(1024 - 360, 680);
+    expect(fitted(WITH_TRACE, narrow).stage).toBe('plain');
+    // Nor a wide board: the plain fit as before.
+    expect(fitted({ x: 0, y: 0, w: 700, h: 300 }, AT_1024).stage).toBe('plain');
+  });
+});
+
+describe('floating tiles', () => {
+  // The session's tiles as they report themselves, in window px (FloatingTile).
+  const BOARD = boardOnly(1440, 900);
+  const ADA_TOP_RIGHT = { x: 1198, y: 74, w: 212, h: 176 };
+  const ADA_BOTTOM_LEFT = { x: 30, y: 510, w: 212, h: 176 };
+  const DESK_BOTTOM_RIGHT = { x: 1170, y: 536, w: 240, h: 150 };
+
+  it("takes the reported tiles in the panel's px, and only the ones over it", () => {
+    expect(
+      boardObstructions({ ...BOARD, tiles: [ADA_TOP_RIGHT, DESK_BOTTOM_RIGHT] }).tiles,
+    ).toEqual([
+      { x: 1182, y: 14, w: 212, h: 176 },
+      { x: 1154, y: 476, w: 240, h: 150 },
+    ]);
+    // Split: Ada over the board panel counts; a tile over her paper doesn't.
+    expect(
+      boardObstructions({ ...AT_1440, tiles: [ADA_TOP_RIGHT, { ...ADA_BOTTOM_LEFT }] }).tiles,
+    ).toEqual([{ x: 472, y: 14, w: 212, h: 176 }]);
+  });
+
+  it('fits clear of Ada moved to the bottom left and her desk camera at the bottom right', () => {
+    const stage = { ...BOARD, tiles: [ADA_BOTTOM_LEFT, DESK_BOTTOM_RIGHT] };
+    for (const content of [
+      CORRECT_BOX,
+      { x: 0, y: 0, w: 900, h: 200 },
+      { x: 0, y: 0, w: 200, h: 600 },
+    ]) {
+      const fit = fitted(content, stage);
+      expect(fit.stage).toBe('clear');
+      const box = placed(content, fit);
+      const { tiles, topLine, captions } = boardObstructions(stage);
+      expect(tiles).toHaveLength(2);
+      for (const tile of tiles) expect(overlaps(box, tile)).toBe(false);
+      expect(overlaps(box, topLine)).toBe(false);
+      expect(captions && overlaps(box, captions)).toBe(false);
+      expect(inside(box, { x: 0, y: 0, w: BOARD.panel.w, h: BOARD.panel.h })).toBe(true);
+    }
+  });
+
+  it('with no tiles over the panel, fits the whole width under the TopLine', () => {
+    const fit = fitted({ x: 0, y: 0, w: 1300, h: 200 }, { ...BOARD, tiles: [] });
+    expect(fit.zoom).toBeCloseTo((1408 - 2 * FIT.pad) / 1300, 6);
   });
 });
 

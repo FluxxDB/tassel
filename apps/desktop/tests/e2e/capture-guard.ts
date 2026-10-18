@@ -19,7 +19,7 @@ export function fakeCaptureEnv(clip: string | undefined): Record<string, string 
  * Throws, naming the rule, unless the launch is fake end to end:
  * - TASSEL_REQUIRE_FAKE_CAPTURE is 1, so the app itself refuses real capture (Task 9);
  * - TASSEL_PAPER_SOURCE is set and isn't auto, which picks the real Desk View camera on macOS;
- * - fake-clip has a TASSEL_FAKE_CLIP that exists;
+ * - fake-clip or webcam has a TASSEL_FAKE_CLIP that exists (webcam is forced onto fake devices);
  * - deskview-helper has a TASSEL_HELPER_CLIP that exists, or a TASSEL_DESKVIEW_HELPER that
  *   doesn't, or TASSEL_FAKE_CAMERA_ACCESS=denied;
  * - window-capture and screen have TASSEL_FAKE_DISPLAY=self.
@@ -39,8 +39,9 @@ export function assertFakeCapture(
   }
   const source = env.TASSEL_PAPER_SOURCE ?? '';
   switch (source) {
+    case 'webcam':
     case 'fake-clip':
-      if (!existing('TASSEL_FAKE_CLIP')) refuse('fake-clip needs a TASSEL_FAKE_CLIP that exists');
+      if (!existing('TASSEL_FAKE_CLIP')) refuse(`${source} needs a TASSEL_FAKE_CLIP that exists`);
       return;
     case 'deskview-helper': {
       const clip = existing('TASSEL_HELPER_CLIP');

@@ -1,0 +1,14 @@
+{
+  "id": "contains-11",
+  "title": "Binary strings that contain 11",
+  "regex": "(0|1)*11(0|1)*",
+  "states": ["q0", "q1", "q2"],
+  "alphabet": ["0", "1"],
+  "start": "q0",
+  "accepts": ["q2"],
+  "transitions": {
+    "q0": { "0": "q0", "1": "q1" },
+    "q1": { "0": "q0", "1": "q2" },
+    "q2": { "0": "q2", "1": "q2" }
+  }
+}

@@ -93,7 +93,15 @@
     "stage": {
       "paper": "종이",
       "board": "칠판",
-      "split": "종이와 칠판"
+      "split": "종이와 칠판",
+      "image": {
+        "tag": "내 이미지",
+        "backToPaper": "종이로 돌아가기",
+        "loading": "이미지를 가져오는 중이에요…",
+        "failed": "이미지를 불러오지 못했어요",
+        "alt": "내가 보낸 이미지",
+        "marksLabel": "내 이미지 위 Ada의 표시"
+      }
     },
     "placeholder": {
       "paper": {
@@ -135,6 +143,77 @@
       "title": "세션을 종료할까요?",
       "confirm": "세션 종료",
       "cancel": "계속하기"
+    },
+    "tile": {
+      "ada": "Ada 타일",
+      "hint": "원하는 곳으로 끌어 옮길 수 있어요. 화살표 키로 다른 모서리로 옮기고, Shift와 화살표 키로 크기를 바꿔요."
+    },
+    "pip": {
+      "label": "내 책상",
+      "live": "실시간",
+      "hint": "더블 클릭하거나 Enter를 누르면 칠판 옆에 종이가 함께 보여요."
+    },
+    "chat": {
+      "title": "대화",
+      "toggle": "채팅",
+      "hide": "채팅 숨기기",
+      "empty": "Ada에게 말하거나 여기에 입력하세요. 함께 나눈 말이 여기에 보여요.",
+      "spoken": "말로 함",
+      "cutOff": "중단됨",
+      "action": {
+        "draw": {
+          "board": "보드에 그렸어요",
+          "paper": "종이에 그렸어요",
+          "image": "이미지에 그렸어요"
+        },
+        "clear": {
+          "board": "보드를 지웠어요",
+          "paper": "종이의 표시를 지웠어요",
+          "image": "이미지의 표시를 지웠어요"
+        },
+        "mark": {
+          "board": "보드에 표시했어요",
+          "paper": "종이에 표시했어요",
+          "image": "이미지에 표시했어요"
+        },
+        "view": {
+          "board": "보드로 바꿨어요",
+          "paper": "종이로 바꿨어요",
+          "image": "이미지로 바꿨어요"
+        },
+        "undo": "되돌렸어요",
+        "redo": "다시 했어요"
+      },
+      "show": {
+        "board": "보드 보기",
+        "paper": "종이 보기",
+        "image": "이미지 보기"
+      },
+      "composer": {
+        "label": "Ada에게 보낼 메시지",
+        "placeholder": "Ada에게 메시지 보내기",
+        "attach": "이미지 첨부",
+        "snap": "내 종이 찍기",
+        "voiceOn": "Ada가 말로 답해요",
+        "voiceOff": "글로만 답해요",
+        "voiceOnHint": "Ada가 메시지에 말로 답해요. 글로만 답하도록 바꿔요.",
+        "voiceOffHint": "Ada가 메시지에 글로만 답해요. 말로 답하도록 바꿔요.",
+        "send": "메시지 보내기",
+        "removeImage": "이미지 {n} 빼기",
+        "count": "{max}자 중 {count}자",
+        "limit": "메시지 하나에 이미지는 {max}개까지예요",
+        "unreadable": "이미지를 읽을 수 없어요. PNG나 JPEG로 해 보세요.",
+        "snapFailed": "종이를 찍지 못했어요. 잠시 후 다시 해 보세요.",
+        "drop": "이미지를 놓으면 보내요"
+      },
+      "image": "이미지 {n}",
+      "sending": "보내는 중",
+      "failed": "보내지 못함",
+      "retry": "다시 시도",
+      "viewer": {
+        "title": "내 이미지",
+        "close": "닫기"
+      }
     }
   },
   "paper": {
@@ -185,6 +264,22 @@
       "toggle": "히트맵",
       "stats": "{kind} · 변경 {changed} · 정지 {quiet}/{stable} · 전송 {sent}",
       "noOpenCv": "OpenCV를 불러오지 못해 중앙 영역을 사용해요"
+    },
+    "webcam": {
+      "choice": "종이 · 카메라",
+      "hint": "웹캠이나 연결된 휴대폰 카메라로 종이를 보여 주세요.",
+      "camera": "종이 촬영 카메라",
+      "tag": "내 종이 · 카메라",
+      "source": "카메라",
+      "live": "카메라 · 실시간",
+      "denied": {
+        "title": "카메라 접근이 차단되었어요",
+        "body": "Windows 설정 → 개인 정보 및 보안 → 카메라에서 데스크톱 앱의 카메라 접근을 허용한 후 다시 시도해 주세요."
+      },
+      "unavailable": {
+        "title": "카메라를 사용할 수 없어요",
+        "body": "카메라를 연결하거나 휴대폰 카메라 앱을 실행하고, 카메라를 사용하는 다른 앱을 닫은 후 다시 시도해 주세요."
+      }
     }
   },
   "platform": {
@@ -211,7 +306,16 @@
       "transition": "{from} → {to}, 입력 {symbols}",
       "step": "{n}단계: {symbol} 읽음, {from} → {to}",
       "stuck": "{n}단계: {symbol} 읽음, {from}에서 전이 없음: 거부",
-      "note": "메모: {text}"
+      "note": "메모: {text}",
+      "diagram": "다이어그램: {title}",
+      "group": "{name}: {list}",
+      "groupEmpty": "{name}: 비어 있음",
+      "node": "{label}: {kind}",
+      "nodeSub": "{label}: {kind}, {sublabel}",
+      "link": "{from}, {to} 연결",
+      "linkLabeled": "{from}, {to} 연결, {label}",
+      "arrow": "{from}에서 {to}까지",
+      "arrowLabeled": "{from}에서 {to}까지, {label}"
     },
     "trace": {
       "title": "추적 · 입력 {input}",
@@ -232,6 +336,27 @@
     },
     "state": {
       "accepting": "{id}, 수락 상태"
+    },
+    "camera": {
+      "label": "Board camera controls",
+      "in": "Zoom in",
+      "out": "Zoom out",
+      "fit": "Fit",
+      "download": "보드 다운로드",
+      "downloadEmpty": "아직 다운로드할 내용이 보드에 없어요"
+    },
+    "icon": {
+      "router": "라우터",
+      "switch": "스위치",
+      "pc": "PC",
+      "laptop": "노트북",
+      "server": "서버",
+      "cloud": "클라우드",
+      "firewall": "방화벽",
+      "phone": "전화",
+      "database": "데이터베이스",
+      "box": "상자",
+      "circle": "원"
     }
   },
   "marks": {
@@ -247,6 +372,7 @@
       "note": "메모: {text}",
       "arrow": "화살표: {target}",
       "strike": "줄 그음: {target}",
+      "underline": "밑줄: {target}",
       "check": "체크 표시: {target}",
       "trace": "{input} 추적 중, 현재 {state}"
     },
@@ -319,15 +445,166 @@
       "percentiles": "p50 {p50} · p90 {p90}",
       "unavailable": "—"
     },
-    "dev": {
-      "label": "Student message",
-      "placeholder": "Type what the student says",
-      "send": "Send"
-    },
     "language": {
       "menu": "세션 언어",
       "switching": "{language}(으)로 바꾸는 중…",
       "current": "세션 언어: {language}"
     }
+  },
+  "vision": {
+    "readback": {
+      "title": "내가 읽은 DFA",
+      "deadState": "없는 화살표는 죽은 상태로 가요.",
+      "uncertain": "? 이 부분은 확실하지 않아요.",
+      "collapse": "내 읽기 숨기기",
+      "expand": "내 읽기 보기",
+      "srState": "{state}{start, select, true {, 시작} other {}}{accept, select, true {, 수락} other {}}",
+      "srTransition": "{from} → {to}, 입력 {symbols}"
+    }
+  },
+  "avatar": {
+    "open": "튜터 꾸미기",
+    "title": "나만의 튜터를 꾸며 보세요",
+    "description": "함께 공부할 친구에게 개성을 더해 보세요.",
+    "previewHint": "모든 수업에서 함께하는 튜터예요.",
+    "name": "튜터 이름",
+    "tabs": "꾸미기",
+    "style": "스타일",
+    "body": "외모",
+    "skin": "피부색",
+    "skinTone": "피부색 {number}",
+    "previous": "이전 {part}",
+    "next": "다음 {part}",
+    "voice": "목소리 유형",
+    "voicePlaceholder": "준비 중 · 현재 목소리는 바뀌지 않아요",
+    "reset": "기본값으로 초기화",
+    "save": "변경 사항 저장",
+    "saved": "멋져요!",
+    "saveError": "이 기기에 저장하지 못했어요. 변경 사항은 유지되니 다시 시도해 주세요.",
+    "fields": {
+      "hair": "머리 모양",
+      "hairColor": "머리 색",
+      "outfit": "의상",
+      "outfitColor": "의상 색",
+      "accessory": "액세서리",
+      "face": "표정",
+      "hat": "모자",
+      "hatColor": "모자 색"
+    },
+    "options": {
+      "ponytail": "포니테일",
+      "bob": "단발",
+      "long": "긴 머리",
+      "pixie": "픽시 컷",
+      "curls": "곱슬머리",
+      "buns": "양 갈래 번",
+      "headscarf": "헤드스카프",
+      "espresso": "에스프레소",
+      "chestnut": "밤색",
+      "copper": "구리색",
+      "gold": "금색",
+      "silver": "은색",
+      "rose": "장미색",
+      "plum": "자두색",
+      "blue": "파란색",
+      "sweater": "스웨터",
+      "collar": "셔츠",
+      "hoodie": "후드티",
+      "overalls": "멜빵바지",
+      "lilac": "라일락",
+      "sage": "세이지",
+      "peach": "복숭아색",
+      "navy": "남색",
+      "cream": "크림색",
+      "none": "없음",
+      "clip": "머리핀",
+      "glasses": "안경",
+      "earrings": "귀걸이",
+      "stars": "별 핀",
+      "soft": "부드러움",
+      "happy": "행복함",
+      "sideways": "곁눈질",
+      "sleepy": "졸림",
+      "gentle": "다정함",
+      "bright": "밝음",
+      "calm": "차분함",
+      "dress": "원피스",
+      "cap": "캡 모자",
+      "beanie": "비니"
+    },
+    "voiceOff": "끔 · ElevenLabs 오디오 없음",
+    "voiceDisabled": "ElevenLabs가 꺼져 있어요. 선택은 나중을 위해 저장되며 오디오는 생성되지 않아요.",
+    "voiceLibraryNote": "재생을 누르면 기존 공개 샘플을 최대 8초 동안 들어요. 실시간 음성은 꺼져 있어요.",
+    "voiceLanguages": {
+      "en": "영어 목소리",
+      "es": "스페인어 목소리",
+      "ko": "한국어 목소리"
+    },
+    "play": "재생",
+    "stop": "정지",
+    "playPreview": "{language} 미리듣기",
+    "stopPreview": "{language} 미리듣기 정지",
+    "previewUnavailable": "미리듣기를 사용할 수 없어요. 오디오는 생성되지 않았어요."
+  },
+  "memory": {
+    "settingsTitle": "튜터 설정",
+    "settingsDescription": "튜터의 모습과 기억을 설정하세요.",
+    "appearance": "외모 및 음성",
+    "title": "기억",
+    "enabled": "세션 간 기억 유지",
+    "description": "학습 목표, 선호하는 설명 방식, 진행 중인 주제를 기억해요. 세션을 나갈 때 한 번 업데이트해요. 기억을 끄면 저장된 메모를 사용하거나 업데이트하지 않지만 보관해요. 기억 지우기는 메모를 삭제해요.",
+    "notes": "튜터가 기억하는 내용",
+    "empty": "세션에서 유용한 내용이 여기에 표시돼요. 직접 메모를 추가할 수도 있어요.",
+    "save": "변경 사항 저장",
+    "clear": "기억 지우기",
+    "reload": "메모 새로고침",
+    "loading": "기억 불러오는 중…",
+    "loadError": "기억을 불러올 수 없어요. 다시 시도해 주세요.",
+    "saveError": "저장할 수 없어요. 수정 내용은 유지돼요.",
+    "conflict": "기억이 변경되었어요. 보관할 수정 내용을 복사한 후 메모를 새로고침하세요.",
+    "saved": "저장됨",
+    "personalizationTitle": "맞춤 설정 및 기억",
+    "savedTitle": "저장된 기억"
+  },
+  "screen": {
+    "choose": "Share a display",
+    "noDisplays": "No displays available. Try again.",
+    "ready": "Open your assignment and share a display with Ada.",
+    "sharing": "Screen shared",
+    "paused": "Screen sharing paused",
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop sharing",
+    "reset": "Reset annotations",
+    "resetHint": "Clear annotations and interrupt Ada (Ctrl/Cmd+Shift+Backspace)",
+    "restore": "Open Tassel",
+    "collapse": "Collapse to bar",
+    "draw": "Draw",
+    "drawHint": "Draw on your screen · Escape to finish",
+    "undo": "Undo ink",
+    "look": "Look again",
+    "listening": "Listening",
+    "thinking": "Thinking",
+    "speaking": "Speaking",
+    "failed": "Screen sharing needs attention. Restore Tassel and retry.",
+    "micOn": "Mic on",
+    "micOff": "Mic off",
+    "resetDone": "Annotations reset · Ada is listening",
+    "board": "Open board"
+  },
+  "personalization": {
+    "title": "나의 이상적인 튜터",
+    "enabled": "튜터 맞춤 설정 사용",
+    "description": "원하는 성격, 말투, 활기, 유머와 설명 방식을 적어 주세요. 이 설명은 본인만 수정하며 세션 기억이 자동으로 바꾸지 않아요. 실제 목소리는 선택한 음성에 따라 달라져요.",
+    "notes": "원하는 튜터를 설명해 주세요",
+    "empty": "차분하고 편안한 언니처럼 말해 주세요. 작은 단계로 나누어 설명하고, 가벼운 유머와 담백한 격려를 사용해 주세요.",
+    "save": "튜터 스타일 저장",
+    "clear": "튜터 스타일 초기화",
+    "reload": "스타일 새로고침",
+    "loading": "튜터 스타일 불러오는 중…",
+    "loadError": "튜터 스타일을 불러올 수 없어요. 다시 시도해 주세요.",
+    "saveError": "튜터 스타일을 저장할 수 없어요. 수정 내용은 유지돼요.",
+    "conflict": "튜터 스타일이 변경되었어요. 보관할 수정 내용을 복사한 후 새로고침하세요.",
+    "saved": "튜터 스타일 저장됨"
   }
 }

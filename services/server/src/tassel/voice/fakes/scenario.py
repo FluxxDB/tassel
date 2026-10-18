@@ -5,9 +5,10 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from tassel.models import Lang
+from tassel.voice.director import Decision
 from tassel.voice.messages import LANGUAGE_SWITCH_PREFIX
 
 SCENARIOS_DIR = Path(__file__).with_name("scenarios")
@@ -19,10 +20,27 @@ class ScriptTool(BaseModel):
     arguments: dict[str, str]
 
 
+class ScriptBrief(BaseModel):
+    """The thinker's brief for a turn: what Ada says after the talker's bridge, and the tags the
+    action checker vets before they reach the board or her paper."""
+
+    model_config = ConfigDict(extra="forbid")
+    say: str
+    board: list[str] = Field(default_factory=list)
+    paper: list[str] = Field(default_factory=list)
+    # Her image: marks in words for the Pointer, and raw [[image …]] tags.
+    image_marks: list[dict[str, object]] = Field(default_factory=list)
+    image: list[str] = Field(default_factory=list)
+    language: dict[str, object] | None = None
+
+
 class ScriptTurn(BaseModel):
     when: str | None = None
     say: str
     tools: list[ScriptTool] = Field(default_factory=list)
+    # The director's decision for this turn, in place of its rules (fake providers only).
+    decision: Decision | None = None
+    brief: ScriptBrief | None = None
 
 
 class ScriptLang(BaseModel):
@@ -63,3 +81,17 @@ def next_turn(script: ScriptLang, user_text: str | None, said: Sequence[str]) ->
         if turn.when is None:
             return turn
     return ScriptTurn(say=script.fallback)
+
+
+def scripted_turn(
+    scenario: FakeScenario,
+    lang: Lang,
+    user_text: str,
+    field: Literal["decision", "brief"] = "decision",
+) -> ScriptTurn | None:
+    """The scripted turn whose `when` the student's words contain and that carries `field`."""
+    text = user_text.casefold()
+    for turn in scenario.langs[lang].turns:
+        if turn.when is not None and turn.when.casefold() in text and getattr(turn, field):
+            return turn
+    return None

@@ -12,7 +12,9 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Platform } from '../../../shared/bridge';
 import type { PaperBridge, PaperConfig } from '../../../shared/paper-bridge';
+import { useStageStore } from '../features/session/stage-store';
 import { useApi } from '../lib/api';
+import type { DetectorTrigger } from './contracts';
 import { createChangeDetector } from './detector/client';
 import { parseParams } from './detector/params';
 import { usePaperConfig } from './paper-config';
@@ -34,6 +36,7 @@ import {
 import { buildFrameMeta } from './upload/frame-meta';
 import { createFrameUploader } from './upload/frame-uploader';
 import { uploadFrame } from './upload/frames-api';
+import { captureBurst, inkUploadAllowed, jpegSharpness } from './vision-gate';
 
 export interface CaptureDeps {
   bridge: PaperBridge | null;
@@ -53,6 +56,7 @@ const WATCHDOG_MS = 3_000;
 const WATCHDOG_TICK_MS = 500;
 /** The kinds the watchdog covers. A static screen may rightly send no frames. */
 const WATCHED: ReadonlySet<PaperSourceKind> = new Set([
+  'webcam',
   'deskview-helper',
   'fake-clip',
   'window-capture',
@@ -113,9 +117,18 @@ function startRun(run: RunSettings): { cancel(): void } {
   let offTurn: (() => void) | null = null;
   let watchdog: ReturnType<typeof setInterval> | null = null;
   let lastStatsAt = 0;
+  let lastInkAt = -Infinity;
+  let deferredInk: DetectorTrigger | null = null;
+  let inkTimer: ReturnType<typeof setInterval> | null = null;
+  const clearInkTimer = () => {
+    if (inkTimer !== null) deps.clearInterval(inkTimer);
+    inkTimer = null;
+  };
 
   /** Stops this run's watchdog, detector and feed. */
   const halt = () => {
+    clearInkTimer();
+    deferredInk = null;
     if (watchdog !== null) deps.clearInterval(watchdog);
     watchdog = null;
     detector?.stop();
@@ -227,11 +240,25 @@ function startRun(run: RunSettings): { cancel(): void } {
       offTurn = registerTurnFrameSender(
         createTurnFrameSender({
           kind,
-          grab: () => grabJpeg(track),
-          upload: (parts) => uploadFrame(deps.api, run.sessionId, parts),
+          grab: () =>
+            captureBurst(() => {
+              if (signal.aborted) throw new Error('Capture stopped');
+              return grabJpeg(track);
+            }, jpegSharpness),
+          upload: (parts) =>
+            signal.aborted ? Promise.resolve() : uploadFrame(deps.api, run.sessionId, parts),
         }),
       );
     }
+    const sendTrigger = (trigger: DetectorTrigger) => {
+      if (signal.aborted || !upload || useStageStore.getState().mode === 'board') return;
+      if (trigger.reason === 'ink') lastInkAt = deps.now();
+      run.uploader.current?.enqueue({
+        full: trigger.full,
+        crop: trigger.crop,
+        meta: buildFrameMeta(trigger, kind),
+      });
+    };
     detector = deps.createChangeDetector(started.stream, {
       params: parseParams(config.params),
       contentRect: started.contentRect,
@@ -242,12 +269,28 @@ function startRun(run: RunSettings): { cancel(): void } {
       },
       onTrigger: (trigger) => {
         // Screen triggers never upload on their own (R7). The uploader refuses them too.
-        if (signal.aborted || !upload) return;
-        run.uploader.current?.enqueue({
-          full: trigger.full,
-          crop: trigger.crop,
-          meta: buildFrameMeta(trigger, kind),
-        });
+        if (signal.aborted || !upload || useStageStore.getState().mode === 'board') return;
+        if (trigger.reason === 'ink') {
+          const total = trigger.mask ? trigger.mask.cols * trigger.mask.rows : 0;
+          if (!inkUploadAllowed(deps.now(), lastInkAt, trigger.changedCells, total)) {
+            deferredInk = trigger;
+            if (inkTimer === null)
+              inkTimer = deps.setInterval(
+                () => {
+                  clearInkTimer();
+                  const latest = deferredInk;
+                  deferredInk = null;
+                  if (latest) sendTrigger(latest);
+                },
+                Math.max(1, 10_000 - (deps.now() - lastInkAt)),
+              );
+            return;
+          }
+        }
+        // A newer full frame supersedes any deferred ink, including a large change.
+        clearInkTimer();
+        deferredInk = null;
+        sendTrigger(trigger);
       },
       onError: (message) => console.warn(`[paper] ${message}`),
       onReady: (opencv) => {
@@ -333,6 +376,7 @@ export function usePaperCapture(args: {
 export function usePaperTag(): string {
   const { t } = useTranslation();
   const kind = usePaperStore((state) => state.kind);
+  if (kind === 'webcam') return t('paper.webcam.tag');
   if (kind === 'window-capture') return t('paper.tag.window');
   if (kind === 'screen') return t('session.placeholder.screen.tag');
   // The helper, the fake clip (which stands in for Desk View), and no kind yet.

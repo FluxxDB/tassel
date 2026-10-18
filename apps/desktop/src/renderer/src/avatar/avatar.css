@@ -1,0 +1,233 @@
+.avatar-arrow {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 25px;
+}
+.avatar-arrow:hover {
+  background: var(--color-blush);
+}
+.avatar-swatch {
+  display: grid;
+  place-items: center;
+  min-height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--color-hairline);
+}
+.avatar-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 3px;
+}
+.avatar-halo {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(ellipse, #fff6b9 0%, #ffc3ee90 35%, #a6dfff70 55%, transparent 73%);
+}
+.avatar-preview[data-celebrating="true"] .avatar-halo {
+  opacity: 1;
+}
+.avatar-sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+.avatar-sparkles span {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  color: var(--spark-color);
+  font-size: 27px;
+  text-shadow: 0 0 8px var(--spark-color);
+  transform: rotate(var(--angle)) translateY(-110px);
+}
+.avatar-customizer > div:first-child {
+  position: relative;
+  z-index: 1;
+}
+.avatar-rainbow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0.22;
+  background: linear-gradient(115deg, #ff83b5, #ffd475, #88e1be, #83bfff, #c298ff, #ff83b5);
+  background-size: 300% 300%;
+}
+/* Speech is visual only. Leaving speaking state immediately removes the animation.
+   Reduced-motion users get the static small O, with no periodic movement. */
+.avatar-mouth {
+  display: none;
+}
+svg[data-speaking="true"] .avatar-mouth-rest {
+  display: none;
+}
+svg[data-speaking="true"] .avatar-mouth-small {
+  display: block;
+}
+@media (prefers-reduced-motion: no-preference) {
+  svg[data-speaking="true"] .avatar-mouth {
+    display: block;
+    opacity: 0;
+    animation-duration: 1.37s;
+    animation-timing-function: steps(1, end);
+    animation-iteration-count: infinite;
+  }
+  svg[data-speaking="true"] .avatar-mouth-small {
+    animation-name: avatar-mouth-small;
+  }
+  svg[data-speaking="true"] .avatar-mouth-open {
+    animation-name: avatar-mouth-open;
+  }
+  svg[data-speaking="true"] .avatar-mouth-closed {
+    animation-name: avatar-mouth-closed;
+  }
+  @keyframes avatar-mouth-small {
+    0%,
+    19%,
+    36%,
+    65%,
+    92%,
+    100% {
+      opacity: 0;
+    }
+    7%,
+    28%,
+    58%,
+    84% {
+      opacity: 1;
+    }
+  }
+  @keyframes avatar-mouth-open {
+    0%,
+    47%,
+    72%,
+    100% {
+      opacity: 0;
+    }
+    36%,
+    65%,
+    92% {
+      opacity: 1;
+    }
+  }
+  @keyframes avatar-mouth-closed {
+    0%,
+    19%,
+    47%,
+    72%,
+    100% {
+      opacity: 1;
+    }
+    7%,
+    28%,
+    58%,
+    84% {
+      opacity: 0;
+    }
+  }
+  .avatar-rainbow {
+    animation: avatar-rainbow-sweep 1.2s ease-in-out both;
+  }
+  @keyframes avatar-rainbow-sweep {
+    from {
+      background-position: 0% 30%;
+    }
+    to {
+      background-position: 100% 70%;
+    }
+  }
+  .avatar-preview[data-celebrating="true"] .avatar-halo {
+    animation: avatar-glow 1.2s ease-out both;
+  }
+  @keyframes avatar-glow {
+    0% {
+      transform: scale(0.65);
+      opacity: 0;
+    }
+    30% {
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1.25);
+      opacity: 0.45;
+    }
+  }
+  .avatar-preview[data-celebrating="true"] > svg {
+    animation: avatar-happy-bounce 1.2s ease-out both;
+    transform-origin: 50% 90%;
+  }
+  @keyframes avatar-happy-bounce {
+    0%,
+    100% {
+      transform: translateY(0) scale(1);
+    }
+    25% {
+      transform: translateY(-7px) scale(1.025);
+    }
+    50% {
+      transform: translateY(0) scale(0.99);
+    }
+    70% {
+      transform: translateY(-3px) scale(1.01);
+    }
+  }
+  .avatar-sparkles span {
+    animation: avatar-color-burst 1.2s cubic-bezier(0.15, 0.7, 0.3, 1) both;
+  }
+  @keyframes avatar-color-burst {
+    0% {
+      opacity: 0;
+      transform: rotate(var(--angle)) translateY(-35px) scale(0.25);
+    }
+    18%,
+    65% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: rotate(var(--angle)) translateY(calc(-125px - mod(var(--i), 3) * 12px)) scale(0.6);
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .avatar-sparkles {
+    display: none;
+  }
+}
+
+/* Keep the palette mounted so closing animates without losing the chosen color. */
+.avatar-hat-colors {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 200ms ease,
+    opacity 160ms ease;
+}
+.avatar-hat-colors[data-expanded="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.avatar-hat-swatch {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--color-hairline);
+}
+.avatar-hat-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .avatar-hat-colors {
+    transition: none;
+  }
+}

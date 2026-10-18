@@ -81,9 +81,29 @@ class VoiceSettings(BaseSettings):
             raise ValueError("gpt-6-astra reasoning effort must be low, medium, high, xhigh or max")
         return self
 
+    # USD per million tokens by model, for the dev transcript's cost estimate, as JSON in
+    # TASSEL_PRICES, e.g. {"gpt-6-luna": {"prompt": 1.0, "cached": 0.1, "completion": 4.0}}.
+    # Unset: the meter logs usage only (owner: speed first, meter and log).
+    prices: dict[str, dict[str, float]] = Field(default_factory=dict)
+
     two_tier: bool | None = None
-    thinker_model: str = "gpt-6-astra"
-    thinker_effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"
+    # Measured live on the owner's page: luna 4.6 s, astra 7.4 s, same diagnosis and mark.
+    illustrator_model: str = "gpt-6-luna"
+    # Live on the owner's network turns (2026-10-18): Qwen on Cerebras drew the same valid
+    # diagram in 0.8-1.3 s where luna took 4.0-4.5 s.
+    illustrator_provider: Literal["openai", "openrouter"] = "openrouter"
+    illustrator_timeout_s: float = 6.0
+    pointer_model: str = "gpt-6-luna"
+    pointer_provider: Literal["openai", "openrouter"] = "openai"
+    pointer_timeout_s: float = Field(2.5, gt=0)
+    thinker_model: str = "gpt-6-luna"
+    # Retest #7: luna at "low" took 6–8.6 s per brief; "none" read the owner's page correctly in
+    # 2.6–2.9 s. Board constructions still think at "low" (thinker_draw_effort).
+    thinker_effort: Literal["none", "low", "medium", "high", "xhigh", "max"] = "none"
+    thinker_draw_effort: Literal["none", "low", "medium", "high", "xhigh", "max"] = "low"
+    # The longest a thinker turn waits for its brief before Ada says she couldn't finish
+    # (paper-marks turn 3 waited 90 s in silence).
+    thinker_reply_timeout_s: float = Field(30.0, gt=0)
 
     @property
     def two_tier_enabled(self) -> bool:
@@ -95,10 +115,17 @@ class VoiceSettings(BaseSettings):
             and _is_set(self.openrouter_api_key)
         )
 
-    tts_model: Literal["eleven_flash_v2_5", "eleven_turbo_v2_5"] = "eleven_flash_v2_5"
+    # eleven_v3 (most expressive) has no streaming WebSocket; it runs over HTTP streaming.
+    # The owner's pick (2026-10-17 by ear): Matilda on Multilingual v2, faster. Over the
+    # streaming WebSocket it starts in ~0.5–0.7 s (HTTP was ~1.9 s).
+    tts_model: Literal[
+        "eleven_flash_v2_5", "eleven_turbo_v2_5", "eleven_multilingual_v2", "eleven_v3"
+    ] = "eleven_multilingual_v2"
+    tts_style: float = Field(0.15, ge=0, le=1)
+    tts_speaker_boost: bool = True
     tts_stability: float = Field(0.5, ge=0, le=1)
     tts_similarity: float = Field(0.75, ge=0, le=1)
-    tts_speed: float = Field(1.0, ge=0.7, le=1.2)
+    tts_speed: float = Field(1.15, ge=0.7, le=1.2)
 
     fake_tts: Literal["auto", "say", "tone"] = "auto"
     fake_scenario: str = "dfa-opening"

@@ -1,0 +1,195 @@
+{
+  "name": "replay-767b954e",
+  "title": "Owner live test 767b954e: VLSM, zones, devices, views, underline the IP",
+  "description": "The owner's student lines from this live transcript, in order (nothing else copied); the expectations are the eval's. Runs only by name: about 27 turns.",
+  "default": false,
+  "stage": {
+    "view": "paper"
+  },
+  "turns": [
+    {
+      "student": "When you get here, if you get on one six two -- Do you see my paper?",
+      "page": "ip-page"
+    },
+    {
+      "student": "December."
+    },
+    {
+      "student": "Let's do some VLSM on this in the the drawing board."
+    },
+    {
+      "student": "Okay. Can we do villusum on this? Can we make five subnets? One with thirty addresses, one with twenty, one with ten, one with forty, one with fifty, please?"
+    },
+    {
+      "student": "Continue."
+    },
+    {
+      "student": "Okay. Um, can you draw zones? We need, like, twenty hosts in one, ten hosts in another, eight, three, and five.",
+      "expect": {
+        "tags": ["board.diagram"]
+      }
+    },
+    {
+      "student": "Okay. Can you delete the old drawing, please?"
+    },
+    {
+      "student": "Can you redraw the zones, please?"
+    },
+    {
+      "student": "Okay. Can you put the devices in those zones, please?"
+    },
+    {
+      "student": "that I said before?"
+    },
+    {
+      "student": "No. End devices, please, like PCs."
+    },
+    {
+      "student": "Rudy."
+    },
+    {
+      "student": "Oh, you did not."
+    },
+    {
+      "student": "Okay. Can we go back to the camera view, please?",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "paper",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "Hello?"
+    },
+    {
+      "student": "You didn't switch back to the paper.",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "paper",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "Hello? You didn't switch back to the paper.",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "paper",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "Okay. There we go."
+    },
+    {
+      "student": "Okay. Can you draw a line underneath the IP and the subnet that I just wrote down?",
+      "expect": {
+        "tags": ["paper.mark:underline"],
+        "marks": [
+          {
+            "type": "underline",
+            "truth": "ip"
+          }
+        ]
+      }
+    },
+    {
+      "student": "You didn't underline it properly."
+    },
+    {
+      "student": "Can you switch back to the board, please?",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "board",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "Back to camera, please.",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "paper",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "You didn't switch back to the paper.",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "paper",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "Okay. Can you go back to the the board with the camera view?",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "board",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "Where's the camera view at the bottom?"
+    },
+    {
+      "student": "No. I want the board with the paper view and picture and picture.",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "board",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "No. I want the board full screen and then the picture view in, like, a mini picture window.",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "board",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    }
+  ]
+}

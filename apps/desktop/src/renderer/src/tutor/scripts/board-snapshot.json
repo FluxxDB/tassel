@@ -1,0 +1,33 @@
+{
+  "steps": [
+    { "at": 0, "event": { "type": "state", "state": "connecting" } },
+    { "at": 400, "event": { "type": "state", "state": "listening" } },
+    { "at": 600, "event": { "type": "stage", "mode": "board" } },
+    {
+      "at": 800,
+      "event": {
+        "type": "actions",
+        "actions": [
+          {
+            "kind": "board.automaton",
+            "item": "fix",
+            "spec": {
+              "kind": "dfa",
+              "states": [{ "id": "q0" }, { "id": "q1", "accept": true }],
+              "start": "q0",
+              "transitions": [
+                { "from": "q0", "to": "q1", "symbols": ["0"] },
+                { "from": "q1", "to": "q1", "symbols": ["0", "1"] }
+              ]
+            },
+            "reveal": "all"
+          }
+        ]
+      }
+    },
+    { "at": 2000, "event": { "type": "board-snapshot" } },
+    { "at": 2600, "event": { "type": "stage", "mode": "paper" } },
+    { "at": 3400, "event": { "type": "board-snapshot" } },
+    { "at": 3600, "event": { "type": "state", "state": "listening" } }
+  ]
+}

@@ -4,7 +4,7 @@
 // that says when its module loads and offers an engine that records what it draws.
 import type { ApiClient } from '@tassel/shared/api';
 import type { BoardAction } from '@tassel/shared/beats';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ComponentType } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -21,6 +21,7 @@ const canvas = vi.hoisted(() => ({
     render: vi.fn(),
     play: vi.fn(async () => {}),
     focus: vi.fn(),
+    camera: { zoom: vi.fn(), fit: vi.fn(), adaAction: vi.fn() },
     onStudentEdit: vi.fn(() => () => {}),
     dispose: vi.fn(),
   },
@@ -137,6 +138,24 @@ describe('BoardPanel', () => {
     expect(screen.getAllByTestId('tldraw')).toHaveLength(1);
   });
 
+  it('offers labeled zoom and Fit controls once its engine is ready', async () => {
+    const fresh = await freshPanel();
+    // The stage shows them in the board's top line (Stage.tsx), apart from the panel.
+    const { BoardCameraControls } = await import(
+      '../../../src/renderer/src/board/BoardCameraControls'
+    );
+    await renderPanel(fresh, BoardCameraControls);
+    expect(screen.queryByRole('group', { name: 'Board camera controls' })).toBeNull();
+    act(() => fresh.stage.getState().requestMode('split'));
+    const zoomIn = await screen.findByRole('button', { name: 'Zoom in' });
+    fireEvent.click(zoomIn);
+    expect(canvas.engine.camera.zoom).toHaveBeenLastCalledWith('in');
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }));
+    expect(canvas.engine.camera.zoom).toHaveBeenLastCalledWith('out');
+    fireEvent.click(screen.getByRole('button', { name: 'Fit' }));
+    expect(canvas.engine.camera.fit).toHaveBeenCalledOnce();
+  });
+
   it('the canvas mounts once Ada draws, even with the board hidden (P5-R8)', async () => {
     const fresh = await freshPanel();
     await renderPanel(fresh);
@@ -196,9 +215,45 @@ describe('BoardPanel', () => {
     await screen.findByTestId('tldraw');
     // jsdom lays nothing out, so every box is empty; the app measures the panel and main.
     const none = { x: 0, y: 0, w: 0, h: 0 };
-    expect(canvas.stage?.()).toEqual({ panel: none, main: none, captions: true });
+    expect(canvas.stage?.()).toEqual({ panel: none, main: none, captions: true, tiles: [] });
     act(() => fresh.stage.getState().toggleCaptions());
-    expect(canvas.stage?.()).toEqual({ panel: none, main: none, captions: false });
+    expect(canvas.stage?.()).toEqual({ panel: none, main: none, captions: false, tiles: [] });
+    // The session's floating tiles, where they rest, so her drawing stays clear of them.
+    const { useFloatingTiles } = await import('../../../src/renderer/src/components/FloatingTile');
+    const rect = { x: 1198, y: 74, w: 212, h: 176 };
+    act(() =>
+      useFloatingTiles.getState().place('tutor', { corner: 'top-right', w: 212, h: 176, rect }),
+    );
+    expect(canvas.stage?.()).toMatchObject({ tiles: [rect] });
+  });
+
+  it("refits Ada's focus when a floating tile moves or resizes, not when it stays put", async () => {
+    const fresh = await freshPanel();
+    const { useFloatingTiles } = await import('../../../src/renderer/src/components/FloatingTile');
+    const ada = {
+      corner: 'top-right' as const,
+      w: 212,
+      h: 176,
+      rect: { x: 1198, y: 74, w: 212, h: 176 },
+    };
+    useFloatingTiles.getState().place('tutor', ada);
+    await renderPanel(fresh);
+    act(() => fresh.stage.getState().requestMode('split'));
+    await screen.findByTestId('tldraw');
+    await waitFor(() => expect(canvas.engine.render).toHaveBeenCalled());
+    expect(canvas.engine.focus).not.toHaveBeenCalled();
+
+    act(() => useFloatingTiles.getState().place('tutor', { ...ada }));
+    expect(canvas.engine.focus).not.toHaveBeenCalled();
+    act(() =>
+      useFloatingTiles
+        .getState()
+        .place('tutor', { ...ada, corner: 'bottom-left', rect: { x: 30, y: 510, w: 212, h: 176 } }),
+    );
+    expect(canvas.engine.focus).toHaveBeenCalledTimes(1);
+    expect(canvas.engine.focus).toHaveBeenLastCalledWith(null, { animate: true });
+    act(() => useFloatingTiles.getState().remove('tutor'));
+    expect(canvas.engine.focus).toHaveBeenCalledTimes(2);
   });
 
   it("refits Ada's focus when captions go on or off, not as their lines come and go", async () => {

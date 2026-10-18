@@ -1,0 +1,28 @@
+{
+  "name": "views",
+  "title": "Every spoken view request",
+  "description": "Her own view requests pin the view at once with a set line and no model call (2de450e6, 767b954e). Free: no tokens.",
+  "stage": { "view": "board" },
+  "turns": [
+    {
+      "student": "Back to camera, please.",
+      "expect": { "route": "view", "stage": [{ "view": "paper", "pinned": true }], "tags": [] }
+    },
+    {
+      "student": "Can you switch the board to full screen, please?",
+      "expect": { "route": "view", "stage": [{ "view": "board", "pinned": true }], "tags": [] }
+    },
+    {
+      "student": "Desk view, please.",
+      "expect": { "route": "view", "stage": [{ "view": "paper", "pinned": true }], "tags": [] }
+    },
+    {
+      "student": "Can we see them side by side?",
+      "expect": { "route": "view", "stage": [{ "view": "split", "pinned": true }], "tags": [] }
+    },
+    {
+      "student": "Go back desk view.",
+      "expect": { "route": "view", "stage": [{ "view": "paper", "pinned": true }], "tags": [] }
+    }
+  ]
+}

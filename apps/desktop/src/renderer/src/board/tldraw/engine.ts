@@ -1,7 +1,8 @@
 // The tldraw engine behind Ada's board (BoardEngine). It draws her scene by diffing her last desired
 // board against her next (planSync), so it changes only what she changed. Her changes go in as
 // remote changes outside the undo history, so they never count as the student's (Task 6) and she
-// can't undo them. Effects play on an overlay; the camera fits her focus.
+// can't undo them. Effects play on an overlay; the camera fits her focus. Its snapshot is the whole
+// page as a PNG, for Ada's board turn.
 import { type Pt, parseElementRef } from '@tassel/shared/beats';
 import type { Lang } from '@tassel/shared/i18n';
 import {
@@ -16,11 +17,13 @@ import {
   toRichText,
 } from 'tldraw';
 import type { BoardEngine, StageGeometry, StudentBoardEdit } from '../engine';
-import type { AutomatonLayout } from '../layout/types';
+import type { BoardLayout } from '../layout/types';
 import { prefersReducedMotion } from '../motion';
-import { type BoardText, type Box, placeItems } from '../scene/placement';
+import { type BoardText, focusBox, placeItems } from '../scene/placement';
 import type { BoardEffect, BoardScene } from '../scene/types';
 import { fitCamera, onSettledResize } from './camera';
+import { createCameraControl } from './camera-control';
+import { bindCameraGestures } from './camera-gestures';
 import {
   adaShapeId,
   type Desired,
@@ -32,6 +35,11 @@ import {
 import { effectsOf } from './effects';
 import { createTextMeasure } from './measure';
 import { planSync, type SyncPlan } from './plan-sync';
+
+/** Page units around the board's shapes in its snapshot. */
+const SNAPSHOT_PADDING = 32;
+/** The most a snapshot scales a small board up. */
+const SNAPSHOT_MAX_SCALE = 2;
 
 /** i18next's t: a key in a language. */
 type Translate = (key: string, opts: Record<string, unknown> & { lng: Lang }) => string;
@@ -68,8 +76,7 @@ export function createTldrawEngine(
 
   /** What Ada's board holds now, and what it was drawn from. */
   let shown: Desired = NO_SHAPES;
-  let drawn: { scene: BoardScene; layouts: Readonly<Record<string, AutomatonLayout>> } | null =
-    null;
+  let drawn: { scene: BoardScene; layouts: Readonly<Record<string, BoardLayout>> } | null = null;
   /** What the camera fitted last: an item (or null for everything) and its box. */
   let fitted: string | null = null;
 
@@ -81,7 +88,8 @@ export function createTldrawEngine(
   const frame = (item: string | null, animate: boolean): boolean => {
     if (!drawn) return false;
     const boxes = placeItems(drawn.scene, drawn.layouts, text());
-    const bounds = item === null ? union(Object.values(boxes)) : boxes[item];
+    // Her notes with it, so none is cut off at the panel's edge.
+    const bounds = focusBox(drawn.scene, boxes, item);
     if (!bounds) return false;
     const key = JSON.stringify([item, bounds]);
     const fit = fitCamera(editor, bounds, {
@@ -94,20 +102,31 @@ export function createTldrawEngine(
     return true;
   };
 
+  const control = createCameraControl(
+    () => {
+      if (drawn) frame(drawn.scene.focus, fitted !== null);
+    },
+    () => editor.stopCameraAnimation(),
+  );
+  const stopGestures = bindCameraGestures(editor, control, reduced);
+
   /** Fits Ada's focus again when it, or the box it fits, has changed. */
   const followFocus = () => {
     if (!drawn) return;
     const item = drawn.scene.focus;
     const boxes = placeItems(drawn.scene, drawn.layouts, text());
-    const bounds = item === null ? union(Object.values(boxes)) : boxes[item];
-    if (bounds && JSON.stringify([item, bounds]) !== fitted) frame(item, fitted !== null);
+    // Her notes with it, so none is cut off at the panel's edge.
+    const bounds = focusBox(drawn.scene, boxes, item);
+    if (bounds && JSON.stringify([item, bounds]) !== fitted) {
+      control.refit(() => frame(item, fitted !== null));
+    }
   };
 
   const stopWatching = onSettledResize(opts.container ?? editor.getContainer(), () => {
-    if (drawn) frame(drawn.scene.focus, true);
+    control.refit();
   });
 
-  const render = (scene: BoardScene, layouts: Readonly<Record<string, AutomatonLayout>>) => {
+  const render = (scene: BoardScene, layouts: Readonly<Record<string, BoardLayout>>) => {
     drawn = { scene, layouts };
     const next = desiredBoard(scene, layouts, text(), lang);
     apply(editor, planSync(shown, next));
@@ -117,6 +136,16 @@ export function createTldrawEngine(
 
   return {
     render,
+    camera: {
+      adaAction: control.adaAction,
+      fit: () => control.fit(() => frame(null, true)),
+      zoom(direction) {
+        control.studentMove();
+        const options = reduced() ? undefined : { animation: { duration: 160 } };
+        if (direction === 'in') editor.zoomIn(undefined, options);
+        else editor.zoomOut(undefined, options);
+      },
+    },
     setLang(next) {
       if (next === lang) return;
       lang = next;
@@ -125,8 +154,17 @@ export function createTldrawEngine(
     async play(effect: BoardEffect) {
       if (reduced()) return;
       if (effect.type === 'pulse') {
+        const shape = editor.getShape(adaShapeId(effect.item, effect.el) as TLShapeId);
+        if (shape?.type === 'tassel-node') {
+          // Around a diagram's card: a ring that clears its corners. The overlay adds its 4 px.
+          const bounds = editor.getShapePageBounds(shape);
+          if (!bounds) return;
+          const center = { x: bounds.center.x, y: bounds.center.y };
+          await effects.play({ type: 'pulse', center, r: Math.hypot(bounds.w, bounds.h) / 2 });
+          return;
+        }
         // Around the state's own circle: its page bounds come from a polygon, a little smaller.
-        const state = editor.getShape(adaShapeId(effect.item, effect.el) as TLShapeId);
+        const state = shape;
         if (state?.type !== 'tassel-state') return;
         const r = state.props.w / 2;
         const center = editor.getShapePageTransform(state).applyToPoint({ x: r, y: r });
@@ -145,7 +183,24 @@ export function createTldrawEngine(
       if (edges.length > 0) await effects.play({ type: 'glide', edges });
     },
     focus(item, { animate }) {
-      frame(item, animate);
+      control.refit(() => frame(item, animate));
+    },
+    async snapshot(maxSide) {
+      const ids = [...editor.getCurrentPageShapeIds()];
+      const bounds = editor.getCurrentPageBounds();
+      if (ids.length === 0 || !bounds) return null;
+      // Fixed padding, so the long side comes out at maxSide; a small board grows at most 2x.
+      const long = Math.max(bounds.w, bounds.h) + 2 * SNAPSHOT_PADDING;
+      const scale = Math.min(SNAPSHOT_MAX_SCALE, maxSide / long);
+      const { blob } = await editor.toImage(ids, {
+        format: 'png',
+        background: true,
+        padding: SNAPSHOT_PADDING,
+        pixelRatio: 1,
+        scale,
+        darkMode: false,
+      });
+      return blob;
     },
     onStudentEdit(listener) {
       // Task 6 reports her edits; until then there are none to report.
@@ -156,6 +211,7 @@ export function createTldrawEngine(
     },
     dispose() {
       stopWatching();
+      stopGestures();
       effects.stop();
       measure.dispose();
       listeners.clear();
@@ -174,30 +230,37 @@ function apply(editor: Editor, plan: SyncPlan): void {
     0;
   if (nothing) return;
   editor.store.mergeRemoteChanges(() => {
-    editor.run(
-      () => {
-        // A changed binding is replaced under its own id, so the old one goes first.
-        const unbind = plan.unbind.filter((id) => editor.getBinding(id as TLBindingId));
-        if (unbind.length > 0) editor.deleteBindings(unbind as TLBindingId[]);
-        const remove = plan.remove.filter((id) => editor.getShape(id as TLShapeId));
-        if (remove.length > 0) editor.deleteShapes(remove as TLShapeId[]);
-        // What the student erased stays erased: its updates and bindings are skipped.
-        const exists = (id: string) => editor.getShape(id as TLShapeId) !== undefined;
-        const create = plan.create.filter((shape) => !exists(shape.id));
-        const shapes = create.filter((shape) => shape.type !== 'arrow');
-        if (shapes.length > 0) editor.createShapes(shapes.map(shapePartial));
-        const arrows = create.filter((shape) => shape.type === 'arrow');
-        if (arrows.length > 0) editor.createShapes(placeArrows(editor, arrows, plan.bind));
-        const update = [
-          ...plan.update.filter((change) => exists(change.id)),
-          ...plan.create.filter((shape) => exists(shape.id) && !create.includes(shape)),
-        ];
-        if (update.length > 0) editor.updateShapes(update.map(shapePartial));
-        const bind = plan.bind.filter((binding) => exists(binding.arrow) && exists(binding.to));
-        if (bind.length > 0) editor.createBindings(bind.map(bindingCreate));
-      },
-      { history: 'ignore', ignoreShapeLock: true },
-    );
+    // Read-only applies to student input; Ada alone may write during this synchronous batch.
+    const readonly = editor.getIsReadonly();
+    editor.updateInstanceState({ isReadonly: false });
+    try {
+      editor.run(
+        () => {
+          // A changed binding is replaced under its own id, so the old one goes first.
+          const unbind = plan.unbind.filter((id) => editor.getBinding(id as TLBindingId));
+          if (unbind.length > 0) editor.deleteBindings(unbind as TLBindingId[]);
+          const remove = plan.remove.filter((id) => editor.getShape(id as TLShapeId));
+          if (remove.length > 0) editor.deleteShapes(remove as TLShapeId[]);
+          // What the student erased stays erased: its updates and bindings are skipped.
+          const exists = (id: string) => editor.getShape(id as TLShapeId) !== undefined;
+          const create = plan.create.filter((shape) => !exists(shape.id));
+          const shapes = create.filter((shape) => shape.type !== 'arrow');
+          if (shapes.length > 0) editor.createShapes(shapes.map(shapePartial));
+          const arrows = create.filter((shape) => shape.type === 'arrow');
+          if (arrows.length > 0) editor.createShapes(placeArrows(editor, arrows, plan.bind));
+          const update = [
+            ...plan.update.filter((change) => exists(change.id)),
+            ...plan.create.filter((shape) => exists(shape.id) && !create.includes(shape)),
+          ];
+          if (update.length > 0) editor.updateShapes(update.map(shapePartial));
+          const bind = plan.bind.filter((binding) => exists(binding.arrow) && exists(binding.to));
+          if (bind.length > 0) editor.createBindings(bind.map(bindingCreate));
+        },
+        { history: 'ignore', ignoreShapeLock: true },
+      );
+    } finally {
+      editor.updateInstanceState({ isReadonly: readonly });
+    }
   });
 }
 
@@ -275,13 +338,4 @@ function bindingCreate(binding: DesiredBinding): TLBindingCreate {
 function centerOf(editor: Editor, id: string): Pt | null {
   const bounds = editor.getShapePageBounds(id as TLShapeId);
   return bounds ? { x: bounds.center.x, y: bounds.center.y } : null;
-}
-
-function union(boxes: readonly Box[]): Box | undefined {
-  if (boxes.length === 0) return undefined;
-  const x = Math.min(...boxes.map((box) => box.x));
-  const y = Math.min(...boxes.map((box) => box.y));
-  const right = Math.max(...boxes.map((box) => box.x + box.w));
-  const bottom = Math.max(...boxes.map((box) => box.y + box.h));
-  return { x, y, w: right - x, h: bottom - y };
 }

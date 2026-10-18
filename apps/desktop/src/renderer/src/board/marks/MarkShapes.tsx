@@ -25,6 +25,7 @@ import {
   stepDotFor,
   strikeFor,
   targetKey,
+  underlineFor,
 } from './geometry';
 import type { Snapshot } from './marks-store';
 import type { Fit } from './project';
@@ -45,8 +46,9 @@ const FADE: CSSProperties = {
 type Size = { w: number; h: number };
 
 export interface MarkShapesProps {
-  marks: PaperMark[];
-  snapshot: Snapshot;
+  marks: readonly PaperMark[];
+  /** What the marks sit on: her frozen paper, or the student's image (its own projection). */
+  snapshot: Pick<Snapshot, 'elements' | 'project'>;
   fit: Fit;
   /** The layer's size in panel px. */
   panel: Size;
@@ -111,6 +113,13 @@ export function MarkShapes({ marks, snapshot, fit, panel, lang }: MarkShapesProp
         shapes.push(
           <g key={key} data-testid={testId}>
             <Stroke d={polyline(strikeFor(target))} />
+          </g>,
+        );
+        break;
+      case 'underline':
+        shapes.push(
+          <g key={key} data-testid={testId}>
+            <Stroke d={polyline(underlineFor(target))} />
           </g>,
         );
         break;

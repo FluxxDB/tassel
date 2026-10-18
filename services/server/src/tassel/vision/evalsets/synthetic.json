@@ -1,0 +1,563 @@
+{
+  "version": 1,
+  "moments": [
+    {
+      "id": "blank-en",
+      "variant": "dfa-demo",
+      "at_ms": 3000,
+      "lang": "en",
+      "reason": "speech",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "Hi Ada, I'm working on a DFA for binary strings that start with 010.",
+          "at_ms": 3000
+        }
+      ],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": false,
+      "changed_cells": 0,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": false,
+        "student_seems_stuck": false,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "chat-en",
+      "variant": "dfa-demo",
+      "at_ms": 3000,
+      "lang": "en",
+      "reason": "speech",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "Did you see the game last night? It was wild.",
+          "at_ms": 3000
+        }
+      ],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": false,
+      "changed_cells": 0,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": false,
+        "student_seems_stuck": false,
+        "not_schoolwork": true
+      }
+    },
+    {
+      "id": "q3-en",
+      "variant": "dfa-demo",
+      "at_ms": 26700,
+      "lang": "en",
+      "reason": "frame",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "…and q three is accepting.",
+          "at_ms": 26700
+        }
+      ],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": true,
+      "changed_cells": 40,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": true,
+        "student_seems_stuck": false,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "stall-en",
+      "variant": "dfa-demo",
+      "at_ms": 31000,
+      "lang": "en",
+      "reason": "stall",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "…and q three is accepting.",
+          "at_ms": 22000
+        }
+      ],
+      "quiet_ms": 7300,
+      "silence_ms": 9000,
+      "new_ink": false,
+      "changed_cells": 0,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": false,
+        "student_seems_stuck": true,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "loop-en",
+      "variant": "dfa-demo",
+      "at_ms": 38500,
+      "lang": "en",
+      "reason": "frame",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "Then q three loops on zero and one.",
+          "at_ms": 38500
+        }
+      ],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": true,
+      "changed_cells": 40,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": true,
+        "student_seems_stuck": false,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "q0loop-en",
+      "variant": "dfa-demo",
+      "at_ms": 47100,
+      "lang": "en",
+      "reason": "frame",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "If it starts with a 1, I'll just wait for a 0.",
+          "at_ms": 47100
+        }
+      ],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": true,
+      "changed_cells": 40,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": true,
+        "student_seems_stuck": false,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "right-en",
+      "variant": "dfa-demo",
+      "at_ms": 47100,
+      "lang": "en",
+      "reason": "speech",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "Is it right?",
+          "at_ms": 47100
+        }
+      ],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": false,
+      "changed_cells": 0,
+      "labels": {
+        "diagram_attempt_complete": true,
+        "new_work_worth_checking": false,
+        "student_seems_stuck": false,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "done-en",
+      "variant": "dfa-demo",
+      "at_ms": 48000,
+      "lang": "en",
+      "reason": "speech",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "I think I'm done.",
+          "at_ms": 48000
+        }
+      ],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": false,
+      "changed_cells": 0,
+      "labels": {
+        "diagram_attempt_complete": true,
+        "new_work_worth_checking": false,
+        "student_seems_stuck": false,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "chat-es",
+      "variant": "dfa-demo",
+      "at_ms": 3000,
+      "lang": "es",
+      "reason": "speech",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "¿Viste el partido de anoche? Fue increíble.",
+          "at_ms": 3000
+        }
+      ],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": false,
+      "changed_cells": 0,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": false,
+        "student_seems_stuck": false,
+        "not_schoolwork": true
+      }
+    },
+    {
+      "id": "q3-es",
+      "variant": "dfa-demo",
+      "at_ms": 26700,
+      "lang": "es",
+      "reason": "frame",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "…y q tres es de aceptación.",
+          "at_ms": 26700
+        }
+      ],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": true,
+      "changed_cells": 40,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": true,
+        "student_seems_stuck": false,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "stall-es",
+      "variant": "dfa-demo",
+      "at_ms": 31000,
+      "lang": "es",
+      "reason": "stall",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "…y q tres es de aceptación.",
+          "at_ms": 22000
+        }
+      ],
+      "quiet_ms": 7300,
+      "silence_ms": 9000,
+      "new_ink": false,
+      "changed_cells": 0,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": false,
+        "student_seems_stuck": true,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "loop-es",
+      "variant": "dfa-demo",
+      "at_ms": 38500,
+      "lang": "es",
+      "reason": "frame",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "Luego q tres vuelve a sí mismo con cero y uno.",
+          "at_ms": 38500
+        }
+      ],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": true,
+      "changed_cells": 40,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": true,
+        "student_seems_stuck": false,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "done-es",
+      "variant": "dfa-demo",
+      "at_ms": 48000,
+      "lang": "es",
+      "reason": "speech",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "Creo que ya está.",
+          "at_ms": 48000
+        }
+      ],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": false,
+      "changed_cells": 0,
+      "labels": {
+        "diagram_attempt_complete": true,
+        "new_work_worth_checking": false,
+        "student_seems_stuck": false,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "chat-ko",
+      "variant": "dfa-demo",
+      "at_ms": 3000,
+      "lang": "ko",
+      "reason": "speech",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "어제 경기 봤어요? 진짜 재밌었어요.",
+          "at_ms": 3000
+        }
+      ],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": false,
+      "changed_cells": 0,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": false,
+        "student_seems_stuck": false,
+        "not_schoolwork": true
+      }
+    },
+    {
+      "id": "q3-ko",
+      "variant": "dfa-demo",
+      "at_ms": 26700,
+      "lang": "ko",
+      "reason": "frame",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "…그리고 q3이 수락 상태예요.",
+          "at_ms": 26700
+        }
+      ],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": true,
+      "changed_cells": 40,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": true,
+        "student_seems_stuck": false,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "stall-ko",
+      "variant": "dfa-demo",
+      "at_ms": 31000,
+      "lang": "ko",
+      "reason": "stall",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "…그리고 q3이 수락 상태예요.",
+          "at_ms": 22000
+        }
+      ],
+      "quiet_ms": 7300,
+      "silence_ms": 9000,
+      "new_ink": false,
+      "changed_cells": 0,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": false,
+        "student_seems_stuck": true,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "loop-ko",
+      "variant": "dfa-demo",
+      "at_ms": 38500,
+      "lang": "ko",
+      "reason": "frame",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "q3은 0과 1에서 자기 자신으로 가요.",
+          "at_ms": 38500
+        }
+      ],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": true,
+      "changed_cells": 40,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": true,
+        "student_seems_stuck": false,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "done-ko",
+      "variant": "dfa-demo",
+      "at_ms": 48000,
+      "lang": "ko",
+      "reason": "speech",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "다 했어요.",
+          "at_ms": 48000
+        }
+      ],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": false,
+      "changed_cells": 0,
+      "labels": {
+        "diagram_attempt_complete": true,
+        "new_work_worth_checking": false,
+        "student_seems_stuck": false,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "short-stall-en",
+      "variant": "dfa-short",
+      "at_ms": 16000,
+      "lang": "en",
+      "reason": "stall",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "Okay, q zero is my start state.",
+          "at_ms": 7000
+        }
+      ],
+      "quiet_ms": 7500,
+      "silence_ms": 9000,
+      "new_ink": false,
+      "changed_cells": 0,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": false,
+        "student_seems_stuck": true,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "shadow-en",
+      "variant": "shadow-pass",
+      "at_ms": 3500,
+      "lang": "en",
+      "reason": "frame",
+      "transcript": [],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": false,
+      "changed_cells": 0,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": false,
+        "student_seems_stuck": false,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "rest-en",
+      "variant": "hand-rests",
+      "at_ms": 6000,
+      "lang": "en",
+      "reason": "frame",
+      "transcript": [],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": false,
+      "changed_cells": 0,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": false,
+        "student_seems_stuck": false,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "text-mom-en",
+      "variant": "hand-rests",
+      "at_ms": 6000,
+      "lang": "en",
+      "reason": "speech",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "Hang on, I need to text my mom back.",
+          "at_ms": 6000
+        }
+      ],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": false,
+      "changed_cells": 0,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": false,
+        "student_seems_stuck": false,
+        "not_schoolwork": true
+      }
+    },
+    {
+      "id": "erase-en",
+      "variant": "erase",
+      "at_ms": 7000,
+      "lang": "en",
+      "reason": "frame",
+      "transcript": [],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": true,
+      "changed_cells": 6,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": true,
+        "student_seems_stuck": false,
+        "not_schoolwork": false
+      }
+    },
+    {
+      "id": "q0loop-es",
+      "variant": "dfa-demo",
+      "at_ms": 47100,
+      "lang": "es",
+      "reason": "frame",
+      "transcript": [
+        {
+          "speaker": "student",
+          "text": "Si empieza con 1, espero un 0.",
+          "at_ms": 47100
+        }
+      ],
+      "quiet_ms": 3000,
+      "silence_ms": 0,
+      "new_ink": true,
+      "changed_cells": 40,
+      "labels": {
+        "diagram_attempt_complete": false,
+        "new_work_worth_checking": true,
+        "student_seems_stuck": false,
+        "not_schoolwork": false
+      }
+    }
+  ]
+}

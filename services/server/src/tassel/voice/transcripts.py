@@ -11,16 +11,25 @@ from pipecat.frames.frames import (
     LLMContextFrame,
     LLMFullResponseStartFrame,
     LLMTextFrame,
+    MetricsFrame,
     TranscriptionFrame,
     TTSAudioRawFrame,
     TTSTextFrame,
 )
+from pipecat.metrics.metrics import LLMUsageMetricsData, STTUsageMetricsData, TTSUsageMetricsData
 from pipecat.observers.base_observer import BaseObserver, FramePushed
+
+from tassel.voice.cost import CostMeter
+
+# A running `cost` event every few student turns, and a final one when the session ends.
+COST_EVERY = 5
 
 
 class DevTranscript(BaseObserver):
-    def __init__(self, session: UUID, directory: Path | None, *, secrets=()):
+    def __init__(self, session: UUID, directory: Path | None, *, secrets=(), prices=None):
         super().__init__(observe_every_push=False)
+        self.meter = CostMeter(prices)
+        self.turns = 0
         self.path = None if directory is None else directory / f"{session}.jsonl"
         self.secrets = [s for s in secrets if s]
         self.started = time.monotonic()
@@ -62,8 +71,14 @@ class DevTranscript(BaseObserver):
         if not data.first_push:
             return
         frame = data.frame
+        if isinstance(frame, MetricsFrame):
+            self._meter(frame)
+            return
         if isinstance(frame, TranscriptionFrame):
             self.record("student_final", {"text": frame.text})
+            self.turns += 1
+            if self.turns % COST_EVERY == 0:
+                self.record_cost()
             self._last_final = frame.text
             self.started = time.monotonic()
             self.token = self.audio = False
@@ -89,3 +104,22 @@ class DevTranscript(BaseObserver):
         elif isinstance(frame, TTSAudioRawFrame) and not self.audio:
             self.audio = True
             self.record("first_audio", {"ms": (time.monotonic() - self.started) * 1000})
+
+    def _meter(self, frame: MetricsFrame) -> None:
+        for item in frame.data:
+            if isinstance(item, LLMUsageMetricsData):
+                usage = item.value
+                self.meter.llm(
+                    item.model or "llm",
+                    prompt=usage.prompt_tokens,
+                    cached=usage.cache_read_input_tokens or 0,
+                    completion=usage.completion_tokens,
+                )
+            elif isinstance(item, TTSUsageMetricsData):
+                self.meter.tts(item.value)
+            elif isinstance(item, STTUsageMetricsData):
+                self.meter.stt(item.value.audio_seconds)
+
+    def record_cost(self) -> None:
+        """The session's usage so far (and USD when prices are set), as one `cost` event."""
+        self.record("cost", self.meter.summary())

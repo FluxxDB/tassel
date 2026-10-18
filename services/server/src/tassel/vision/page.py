@@ -21,8 +21,21 @@ PAGE_APPROX_FRACTION = 0.02  # Polygon approximation tolerance as a fraction of 
 PAGE_EDGE_MARGIN = 2  # Reject the image's own outline, as P3's finder does.
 FALLBACK_FRACTION = 0.8  # Central crop when neither supplied nor detected geometry is usable.
 INK_BLUR_SIZE = 61  # Illumination box blur at PAGE_LONG_SIDE, scaled for smaller pages.
-INK_THRESHOLD = 0.78  # Ink is darker than this fraction of the local illumination.
+# Ink is darker than a fraction of the local illumination: INK_THRESHOLD on a noisy page, up to
+# INK_FAINT_THRESHOLD on a clean one, so thin, faint pencil on a quiet Desk View frame (its
+# strokes 0.1-0.3 darker than the paper, the paper's noise about 0.006) is whole ink, not dots.
+INK_THRESHOLD = 0.78
+INK_FAINT_THRESHOLD = 0.94
+INK_NOISE_SIGMAS = 6  # A pixel is ink only this many noise deviations below the paper.
+INK_SEED = 0.85  # A faint stroke is ink if it's this dark somewhere (a pencil line's middle).
+RING_FAINT_THRESHOLD = 0.96  # The faint mask, for checking a state's ring is closed…
+RING_NOISE_SIGMAS = 4  # …goes down to this many deviations, up to that fraction.
 INK_OPEN_SIZE = 2  # Remove isolated noise after illumination normalization.
+# Not paper: a dark region reaching the frame's edge, like the black band Desk View's de-warp
+# leaves along the bottom, or the desk around a page. Its own noise is no ink, nor is its edge.
+PAPER_CLOSE_SIZE = 15  # Closing that erases pen strokes before judging paper, at PAGE_LONG_SIDE.
+PAPER_LEVEL = 0.35  # Paper is at least this fraction of the page's typical paper brightness.
+PAPER_PERCENTILE = 90  # The typical paper brightness: this percentile of the stroke-free page.
 
 
 @dataclass(frozen=True)
@@ -155,10 +168,78 @@ def flatten_page(full_jpeg: bytes, quad: Sequence[Pt] | None) -> FlatPage:
     return FlatPage(flat, out_w, out_h, chosen, found)
 
 
-def ink_mask(page: FlatPage) -> np.ndarray:
+def _scaled(size: int, page: FlatPage) -> int:
+    return max(1, round(size * max(page.width, page.height) / PAGE_LONG_SIDE)) | 1
+
+
+def paper_mask(page: FlatPage) -> np.ndarray:
+    """True on the paper: everything but dark regions that reach the frame's edge, shrunk by
+    the illumination blur so their soft edge isn't paper either."""
+    gray = cv2.cvtColor(page.rgb, cv2.COLOR_RGB2GRAY)
+    close = _scaled(PAPER_CLOSE_SIZE, page)
+    paperish = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, np.ones((close, close), np.uint8))
+    level = float(np.percentile(paperish[::4, ::4], PAPER_PERCENTILE))
+    dark = (paperish < PAPER_LEVEL * level).astype(np.uint8)
+    if not dark.any():
+        return np.ones(gray.shape, bool)
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(dark)
+    h, w = gray.shape
+    x, y, bw, bh = stats[:, 0], stats[:, 1], stats[:, 2], stats[:, 3]
+    edge = (x == 0) | (y == 0) | (x + bw == w) | (y + bh == h)
+    edge[0] = False
+    outside = edge[labels]
+    if not outside.any():
+        return np.ones(gray.shape, bool)
+    grow = _scaled(INK_BLUR_SIZE, page) // 2 + close
+    return cv2.dilate(outside.astype(np.uint8), np.ones((grow, grow), np.uint8)) == 0
+
+
+def ink_threshold(
+    relative: np.ndarray,
+    paper: np.ndarray,
+    sigmas: float = INK_NOISE_SIGMAS,
+    faintest: float = INK_FAINT_THRESHOLD,
+) -> float:
+    """`sigmas` of the paper's own noise below it, from INK_THRESHOLD (a noisy page) to
+    `faintest` (a clean one). The noise is the robust spread of the paper's brightness
+    relative to its illumination; ink is too little of the page to move a median."""
+    sample = relative[::2, ::2][paper[::2, ::2]]
+    if sample.size < 100:
+        return INK_THRESHOLD
+    center = float(np.median(sample))
+    sigma = 1.4826 * float(np.median(np.abs(sample - center)))
+    return float(np.clip(center - sigmas * sigma, INK_THRESHOLD, faintest))
+
+
+def relative_brightness(page: FlatPage) -> np.ndarray:
+    """Each pixel's gray over its local illumination: paper is about 1, ink is darker."""
     gray = cv2.cvtColor(page.rgb, cv2.COLOR_RGB2GRAY).astype(np.float32)
-    size = max(1, round(INK_BLUR_SIZE * max(page.width, page.height) / PAGE_LONG_SIDE)) | 1
-    illumination = cv2.blur(gray, (size, size))
-    relative = gray / np.maximum(illumination, 1)
-    mask = np.where(relative < INK_THRESHOLD, 255, 0).astype(np.uint8)
+    size = _scaled(INK_BLUR_SIZE, page)
+    return gray / np.maximum(cv2.blur(gray, (size, size)), 1)
+
+
+def _seeded(relative: np.ndarray, faint: np.ndarray) -> np.ndarray:
+    """The faint strokes that are ink: those reaching INK_SEED somewhere. A pencil stroke
+    does along its middle; a printed margin or rule, or paper grain, stays lighter."""
+    count, labels = cv2.connectedComponents(faint.astype(np.uint8), connectivity=8)
+    keep = np.zeros(count, bool)
+    keep[np.unique(labels[faint & (relative < INK_SEED)])] = True
+    keep[0] = False
+    return keep[labels]
+
+
+def ink_mask(page: FlatPage, *, faint: bool = False) -> np.ndarray:
+    """Her ink, 255 on 0. `faint` also takes the faintest strokes (RING_* limits): a closed
+    ring is checked on that, as a hand-drawn pencil state's ring fades in places."""
+    relative = relative_brightness(page)
+    paper = paper_mask(page)
+    threshold = (
+        ink_threshold(relative, paper, RING_NOISE_SIGMAS, RING_FAINT_THRESHOLD)
+        if faint
+        else ink_threshold(relative, paper)
+    )
+    ink = relative < INK_THRESHOLD
+    if threshold > INK_THRESHOLD:
+        ink |= _seeded(relative, (relative < threshold) & paper)
+    mask = np.where(ink & paper, 255, 0).astype(np.uint8)
     return cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((INK_OPEN_SIZE, INK_OPEN_SIZE), np.uint8))

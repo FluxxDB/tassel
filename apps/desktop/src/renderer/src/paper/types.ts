@@ -22,7 +22,7 @@ export type PaperStatus =
   | 'ended'
   | 'error';
 
-/** A Desk View camera the helper can open; `builtIn` is false for an iPhone's (Continuity Camera). */
+/** A selectable camera; `builtIn` identifies the helper's preferred built-in Desk View camera. */
 export interface HelperDevice {
   id: string;
   name: string;

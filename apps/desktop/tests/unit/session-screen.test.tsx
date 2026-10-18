@@ -140,7 +140,7 @@ describe('SessionScreen', () => {
     }
   });
 
-  it('marks the toggles pressed, and Share visible but unavailable', async () => {
+  it('marks the toggles pressed and offers screen sharing', async () => {
     const { user } = await renderSession();
     const mic = screen.getByRole('button', { name: 'Microphone' });
     expect(mic).toHaveAttribute('aria-pressed', 'true');
@@ -148,10 +148,10 @@ describe('SessionScreen', () => {
     expect(mic).toHaveAttribute('aria-pressed', 'false');
     expect(stage().micOn).toBe(false);
     const share = screen.getByRole('button', { name: 'Share screen' });
-    expect(share).toHaveAttribute('aria-disabled', 'true');
-    expect(share).not.toHaveAttribute('aria-pressed');
+    expect(share).not.toHaveAttribute('aria-disabled');
+    expect(share).toHaveAttribute('aria-pressed', 'false');
     await user.click(share);
-    expect(share).toHaveAttribute('title', 'Screen sharing comes later');
+    expect(share).toHaveAttribute('title', 'Share screen');
   });
 
   it('M toggles mic, B cycles board, C toggles captions', async () => {
@@ -290,6 +290,8 @@ describe('SessionScreen', () => {
     const { user } = await renderSession();
     await screen.findByRole('heading', { level: 1 });
     await user.keyboard('b');
+    // From the title, past the title strip's chat toggle, to the stage's Unpin.
+    await user.tab();
     await user.tab();
     expect(screen.getByRole('button', { name: 'Unpin' })).toHaveFocus();
     await user.keyboard('{Enter}');

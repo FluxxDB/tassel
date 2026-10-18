@@ -57,6 +57,7 @@ describe('parseAction', () => {
     expect(new Set(fixtures.actions.map((a) => a.kind))).toEqual(
       new Set([
         'board.automaton',
+        'board.diagram',
         'board.addState',
         'board.addTransition',
         'board.reveal',
@@ -76,6 +77,9 @@ describe('parseAction', () => {
         'paper.clear',
         'paper.live',
         'stage',
+        'image.show',
+        'image.mark',
+        'image.clear',
       ]),
     );
   });

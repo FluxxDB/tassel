@@ -3,14 +3,19 @@ import fixtures from '@tassel/shared/beats/fixtures.json';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyBoardAction } from '../../../src/renderer/src/board/board-store';
 import { dispatchActions, isShowing } from '../../../src/renderer/src/board/dispatch';
+import { applyImageAction } from '../../../src/renderer/src/board/marks/image-store';
 import { applyPaperAction } from '../../../src/renderer/src/board/marks/marks-store';
 import { useStageStore } from '../../../src/renderer/src/features/session/stage-store';
+import { FLOW } from './fixtures';
 
 // The stage store is real; the board's and the paper's sinks are spies, whatever later tasks
 // put behind them.
 vi.mock('../../../src/renderer/src/board/board-store', () => ({ applyBoardAction: vi.fn() }));
 vi.mock('../../../src/renderer/src/board/marks/marks-store', () => ({
   applyPaperAction: vi.fn(),
+}));
+vi.mock('../../../src/renderer/src/board/marks/image-store', () => ({
+  applyImageAction: vi.fn(),
 }));
 
 const stage = () => useStageStore.getState();
@@ -21,6 +26,14 @@ const MARK: BeatAction = {
   mark: { type: 'circle', id: 'loop', target: { el: 'edge:q0>q0' } },
 };
 const AUTOMATON = fixtures.actions[0] as BeatAction;
+const IMAGE = '0f6a1d2e-7b3c-4d5e-8f90-1a2b3c4d5e6f';
+const SHOW_IMAGE: BeatAction = { kind: 'image.show', attachmentId: IMAGE };
+const MARK_IMAGE: BeatAction = {
+  kind: 'image.mark',
+  attachmentId: IMAGE,
+  mark: { type: 'circle', id: 'c', target: { el: 'm1' } },
+};
+const CLEAR_IMAGE: BeatAction = { kind: 'image.clear', attachmentId: IMAGE };
 
 /** What reached the stage, the board and the paper, in order. */
 let log: string[] = [];
@@ -33,6 +46,9 @@ beforeEach(() => {
     .mockReset()
     .mockImplementation((action) => log.push(action.kind));
   vi.mocked(applyPaperAction)
+    .mockReset()
+    .mockImplementation((action) => log.push(action.kind));
+  vi.mocked(applyImageAction)
     .mockReset()
     .mockImplementation((action) => log.push(action.kind));
   unsubscribe = useStageStore.subscribe((state, previous) => {
@@ -85,6 +101,24 @@ describe('dispatchActions', () => {
     stage().requestMode('board');
     dispatchActions([PULSE]);
     expect(stage()).toMatchObject({ mode: 'paper', pinned: 'paper', requested: 'board' });
+  });
+
+  it("routes the student's image actions to the image store, on the paper side", () => {
+    dispatchActions([SHOW_IMAGE, MARK_IMAGE, CLEAR_IMAGE]);
+    expect(log).toEqual(['image.show', 'image.mark', 'image.clear']);
+    expect(applyImageAction).toHaveBeenCalledWith(SHOW_IMAGE);
+    expect(applyImageAction).toHaveBeenCalledWith(MARK_IMAGE);
+    expect(applyPaperAction).not.toHaveBeenCalled();
+    // Shown on the board view, the image comes in beside the board, as a paper mark does.
+    stage().requestMode('board');
+    log = [];
+    dispatchActions([SHOW_IMAGE]);
+    expect(log).toEqual(['request split', 'image.show']);
+    // Clearing shows nothing, so it never changes the view.
+    stage().reset();
+    stage().requestMode('board');
+    dispatchActions([CLEAR_IMAGE]);
+    expect(stage().requested).toBe('board');
   });
 
   it('a showing paper action on the board view requests split', () => {
@@ -165,13 +199,18 @@ describe('isShowing', () => {
     { kind: 'board.clear', item: 'fix' },
     { ...(AUTOMATON as Extract<BeatAction, { kind: 'board.automaton' }>), reveal: 'none' },
     { kind: 'board.highlight', item: 'wrong', el: 'state:q0', on: false },
+    { kind: 'board.diagram', item: 'net', spec: FLOW, reveal: 'none' },
     { kind: 'paper.unmark', id: 'm1' },
     { kind: 'paper.clear' },
     { kind: 'paper.live' },
     { kind: 'stage', view: 'board' },
+    CLEAR_IMAGE,
   ];
   const SHOWING: BeatAction[] = [
+    SHOW_IMAGE,
+    MARK_IMAGE,
     AUTOMATON,
+    { kind: 'board.diagram', item: 'net', spec: FLOW },
     { kind: 'board.addState', item: 'fix', id: 'qd' },
     { kind: 'board.addTransition', item: 'fix', from: 'q1', to: 'qd', symbols: ['0'] },
     { kind: 'board.reveal', item: 'fix' },

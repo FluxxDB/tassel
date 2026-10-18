@@ -4,35 +4,46 @@ import ssl
 import time
 from copy import deepcopy
 
+import aiohttp
 import httpx
 from loguru import logger
-from openai import NOT_GIVEN, APIConnectionError, APIError, AsyncOpenAI
+from openai import (
+    NOT_GIVEN,
+    APIConnectionError,
+    APIError,
+    AsyncOpenAI,
+    InternalServerError,
+    RateLimitError,
+)
 from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.services.deepgram.flux.stt import DeepgramFluxSTTService
 from pipecat.services.deepgram.stt import DeepgramSTTService
-from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
+from pipecat.services.elevenlabs.tts import ElevenLabsHttpTTSService, ElevenLabsTTSService
 from pipecat.services.llm_service import LLMService
 from pipecat.services.openrouter.llm import OpenRouterLLMService
 from pipecat.services.stt_service import STTService
 from pipecat.services.tts_service import TTSService
 from pipecat.transcriptions.language import Language
 
+from tassel.vision.turn_image import NO_VIEW
+from tassel.voice.director import QWEN_BACKUP_PROVIDER
 from tassel.voice.fakes.llm import FakeLLMService
 from tassel.voice.fakes.scenario import FakeScenario, load_scenario
 from tassel.voice.fakes.stt import FakeSTTService
 from tassel.voice.fakes.tts import FakeTTSService, pick_engine
 from tassel.voice.flux import attach_flux_interims
+from tassel.voice.history import windowed
 from tassel.voice.messages import SttKind
 from tassel.voice.prompts import system_prompt
 from tassel.voice.routes import VoiceRoute
 from tassel.voice.settings import ProviderKind, VoiceConfigError, VoiceSettings, resolve_mode
 
+# The talker sees the last 8 exchanges plus the tutor notes; older turns live in the notes.
+TALKER_WINDOW = 16
 OPENROUTER_PROVIDER = {"only": ["cerebras"], "allow_fallbacks": False, "require_parameters": True}
 REASONING_OFF = {"effort": "none"}
-IMAGE_FAILED = (
-    "The page image didn't arrive this time. Do not describe or mark the paper. "
-    "Tell the student you couldn't get the picture this time and ask them to hold still."
-)
+
+IMAGE_FAILED = NO_VIEW
 
 
 def _without_images(context: LLMContext) -> LLMContext:
@@ -46,6 +57,35 @@ def _without_images(context: LLMContext) -> LLMContext:
             ]
     messages.append({"role": "system", "content": IMAGE_FAILED})
     return LLMContext(messages, tools=context.tools, tool_choice=context.tool_choice)
+
+
+def leading_system_only(messages: list) -> list:
+    """Cerebras (via OpenRouter) accepts one system message, first ("System message must be at
+    the beginning"); anything else was refused, which silenced Ada. The opening run of system
+    messages merges into one; later system notes (director, tutor notes, bridge, image-failed)
+    become bracketed user notes, which the persona reads as app notes."""
+    out: list = []
+    lead: list[str] = []
+    i = 0
+    while (
+        i < len(messages) and isinstance(messages[i], dict) and messages[i].get("role") == "system"
+    ):
+        lead.append(str(messages[i].get("content", "")))
+        i += 1
+    if lead:
+        out.append({"role": "system", "content": "\n\n".join(lead)})
+    for message in messages[i:]:
+        if isinstance(message, dict) and message.get("role") == "system":
+            content = message.get("content", "")
+            if isinstance(content, str) and not content.startswith("["):
+                content = "[app note] " + content
+            out.append({**message, "role": "user", "content": content})
+        else:
+            out.append(message)
+    if not any(m.get("role") in ("user", "assistant") for m in out if isinstance(m, dict)):
+        # The opening greeting runs with no student turn yet; Cerebras needs a user message.
+        out.append({"role": "user", "content": "[session start] Greet the student briefly."})
+    return out
 
 
 def _transport_error(error: Exception) -> bool:
@@ -94,10 +134,24 @@ def elevenlabs_settings(
         stability=s.tts_stability,
         similarity_boost=s.tts_similarity,
         speed=s.tts_speed,
+        style=s.tts_style,
+        use_speaker_boost=s.tts_speaker_boost,
         voice=voice_id,
         language=Language(route.tts_language),
         apply_text_normalization="on",
     )
+
+
+class _HttpTTS(ElevenLabsHttpTTSService):
+    """ElevenLabs over HTTP streaming (eleven_v3 has no WebSocket), with its own session."""
+
+    def __init__(self, **kwargs):
+        self._own_session = aiohttp.ClientSession()
+        super().__init__(aiohttp_session=self._own_session, **kwargs)
+
+    async def cleanup(self):
+        await super().cleanup()
+        await self._own_session.close()
 
 
 def _mode(kind: ProviderKind, s: VoiceSettings) -> str:
@@ -225,6 +279,7 @@ class LiveLLMService(OpenRouterLLMService):
         self.last_completion = None
         emitted = False
         retries = 0
+        backup = False
         while True:
             stream = None
             try:
@@ -234,9 +289,16 @@ class LiveLLMService(OpenRouterLLMService):
                     system_instruction=self._settings.system_instruction,
                     convert_developer_to_user=not self.supports_developer_role,
                 )
-                stream = await self._client.chat.completions.create(
-                    **self.build_chat_completion_params(params)
+                request = self.build_chat_completion_params(params)
+                request["messages"] = leading_system_only(
+                    windowed(list(request["messages"]), TALKER_WINDOW)
                 )
+                if backup:
+                    request["extra_body"] = {
+                        **(request.get("extra_body") or {}),
+                        "provider": {**QWEN_BACKUP_PROVIDER, "require_parameters": True},
+                    }
+                stream = await self._client.chat.completions.create(**request)
                 async for chunk in stream:
                     substantive = any(
                         choice.delta.content or choice.delta.tool_calls for choice in chunk.choices
@@ -256,6 +318,16 @@ class LiveLLMService(OpenRouterLLMService):
                 return
             except Exception as error:
                 kind = type(error).__name__
+                if (
+                    not emitted
+                    and not backup
+                    and self.active_provider == "openrouter"
+                    and isinstance(error, (RateLimitError, InternalServerError))
+                ):
+                    # A busy Cerebras: the same model on other hosts, at once.
+                    backup = True
+                    logger.warning("LLM call failed ({}), retrying on backup providers", kind)
+                    continue
                 if not emitted and _transport_error(error) and retries < 2:
                     retries += 1
                     if retries == 2:
@@ -323,7 +395,24 @@ def make_llm(route: VoiceRoute, s: VoiceSettings, scenario: FakeScenario | None)
 def make_tts(route: VoiceRoute, s: VoiceSettings) -> TTSService:
     if _mode("tts", s) == "fake":
         return FakeTTSService(lang=route.lang, engine=pick_engine(s.fake_tts))
+    voice = getattr(s, f"voice_{route.lang}")
+    if s.tts_model == "eleven_v3":
+        ws = elevenlabs_settings(route, voice, s)
+        return _HttpTTS(
+            api_key=s.elevenlabs_api_key.get_secret_value(),
+            settings=ElevenLabsHttpTTSService.Settings(
+                model=s.tts_model,
+                voice=voice,
+                language=ws.language,
+                stability=s.tts_stability,
+                similarity_boost=s.tts_similarity,
+                style=s.tts_style,
+                use_speaker_boost=s.tts_speaker_boost,
+                speed=s.tts_speed,
+                apply_text_normalization="on",
+            ),
+        )
     return ElevenLabsTTSService(
         api_key=s.elevenlabs_api_key.get_secret_value(),
-        settings=elevenlabs_settings(route, getattr(s, f"voice_{route.lang}"), s),
+        settings=elevenlabs_settings(route, voice, s),
     )

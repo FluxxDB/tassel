@@ -3,14 +3,22 @@
 import { type ElementRef, edgeRef, type Pt } from '@tassel/shared/beats';
 import type { Lang } from '@tassel/shared/i18n';
 import { mergedEdges } from '../automata/run';
-import type { AutomatonLayout, LoopSide } from '../layout/types';
+import {
+  type AutomatonLayout,
+  automatonLayoutOf,
+  type BoardLayout,
+  type DiagramLayout,
+  isDiagramLayout,
+  type LoopSide,
+} from '../layout/types';
+import { diagramEdges } from '../scene/diagram';
 import { type BoardText, type Box, placeItems, TITLE_ROW } from '../scene/placement';
 import { isRevealed } from '../scene/reduce';
-import type { AutomatonItem, BoardScene, NoteItem, TraceItem } from '../scene/types';
+import type { AutomatonItem, BoardScene, DiagramItem, NoteItem, TraceItem } from '../scene/types';
 
 export interface DesiredShape {
   id: string;
-  type: 'tassel-state' | 'tassel-trace' | 'tassel-note' | 'arrow';
+  type: 'tassel-state' | 'tassel-trace' | 'tassel-note' | 'tassel-node' | 'tassel-group' | 'arrow';
   x: number;
   y: number;
   opacity: 0 | 1;
@@ -101,7 +109,7 @@ const ARROW = {
  */
 export function desiredBoard(
   scene: BoardScene,
-  layouts: Readonly<Record<string, AutomatonLayout>>,
+  layouts: Readonly<Record<string, BoardLayout>>,
   text: BoardText,
   lang: Lang,
 ): Desired {
@@ -111,8 +119,11 @@ export function desiredBoard(
     const box = boxes[item.id];
     if (!box) continue;
     if (item.kind === 'automaton') {
-      const layout = layouts[item.id];
+      const layout = automatonLayoutOf(layouts[item.id]);
       if (layout) addAutomaton(board, item, layout, box);
+    } else if (item.kind === 'diagram') {
+      const layout = layouts[item.id];
+      if (isDiagramLayout(layout)) addDiagram(board, item, layout, box);
     } else if (item.kind === 'trace') {
       addTrace(board, item, box, lang);
     } else {
@@ -202,6 +213,79 @@ function addAutomaton(board: Desired, item: AutomatonItem, layout: AutomatonLayo
     const [startAnchor, endAnchor] = loop ? LOOP_ANCHORS[loop] : [CENTER, CENTER];
     bind(board, item.id, el, 'start', `state:${edge.from}`, startAnchor);
     bind(board, item.id, el, 'end', `state:${edge.to}`, endAnchor);
+  }
+}
+
+/**
+ * A diagram: its title on top, then its groups' frames (behind everything of it), its node cards,
+ * and its edges as arrows bound to the cards they join, where its layout puts them. Each piece is
+ * hidden until revealed; the title shows with the first of them.
+ */
+function addDiagram(board: Desired, item: DiagramItem, layout: DiagramLayout, box: Box) {
+  const { spec } = item;
+  let top = box.y;
+  if (item.title !== null) {
+    const anything = item.revealed === 'all' || item.revealed.length > 0;
+    put(board, item.id, 'title', 'tassel-note', box.x, top, !anything, {
+      w: layout.width,
+      h: TITLE_ROW,
+      text: item.title,
+      variant: 'title',
+    });
+    top += TITLE_ROW;
+  }
+
+  for (const [tone, group] of spec.groups.entries()) {
+    const frame = layout.groups[group.id];
+    if (!frame) continue;
+    const el: ElementRef = `group:${group.id}`;
+    put(board, item.id, el, 'tassel-group', box.x + frame.x, top + frame.y, !isRevealed(item, el), {
+      w: frame.w,
+      h: frame.h,
+      label: group.label,
+      sublabel: group.sublabel ?? '',
+      tone,
+      highlight: item.highlighted.includes(el),
+    });
+  }
+
+  for (const node of spec.nodes) {
+    const card = layout.nodes[node.id];
+    if (!card) continue;
+    const el: ElementRef = `node:${node.id}`;
+    put(board, item.id, el, 'tassel-node', box.x + card.x, top + card.y, !isRevealed(item, el), {
+      w: card.w,
+      h: card.h,
+      label: node.label,
+      sublabel: node.sublabel ?? '',
+      icon: node.icon,
+      highlight: item.highlighted.includes(el),
+    });
+  }
+
+  for (const edge of diagramEdges(spec)) {
+    const el = edgeRef(edge.from, edge.to);
+    const drawn = layout.edges[`${edge.from}>${edge.to}`];
+    const tail = layout.nodes[edge.from];
+    const head = layout.nodes[edge.to];
+    if (!drawn || !tail || !head) continue;
+    const from = { x: tail.x + tail.w / 2, y: tail.y + tail.h / 2 };
+    const to = { x: head.x + head.w / 2, y: head.y + head.h / 2 };
+    const color = item.highlighted.includes(el) ? 'violet' : 'black';
+    put(board, item.id, el, 'arrow', box.x + from.x, top + from.y, !isRevealed(item, el), {
+      ...ARROW,
+      // As an automaton's: the layout's bend is positive to the left, tldraw's to the right.
+      bend: -drawn.bend,
+      dash: edge.style === 'dashed' ? 'dashed' : 'solid',
+      arrowheadEnd: edge.directed ? 'arrow' : 'none',
+      label: edge.label ?? '',
+      color,
+      labelColor: color,
+      start: { x: 0, y: 0 },
+      end: { x: to.x - from.x, y: to.y - from.y },
+    });
+    bind(board, item.id, el, 'start', `node:${edge.from}`, CENTER);
+    bind(board, item.id, el, 'end', `node:${edge.to}`, CENTER);
   }
 }
 

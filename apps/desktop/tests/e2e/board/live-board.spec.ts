@@ -1,8 +1,10 @@
 // Ada's board in a live conversation (P5 Task 14): the live tutor on the E2E server's fake
-// providers (tone TTS) plays the dfa-board scenario. Asked "Can you show me the answer?", her
-// tagged reply defines `fix` hidden, splits the stage, and reveals q0 then q0 > q1 as her words
-// are heard. The server strips the tags before TTS and sends each sentence's beat before its
-// words (Task 13); the app keys every word to its beat by segment and index (P5-R7).
+// providers (tone TTS) plays the dfa-board scenario. Asked "Can you show me the answer?", the
+// scenario's scripted director splits the stage and sends the turn to the thinker; the talker
+// bridges, and the thinker's scripted brief, vetted by the action checker as a live brief is,
+// defines `fix` hidden and reveals q0 then q0 > q1. The server strips the tags before TTS and
+// sends each sentence's beat before its words (Task 13); the app keys every word to its beat by
+// segment and index (P5-R7).
 //
 // The checks read the board store's description list, which needs no tldraw and holds past a
 // build's license window (P5-R6), so they run with or without a key; the screenshot shows
@@ -21,7 +23,7 @@ const described = (page: import('@playwright/test').Page) =>
 test('Ada draws as she speaks: `fix` shows q0 and q1 on a split stage, no tag captioned', async () => {
   test.setTimeout(60_000);
   const { app, page } = await launchVoice({
-    env: { TASSEL_FAKE_SCRIPT: 'dfa-board', TASSEL_DEV_CONSOLE: '1' },
+    env: { TASSEL_FAKE_SCRIPT: 'dfa-board', TASSEL_CHAT_SIDEBAR: 'open' },
   });
   await app.context().route(
     (url) => url.href.startsWith(LICENSE_PING),
@@ -43,9 +45,16 @@ test('Ada draws as she speaks: `fix` shows q0 and q1 on a split stage, no tag ca
     await expect(page.getByTestId('tutor-tile')).toContainText('Speaking', { timeout: 20_000 });
     await expect(page.getByTestId('tutor-tile')).toContainText('Listening', { timeout: 20_000 });
 
-    const input = page.getByRole('textbox', { name: 'Student message' });
-    await input.fill('Can you show me the answer?');
-    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    // Her line goes in through the chat composer and shows in the chat log, not the captions.
+    const sidebar = page.getByTestId('chat-sidebar');
+    const composer = sidebar.getByRole('textbox', { name: 'Message to Ada' });
+    await composer.fill('Can you show me the answer?');
+    await composer.press('Enter');
+    await expect(
+      sidebar
+        .locator('[data-testid="chat-log"] li')
+        .filter({ hasText: 'Can you show me the answer?' }),
+    ).toHaveAttribute('data-role', 'student');
 
     await expect
       .poll(() => described(page), { timeout: 15_000 })

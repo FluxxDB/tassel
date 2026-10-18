@@ -1,5 +1,14 @@
 # Tassel
 
+## Shared app startup contract
+
+- **One app launcher:** `Start-Tassel.cmd` on Windows, or `pnpm start` on any platform. Both use tracked `scripts/start.mjs` and launch the current checkout. Do not add feature-specific CMD files, check out another branch, or launch the ignored `.local/live-test` clone.
+- Paper/webcam, screen overlay, voice, board, avatar, memory and personality belong in the same app and are selected through its UI. New features must not require a different launcher, profile, database, or fake-provider preset.
+- Shared local paths live in the primary Git checkout's ignored `.local/start.json`, resolved through Git's common directory so worktrees share the saved profile and backend. Existing avatar profile and primary development data are preserved by default. Do not reset/copy device tokens or databases to solve startup issues.
+- `Start-Tassel.cmd --check` / `pnpm start --check` are read-only preflight checks and do not open devices or call providers. Agent-run app tests still use the existing fake-device harness; never run normal live startup unattended.
+- To share startup/features with another branch, merge the integration commits through Git. Never copy ignored local scripts or silently switch branches. Keep the launcher and this contract in shared commits. The launcher cannot supply code that a branch has not merged.
+
+
 Tassel is a live AI tutor for the desktop: an Electron + React app (`apps/desktop`), a FastAPI server with Postgres (`services/server`), and a shared package (`packages/shared`). `PRODUCT.md` says what it is and who it serves; the design is `docs/superpowers/specs/2026-10-17-tassel-design.md`; the plans are in `docs/superpowers/plans/`.
 
 ## Commands
@@ -7,8 +16,12 @@ Tassel is a live AI tutor for the desktop: an Electron + React app (`apps/deskto
 | Command | What it does |
 |---|---|
 | `pnpm install` | Installs everything, downloads Electron 44.9.0, copies the fonts |
-| `pnpm dev` | Postgres, migrations, the server on 8787, then the app (`scripts/dev.mjs`); Ctrl+C stops both |
+| `pnpm start` | Shared startup (`Start-Tassel.cmd` on Windows): current checkout, saved profile and backend overrides, all features, then `pnpm dev` |
+| `pnpm dev` | The backend in Docker (`docker compose up -d --wait --build db s3 server`: Postgres, S3, the server on 8787, migrated, reloading on `src/` edits), then the app on the host (`scripts/dev.mjs`); Ctrl+C stops the app and the server container. `--host-server` runs the server with uv on the host instead |
+| `pnpm live` | The owner's live run on macOS: the same Docker backend with keys from `TASSEL_VOICE_ENV_FILE`, then Tassel through LaunchServices |
 | `pnpm test` | Every package's unit tests (Vitest), then the server's tests (pytest, database `tassel_test`) |
+| `pnpm test:changed` | Only the tests the change needs: everything since the merge-base with the nearest origin branch, committed or not (`scripts/test-changed.mjs`). `--dry-run` prints the plan, `--no-e2e` or `--only unit,pytest` narrows it, `--base <ref>` and `--files a,b` pick the changes |
+| `pnpm test:area <name...>` | Every unit, E2E and server test of the named areas; `--list` names them (`scripts/test-areas.mjs`) |
 | `pnpm e2e` | Builds the desktop app and runs its Playwright E2E specs (server on 8799, database `tassel_e2e`, frames in local S3), on the fake clip |
 | `node scripts/camera.mjs` | Tassel on the real Desk View camera through LaunchServices (owner at the Mac only) |
 | `pnpm check` | Biome, typechecks, `check:i18n`, `check:api` and ruff |
@@ -17,6 +30,16 @@ Tassel is a live AI tutor for the desktop: an Electron + React app (`apps/deskto
 | `pnpm --filter @tassel/desktop e2e <pattern>` | E2E specs matching a pattern (build the app first) |
 
 `pnpm test` and `pnpm e2e` need Postgres, and E2E local S3: `docker compose up -d db s3`. Checkouts that run tests side by side each set their own `TASSEL_E2E_PORT`, `TASSEL_E2E_DATABASE_URL` and `TASSEL_TEST_DATABASE_URL`; the test setups create and migrate those databases. Run every command to completion: no watch modes, and no dev server or app window left running when you're done.
+
+## Which tests to run
+
+The full suites are slow (E2E alone takes 4–7 minutes), so don't run all of them after every change:
+
+- **While iterating:** `pnpm check` and `pnpm test:changed`. It maps each changed file to its areas (shell, library, session, board, paper, vision, voice, avatar, api, domains, tooling) and runs the unit tests that import the file (`vitest related`), the E2E specs of those screens (building the app first only when E2E runs) and the server tests of the touched server areas. Shared files widen it: i18n catalogs and design tokens add the shell, library and session specs; migrations, server settings and `conftest.py` run the whole server suite; E2E fixtures run every spec; dependency changes run everything. `--dry-run` first if unsure.
+- **After merging someone else's branch:** `pnpm test` (unit and server) and `pnpm check`.
+- **Once per batch, right before pushing:** the full `pnpm e2e`, in the background.
+
+A new test or source file goes in an area in `scripts/test-areas.mjs`; `scripts/test-select.test.mjs` (part of `pnpm test`) fails and names the file until it has one.
 
 ## Layout
 
@@ -46,8 +69,9 @@ Tassel is a live AI tutor for the desktop: an Electron + React app (`apps/deskto
 ## Constraints in brief
 
 - **Platforms:** macOS first, Windows too. Scripts are Node with `cross-spawn`, never bash-only.
+- **Same backend everywhere:** `db`, `s3` and `server` run in Docker (`docker-compose.yml`, `services/server/Dockerfile`, started by `scripts/backend.mjs`); Electron, the Desk View helper, camera and microphone stay on the host. Canonical: port 8787, database `tassel`, bucket `tassel-frames`; `.local/start.json` or `TASSEL_PORT`/`TASSEL_DATABASE_URL`/`TASSEL_S3_BUCKET` override them. Provider keys reach the container only as the read-only mounted `TASSEL_VOICE_ENV_FILE` (none: `services/server/no-provider-keys.env`), never in the image or its environment. Tests (pytest, E2E on 8799) keep the server on the host via uv. A new server setting goes in the `server` environment in `docker-compose.yml` (`tests/scripts/test_docker_setup.py` fails until it does).
 - **Electron** stays at exactly 44.9.0 (macOS ties camera and microphone grants to that build), with `contextIsolation` and `sandbox` on and no `nodeIntegration`; the preload bridge is the only IPC surface.
 - **Secrets:** the desktop app holds no provider API keys, only a device token (Electron `safeStorage`, or plaintext JSON when `TASSEL_TOKEN_STORE=file` in dev and E2E). Never read or print `.env` files or tokens.
 - **Origins:** the renderer is `app://tassel` in builds and `http://localhost:5173` in dev; the server's CORS allows exactly those two.
 - **Sessions:** type `homework|studying|research|other`, language `en|es|ko`, source `paper|screen|talk`; a null title shows "Untitled Session"; library sorts `recent|created|topic`.
-- **Windows** has no Desk View: the new session sheet disables paper there and starts from screen share.
+- **Windows** has no Desk View: shared startup exposes ordinary webcam Paper and defaults new sessions to screen share.

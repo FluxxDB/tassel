@@ -1,0 +1,42 @@
+{
+  "name": "ladder-network",
+  "title": "The whiteboard ladder on her subnet notes: spot it, see hers drawn, see the correct one",
+  "description": "The ladder on a network topic: her notes put the 30-host Sales zone in 10.0.0.0/24 when she wants the smallest subnet that fits. A check gets only 'there's an error, can you spot it?'; 'no' redraws her zone on the board (the Illustrator) with a note on the wrong part, ending in a question; still stuck draws the correct subnet. Board only: no paper marks.",
+  "default": false,
+  "stage": { "view": "paper" },
+  "turns": [
+    {
+      "student": "Can you check my subnet for the Sales zone? I need the smallest subnet that fits 30 hosts.",
+      "page": "ip-page",
+      "expect": {
+        "route": "thinker",
+        "action": "explain",
+        "no_tags": ["board.diagram", "board.automaton", "paper.mark"],
+        "board": { "unchanged": true },
+        "forbid": ["/27", "slash 27", "255.255.255.224"],
+        "asks": true
+      }
+    },
+    {
+      "student": "No, I don't see it.",
+      "expect": {
+        "route": "thinker",
+        "action": "draw_board",
+        "tags": ["board.diagram", "board.note"],
+        "no_tags": ["paper.mark"],
+        "board": { "diagrams": { "min": 1 } },
+        "asks": true
+      }
+    },
+    {
+      "student": "I still don't get it.",
+      "expect": {
+        "route": "thinker",
+        "action": "draw_board",
+        "tags": ["board.diagram"],
+        "no_tags": ["paper.mark"],
+        "board": { "diagrams": { "min": 1 } }
+      }
+    }
+  ]
+}

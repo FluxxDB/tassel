@@ -16,6 +16,23 @@ afterEach(() => {
 });
 
 describe('applyPaperSwitches', () => {
+  it('uses a real webcam normally and a clip only behind the fake-capture guard', () => {
+    const env = { TASSEL_PAPER_SOURCE: 'webcam', TASSEL_FAKE_CLIP: CLIP };
+    const line = commandLine();
+    applyPaperSwitches(
+      line,
+      readPaperSettings(env, false, () => true),
+    );
+    expect(line.appendSwitch).not.toHaveBeenCalled();
+    applyPaperSwitches(
+      line,
+      readPaperSettings({ ...env, TASSEL_REQUIRE_FAKE_CAPTURE: '1' }, false, () => true),
+    );
+    expect(line.appendSwitch.mock.calls).toEqual([
+      ['use-fake-device-for-media-stream'],
+      ['use-file-for-fake-video-capture', CLIP],
+    ]);
+  });
   it('appends both switches with the absolute clip path', () => {
     const relative = 'clips/dfa-short.mjpeg';
     const settings = readPaperSettings(

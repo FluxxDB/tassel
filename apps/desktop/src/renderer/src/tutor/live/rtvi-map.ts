@@ -124,12 +124,27 @@ export function mapRtvi(
         case 'paper-frame':
           events.push({ type: 'paper-request' });
           break;
+        case 'board-snapshot':
+          events.push({ type: 'board-snapshot' });
+          break;
         case 'stage':
-          events.push({ type: 'stage', mode: event.view });
+          events.push({
+            type: 'stage',
+            mode: event.view,
+            ...(event.pinned && { pinned: true as const }),
+          });
+          break;
+        case 'actions':
+          events.push({ type: 'actions', actions: event.actions });
           break;
         case 'beat':
           events.push({ type: 'beat', beat: event.beat });
           break;
+        case 'message': {
+          const { kind: _kind, ...message } = event;
+          events.push({ type: 'message', message });
+          break;
+        }
         case 'language':
           state.lang = event.lang;
           events.push({ type: 'language', lang: event.lang });

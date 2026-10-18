@@ -1,0 +1,10 @@
+{
+  "model": "clef-flash",
+  "answers": {
+    "diagram_attempt_complete": { "type": "noul", "noul": 0.9 },
+    "new_work_worth_checking": { "type": "noul", "noul": 0.8 },
+    "student_seems_stuck": { "type": "noul", "noul": 0.1 },
+    "not_schoolwork": { "type": "noul", "noul": 0.05 }
+  },
+  "usage": { "input_tokens": 100, "output_tokens": 4, "total_tokens": 104 }
+}

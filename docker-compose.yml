@@ -1,5 +1,7 @@
-# Local services for services/server: Postgres 17 with pgvector (`docker compose up -d db`) and
-# an S3-compatible store for frame images (`docker compose up -d s3`).
+# Tassel's backend, the same on every collaborator's machine: Postgres 17 with pgvector (`db`),
+# an S3-compatible store for frame images (`s3`) and the server (`server`). The desktop app, the
+# Desk View helper, the camera and the microphone stay on the host. Tests run the server on the
+# host (uv) against `db` and `s3`: `docker compose up -d db s3`.
 # The fixed project name makes every checkout and worktree share one container per service.
 name: tassel
 
@@ -49,6 +51,133 @@ services:
       interval: 2s
       timeout: 5s
       retries: 30
+
+  # The FastAPI server (services/server/Dockerfile), the same Linux build on every machine. The
+  # launchers start it with `docker compose up -d --wait --build db s3 server` (scripts/backend.mjs)
+  # and set the TASSEL_* values interpolated here; run by hand, it's port 8787, database
+  # `tassel`, bucket `tassel-frames` and no provider keys.
+  server:
+    build:
+      context: services/server
+    image: tassel-server:dev
+    depends_on:
+      db:
+        condition: service_healthy
+      s3:
+        condition: service_healthy
+    # The image's entrypoint creates and migrates the database first. Edits to src/ reload the
+    # server; a new migration needs `docker compose restart server`. Polling, because file
+    # events from a Windows bind mount don't reach a Linux container.
+    command:
+      - uvicorn
+      - tassel.app:create_app
+      - --factory
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8787"
+      - --reload
+      - --reload-dir
+      - /tassel/services/server/src
+    environment:
+      # Set for the container: inside it, Postgres and S3 are the services `db` and `s3`.
+      - TASSEL_HOST=0.0.0.0
+      - TASSEL_PORT=8787
+      - TASSEL_DATABASE_URL=${TASSEL_SERVER_DATABASE_URL:-postgresql+psycopg://tassel:tassel@db:5432/tassel}
+      - TASSEL_S3_ENDPOINT_URL=http://s3:7070
+      - TASSEL_S3_BUCKET=${TASSEL_S3_BUCKET:-tassel-frames}
+      - TASSEL_VOICE_ENV_FILE=/run/tassel/provider.env
+      - TASSEL_TRANSCRIPT_DIR=/data/live/transcripts
+      - WATCHFILES_FORCE_POLLING=true
+      # Passed through from the launcher's environment when set there (the names alone).
+      # services/server/tests/scripts/test_docker_setup.py fails when a server setting is missing.
+      - TASSEL_CORS_ORIGINS
+      - TASSEL_OBJECT_STORE
+      - TASSEL_S3_REGION
+      - TASSEL_S3_ACCESS_KEY_ID
+      - TASSEL_S3_SECRET_ACCESS_KEY
+      - TASSEL_FRAME_MAX_BYTES
+      - TASSEL_CROP_MAX_BYTES
+      - TASSEL_FRAME_MIN_INTERVAL_S
+      - TASSEL_PROVIDERS
+      - TASSEL_STT_PROVIDER
+      - TASSEL_LLM_PROVIDER
+      - TASSEL_TTS_PROVIDER
+      - TASSEL_TITLES_PROVIDER
+      - TASSEL_GATE_PROVIDER
+      - TASSEL_DEEPCHECK_PROVIDER
+      - TASSEL_VOICE_EN
+      - TASSEL_VOICE_ES
+      - TASSEL_VOICE_KO
+      - TASSEL_LLM_MODEL
+      - TASSEL_LLM_MAX_TOKENS
+      - TASSEL_OPENAI_MODEL
+      - TASSEL_OPENAI_REASONING_EFFORT
+      - TASSEL_PRICES
+      - TASSEL_TWO_TIER
+      - TASSEL_ILLUSTRATOR_MODEL
+      - TASSEL_ILLUSTRATOR_PROVIDER
+      - TASSEL_ILLUSTRATOR_TIMEOUT_S
+      - TASSEL_POINTER_MODEL
+      - TASSEL_POINTER_PROVIDER
+      - TASSEL_POINTER_TIMEOUT_S
+      - TASSEL_THINKER_MODEL
+      - TASSEL_THINKER_EFFORT
+      - TASSEL_THINKER_DRAW_EFFORT
+      - TASSEL_THINKER_REPLY_TIMEOUT_S
+      - TASSEL_TTS_MODEL
+      - TASSEL_TTS_STYLE
+      - TASSEL_TTS_SPEAKER_BOOST
+      - TASSEL_TTS_STABILITY
+      - TASSEL_TTS_SIMILARITY
+      - TASSEL_TTS_SPEED
+      - TASSEL_FAKE_TTS
+      - TASSEL_FAKE_SCENARIO
+      - TASSEL_FAKE_TRUTH
+      - TASSEL_FAKE_READING
+      - TASSEL_ICE_SERVERS
+      - TASSEL_GATE_LIVE
+      - TASSEL_GATE_MODEL
+      - TASSEL_CLEF_MODEL
+      - TASSEL_DEEPCHECK_MODEL
+      - TASSEL_DEEPCHECK_EFFORT
+      - TASSEL_GATE_TIMEOUT_S
+      - TASSEL_DEEPCHECK_TIMEOUT_S
+      - TASSEL_VISION_STALL_MS
+    ports:
+      # Loopback only. The host port follows TASSEL_PORT; the container always listens on 8787.
+      - "127.0.0.1:${TASSEL_PORT:-8787}:8787"
+    volumes:
+      - type: bind
+        source: ./services/server/src
+        target: /tassel/services/server/src
+        read_only: true
+      - type: bind
+        source: ./services/server/alembic
+        target: /tassel/services/server/alembic
+        read_only: true
+      # The provider settings file the launcher resolved (TASSEL_VOICE_ENV_FILE), read by the
+      # server itself, as on the host. Mounted, not `env_file`, so no key shows in
+      # `docker inspect` or `docker compose config`. Never baked into the image.
+      - type: bind
+        source: ${TASSEL_VOICE_ENV_FILE:-./services/server/no-provider-keys.env}
+        target: /run/tassel/provider.env
+        read_only: true
+        bind:
+          create_host_path: false
+      # Dev transcripts land in .cache/live/transcripts, as with the host server.
+      - ./.cache/live:/data/live
+    healthcheck:
+      # The image is Debian slim: no curl, so Python asks.
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/v1/health', timeout=2)"
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
 
 volumes:
   db-data:

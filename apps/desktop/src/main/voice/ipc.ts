@@ -12,7 +12,6 @@ export function readVoiceConfig(
   return {
     devTools: !packaged,
     fakeMic: voiceSwitches(env, packaged).length > 0,
-    devConsole: env.TASSEL_DEV_CONSOLE === '1',
     canOpenMicSettings: micSettingsUrl(platform) !== null,
   };
 }

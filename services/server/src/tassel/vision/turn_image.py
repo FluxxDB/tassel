@@ -9,7 +9,7 @@ Internal helpers take an already-authorized session id; HTTP ownership lives in 
 import asyncio
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 
 import anyio
@@ -29,8 +29,16 @@ from tassel.domains.dfa.contract import Pt
 from tassel.frames import repo
 from tassel.frames.objects import ObjectStore
 from tassel.frames.tables import Frame
-from tassel.vision.marks import draw_marks, find_candidates
-from tassel.vision.page import FlatPage, decode_jpeg, encode_jpeg, enhance_for_llm, flatten_page
+from tassel.vision.ink_boxes import refine_box
+from tassel.vision.marks import Candidates, draw_marks, find_candidates
+from tassel.vision.page import (
+    FlatPage,
+    decode_jpeg,
+    encode_jpeg,
+    enhance_for_llm,
+    flatten_page,
+    ink_mask,
+)
 
 
 @dataclass(frozen=True)
@@ -42,10 +50,18 @@ class PageView:
     captured_at: datetime
     width: int
     height: int
+    # The page's ink mask, so a mark's box lands on her ink (tassel.vision.ink_boxes).
+    ink: np.ndarray | None = field(default=None, repr=False, compare=False)
 
     def set_context(self, context: BoardContext) -> None:
         context.paper_frame = PaperFrame(
             kind="paper", id=str(self.frame_id), captured_at=self.captured_at.isoformat()
+        )
+        ink = self.ink
+        context.paper_ink = (
+            None
+            if ink is None
+            else (str(self.frame_id), lambda verb, box: refine_box(ink, verb, box))
         )
         context.paper_elements = PaperElements(
             states={},
@@ -59,7 +75,7 @@ class PageView:
 
 
 MODEL_LONG_SIDE = 1024
-MODEL_JPEG_BUDGET = 90_000
+MODEL_JPEG_BUDGET = 60_000
 
 
 def _model_jpeg(rgb: np.ndarray) -> bytes:
@@ -79,8 +95,27 @@ def _model_jpeg(rgb: np.ndarray) -> bytes:
         )
 
 
+TURN_MAX_MARKS = 12  # The voice model's page: drawn circles first, then the largest ink labels.
+
+
+def _turn_candidates(c: Candidates) -> Candidates:
+    """Few, meaningful marks for the voice model; the deep reader keeps the full set."""
+    circles = list(c.circles)[:TURN_MAX_MARKS]
+    room = TURN_MAX_MARKS - len(circles)
+    labels = sorted(c.labels, key=lambda m: m.w * m.h, reverse=True)[: max(0, room)]
+    return replace(
+        c,
+        circles=tuple(circles) if isinstance(c.circles, tuple) else circles,
+        labels=tuple(labels) if isinstance(c.labels, tuple) else labels,
+    )
+
+
 def _page_view(jpeg: bytes, row: Frame) -> PageView | None:
     stored_quad = row.meta.get("page_quad")
+    # Without a page, the detector sends the fallback region it compared (the frame's middle
+    # 80 %): not a page. Flattening it cut off the owner's first lines and kept the desk band.
+    if row.meta.get("page_found") is False:
+        stored_quad = None
     quad = None if stored_quad is None else [Pt(**point) for point in stored_quad]
     page = flatten_page(jpeg, quad)
     if not page.found:
@@ -91,7 +126,8 @@ def _page_view(jpeg: bytes, row: Frame) -> PageView | None:
         h, w = rgb.shape[:2]
         corners = (Pt(x=0, y=0), Pt(x=w, y=0), Pt(x=w, y=h), Pt(x=0, y=h))
         page = FlatPage(rgb, w, h, corners, False)
-    candidates = find_candidates(page)
+    ink = ink_mask(page)
+    candidates = _turn_candidates(find_candidates(page, ink, ink_mask(page, faint=True)))
     elements = []
     for circle in candidates.circles:
         x, y = max(0, circle.cx - circle.r), max(0, circle.cy - circle.r)
@@ -117,7 +153,7 @@ def _page_view(jpeg: bytes, row: Frame) -> PageView | None:
     # Detect against faithful pixels; enhance only the model copy and draw crisp tags last.
     model_page = replace(page, rgb=enhance_for_llm(page.rgb))
     drawn: set[int] = set()
-    marked = draw_marks(model_page, candidates, drawn=drawn, ink_page=page)
+    marked = draw_marks(model_page, candidates, drawn=drawn, ink_page=page, mask=ink)
     return PageView(
         marked_jpeg=_model_jpeg(marked),
         page_jpeg=encode_jpeg(page.rgb),
@@ -126,6 +162,7 @@ def _page_view(jpeg: bytes, row: Frame) -> PageView | None:
         captured_at=row.captured_at,
         width=page.width,
         height=page.height,
+        ink=ink != 0,
     )
 
 
@@ -151,7 +188,7 @@ CAPTION = (
     "Student's flattened paper. Blue numbers are visual candidate IDs, not student ink: "
     "number 3 means element m3 (likewise each other number). They identify circles or labels, "
     "not verified state names. Before drawing, use [[freeze]] to show this exact paper frame. "
-    "Target IDs with [[circle m3]], [[wash m3]], [[number 1 m3]], [[strike m3]], "
+    "Target IDs with [[circle m3]], [[wash m3]], [[number 1 m3]], [[strike m3]], [[underline m3]], "
     '[[check m3]], or [[callout m3 "Look here"]]. Use only IDs visible in this image. '
     "[[live]] returns to live paper."
 )
@@ -173,7 +210,28 @@ async def turn_image_for(
     view = await latest_page_view(session_id, db=db, store=store)
     if context is not None and view is not None:
         view.set_context(context)
-    return None if view is None else (view.marked_jpeg, CAPTION)
+    return None if view is None else (view.marked_jpeg, CAPTION + legend(view))
+
+
+def legend(view: PageView) -> str:
+    """Where each mark ID sits, in words: the thinker misread small badge numbers live (retest #8
+    called m4, in the heading, 'near the final state'), so it can cross-check them here."""
+    if not view.elements:
+        return ""
+
+    def where(e):
+        cx = (e.box.x + e.box.w / 2) / max(view.width, 1)
+        cy = (e.box.y + e.box.h / 2) / max(view.height, 1)
+        across = "left" if cx < 1 / 3 else "center" if cx < 2 / 3 else "right"
+        down = "top" if cy < 1 / 3 else "middle" if cy < 2 / 3 else "bottom"
+        return f"{e.id} {e.kind} at {down} {across}"
+
+    ordered = sorted(view.elements, key=lambda e: e.box.x + e.box.w / 2)
+    return (
+        " Marks from left to right: "
+        + "; ".join(where(e) for e in ordered)
+        + ". Cross-check an ID's position here before marking it."
+    )
 
 
 @dataclass(frozen=True)
@@ -187,9 +245,10 @@ class TurnPage:
 
 
 NO_VIEW = (
-    "[paper] There is no current view of the student's paper. If the student asks about her "
-    "page or you need to see it, say you can't see her page right now; never describe an "
-    "earlier one."
+    "[paper] The view didn't come through. Use the latest page notes, identified as previous "
+    "observations, without inventing new ink or making new marks. Mention the missing view "
+    "only if the student asked about the page; say plainly: my view didn't come through. "
+    "Never attribute a delivery failure to the student or to motion."
 )
 
 # How long a turn waits for the frame the app takes for it, how old a frame may be to stand in
@@ -239,7 +298,7 @@ async def fresh_turn_image_for(
     if view is None:
         return TurnPage(None, NO_VIEW)
     view.set_context(context)
-    return TurnPage(view.marked_jpeg, CAPTION, ink_image=view.page_jpeg)
+    return TurnPage(view.marked_jpeg, CAPTION + legend(view), ink_image=view.page_jpeg)
 
 
 def make_turn_image_for(

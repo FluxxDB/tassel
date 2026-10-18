@@ -2,14 +2,21 @@
 // and view requests go to the stage store. Her title shows in the title strip at once (R4). The
 // app never saves a title: the server writes the live tutor's (P2-R4), and the scripted tutor's
 // are display-only, naming only an untitled session (spec §5.1). Her board, paper and stage
-// actions go to the dispatcher, now or, in a beat, as the beat player hears her words (P5).
-import { useEffect } from 'react';
+// actions go to the dispatcher, now or, in a beat, as the beat player hears her words (P5). The
+// server's board-snapshot request sends the board as it is now, for Ada's board turn. The
+// conversation's lines go to the chat sidebar's store. Ending a
+// live session hands it to learner memory.
+import { useEffect, useRef } from 'react';
 import { beatPlayer } from '../board/beats/player';
 import { dispatchActions } from '../board/dispatch';
+import { sendBoardSnapshot } from '../board/snapshot';
+import { useChatStore } from '../features/chat/chat-store';
 import { useCurrentSession } from '../features/session/current-session';
 import { useStageStore } from '../features/session/stage-store';
 import { useVoiceDebug } from '../features/voice/voice-debug';
+import { useApi } from '../lib/api';
 import { requestTurnFrame } from '../paper/turn-frame';
+import { acceptScreenMarks, requestScreenTurn } from '../screen/controller';
 import type { TutorClient } from './types';
 
 /**
@@ -22,9 +29,28 @@ export function useTutorSession(
   ready: boolean,
 ): void {
   const { nameIfUntitled, patchLocal } = useCurrentSession();
+  // Read when a snapshot is asked for or memory is handed over, so a new API client never
+  // reconnects the tutor.
+  const apiClient = useApi();
+  const api = useRef(apiClient);
+  api.current = apiClient;
+  const visit = useRef(0);
 
   useEffect(() => {
     if (!ready || !client) return;
+    const currentVisit = ++visit.current;
+    let finishing = false;
+    const finishMemory = () => {
+      if (finishing || !client.voice) return;
+      finishing = true;
+      void api.current
+        .POST('/v1/sessions/{session_id}/memory', {
+          params: { path: { session_id: sessionId } },
+          keepalive: true,
+        })
+        .catch(() => undefined);
+    };
+    window.addEventListener('pagehide', finishMemory);
     const off = client.on((event) => {
       // Read per event, so the store is always current here.
       const stage = useStageStore.getState();
@@ -37,8 +63,9 @@ export function useTutorSession(
           else stage.showInterim(event.speaker, event.text, event.lang);
           break;
         case 'stage':
-          // Waits, remembered, while she has a view pinned.
-          stage.requestMode(event.mode);
+          // Her own spoken view request pins it; Ada's waits, remembered, while one is pinned.
+          if (event.pinned) stage.pin(event.mode);
+          else stage.requestMode(event.mode);
           break;
         case 'title': {
           const name = { title: event.title, subject: event.subject };
@@ -75,7 +102,18 @@ export function useTutorSession(
           useVoiceDebug.getState().push(event.event);
           break;
         case 'paper-request':
-          void requestTurnFrame();
+          void requestScreenTurn().then((handled) => {
+            if (!handled) return requestTurnFrame();
+          });
+          break;
+        case 'screen-marks':
+          acceptScreenMarks(event.data);
+          break;
+        case 'board-snapshot':
+          void sendBoardSnapshot(api.current, sessionId);
+          break;
+        case 'message':
+          useChatStore.getState().receive(event.message);
           break;
       }
     });
@@ -84,7 +122,16 @@ export function useTutorSession(
       .catch(() => useStageStore.getState().setConnection('failed', 'unreachable'));
     return () => {
       off();
-      void client.disconnect();
+      window.removeEventListener('pagehide', finishMemory);
+      const disconnected = client.disconnect();
+      // Defer past StrictMode's effect replay; reconnects inside the client never extract.
+      queueMicrotask(() => {
+        if (visit.current !== currentVisit || !client.voice) return;
+        void disconnected
+          .catch(() => undefined)
+          .then(finishMemory)
+          .catch(() => undefined);
+      });
       // The next session starts with no beats of this one's pending.
       beatPlayer.reset();
     };

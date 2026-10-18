@@ -20,7 +20,14 @@
                 "view": "split"
               }
             }
-          ]
+          ],
+          "decision": {
+            "focus": "split",
+            "needs_vision": false,
+            "route": "talker",
+            "action": "explain",
+            "refers_to": "board"
+          }
         },
         {
           "when": "continue in Korean",
@@ -59,7 +66,14 @@
                 "view": "split"
               }
             }
-          ]
+          ],
+          "decision": {
+            "focus": "split",
+            "needs_vision": false,
+            "route": "talker",
+            "action": "explain",
+            "refers_to": "board"
+          }
         },
         {
           "when": "seguir en coreano",

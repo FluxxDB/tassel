@@ -11,15 +11,20 @@ import {
   type StateId,
 } from '@tassel/shared/beats';
 import { type AutomatonRun, mergedEdges, runAutomaton } from '../automata/run';
+import { diagramElements, diagramNeeds, diagramRef } from './diagram';
 import {
   type AutomatonItem,
   type BoardEffect,
   type BoardItem,
   type BoardScene,
+  type DiagramItem,
   EMPTY_SCENE,
   type NoteItem,
   type TraceItem,
 } from './types';
+
+/** An item whose pieces Ada reveals, highlights and pulses: an automaton or a diagram. */
+type Drawing = AutomatonItem | DiagramItem;
 
 export { EMPTY_SCENE };
 
@@ -42,6 +47,28 @@ export function reduceBoard(scene: BoardScene, action: BoardAction): BoardResult
         revealed: action.reveal === 'none' ? [] : 'all',
         highlighted: [],
         current: [],
+      };
+      return changed(scene, { items: put(scene.items, item), focus: item.id });
+    }
+
+    case 'board.diagram': {
+      // The same diagram again redraws in place: what she has shown or highlighted and is still
+      // there stays so, and with reveal: none what's new waits for her.
+      const before = scene.items.find(
+        (i): i is DiagramItem => i.kind === 'diagram' && i.id === action.item,
+      );
+      const now = new Set(diagramElements(action.spec));
+      const kept = (els: 'all' | ElementRef[]): ElementRef[] =>
+        before
+          ? (els === 'all' ? diagramElements(before.spec) : els).filter((el) => now.has(el))
+          : [];
+      const item: DiagramItem = {
+        kind: 'diagram',
+        id: action.item,
+        title: action.spec.title ?? null,
+        spec: action.spec,
+        revealed: action.reveal === 'none' ? kept(before?.revealed ?? []) : 'all',
+        highlighted: kept(before?.highlighted ?? []),
       };
       return changed(scene, { items: put(scene.items, item), focus: item.id });
     }
@@ -74,19 +101,18 @@ export function reduceBoard(scene: BoardScene, action: BoardAction): BoardResult
     }
 
     case 'board.reveal': {
-      const target = automatonOf(scene, action.item);
+      const target = drawingOf(scene, action.item);
       if (!target) return unchanged(scene, `unknown item ${action.item}`);
       if (!action.els) {
         return target.revealed === 'all'
           ? unchanged(scene)
           : changed(scene, { items: put(scene.items, { ...target, revealed: 'all' }) });
       }
-      const known = new Set(elementsOf(target.spec));
-      const unknown = action.els.filter((el) => !known.has(el));
+      const unknown = action.els.filter((el) => pieceOf(target, el) === null);
       const problem = unknown.length > 0 ? `unknown element ${unknown.join(', ')}` : null;
       const revealed = reveal(
         target,
-        action.els.filter((el) => known.has(el)),
+        action.els.flatMap((el) => pieceOf(target, el) ?? []),
       );
       return revealed === target.revealed
         ? unchanged(scene, problem)
@@ -94,37 +120,36 @@ export function reduceBoard(scene: BoardScene, action: BoardAction): BoardResult
     }
 
     case 'board.highlight': {
-      const target = automatonOf(scene, action.item);
+      const target = drawingOf(scene, action.item);
       if (!target) return unchanged(scene, `unknown item ${action.item}`);
-      if (!elementsOf(target.spec).includes(action.el)) {
-        return unchanged(scene, `unknown element ${action.el}`);
-      }
-      if (target.highlighted.includes(action.el) === action.on) return unchanged(scene);
+      const el = pieceOf(target, action.el);
+      if (el === null) return unchanged(scene, `unknown element ${action.el}`);
+      if (target.highlighted.includes(el) === action.on) return unchanged(scene);
       const highlighted = action.on
-        ? [...target.highlighted, action.el]
-        : target.highlighted.filter((el) => el !== action.el);
+        ? [...target.highlighted, el]
+        : target.highlighted.filter((other) => other !== el);
       return changed(scene, { items: put(scene.items, { ...target, highlighted }) });
     }
 
     case 'board.pulse': {
-      const target = automatonOf(scene, action.item);
+      const target = drawingOf(scene, action.item);
       if (!target) return unchanged(scene, `unknown item ${action.item}`);
-      if (!elementsOf(target.spec).includes(action.el)) {
-        return unchanged(scene, `unknown element ${action.el}`);
-      }
-      if (!isRevealed(target, action.el)) return unchanged(scene, `not shown ${action.el}`);
-      return unchanged(scene, null, [{ type: 'pulse', item: target.id, el: action.el }]);
+      const el = pieceOf(target, action.el);
+      if (el === null) return unchanged(scene, `unknown element ${action.el}`);
+      if (!isRevealed(target, el)) return unchanged(scene, `not shown ${el}`);
+      return unchanged(scene, null, [{ type: 'pulse', item: target.id, el }]);
     }
 
     case 'board.note': {
       const near = action.near ?? null;
-      const problem = near ? nearProblem(scene, near, action.item) : null;
+      const anchor = near ? nearOf(scene, near, action.item) : null;
       const note: NoteItem = {
         kind: 'note',
         id: action.item,
         text: action.text,
-        near: near && problem === null ? { item: near.item, el: near.el } : null,
+        near: anchor && typeof anchor !== 'string' ? anchor : null,
       };
+      const problem = typeof anchor === 'string' ? anchor : null;
       return changed(scene, { items: put(scene.items, note) }, problem);
     }
 
@@ -157,7 +182,10 @@ export function reduceBoard(scene: BoardScene, action: BoardAction): BoardResult
         on,
         verdict: null,
       };
-      return changed(scene, { items: put(items, trace), focus: trace.id }, problem);
+      // The camera frames the whole board while she traces (focus null: everything placed), so
+      // the automaton the token moves on, the tape and her notes all stay in view; framing the
+      // card alone would cut the automaton off. The steps change nothing here, so they keep it.
+      return changed(scene, { items: put(items, trace), focus: null }, problem);
     }
 
     case 'board.traceStep': {
@@ -236,8 +264,14 @@ export function elementsOf(spec: AutomatonSpec): ElementRef[] {
   ];
 }
 
-export function isRevealed(item: AutomatonItem, el: ElementRef): boolean {
+export function isRevealed(item: Drawing, el: ElementRef): boolean {
   return item.revealed === 'all' || item.revealed.includes(el);
+}
+
+/** `el` as `item` names it (diagram.ts's diagramRef for a diagram), or null if it has no such piece. */
+export function pieceOf(item: Drawing, el: ElementRef): ElementRef | null {
+  if (item.kind === 'diagram') return diagramRef(item.spec, el);
+  return elementsOf(item.spec).includes(el) ? el : null;
 }
 
 function unchanged(
@@ -268,22 +302,35 @@ function automatonOf(scene: BoardScene, id: string): AutomatonItem | undefined {
   return scene.items.find((i): i is AutomatonItem => i.kind === 'automaton' && i.id === id);
 }
 
+function drawingOf(scene: BoardScene, id: string): Drawing | undefined {
+  return scene.items.find(
+    (i): i is Drawing => (i.kind === 'automaton' || i.kind === 'diagram') && i.id === id,
+  );
+}
+
 function traceOf(scene: BoardScene, id: string): TraceItem | undefined {
   return scene.items.find((i): i is TraceItem => i.kind === 'trace' && i.id === id);
 }
 
 /**
- * Why a note can't sit by `near`, or null. It sits by an element of an automaton or a trace card,
- * never by a note or by itself (it's about to take that id).
+ * Where a note sits by `near`, its element as the item names it, or why it can't. It sits by an
+ * element of an automaton, a diagram or a trace card, never by a note or by itself (it's about to
+ * take that id).
  */
-function nearProblem(
+function nearOf(
   scene: BoardScene,
   near: { item: string; el: ElementRef },
   noteId: string,
-): string | null {
+): { item: string; el: ElementRef } | string {
   const anchor = scene.items.find((i) => i.id === near.item);
   if (!anchor || anchor.kind === 'note' || anchor.id === noteId) return `unknown item ${near.item}`;
-  return elementsOf(anchor.spec).includes(near.el) ? null : `unknown element ${near.el}`;
+  const el =
+    anchor.kind === 'trace'
+      ? elementsOf(anchor.spec).includes(near.el)
+        ? near.el
+        : null
+      : pieceOf(anchor, near.el);
+  return el === null ? `unknown element ${near.el}` : { item: near.item, el };
 }
 
 /** The states a run starts in: the start state and what ε-moves reach from it. */
@@ -312,10 +359,12 @@ function withSpec(
  * `item`'s revealed with `els` added, each after what it needs: an edge's two states, the start
  * state for 'start'. The same list when nothing is new, and 'all' stays 'all'.
  */
-function reveal(item: AutomatonItem, els: ElementRef[]): AutomatonItem['revealed'] {
+function reveal(item: Drawing, els: ElementRef[]): Drawing['revealed'] {
   if (item.revealed === 'all') return 'all';
   const added = new Set(item.revealed);
-  for (const el of els.flatMap((el) => withNeeds(item.spec, el))) added.add(el);
+  const needs = (el: ElementRef) =>
+    item.kind === 'diagram' ? diagramNeeds(item.spec, el) : withNeeds(item.spec, el);
+  for (const el of els.flatMap(needs)) added.add(el);
   return added.size === item.revealed.length ? item.revealed : [...added];
 }
 

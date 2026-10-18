@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { ApiClient, Session } from '@tassel/shared/api';
 import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { type ReactNode, StrictMode } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRoute } from '../../src/renderer/src/app/route-store';
@@ -16,6 +16,8 @@ import { useTutorSession } from '../../src/renderer/src/tutor/use-tutor-session'
 
 const { requestTurnFrame } = vi.hoisted(() => ({ requestTurnFrame: vi.fn(async () => {}) }));
 vi.mock('../../src/renderer/src/paper/turn-frame', () => ({ requestTurnFrame }));
+const { sendBoardSnapshot } = vi.hoisted(() => ({ sendBoardSnapshot: vi.fn(async () => {}) }));
+vi.mock('../../src/renderer/src/board/snapshot', () => ({ sendBoardSnapshot }));
 
 const SESSION: Session = {
   id: '7c2a5f1e-0b3d-4e8a-9f6c-1d2e3f4a5b6c',
@@ -133,11 +135,23 @@ describe('useTutorSession', () => {
     expect(result.current.session?.language).toBe('ko');
   });
 
-  it("the server's paper-frame request sends her paper as it is now", () => {
+  it("the server's paper-frame request sends her paper as it is now", async () => {
     const { client, emit } = scriptedTutor();
     renderTutor(client);
     emit({ type: 'paper-request' });
-    expect(requestTurnFrame).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(requestTurnFrame).toHaveBeenCalledTimes(1));
+  });
+
+  it("the server's board-snapshot request sends her board for this session", () => {
+    const { client, emit } = scriptedTutor();
+    const { api } = fakeApi();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <ApiProvider client={api}>{children}</ApiProvider>
+    );
+    renderHook(() => useTutorSession(SESSION.id, client, true), { wrapper });
+    emit({ type: 'board-snapshot' });
+    expect(sendBoardSnapshot).toHaveBeenCalledTimes(1);
+    expect(sendBoardSnapshot).toHaveBeenCalledWith(api, SESSION.id);
   });
 
   it('stage event calls requestMode', () => {
@@ -149,6 +163,17 @@ describe('useTutorSession', () => {
     act(() => stage().pin('paper'));
     emit({ type: 'stage', mode: 'board' });
     expect(stage()).toMatchObject({ mode: 'paper', pinned: 'paper', requested: 'board' });
+  });
+
+  it("her spoken view request pins the view, and Ada's later requests wait behind it", () => {
+    const { client, emit } = scriptedTutor();
+    renderTutor(client);
+    emit({ type: 'stage', mode: 'paper', pinned: true });
+    expect(stage()).toMatchObject({ mode: 'paper', pinned: 'paper' });
+    emit({ type: 'stage', mode: 'split' });
+    expect(stage()).toMatchObject({ mode: 'paper', pinned: 'paper', requested: 'split' });
+    emit({ type: 'stage', mode: 'board', pinned: true });
+    expect(stage()).toMatchObject({ mode: 'board', pinned: 'board' });
   });
 
   it('captions flow into the store', () => {
@@ -309,4 +334,41 @@ describe('the session screen with its tutor', () => {
     );
     warn.mockRestore();
   });
+});
+
+it('extracts once when leaving a live session, including pagehide followed by unmount', async () => {
+  const POST = vi.fn(async () => ({ response: new Response(null, { status: 204 }) }));
+  const api = { POST } as unknown as ApiClient;
+  const { client } = scriptedTutor();
+  const live = { ...client, voice: {} as NonNullable<TutorClient['voice']> };
+  const { unmount } = renderHook(() => useTutorSession(SESSION.id, live, true), {
+    wrapper: ({ children }) => <ApiProvider client={api}>{children}</ApiProvider>,
+  });
+  window.dispatchEvent(new Event('pagehide'));
+  unmount();
+  await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+  expect(POST).toHaveBeenCalledWith('/v1/sessions/{session_id}/memory', {
+    params: { path: { session_id: SESSION.id } },
+    keepalive: true,
+  });
+});
+
+it('does not extract on StrictMode replay and extracts once on actual unmount', async () => {
+  const POST = vi.fn(async () => ({ response: new Response(null, { status: 204 }) }));
+  const api = { POST } as unknown as ApiClient;
+  const { client } = scriptedTutor();
+  const live = { ...client, voice: {} as NonNullable<TutorClient['voice']> };
+  const { unmount } = renderHook(() => useTutorSession(SESSION.id, live, true), {
+    wrapper: ({ children }) => (
+      <StrictMode>
+        <ApiProvider client={api}>{children}</ApiProvider>
+      </StrictMode>
+    ),
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(POST).not.toHaveBeenCalled();
+  unmount();
+  await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
 });

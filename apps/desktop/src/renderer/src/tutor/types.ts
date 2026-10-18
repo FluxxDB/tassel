@@ -4,6 +4,7 @@ import type { BeatAction, BeatDoc } from '@tassel/shared/beats';
 import type { Lang } from '@tassel/shared/i18n';
 import type {
   BackchannelEvent,
+  ChatMessage,
   ClientMetrics,
   RouteEvent,
   Sensitivity,
@@ -24,7 +25,8 @@ export type VoiceDebugEvent =
 export type TutorEvent =
   | { type: 'state'; state: TutorState }
   | { type: 'caption'; speaker: 'student' | 'tutor'; text: string; lang: Lang; final: boolean }
-  | { type: 'stage'; mode: StageMode }
+  /** `pinned`: the student asked for this view herself, so it's pinned like the Board control. */
+  | { type: 'stage'; mode: StageMode; pinned?: true }
   | { type: 'title'; title: string; subject: string | null }
   /** Ada's board, paper and stage actions, to apply now (P5). */
   | { type: 'actions'; actions: BeatAction[] }
@@ -41,7 +43,21 @@ export type TutorEvent =
   | { type: 'language'; lang: Lang }
   | { type: 'voice-debug'; event: VoiceDebugEvent }
   /** The server asks for her paper as it is now: her turn began. */
-  | { type: 'paper-request' };
+  | { type: 'paper-request' }
+  | { type: 'screen-marks'; data: unknown }
+  /** The server asks for the board as it is now, a PNG for Ada's board turn. */
+  | { type: 'board-snapshot' }
+  /** A line of the conversation for the chat sidebar; a tutor line updates in place by id. */
+  | { type: 'message'; message: ChatMessage };
+
+/** A message she typed in the chat: what goes to the server as a `student-message` event. */
+export interface OutgoingMessage {
+  clientId: string;
+  text: string;
+  attachmentIds: string[];
+  /** False asks Ada for a text-only reply. */
+  voice: boolean;
+}
 
 /** The live voice tutor's controls, beyond P1's TutorClient. */
 export interface VoiceControls {
@@ -49,6 +65,7 @@ export interface VoiceControls {
   setTalking(held: boolean): void;
   setSensitivity(level: Sensitivity): void;
   reportClientMetrics(m: ClientMetrics): void;
+  reportStageState?(state: import('@tassel/shared/voice').StageState): void;
   /** Connects afresh, with the retry count reset: Retry after a failure, or a language switch. */
   reconnect(): Promise<void>;
   /** How many times this client has connected successfully, reconnects included. */
@@ -62,6 +79,13 @@ export interface TutorClient {
   on(listener: (e: TutorEvent) => void): () => void;
   /** The dev/fake path: a typed student line. */
   sendText(text: string): void;
+  /**
+   * The chat sidebar's message, which interrupts Ada like speaking over her does. False when it
+   * couldn't go (no connection), so the sidebar offers a retry.
+   */
+  sendMessage?(message: OutgoingMessage): boolean;
+  /** Immediately suppress the current response until a fresh screen turn is acknowledged. */
+  interrupt?(epoch: number): void;
   /** Only the live voice tutor has these. */
   readonly voice?: VoiceControls;
 }

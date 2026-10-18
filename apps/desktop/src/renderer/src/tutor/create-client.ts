@@ -3,6 +3,8 @@ import type { ApiClient } from '@tassel/shared/api';
 import type { Lang } from '@tassel/shared/i18n';
 import { ICE_SERVERS_PATH, type OfferRequestData } from '@tassel/shared/voice';
 import type { AppConfig, TasselBridge } from '../../../shared/bridge';
+import { fixtureImageSource } from '../board/marks/fixture-image';
+import { registerImageSource } from '../board/marks/image-store';
 import { fixtureSource, registerSnapshotSource } from '../board/marks/snapshot-sources';
 import { compileScript } from '../board/script/compile';
 import type { AuthoredScript } from '../board/script/types';
@@ -12,8 +14,12 @@ import { LiveTutorClient } from './live/live-client';
 import type { MicOptions } from './live/mic';
 import { VoiceConnectionError } from './live/voice-error';
 import boardDemo from './scripts/board-demo.json';
+import boardSnapshot from './scripts/board-snapshot.json';
 import dfaOpening from './scripts/dfa-opening.json';
+import diagramDemo from './scripts/diagram-demo.json';
+import imageDemo from './scripts/image-demo.json';
 import marksDemo from './scripts/marks-demo.json';
+import traceDemo from './scripts/trace-demo.json';
 import type { FakeScript, TutorClient } from './types';
 
 /**
@@ -25,6 +31,14 @@ export const SCRIPTS: Record<string, AuthoredScript | FakeScript> = {
   // P5: Ada's board (Task 5) and her marks on the paper (Tasks 7 and 8).
   'board-demo': boardDemo as FakeScript,
   'marks-demo': marksDemo as AuthoredScript,
+  // A network on the board (board.diagram): three zones behind their routers, and a note.
+  'diagram-demo': diagramDemo as FakeScript,
+  // Ada draws, then the server's board-snapshot request comes, with the board shown and hidden.
+  'board-snapshot': boardSnapshot as FakeScript,
+  // The student's image on the stage, marked up as her paper is (the chat sidebar).
+  'image-demo': imageDemo as AuthoredScript,
+  // Ada draws the reference DFA, then steps 0100 through it on a trace card under it.
+  'trace-demo': traceDemo as FakeScript,
 };
 
 export interface LiveDeps {
@@ -81,11 +95,35 @@ export function createTutorClient(cfg: AppConfig, deps?: LiveDeps): TutorClient 
   const script = Object.hasOwn(SCRIPTS, cfg.fakeScript) ? SCRIPTS[cfg.fakeScript] : undefined;
   if (!script) throw new Error(`Unknown fake tutor script "${cfg.fakeScript}"`);
   // Compiled when it's chosen, so a script with a mistake fails only its own session.
-  const Client = cfg.fakeScript === 'marks-demo' ? FixtureMarksTutor : FakeTutorClient;
+  const Client =
+    cfg.fakeScript === 'marks-demo'
+      ? FixtureMarksTutor
+      : cfg.fakeScript === 'image-demo'
+        ? FixtureImageTutor
+        : FakeTutorClient;
   return new Client(compileScript(script, cfg.fakeScript), {
     speed: cfg.fakeSpeed,
     lang: cfg.uiLanguage,
+    // The app's fake tutor plays the chat sidebar's messages too.
+    chat: true,
   });
+}
+
+/** Only the explicit image demo script may draw its synthetic photo in a built app. */
+class FixtureImageTutor extends FakeTutorClient {
+  private unregister?: () => void;
+
+  override async connect(sessionId: string): Promise<void> {
+    this.unregister?.();
+    this.unregister = registerImageSource(fixtureImageSource);
+    await super.connect(sessionId);
+  }
+
+  override async disconnect(): Promise<void> {
+    this.unregister?.();
+    this.unregister = undefined;
+    await super.disconnect();
+  }
 }
 
 /** Only the explicit synthetic marks test script may load the fixture in a built app. */
