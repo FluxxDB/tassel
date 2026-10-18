@@ -3,6 +3,8 @@ import type { Lang } from '@tassel/shared/i18n';
 import { useEffect, useRef, useState } from 'react';
 import type { AppConfig } from '../../../../shared/bridge';
 import type { VoiceConfig } from '../../../../shared/voice-bridge';
+import { useMarksStore } from '../../board/marks/marks-store';
+import { usePaperStore } from '../../paper/paper-store';
 import { createTutorClient } from '../../tutor/create-client';
 import { LatencyMeter, startLatencySampler } from '../../tutor/live/latency';
 import { Mic } from '../../tutor/live/mic';
@@ -102,7 +104,20 @@ export function useVoiceSession(opts: {
     void mic.setDevice(useAudioPrefs.getState().inputId);
     sinks();
     bind();
+    const reportStage = () =>
+      client.voice?.reportStageState?.({
+        view: useStageStore.getState().mode,
+        frozen: useMarksStore.getState().status === 'frozen',
+        page_revision: usePaperStore.getState().uploads.sent,
+      });
+    const offPaper = usePaperStore.subscribe((state, previous) => {
+      if (state.uploads.sent !== previous.uploads.sent) reportStage();
+    });
+    const offMarks = useMarksStore.subscribe((state, previous) => {
+      if (state.status !== previous.status) reportStage();
+    });
     const offStage = useStageStore.subscribe((state, previous) => {
+      if (state.mode !== previous.mode || state.connection !== previous.connection) reportStage();
       if (state.micOn !== previous.micOn) {
         mic.setEnabled(state.micOn);
         talking();
@@ -147,6 +162,8 @@ export function useVoiceSession(opts: {
       unbind();
       offPrefs();
       offStage();
+      offPaper();
+      offMarks();
       offMic();
       offDuck();
       stopSampler();

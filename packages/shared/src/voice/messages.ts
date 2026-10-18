@@ -64,7 +64,13 @@ export interface ClientMetrics {
   yield_ms: number | null;
   sensitivity: Sensitivity;
 }
+export interface StageState {
+  view: 'paper' | 'board' | 'split';
+  frozen: boolean;
+  page_revision: number;
+}
 export type ClientEvent =
+  | ({ kind: 'stage-state' } & StageState)
   | { kind: 'ptt'; enabled: boolean; held: boolean }
   | { kind: 'sensitivity'; level: Sensitivity }
   | ({ kind: 'client-metrics' } & ClientMetrics);

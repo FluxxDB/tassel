@@ -96,9 +96,10 @@ def test_freeze_only_for_marks_and_dfa_rules(lang):
     assert "a DFA has exactly one move per state per symbol; always give accept=" in prompt
 
 
-def test_two_tier_persona_uses_notes_and_consults_before_complex_work():
+def test_two_tier_persona_uses_notes_and_follows_director_without_reconfirmation():
     prompt = system_prompt("en", two_tier=True)
-    assert "[[consult]]" in prompt
+    assert "director chooses the route" in prompt
+    assert "do not repeatedly reconfirm meaning" in prompt
     assert "tutor notes" in prompt and "do not re-ask" in prompt
     assert "bridge" in prompt
     assert "[[consult]]" not in system_prompt("en")

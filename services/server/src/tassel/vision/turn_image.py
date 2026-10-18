@@ -59,7 +59,7 @@ class PageView:
 
 
 MODEL_LONG_SIDE = 1024
-MODEL_JPEG_BUDGET = 90_000
+MODEL_JPEG_BUDGET = 60_000
 
 
 def _model_jpeg(rgb: np.ndarray) -> bytes:
@@ -202,9 +202,10 @@ class TurnPage:
 
 
 NO_VIEW = (
-    "[paper] There is no current view of the student's paper. If the student asks about her "
-    "page or you need to see it, say you can't see her page right now; never describe an "
-    "earlier one."
+    "[paper] The view didn't come through. Use the latest page notes, identified as previous "
+    "observations, without inventing new ink or making new marks. Mention the missing view "
+    "only if the student asked about the page; say plainly: my view didn't come through. "
+    "Never attribute a delivery failure to the student or to motion."
 )
 
 # How long a turn waits for the frame the app takes for it, how old a frame may be to stand in

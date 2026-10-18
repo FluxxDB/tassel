@@ -226,7 +226,7 @@ async def test_bot_wires_fake_talker_and_thinker(monkeypatch, tmp_path):
         settings=VoiceSettings(providers="fake", fake_tts="tone", transcript_dir=tmp_path)
     )
     async with running(ctx) as (bot, output):
-        await say(bot, "Help with this")
+        await say(bot, "Check this")
         await until(lambda: "arrows" in output.text())
         assert "final one" not in output.text()
         gate.set()

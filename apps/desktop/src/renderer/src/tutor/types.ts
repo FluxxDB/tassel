@@ -49,6 +49,7 @@ export interface VoiceControls {
   setTalking(held: boolean): void;
   setSensitivity(level: Sensitivity): void;
   reportClientMetrics(m: ClientMetrics): void;
+  reportStageState?(state: import('@tassel/shared/voice').StageState): void;
   /** Connects afresh, with the retry count reset: Retry after a failure, or a language switch. */
   reconnect(): Promise<void>;
   /** How many times this client has connected successfully, reconnects included. */

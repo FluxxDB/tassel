@@ -147,7 +147,9 @@ async def test_typed_reply_stage_memory_and_resume():
         await say(bot, SCRIPT.langs["en"].student[0])
         await until(lambda: SCRIPT.langs["en"].turns[0].say in out.text())
         await say(bot, SCRIPT.langs["en"].student[1])
-        await until(lambda: {"kind": "stage", "view": "split"} in out.events())
+        # The scripted LLM's stage request no longer overrides the director.
+        await until(lambda: SCRIPT.langs["en"].turns[1].say in out.text())
+        assert {"kind": "stage", "view": "split"} not in out.events()
         await until(
             lambda: any(
                 m.get("role") == "tool" and m.get("content") != "IN_PROGRESS"
@@ -237,7 +239,7 @@ async def test_one_latest_image_per_turn_reaches_fake_llm():
         await until(lambda: SCRIPT.langs["en"].greeting in out.text())
         bot.add_turn_image(b"old", "old page")
         bot.add_turn_image(b"new", "Paper with numbered candidates")
-        await say(bot, SCRIPT.langs["en"].student[0])
+        await say(bot, "On my paper: " + SCRIPT.langs["en"].student[0])
         await until(lambda: SCRIPT.langs["en"].turns[0].say in out.text())
         users = [m for m in bot.context.get_messages() if m["role"] == "user"]
         blocks = users[-1]["content"]
@@ -342,9 +344,8 @@ async def test_scripted_crash_saves_memory():
 JPEG = b"\xff\xd8\xff\xe0page"
 
 
-async def test_each_student_turn_asks_the_app_for_a_fresh_page_and_carries_it():
-    """Speech start asks the app for the current frame; the turn waits for a frame newer than
-    that start, and the model gets that page, one image in the context at a time."""
+async def test_paper_turns_ask_for_fresh_page_after_final_transcript():
+    """The director asks only after a paper-focused final, never at speech start."""
     from datetime import UTC, datetime
 
     from tassel.vision.turn_image import TurnPage
@@ -360,11 +361,11 @@ async def test_each_student_turn_asks_the_app_for_a_fresh_page_and_carries_it():
         await until(lambda: SCRIPT.langs["en"].greeting in out.text())
         before = datetime.now(UTC)
         await bot.worker.queue_frame(VADUserStartedSpeakingFrame())
-        await until(lambda: {"kind": "paper-frame"} in out.events())
-        await say(bot, SCRIPT.langs["en"].student[0])
+        assert {"kind": "paper-frame"} not in out.events()
+        await say(bot, "On my paper: " + SCRIPT.langs["en"].student[0])
         await until(lambda: SCRIPT.langs["en"].turns[0].say in out.text())
         # A typed turn, with no speech start, asks when it arrives.
-        await say(bot, "Something else")
+        await say(bot, "What is on my paper now?")
         await until(lambda: SCRIPT.langs["en"].fallback in out.text())
     assert [e for e in out.events() if e["kind"] == "paper-frame"] == [{"kind": "paper-frame"}] * 2
     assert len(asked) == 2 and {sid for sid, _ in asked} == {ctx.session_id}
@@ -389,11 +390,14 @@ async def test_with_no_current_view_ada_is_told_she_cant_see_the_page():
 
     async with running(context(turn_image=turn_image)) as (bot, out):
         await until(lambda: SCRIPT.langs["en"].greeting in out.text())
-        await say(bot, SCRIPT.langs["en"].student[0])
+        await say(bot, "On my paper: " + SCRIPT.langs["en"].student[0])
         await until(lambda: SCRIPT.langs["en"].turns[0].say in out.text())
         users = [m for m in bot.context.get_messages() if m["role"] == "user"]
         blocks = users[-1]["content"]
-        assert blocks[0] == {"type": "text", "text": SCRIPT.langs["en"].student[0]}
+        assert blocks[0] == {
+            "type": "text",
+            "text": "On my paper: " + SCRIPT.langs["en"].student[0],
+        }
         assert {"type": "text", "text": NO_VIEW} in blocks
         assert not any(b["type"] == "image_url" for b in blocks)
 
@@ -419,7 +423,7 @@ async def test_a_turn_without_a_page_image_still_gets_its_reply(outcome, monkeyp
         assert users[-1]["content"] == SCRIPT.langs["en"].student[0]
 
 
-async def test_board_tags_never_reach_tts(monkeypatch):
+async def test_unapproved_talker_tags_never_reach_board_or_tts(monkeypatch):
     from tassel.voice.fakes.tts import FakeTTSService
 
     heard = []
@@ -437,10 +441,12 @@ async def test_board_tags_never_reach_tts(monkeypatch):
         await say(bot, "Can you show me the answer?")
         await until(lambda: "A zero takes us to q one." in out.text())
         beats = [e["beat"] for e in out.events() if e["kind"] == "beat"]
-        assert any(b["markers"] for b in beats)
+        assert not any(b["markers"] for b in beats)
         assert all("[[" not in text for text in heard)
         assert "[[" not in out.text()
-        expected = load_scenario("dfa-board").langs["en"].turns[0].say
+        import re
+
+        expected = re.sub(r"\[\[.*?\]\]", "", load_scenario("dfa-board").langs["en"].turns[0].say)
         await asyncio.sleep(0.2)
         assert any(
             str(m.get("content", "")).strip() == expected

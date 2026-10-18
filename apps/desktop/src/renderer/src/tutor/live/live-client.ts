@@ -78,6 +78,9 @@ export class LiveTutorClient implements TutorClient {
       setSensitivity(level) {
         self.send({ kind: 'sensitivity', level });
       },
+      reportStageState(state) {
+        self.send({ kind: 'stage-state', ...state });
+      },
       reportClientMetrics(metrics) {
         self.send({ kind: 'client-metrics', ...metrics });
       },

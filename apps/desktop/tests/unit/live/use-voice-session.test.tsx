@@ -273,3 +273,24 @@ it('samples metrics with current sensitivity, forwards duck timestamps, and canc
   act(() => vi.advanceTimersByTime(100));
   expect(sample).toHaveBeenCalledTimes(calls);
 });
+
+it('sends current stage, frozen snapshot and meaningful page revision to the director', async () => {
+  const { useMarksStore } = await import('../../../src/renderer/src/board/marks/marks-store');
+  const { usePaperStore } = await import('../../../src/renderer/src/paper/paper-store');
+  const view = mount();
+  await waitFor(() => expect(useStageStore.getState().connection).toBe('connected'));
+  act(() => {
+    useStageStore.getState().pin('board');
+    useMarksStore.setState({ status: 'frozen' });
+    usePaperStore.getState().setUploads({ sent: 2, pending: 0, failed: 0, lastError: null });
+  });
+  expect(peers.all[0].sendClientMessage).toHaveBeenLastCalledWith('tassel', {
+    kind: 'stage-state',
+    view: 'board',
+    frozen: true,
+    page_revision: 2,
+  });
+  view.unmount();
+  useMarksStore.getState().reset();
+  usePaperStore.getState().reset();
+});

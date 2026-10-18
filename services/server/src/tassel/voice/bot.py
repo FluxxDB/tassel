@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import json
 import re
 from collections import deque
 from collections.abc import Awaitable, Callable
@@ -48,7 +49,8 @@ from tassel.beats.markup import BoardContext
 from tassel.beats.processor import BeatTagProcessor
 from tassel.models import Lang, SessionPatch
 from tassel.storage import sessions_repo
-from tassel.vision.turn_image import TurnPage
+from tassel.vision.turn_image import NO_VIEW, TurnPage
+from tassel.voice.director import Director, make_director
 from tassel.voice.events import ServerEvents, VadForwarder
 from tassel.voice.fakes.llm import FakeLLMService
 from tassel.voice.fakes.scenario import load_scenario
@@ -65,6 +67,7 @@ from tassel.voice.messages import (
     RouteEvent,
     SensitivityEvent,
     StageEvent,
+    StageStateEvent,
     SttKind,
     is_note,
 )
@@ -179,6 +182,14 @@ class _TurnContext(FrameProcessor):
     def __init__(self, session_id: UUID | None = None, turn_image: TurnImage | None = None):
         super().__init__()
         self.pending_image = None
+        self.director = Director()
+        self.board = BoardContext()
+        self.focus = "none"
+        self.frozen = False
+        self.page_revision = 0
+        self.seen_revision = 0
+        self.on_focus = None
+        self.decision = None
         self.coordinator = None
         self._last_user = None
         self.on_language = None
@@ -190,11 +201,8 @@ class _TurnContext(FrameProcessor):
         self.request_frame: Callable[[], Awaitable[None]] | None = None
 
     async def speech_started(self) -> None:
-        """Her turn began: ask the app for her paper as it is now, once a turn."""
-        if self._turn_image is None or self._since is not None:
-            return
-        self._since = datetime.now(UTC)
-        await self._ask_for_frame()
+        """Capture waits for the final transcript and the director's vision decision."""
+        return
 
     async def _ask_for_frame(self) -> None:
         if self.request_frame is None:
@@ -244,8 +252,53 @@ class _TurnContext(FrameProcessor):
                 student_text = user["content"]
                 ink_image = None
                 note = None
-                page = await self._turn_page()
+                history = []
+                for message in messages:
+                    if message.get("role") in ("user", "assistant"):
+                        content = message.get("content", "")
+                        if isinstance(content, list):
+                            content = " ".join(b.get("text", "") for b in content)
+                        history.append({"role": message["role"], "content": content})
+                self.decision = await self.director.decide(
+                    student_text,
+                    history[:-1],
+                    focus=self.focus,
+                    board_items={k: v.model_dump(mode="json") for k, v in self.board.specs.items()},
+                    frozen=self.frozen,
+                    page_changed=(
+                        self.pending_image is not None or self.page_revision != self.seen_revision
+                    ),
+                )
+                self.focus = self.decision.focus
+                if self.on_focus and self.focus != "none":
+                    await self.on_focus(self.focus)
+                messages[:] = [
+                    m
+                    for m in messages
+                    if not (
+                        m.get("role") == "system"
+                        and isinstance(m.get("content"), str)
+                        and m["content"].startswith("[director]")
+                    )
+                ]
+                messages.append(
+                    {
+                        "role": "system",
+                        "content": "[director] "
+                        + self.decision.model_dump_json()
+                        + " Board items: "
+                        + json.dumps(
+                            {k: v.model_dump(mode="json") for k, v in self.board.specs.items()}
+                        )
+                        + " Follow this decision. Do not reconfirm clear intent. "
+                        "Do not choose views.",
+                    }
+                )
+                if not self.decision.needs_vision:
+                    self.pending_image = None
+                page = await self._turn_page() if self.decision.needs_vision else None
                 if page is not None and page.image is not None:
+                    self.seen_revision = self.page_revision
                     self.pending_image = (page.image, page.caption)
                     ink_image = page.ink_image or page.image
                     logger.info(
@@ -253,8 +306,8 @@ class _TurnContext(FrameProcessor):
                         self._session_id,
                         len(page.image),
                     )
-                elif page is not None:
-                    note = page.caption
+                elif self.decision.needs_vision:
+                    note = NO_VIEW
                     logger.info("No current view of the paper: session={}", self._session_id)
                 # Keep a single latest paper image in the live context as well.
                 for message in messages:
@@ -280,8 +333,14 @@ class _TurnContext(FrameProcessor):
                         {"type": "text", "text": note},
                     ]
                 if self.coordinator:
-                    await self.coordinator.prepare(frame.context, student_text, ink_image)
+                    await self.coordinator.prepare(
+                        frame.context, student_text, ink_image, decision=self.decision
+                    )
         await self.push_frame(frame, direction)
+
+    async def cleanup(self):
+        await self.director.close()
+        await super().cleanup()
 
 
 class _SpeechStarts(BaseObserver):
@@ -444,16 +503,24 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
             if name.endswith("api_key") and value
         ],
     )
+    turn_context.board = ctx.board
+    turn_context.focus = "paper" if ctx.turn_image else "none"
+    turn_context.director = make_director(
+        ctx.settings, log=lambda event, **data: transcript.record(event, data)
+    )
+
+    async def follow_focus(view):
+        await events.send(StageEvent(view=view))
+
+    turn_context.on_focus = follow_focus
     beats = BeatTagProcessor(
         events=events, lang=lambda: ctx.lang, board=ctx.board, transcript=transcript
     )
     thinker = make_thinker(ctx.settings)
-    reasoning = []
-    if thinker is not None:
-        turn_context.coordinator = TutorCoordinator(
-            thinker, ctx.board, transcript=transcript, lang=lambda: ctx.lang
-        )
-        reasoning = [ThinkerOutput(turn_context.coordinator)]
+    turn_context.coordinator = TutorCoordinator(
+        thinker, ctx.board, transcript=transcript, lang=lambda: ctx.lang
+    )
+    reasoning = [ThinkerOutput(turn_context.coordinator)]
     worker = PipelineWorker(
         Pipeline(
             [
@@ -541,8 +608,9 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
             response_text += frame.text
 
     async def show_stage(params):
-        event = StageEvent(view=params.arguments["view"])
-        await bot.events.send(event)
+        if turn_context.decision is None:
+            event = StageEvent(view=params.arguments["view"])
+            await bot.events.send(event)
         spoken = re.sub(r"\[\[.*?(?:\]\]|$)", "", response_text, flags=re.S).strip().rstrip("[")
         await params.result_callback(
             {"ok": True}, properties=FunctionCallResultProperties(run_llm=not bool(spoken.strip()))
@@ -595,7 +663,11 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         except ValidationError:
             logger.warning("Dropped invalid Tassel client event")
             return
-        if isinstance(event, PushToTalkEvent):
+        if isinstance(event, StageStateEvent):
+            turn_context.focus = event.view
+            turn_context.frozen = event.frozen
+            turn_context.page_revision = event.page_revision
+        elif isinstance(event, PushToTalkEvent):
             tuning.ptt_held = event.held
             await worker.queue_frame(PushToTalkFrame(held=event.held))
         elif isinstance(event, SensitivityEvent):

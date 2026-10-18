@@ -17,6 +17,7 @@ from pipecat.services.stt_service import STTService
 from pipecat.services.tts_service import TTSService
 from pipecat.transcriptions.language import Language
 
+from tassel.vision.turn_image import NO_VIEW
 from tassel.voice.fakes.llm import FakeLLMService
 from tassel.voice.fakes.scenario import FakeScenario, load_scenario
 from tassel.voice.fakes.stt import FakeSTTService
@@ -29,10 +30,8 @@ from tassel.voice.settings import ProviderKind, VoiceConfigError, VoiceSettings,
 
 OPENROUTER_PROVIDER = {"only": ["cerebras"], "allow_fallbacks": False, "require_parameters": True}
 REASONING_OFF = {"effort": "none"}
-IMAGE_FAILED = (
-    "The page image didn't arrive this time. Do not describe or mark the paper. "
-    "Tell the student you couldn't get the picture this time and ask them to hold still."
-)
+
+IMAGE_FAILED = NO_VIEW
 
 
 def _without_images(context: LLMContext) -> LLMContext:

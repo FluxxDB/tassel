@@ -120,6 +120,13 @@ class TurnMetricsEvent(_Message):
 # Client events, app to bot.
 
 
+class StageStateEvent(_Message):
+    kind: Literal["stage-state"] = "stage-state"
+    view: Literal["paper", "board", "split"]
+    frozen: bool
+    page_revision: int = Field(ge=0)
+
+
 class PushToTalkEvent(_Message):
     kind: Literal["ptt"] = "ptt"
     enabled: bool
@@ -166,7 +173,8 @@ ServerEvent = Annotated[
     Field(discriminator="kind"),
 ]
 ClientEvent = Annotated[
-    PushToTalkEvent | SensitivityEvent | ClientMetricsEvent, Field(discriminator="kind")
+    PushToTalkEvent | SensitivityEvent | ClientMetricsEvent | StageStateEvent,
+    Field(discriminator="kind"),
 ]
 SERVER_EVENTS: Final = TypeAdapter(ServerEvent)
 CLIENT_EVENTS: Final = TypeAdapter(ClientEvent)

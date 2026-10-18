@@ -7,7 +7,7 @@ from copy import deepcopy
 
 import cv2
 import numpy as np
-from openai import AsyncOpenAI
+from openai import APIConnectionError, AsyncOpenAI
 from pipecat.frames.frames import (
     CancelFrame,
     EndFrame,
@@ -21,6 +21,9 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from tassel.beats.markup import BoardContext, MarkupStream
 from tassel.beats.processor import FlushSpeechFrame
+from tassel.vision.turn_image import NO_VIEW
+from tassel.voice.action_checker import TargetLanguage, check_tags
+from tassel.voice.director import rules
 from tassel.voice.prompts import thinker_system_prompt
 from tassel.voice.settings import VoiceSettings
 
@@ -36,6 +39,7 @@ class GuidanceBrief(BaseModel):
     paper: list[str]
     confidence: float = Field(ge=0, le=1)
     followups: list[str]
+    language: TargetLanguage | None = None
 
 
 def make_thinker(settings: VoiceSettings):
@@ -55,13 +59,27 @@ class Thinker:
             *deepcopy(messages),
         ]
         for attempt in range(2):
-            response = await self.client.chat.completions.create(
-                model=self.settings.thinker_model,
-                reasoning_effort=self.settings.thinker_effort,
-                messages=request,
-                response_format={"type": "json_object"},
-                max_completion_tokens=3000,
-            )
+            try:
+                response = await self.client.chat.completions.create(
+                    model=self.settings.thinker_model,
+                    reasoning_effort=self.settings.thinker_effort,
+                    messages=request,
+                    response_format={"type": "json_object"},
+                    max_completion_tokens=3000,
+                )
+            except (APIConnectionError, TimeoutError):
+                if attempt:
+                    raise
+                request = deepcopy(request)
+                for message in request:
+                    if isinstance(message.get("content"), list):
+                        message["content"] = [
+                            p
+                            for p in message["content"]
+                            if p.get("type") not in ("image", "image_url")
+                        ]
+                request.append({"role": "system", "content": NO_VIEW})
+                continue
             content = response.choices[0].message.content or ""
             try:
                 return GuidanceBrief.model_validate_json(content)
@@ -114,6 +132,7 @@ class TutorCoordinator:
         self.expires = 0
         self.ink = None
         self.delivered = False
+        self.decision = None
 
     def log(self, event, **data):
         if self.transcript:
@@ -158,9 +177,10 @@ class TutorCoordinator:
                 }
             )
 
-    async def prepare(self, context, text: str, image: bytes | None = None):
+    async def prepare(self, context, text: str, image: bytes | None = None, *, decision=None):
         await self.cancel()
         self.context, self.text = context, text
+        self.decision = decision
         self.delivered = False
         current = ink_signature(image)
         changed = (
@@ -168,18 +188,24 @@ class TutorCoordinator:
             and self.ink is not None
             and float(np.mean(current != self.ink)) > 0.015
         )
-        if changed or time.monotonic() > self.expires or (self.ink is not None and image is None):
+        if changed or time.monotonic() > self.expires:
             self.notes.clear()
         # Compare against the last brief's page, so small edits accumulate.
         if not self.notes:
             self.ink = current
         self._notes_context()
         self.messages = deepcopy(context.get_messages())
-        if INTENT.search(text) or PAPER.search(text) or changed:
+        if (
+            decision.route == "thinker"
+            if decision
+            else INTENT.search(text) or PAPER.search(text) or changed
+        ):
             self.trigger()
         self._notes_context()
 
     def trigger(self):
+        if self.thinker is None or (self.decision and self.decision.route != "thinker"):
+            return
         if self.task is None:
             self.task = asyncio.create_task(self._run(self.generation))
 
@@ -189,6 +215,47 @@ class TutorCoordinator:
             brief = await self.thinker.think(self.messages)
             if generation != self.generation:
                 return None
+            decision = self.decision or rules(self.text)
+            checked = await asyncio.to_thread(
+                check_tags, brief.board + brief.paper, decision, self.board, brief.language
+            )
+            if checked.repair:
+                self.log("reject", source="action_checker", reason=checked.repair)
+                original_language = brief.language
+                try:
+                    repaired = await self.thinker.think(
+                        [
+                            *self.messages,
+                            {
+                                "role": "system",
+                                "content": "Repair this drawing once: "
+                                + checked.repair
+                                + " Keep the same target language and director action. "
+                                "Previous brief: " + brief.model_dump_json(),
+                            },
+                        ]
+                    )
+                    # A repair may not evade verification by removing/changing the target.
+                    brief = repaired.model_copy(update={"language": original_language})
+                    checked = await asyncio.to_thread(
+                        check_tags,
+                        brief.board + brief.paper,
+                        decision,
+                        self.board,
+                        original_language,
+                    )
+                except Exception:
+                    checked.tags = []
+                if generation != self.generation:
+                    return None
+            for tag in checked.rejected:
+                self.log("reject", source="action_checker", text=tag)
+            brief = brief.model_copy(
+                update={
+                    "board": [t for t in brief.board if t in checked.tags],
+                    "paper": [t for t in brief.paper if t in checked.tags],
+                }
+            )
             brief = self.validate_tags(brief)
             self.notes = [*self.notes[-3:], brief]
             self.expires = time.monotonic() + self.ttl_s
@@ -262,7 +329,8 @@ class TutorCoordinator:
 
     async def close(self):
         await self.cancel()
-        await self.thinker.close()
+        if self.thinker is not None:
+            await self.thinker.close()
 
 
 class ThinkerOutput(FrameProcessor):
@@ -295,6 +363,17 @@ class ThinkerOutput(FrameProcessor):
             if re.fullmatch(r"\[\[\s*consult\s*\]\]", tag, re.I):
                 self.coordinator.trigger()
             else:
+                decision = self.coordinator.decision
+                if decision:
+                    # Structural drawings come only from the checked brief, never raw talker tags.
+                    checked = check_tags([tag], decision, self.coordinator.board)
+                    structural = any(
+                        kind in ("board.automaton", "board.addState", "board.addTransition")
+                        for kind in checked.kinds
+                    )
+                    if not checked.tags or structural:
+                        self.coordinator.log("reject", source="talker_tag", text=tag)
+                        continue
                 await self.push_frame(LLMTextFrame(tag))
 
     async def process_frame(self, frame, direction):

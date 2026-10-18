@@ -558,3 +558,44 @@ describe('usePaperCapture', () => {
     expect(store().status).toBe('idle');
   });
 });
+
+it('gates detector ink uploads by focus and ten seconds, allowing large changes', async () => {
+  const { useStageStore } = await import('../../../src/renderer/src/features/session/stage-store');
+  useStageStore.getState().reset();
+  const h = harness();
+  config({ source: 'fake-clip', fakeClip: true });
+  const view = renderCapture({ sessionSource: 'paper', cameraOn: true, deps: h.deps });
+  await flush();
+  const trigger = (changedCells = 2) =>
+    act(() => h.detectors[0]?.opts.onTrigger({ ...TRIGGER, changedCells }));
+  trigger();
+  act(() => h.clock.advance(5000));
+  trigger();
+  expect(h.uploader.enqueue).toHaveBeenCalledTimes(1);
+  act(() => h.clock.advance(5000));
+  trigger();
+  expect(h.uploader.enqueue).toHaveBeenCalledTimes(2);
+  trigger(500);
+  expect(h.uploader.enqueue).toHaveBeenCalledTimes(3);
+  act(() => useStageStore.getState().pin('board'));
+  trigger(500);
+  expect(h.uploader.enqueue).toHaveBeenCalledTimes(3);
+  view.unmount();
+  useStageStore.getState().reset();
+});
+
+it('flushes the latest throttled edit even when the student stops writing', async () => {
+  const h = harness();
+  config({ source: 'fake-clip', fakeClip: true });
+  const view = renderCapture({ sessionSource: 'paper', cameraOn: true, deps: h.deps });
+  await flush();
+  act(() => h.detectors[0]?.opts.onTrigger(TRIGGER));
+  act(() => h.clock.advance(5000));
+  const latest = new Blob(['new ink']);
+  act(() => h.detectors[0]?.opts.onTrigger({ ...TRIGGER, full: latest }));
+  expect(h.uploader.enqueue).toHaveBeenCalledTimes(1);
+  act(() => h.clock.advance(5000));
+  expect(h.uploader.enqueue).toHaveBeenCalledTimes(2);
+  expect(h.uploader.enqueue).toHaveBeenLastCalledWith(expect.objectContaining({ full: latest }));
+  view.unmount();
+});

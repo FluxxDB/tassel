@@ -354,7 +354,8 @@ async def test_transport_retry_then_image_free_request(failures):
     if failures >= 2:
         assert "image_url" not in json.dumps(calls[2])
         assert any(
-            m["role"] == "system" and "hold still" in m["content"] for m in calls[2]["messages"]
+            m["role"] == "system" and "latest page notes" in m["content"]
+            for m in calls[2]["messages"]
         )
     assert "image_url" in json.dumps(context.get_messages())
     assert any(isinstance(f, ErrorFrame) for f in down + up) == (failures == 3)
