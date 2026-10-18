@@ -125,7 +125,8 @@ export interface paths {
         post?: never;
         /**
          * Delete Session
-         * @description Deletes the session's frame images first, then the session, whose frame rows cascade.
+         * @description Deletes the session's frame and chat images first, then the session, whose frame, chat
+         *     and attachment rows cascade.
          */
         delete: operations["delete_session_v1_sessions__session_id__delete"];
         options?: never;
@@ -1618,6 +1619,27 @@ export interface operations {
                     "application/json": components["schemas"]["AttachmentOut"];
                 };
             };
+            /** @description No such session, or frame, for this learner */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The image is over 8 MiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The image isn't a JPEG, PNG or WebP that decodes */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -1626,6 +1648,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+            /** @description The frame store is unavailable; try again later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -1651,6 +1680,13 @@ export interface operations {
                     "image/png": unknown;
                 };
             };
+            /** @description No such image for this learner */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -1659,6 +1695,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+            /** @description The frame store is unavailable; try again later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -1947,6 +1990,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ChatHistoryOut"];
                 };
+            };
+            /** @description No such session for this learner */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
