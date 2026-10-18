@@ -71,7 +71,7 @@ test('outfits stay aligned and speaking animates only while the tutor speaks', a
         const preview = page.getByTestId('avatar-preview');
         const svg = preview.locator('svg');
         if ((await svg.getAttribute('data-outfit')) === 'dress') {
-          await expect(svg).toHaveAttribute('viewBox', '0 0 200 300');
+          await expect(svg).toHaveAttribute('viewBox', '0 0 200 220');
           await expect(preview.getByTestId('dress-layer')).toHaveCount(1);
         } else {
           const body = preview.locator('svg g[clip-path]');

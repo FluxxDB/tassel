@@ -127,3 +127,16 @@ avatar tests passed. The Electron test cycles all 35 hair/outfit combinations,
 checks dress rendering and offline voice persistence, and preserves the closing
 animation regression. Dress, headscarf, near-matching skin/hair and navy-overall
 screenshots were reviewed. E2E still uses port 8863 and team2 database/storage.
+
+## Bust-only dress correction
+
+At the owner's request, the dress now uses the same fixed 200x220 bust view as
+every other outfit. Removed the expanded preview, skirt and arm geometry;
+replaced them with a simple dress neckline within the shared shoulder silhouette.
+Removed the newly added face, hair and scarf outlines. Other outfits, contrasting
+overall colors, voices, persistence and animations are unchanged.
+
+Validation: the new dress framing assertion failed against the expanded version
+and passes with this correction. Nine avatar unit tests, TypeScript, focused
+Biome checks, build, and two Electron outfit/offline-voice specs passed. Reviewed
+the corrected dress screenshot. Checks used the existing fake-only team2 setup.

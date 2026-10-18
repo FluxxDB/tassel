@@ -7,13 +7,11 @@ export function Avatar({
   profile: p,
   celebrating = false,
   speaking = false,
-  expanded = false,
   className,
 }: {
   profile: AvatarProfile;
   celebrating?: boolean;
   speaking?: boolean;
-  expanded?: boolean;
   className?: string;
 }) {
   const id = useId();
@@ -33,7 +31,7 @@ export function Avatar({
         : 'M85 96v5 M118 96v5';
   return (
     <svg
-      viewBox={expanded && dress ? '0 0 200 300' : '0 0 200 220'}
+      viewBox="0 0 200 220"
       className={className}
       aria-hidden="true"
       focusable="false"
@@ -87,108 +85,85 @@ export function Avatar({
       </g>
       {scarf && <path d="M45 92Q43 23 102 23Q164 23 162 93L169 164Q101 191 34 164Z" fill={hair} />}
       <path d="M89 124H114V164H89Z" fill={skin} />
-      {dress && (
-        <g fill={skin}>
-          <path d="M87 150Q64 153 54 172L40 224Q39 232 46 233Q53 234 56 225L72 184H132L148 225Q151 234 158 233Q165 231 162 224L149 172Q139 153 117 150L114 157H89Z" />
-        </g>
-      )}
-      {dress && (
-        <g
-          data-testid="dress-layer"
-          fill={outfit}
-          stroke={materialBoundary(outfit)}
-          strokeWidth="1"
-          strokeLinejoin="round"
-        >
-          <path d="M77 154L86 151L91 172Q102 180 113 172L118 151L127 154L123 195L156 284Q102 302 48 284L81 195Z" />
-          <path d="M81 195Q102 201 123 195" fill="none" strokeWidth="3" />
-          <path d="M80 208L66 279M101 211V286M124 208L138 279" fill="none" strokeOpacity=".3" />
-        </g>
-      )}
-      {!dress && (
-        <g clipPath={`url(#${id}-body)`}>
-          <path d={body} fill={outfit} />
-          {p.outfit === 'sweater' && (
-            <g
+      <g clipPath={`url(#${id}-body)`}>
+        <path d={body} fill={outfit} />
+        {dress && (
+          <g data-testid="dress-layer">
+            <path d="M87 150Q102 168 117 150L122 173Q102 194 82 173Z" fill={skin} />
+            <path
+              d="M71 210Q102 219 133 210L137 220H67Z"
+              fill="color-mix(in oklab, var(--avatar-outfit), #30232b 10%)"
+            />
+          </g>
+        )}
+        {p.outfit === 'sweater' && (
+          <g
+            fill="none"
+            stroke="color-mix(in oklab, var(--avatar-outfit), #30232b 20%)"
+            strokeWidth="3"
+          >
+            <path d="M85 150Q102 173 119 150" strokeWidth="7" />
+            <path d="M52 178Q60 194 57 220M152 178Q144 194 147 220" opacity=".45" />
+            <path d="M57 211h91" strokeWidth="6" opacity=".4" />
+          </g>
+        )}
+        {p.outfit === 'collar' && (
+          <path d="M87 150l15 13-14 15-14-23M117 150l-15 13 14 15 14-23" fill="#fff9f3" />
+        )}
+        {p.outfit === 'hoodie' && (
+          <>
+            <path
+              d="M78 153Q69 173 102 179Q136 173 126 153"
+              fill="none"
+              stroke="color-mix(in oklab, var(--avatar-outfit), #fff9f3 40%)"
+              strokeWidth="9"
+            />
+            <path
+              d="M88 178v21m28-21v21"
+              stroke="#fff9f3"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            />
+            <path
+              d="M78 216l5-15h38l5 15Z"
               fill="none"
               stroke="color-mix(in oklab, var(--avatar-outfit), #30232b 20%)"
-              strokeWidth="3"
-            >
-              <path d="M85 150Q102 173 119 150" strokeWidth="7" />
-              <path d="M52 178Q60 194 57 220M152 178Q144 194 147 220" opacity=".45" />
-              <path d="M57 211h91" strokeWidth="6" opacity=".4" />
+              strokeWidth="2"
+            />
+          </>
+        )}
+        {p.outfit === 'overalls' && (
+          <>
+            <path
+              d="M73 154h12v29h34v-29h12v37l8 29H65l8-29Z"
+              fill={materialBoundary(outfit) === '#f1ddc8' ? '#b7cad7' : '#364d6e'}
+            />
+            <path
+              d="M89 193h26v15H89Z"
+              fill="none"
+              stroke={materialBoundary(
+                materialBoundary(outfit) === '#f1ddc8' ? '#b7cad7' : '#364d6e',
+              )}
+              strokeWidth="2"
+            />
+            <g fill="#eadfc9">
+              <circle cx="79" cy="183" r="3" />
+              <circle cx="125" cy="183" r="3" />
             </g>
-          )}
-          {p.outfit === 'collar' && (
-            <path d="M87 150l15 13-14 15-14-23M117 150l-15 13 14 15 14-23" fill="#fff9f3" />
-          )}
-          {p.outfit === 'hoodie' && (
-            <>
-              <path
-                d="M78 153Q69 173 102 179Q136 173 126 153"
-                fill="none"
-                stroke="color-mix(in oklab, var(--avatar-outfit), #fff9f3 40%)"
-                strokeWidth="9"
-              />
-              <path
-                d="M88 178v21m28-21v21"
-                stroke="#fff9f3"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-              <path
-                d="M78 216l5-15h38l5 15Z"
-                fill="none"
-                stroke="color-mix(in oklab, var(--avatar-outfit), #30232b 20%)"
-                strokeWidth="2"
-              />
-            </>
-          )}
-          {p.outfit === 'overalls' && (
-            <>
-              <path
-                d="M73 154h12v29h34v-29h12v37l8 29H65l8-29Z"
-                fill={materialBoundary(outfit) === '#f1ddc8' ? '#b7cad7' : '#364d6e'}
-              />
-              <path
-                d="M89 193h26v15H89Z"
-                fill="none"
-                stroke={materialBoundary(
-                  materialBoundary(outfit) === '#f1ddc8' ? '#b7cad7' : '#364d6e',
-                )}
-                strokeWidth="2"
-              />
-              <g fill="#eadfc9">
-                <circle cx="79" cy="183" r="3" />
-                <circle cx="125" cy="183" r="3" />
-              </g>
-            </>
-          )}
-        </g>
-      )}
+          </>
+        )}
+      </g>
       {!scarf && (
         <g fill={skin}>
           <ellipse cx="62" cy="99" rx="8" ry="11" />
           <ellipse cx="141" cy="99" rx="8" ry="11" />
         </g>
       )}
-      <ellipse
-        cx="102"
-        cy="94"
-        rx="40"
-        ry="45"
-        fill={`url(#${id}-skin)`}
-        stroke={materialBoundary(hair)}
-        strokeWidth="1.4"
-        strokeOpacity=".65"
-      />
+      <ellipse cx="102" cy="94" rx="40" ry="45" fill={`url(#${id}-skin)`} />
       {scarf ? (
         <path
           d="M58 93Q50 41 102 34Q155 40 147 93Q124 59 99 53Q87 78 58 93ZM58 113Q69 147 102 151Q136 146 147 113L154 163Q99 182 49 162Z"
           fill={hair}
-          stroke={materialBoundary(hair)}
-          strokeWidth="1.3"
-          strokeOpacity=".6"
         />
       ) : (
         <path
@@ -202,18 +177,6 @@ export function Avatar({
                   : 'M57 88Q55 35 105 33Q153 36 147 88Q127 66 104 59Q88 80 57 88Z'
           }
           fill={`url(#${id}-hair)`}
-          stroke={materialBoundary(skin)}
-          strokeWidth="1.1"
-          strokeOpacity=".65"
-        />
-      )}
-      {scarf && (
-        <path
-          d="M65 131Q99 173 142 130M61 148Q93 177 137 154"
-          fill="none"
-          stroke={materialBoundary(hair)}
-          strokeWidth="1.1"
-          strokeOpacity=".55"
         />
       )}
       <g

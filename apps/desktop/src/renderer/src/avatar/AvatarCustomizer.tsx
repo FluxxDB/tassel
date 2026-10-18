@@ -116,7 +116,6 @@ function Editor({ onClose }: { onClose(): void }) {
             <Avatar
               profile={draft}
               celebrating={saved}
-              expanded
               className="relative z-10 w-full max-w-[300px]"
             />
             {saved && (

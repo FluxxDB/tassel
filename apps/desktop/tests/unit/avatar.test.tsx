@@ -90,6 +90,10 @@ it('offers a dress and keeps real voices off by default in the Body tab', async 
     'data-outfit',
     'dress',
   );
+  expect(screen.getByTestId('avatar-preview').querySelector('svg')).toHaveAttribute(
+    'viewBox',
+    '0 0 200 220',
+  );
   fireEvent.click(screen.getByRole('tab', { name: 'Body' }));
   expect(screen.getByLabelText('English voice')).toHaveValue('off');
   expect(screen.getByLabelText('Spanish voice')).toHaveValue('off');
