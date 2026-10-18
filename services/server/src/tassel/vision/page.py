@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 
 from tassel.domains.dfa.contract import Pt
+from tassel.vision.enhance import enhance_for_llm as enhance_for_llm
 
 Quad = tuple[Pt, Pt, Pt, Pt]
 
@@ -54,29 +55,6 @@ def encode_jpeg(rgb: np.ndarray, quality: int = 88) -> bytes:
     if not ok:
         raise ValueError("could not encode JPEG image")
     return encoded.tobytes()
-
-
-def enhance_for_llm(rgb: np.ndarray) -> np.ndarray:
-    """Improve soft handwriting on an RGB page without changing geometry or input pixels.
-
-    Work on luminance only: restrained CLAHE lifts faint ink under uneven light, then
-    a small unsharp mask gains strength toward *every* edge (including edge midpoints).
-    Cap the detail term to limit ringing and ignore one-level quantization noise. This
-    is for the model image, before Set-of-Mark tags; never use it for the app snapshot.
-    """
-    ycc = cv2.cvtColor(rgb, cv2.COLOR_RGB2YCrCb)
-    luminance = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(ycc[:, :, 0])
-    blurred = cv2.GaussianBlur(luminance, (0, 0), 1.2)
-    detail = luminance.astype(np.float32) - blurred.astype(np.float32)
-    # A dead band avoids sharpening compression noise on blank paper.
-    detail = np.sign(detail) * np.clip(np.abs(detail) - 1.0, 0, 20)
-    h, w = luminance.shape
-    edge = np.maximum(
-        np.linspace(-1, 1, w, dtype=np.float32)[None, :] ** 2,
-        np.linspace(-1, 1, h, dtype=np.float32)[:, None] ** 2,
-    )
-    ycc[:, :, 0] = np.clip(luminance + (0.35 + 1.15 * edge) * detail, 0, 255).astype(np.uint8)
-    return cv2.cvtColor(ycc, cv2.COLOR_YCrCb2RGB)
 
 
 def page_size(quad: Quad, long_side: int = PAGE_LONG_SIDE) -> tuple[int, int]:
