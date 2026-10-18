@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useBoardStore } from '../board/board-store';
+import { useSessionLang } from '../board/use-session-lang';
 import { Button } from '../components/Button';
+import { Pause, Play } from '../components/icons';
 import { Sheet } from '../components/Sheet';
 import { MarkLayer } from '../overlay/Overlay';
 import { containRect } from './geometry';
+import { screenBoardSnapshot } from './objects';
 import { screenActions, useScreen } from './store';
 
 export function ScreenPicker() {
@@ -34,6 +38,8 @@ export function ScreenPicker() {
 export function ScreenPanel() {
   const { t } = useTranslation();
   const state = useScreen();
+  const board = useBoardStore();
+  const lang = useSessionLang();
   const video = useRef<HTMLVideoElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const [rect, setRect] = useState({ x: 0, y: 0, width: 0, height: 0 });
@@ -73,7 +79,12 @@ export function ScreenPanel() {
               height: rect.height,
             }}
           >
-            <MarkLayer marks={state.marks} />
+            <MarkLayer
+              language={lang}
+              marks={state.marks}
+              board={screenBoardSnapshot(board, state.placements)}
+              viewport={state.selected?.bounds}
+            />
           </div>
         </div>
       ) : (
@@ -92,8 +103,12 @@ export function ScreenPanel() {
           {state.status === 'error' && (
             <Button onClick={() => void screenActions()?.reset()}>{t('common.retry')}</Button>
           )}
-          <Button onClick={() => void screenActions()?.pause()}>
-            {t(state.status === 'paused' ? 'screen.resume' : 'screen.pause')}
+          <Button
+            aria-label={t(state.status === 'paused' ? 'screen.resume' : 'screen.pause')}
+            title={t(state.status === 'paused' ? 'screen.resume' : 'screen.pause')}
+            onClick={() => void screenActions()?.pause()}
+          >
+            {state.status === 'paused' ? <Play /> : <Pause />}
           </Button>
           <Button onClick={() => void screenActions()?.reset()}>{t('screen.reset')}</Button>
           <Button onClick={() => void screenActions()?.collapse()}>{t('screen.collapse')}</Button>

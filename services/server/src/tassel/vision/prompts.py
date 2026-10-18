@@ -53,7 +53,7 @@ Return only the structured predicate, not code, a regex, or an explanation.
 
 def render_context(ctx: "ProblemContext", prepared: "PreparedPage") -> str:
     recent = "\n".join(
-        f"{'Student' if line.speaker == 'student' else 'Ada'}: {line.text}" for line in ctx.recent
+        f"{'Student' if line.speaker == 'student' else 'Tutor'}: {line.text}" for line in ctx.recent
     )
     tags = len(prepared.candidates.circles) + len(prepared.candidates.labels)
     return (

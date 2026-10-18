@@ -71,12 +71,22 @@ class TutorPreferences:
         return memory_instruction(self.memory)
 
     def talker_prompt(
-        self, lang: Lang, *, tools: bool, two_tier: bool, greeting: bool = False
+        self,
+        lang: Lang,
+        *,
+        tools: bool,
+        two_tier: bool,
+        greeting: bool = False,
+        tutor_name: str = "Tutor",
     ) -> str:
         """The greeting turn carries no notes: nothing from before her first word."""
-        return system_prompt(lang, tools=tools, two_tier=two_tier, ideal_tutor=self.ideal_tutor) + (
-            "" if greeting else self.notes
-        )
+        return system_prompt(
+            lang,
+            tutor_name=tutor_name,
+            tools=tools,
+            two_tier=two_tier,
+            ideal_tutor=self.ideal_tutor,
+        ) + ("" if greeting else self.notes)
 
 
 async def read_tutor_preferences(db, learner_id: UUID) -> TutorPreferences:

@@ -22,6 +22,7 @@ export class FakeTutorClient implements TutorClient {
   private readonly speed: number;
   private readonly lang: Lang;
   private readonly chat: boolean;
+  private readonly tutorName?: () => string;
   private readonly listeners = new Set<(event: TutorEvent) => void>();
   private timer: unknown = null;
   private readonly replies = new Set<unknown>();
@@ -35,7 +36,13 @@ export class FakeTutorClient implements TutorClient {
    */
   constructor(
     script: FakeScript,
-    opts: { clock?: Clock; speed?: number; lang?: Lang; chat?: boolean } = {},
+    opts: {
+      clock?: Clock;
+      speed?: number;
+      lang?: Lang;
+      chat?: boolean;
+      tutorName?: () => string;
+    } = {},
   ) {
     // A stable sort, so steps at the same time keep the script's order.
     this.steps = [...script.steps].sort((a, b) => a.at - b.at);
@@ -43,6 +50,7 @@ export class FakeTutorClient implements TutorClient {
     this.speed = opts.speed && opts.speed > 0 ? opts.speed : 1;
     this.lang = opts.lang ?? 'en';
     this.chat = opts.chat ?? false;
+    this.tutorName = opts.tutorName;
   }
 
   /** Starts the script from its beginning, also after an earlier connect. */
@@ -117,9 +125,12 @@ export class FakeTutorClient implements TutorClient {
     const delay = Math.max(0, start + step.at / this.speed - this.clock.now());
     this.timer = this.clock.setTimeout(() => {
       this.timer = null;
-      this.emit(step.event);
+      const event =
+        step.event.type === 'caption' && this.tutorName
+          ? { ...step.event, text: step.event.text.replaceAll('Ada', this.tutorName()) }
+          : step.event;
+      this.emit(event);
       // A scripted line is a spoken one: the chat shows it once it's final.
-      const event = step.event;
       if (this.chat && event.type === 'caption' && event.final)
         this.emitLine({ role: event.speaker, source: 'voice', text: event.text });
       if (this.connected) this.schedule(index + 1, start);

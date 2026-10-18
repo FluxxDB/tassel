@@ -74,3 +74,18 @@ async def test_thinker_image_delivery_failure_retries_from_latest_notes():
     assert "image_url" not in str(calls[2])
     assert "q1 accepts" in str(calls[2])
     assert "latest page notes" in str(calls[2])
+
+
+def test_image_free_retry_cannot_draw_on_screen():
+    from tassel.voice.tools import SCREEN_TOOLS
+
+    original = LLMContext(
+        [{"role": "user", "content": "underline the question"}], tools=SCREEN_TOOLS
+    )
+    retry = _without_images(original)
+    assert "draw_screen" not in [tool.name for tool in retry.tools.standard_tools]
+    assert "set_language" in [tool.name for tool in retry.tools.standard_tools]
+    assert "edit_screen" in [tool.name for tool in retry.tools.standard_tools]
+    assert "draw_screen_illustration" not in [tool.name for tool in retry.tools.standard_tools]
+    assert "draw_screen_board" not in [tool.name for tool in retry.tools.standard_tools]
+    assert "draw_screen" in [tool.name for tool in original.tools.standard_tools]

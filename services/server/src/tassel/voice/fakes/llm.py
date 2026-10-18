@@ -72,7 +72,7 @@ class FakeLLMService(LLMService):
         await self.push_frame(LLMFullResponseStartFrame())
         await self.start_ttfb_metrics()
         await asyncio.sleep(self._ttfb_ms / 1000)
-        words = turn.say.split()
+        words = turn.say.replace("Ada", getattr(self, "tutor_name", "Ada")).split()
         for start in range(0, len(words), self._chunk_words):
             if start:
                 await asyncio.sleep(0.03)

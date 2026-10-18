@@ -3,6 +3,7 @@ import type { ApiClient } from '@tassel/shared/api';
 import type { Lang } from '@tassel/shared/i18n';
 import { ICE_SERVERS_PATH, type OfferRequestData } from '@tassel/shared/voice';
 import type { AppConfig, TasselBridge } from '../../../shared/bridge';
+import { useAvatar } from '../avatar/store';
 import { fixtureImageSource } from '../board/marks/fixture-image';
 import { registerImageSource } from '../board/marks/image-store';
 import { fixtureSource, registerSnapshotSource } from '../board/marks/snapshot-sources';
@@ -106,6 +107,7 @@ export function createTutorClient(cfg: AppConfig, deps?: LiveDeps): TutorClient 
     lang: cfg.uiLanguage,
     // The app's fake tutor plays the chat sidebar's messages too.
     chat: true,
+    tutorName: () => useAvatar.getState().profile.name,
   });
 }
 

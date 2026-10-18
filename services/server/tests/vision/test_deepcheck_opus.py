@@ -132,7 +132,7 @@ def test_request_shape(prepared):
         "Build the machine.",
         "Last 20 seconds:",
         "Student: Done.",
-        "Ada: Let me read it.",
+        "Tutor: Let me read it.",
         f"Image 1 is {prepared.page.width}×{prepared.page.height} pixels with 0 tags.",
     ):
         assert line in context

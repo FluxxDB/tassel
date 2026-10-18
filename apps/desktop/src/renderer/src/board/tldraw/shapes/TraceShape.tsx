@@ -1,7 +1,9 @@
 // Ada's trace card: a run of an automaton on an input, step by step, then its verdict. The
 // student can move or erase it, not resize it: Track B's placement sized it for every step.
+
 import type { JSX } from 'react';
 import { BaseBoxShapeUtil, HTMLContainer, type RecordProps, T } from 'tldraw';
+import { screenShapeStyle } from '../screen';
 import { TraceCard } from './figures';
 import type { TraceShape } from './types';
 
@@ -60,8 +62,12 @@ export class TraceShapeUtil extends BaseBoxShapeUtil<TraceShape> {
 
   override component(shape: TraceShape): JSX.Element {
     return (
-      <HTMLContainer>
-        <TraceCard {...shape.props} />
+      <HTMLContainer style={screenShapeStyle(shape)}>
+        <TraceCard
+          {...shape.props}
+          w={shape.props.w / Number(shape.meta.screenScale ?? 1)}
+          h={shape.props.h / Number(shape.meta.screenScale ?? 1)}
+        />
       </HTMLContainer>
     );
   }

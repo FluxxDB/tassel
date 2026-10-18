@@ -29,3 +29,12 @@
     animation: none;
   }
 }
+
+/* The desktop remains the background. Persistent ink never fades during frame capture. */
+.tl-container.screen-tldraw {
+  --tl-color-background: transparent;
+  background: transparent;
+}
+.screen-tldraw .tl-shape {
+  animation: none;
+}

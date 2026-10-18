@@ -5,7 +5,11 @@ import { DEFAULT_AVATAR } from '../../../src/renderer/src/avatar/catalog';
 import { useAvatar } from '../../../src/renderer/src/avatar/store';
 import { useStageStore } from '../../../src/renderer/src/features/session/stage-store';
 import { useLiveVoice } from '../../../src/renderer/src/features/voice/live-voice';
-import { useScreenController } from '../../../src/renderer/src/screen/controller';
+import {
+  acceptScreenMarks,
+  requestScreenTurn,
+  useScreenController,
+} from '../../../src/renderer/src/screen/controller';
 import { screenActions, useScreen } from '../../../src/renderer/src/screen/store';
 import type { AppConfig } from '../../../src/shared/bridge';
 import type { OverlayIntent, ScreenBridge, ScreenPoint } from '../../../src/shared/screen-bridge';
@@ -30,7 +34,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   useLiveVoice.getState().clear();
 });
-function harness() {
+function harness(app = config) {
   let intent: (value: OverlayIntent) => void = () => {};
   let stroke: (points: ScreenPoint[]) => void = () => {};
   const track = { stop: vi.fn(), addEventListener: vi.fn() };
@@ -56,6 +60,7 @@ function harness() {
     restore: vi.fn(async () => {}),
     close: vi.fn(async () => {}),
     publish: vi.fn(),
+    capture: vi.fn(async () => null),
     onIntent: (next: typeof intent) => {
       intent = next;
       return () => {};
@@ -65,7 +70,7 @@ function harness() {
       return () => {};
     },
   } as unknown as ScreenBridge;
-  vi.stubGlobal('tassel', { screen: bridge });
+  vi.stubGlobal('tassel', { screen: bridge, getToken: async () => 'synthetic-test-token' });
   const interrupt = vi.fn();
   useLiveVoice.setState({
     client: {
@@ -76,7 +81,7 @@ function harness() {
       interrupt,
     },
   });
-  const hook = renderHook(() => useScreenController('session', config));
+  const hook = renderHook(() => useScreenController('session', app));
   return {
     hook,
     bridge,
@@ -144,4 +149,123 @@ describe('screen controller lifecycle', () => {
     expect(h.bridge.collapse).not.toHaveBeenCalled();
     h.hook.unmount();
   });
+});
+
+it('pause and resume preserve speech and student ink', async () => {
+  const h = harness();
+  await act(async () => screenActions()?.start('test'));
+  act(() =>
+    h.stroke([
+      { x: 0.2, y: 0.3 },
+      { x: 0.4, y: 0.5 },
+    ]),
+  );
+  const interruptions = h.interrupt.mock.calls.length;
+  await act(async () => screenActions()?.pause());
+  expect(useScreen.getState().marks).toHaveLength(1);
+  expect(h.interrupt).toHaveBeenCalledTimes(interruptions);
+  await act(async () => screenActions()?.pause());
+  expect(useScreen.getState().marks).toHaveLength(1);
+  expect(h.interrupt).toHaveBeenCalledTimes(interruptions);
+  h.hook.unmount();
+});
+
+it('uploads a JPEG for a server-requested screen turn through the live HTTP path', async () => {
+  vi.spyOn(HTMLVideoElement.prototype, 'videoWidth', 'get').mockReturnValue(1280);
+  vi.spyOn(HTMLVideoElement.prototype, 'videoHeight', 'get').mockReturnValue(720);
+  vi.spyOn(HTMLVideoElement.prototype, 'readyState', 'get').mockReturnValue(4);
+  const context = {
+    drawImage: vi.fn(),
+    fillRect: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    stroke: vi.fn(),
+  };
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+    context as unknown as CanvasRenderingContext2D,
+  );
+  vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) =>
+    callback(new Blob(['synthetic jpeg'], { type: 'image/jpeg' })),
+  );
+  const fetch = vi.fn(async (url: string, init: RequestInit) => {
+    const body = url.endsWith('/control') ? JSON.parse(String(init.body)) : {};
+    return new Response(JSON.stringify(body), { status: url.includes('/frame?') ? 201 : 200 });
+  });
+  vi.stubGlobal('fetch', fetch);
+  const h = harness({ ...config, tutorMode: 'live' });
+  try {
+    await act(async () => screenActions()?.start('test'));
+    await act(async () => {
+      expect(await requestScreenTurn()).toBe(true);
+    });
+    const upload = fetch.mock.calls.find(([url]) => url.includes('/screen/frame?'));
+    if (!upload) throw new Error('No screen JPEG was uploaded');
+    const query = new URL(upload[0]).searchParams;
+    expect(query.get('source')).toMatch(/^test:/);
+    expect(query.get('frame_id')).toBeTruthy();
+    expect((upload[1].body as Blob).type).toBe('image/jpeg');
+    expect(h.bridge.capture).toHaveBeenCalled();
+    const identity = {
+      source: query.get('source'),
+      epoch: Number(query.get('epoch')),
+      revision: Number(query.get('revision')),
+    };
+    const circle = {
+      id: 'circle',
+      author: 'tutor',
+      kind: 'circle',
+      points: [
+        { x: 0.5, y: 0.3 },
+        { x: 0.7, y: 0.5 },
+      ],
+    };
+    await act(async () =>
+      acceptScreenMarks({
+        ...identity,
+        frame_id: query.get('frame_id'),
+        request_id: 'new-circle',
+        marks: [circle],
+      }),
+    );
+    expect(useScreen.getState().marks).toHaveLength(1);
+    expect(
+      fetch.mock.calls.some(
+        ([url, init]) => url.endsWith('/result') && JSON.parse(String(init.body)).ok,
+      ),
+    ).toBe(true);
+    await act(async () => screenActions()?.pause());
+    // Removal requires neither a current frame nor a current viewport revision.
+    await act(async () =>
+      acceptScreenMarks({
+        ...identity,
+        request_id: 'remove-circle',
+        edit: { operation: 'remove', ids: ['circle'] },
+      }),
+    );
+    expect(useScreen.getState().marks).toHaveLength(0);
+    const removal = fetch.mock.calls.filter(([url]) => url.endsWith('/result')).at(-1);
+    expect(JSON.parse(String(removal?.[1].body))).toMatchObject({
+      request_id: 'remove-circle',
+      ok: true,
+    });
+    await act(async () =>
+      acceptScreenMarks({
+        ...identity,
+        frame_id: query.get('frame_id'),
+        request_id: 'stale-circle',
+        marks: [circle],
+      }),
+    );
+    expect(useScreen.getState().marks).toHaveLength(0);
+    const rejected = fetch.mock.calls.filter(([url]) => url.endsWith('/result')).at(-1);
+    expect(JSON.parse(String(rejected?.[1].body))).toMatchObject({
+      request_id: 'stale-circle',
+      ok: false,
+    });
+  } finally {
+    h.hook.unmount();
+  }
 });

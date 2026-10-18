@@ -24,6 +24,10 @@ class ScreenSession:
         self.revision = 0
         self.active = False
         self.frame: ScreenFrame | None = None
+        self.objects: list[dict] = []
+        self.object_version = 0
+        self.board_items: dict[str, dict] = {}
+        self.pending: dict[str, asyncio.Future] = {}
         self.cancel: Callable[[], Awaitable[None]] | None = None
         self.changed = asyncio.Event()
         self.cancel_pending = False
@@ -43,6 +47,13 @@ class ScreenSession:
             return False
         self.source, self.epoch, self.active = source, epoch, active
         self.revision = 0
+        self.objects = []
+        self.board_items = {}
+        self.object_version = 0
+        for future in self.pending.values():
+            if not future.done():
+                future.set_result(False)
+        self.pending.clear()
         self.frame = None
         self.updated_at = datetime.now(UTC)
         self.changed.set()
@@ -70,7 +81,9 @@ class ScreenSession:
     async def fresh(self, since: datetime) -> ScreenFrame | None:
         epoch = self.epoch
         try:
-            async with asyncio.timeout(2):
+            # The renderer permits an eight-second upload. Allow capture, dispatch and
+            # encoding overhead too; never abandon a valid in-flight upload at two seconds.
+            async with asyncio.timeout(12):
                 while self.active and epoch == self.epoch:
                     self.changed.clear()
                     frame = self.frame

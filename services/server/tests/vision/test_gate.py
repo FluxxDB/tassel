@@ -54,7 +54,7 @@ def test_gate_text(gi, reason, explanation, lang, language):
         "Seconds since new ink: 7. Seconds since she last spoke: 9. "
         "New ink since the last check: yes.\n"
         "Transcript, last 20 seconds, oldest first:\n"
-        "Ada: Take your time.\nStudent: 다 했어요"
+        "Tutor: Take your time.\nStudent: 다 했어요"
     )
 
 

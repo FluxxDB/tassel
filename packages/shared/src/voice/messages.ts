@@ -126,6 +126,7 @@ export interface StudentMessage {
 }
 export type ClientEvent =
   | ({ kind: 'student-message' } & StudentMessage)
+  | { kind: 'tutor-name'; name: string }
   | ({ kind: 'stage-state' } & StageState)
   | { kind: 'ptt'; enabled: boolean; held: boolean }
   | { kind: 'sensitivity'; level: Sensitivity }
@@ -133,6 +134,7 @@ export type ClientEvent =
 
 /** The RTVI `requestData` of a voice offer. */
 export interface OfferRequestData {
+  tutor_name?: string;
   /** The fake LLM's scenario; the server's default when absent. */
   scenario?: string;
   sensitivity: Sensitivity;

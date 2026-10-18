@@ -1,13 +1,18 @@
+import { parseAction } from '@tassel/shared/beats';
 import { useEffect } from 'react';
 import type { AppConfig } from '../../../shared/bridge';
 import type { OverlayIntent, ScreenIdentity, ScreenMark } from '../../../shared/screen-bridge';
-import { validPoints } from '../../../shared/screen-bridge';
+import { SCREEN_COLORS, validScreenMark } from '../../../shared/screen-bridge';
 import { useAvatar } from '../avatar/store';
 import { beatPlayer } from '../board/beats/player';
+import { useBoardStore } from '../board/board-store';
+import { reduceBoard } from '../board/scene/reduce';
 import { useChatStore } from '../features/chat/chat-store';
+import { currentSession } from '../features/session/current-session';
 import { useStageStore } from '../features/session/stage-store';
 import { useLiveVoice } from '../features/voice/live-voice';
-import { viewportChanged } from './geometry';
+import { paintStudentInk, viewportChanged } from './geometry';
+import { editScreenObjects, screenBoardSnapshot, screenInventory } from './objects';
 import { ScreenSession } from './session';
 import { bindScreenActions, useScreen } from './store';
 
@@ -21,7 +26,6 @@ export async function requestScreenTurn(): Promise<boolean> {
 export function acceptScreenMarks(value: unknown) {
   receiveMarks?.(value);
 }
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /** Mounted once beside VoiceSession. Hiding the window never unmounts this controller. */
 export function useScreenController(sessionId: string, app?: AppConfig) {
@@ -31,6 +35,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
     let disposed = false,
       operation = 0,
       sequence = 0,
+      strokeReceipt = 0,
       busy = false,
       uploading = false,
       controlQueue = Promise.resolve();
@@ -44,6 +49,8 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
     let presentationVersion = 0;
     let preparing = false;
     let uploadAbort: AbortController | null = null;
+    let currentCapture: Promise<void> | null = null;
+    let lastCaptureStarted = 0;
     const get = () => useScreen.getState();
     const set = (state: Partial<ReturnType<typeof get>>) => {
       if (!disposed) useScreen.setState(state);
@@ -84,7 +91,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
             ? { previous: state.caption.previous }
             : state.caption,
       }));
-      set({ marks: [], draw: false });
+      set({ marks: [], draw: false, placements: {} });
       const active = get().status !== 'paused' && get().status !== 'off';
       const source = get().status === 'off' ? 'paper' : identity.source;
       const task = async () => {
@@ -106,13 +113,55 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
       controlQueue = result;
       await result;
     });
+    let inventoryQueue = Promise.resolve();
+    let objectVersion = 0;
+    let lastInventory = '';
+    const syncInventory = () => {
+      if (fake || disposed || !get().selected) return inventoryQueue;
+      const state = get(),
+        board = useBoardStore.getState();
+      const objects = screenInventory(state.marks, {
+        scene: board.scene,
+        layouts: board.layouts,
+        placements: state.placements,
+      });
+      const identity = session.identity();
+      const key = JSON.stringify([identity.source, identity.epoch, objects]);
+      if (key === lastInventory) return inventoryQueue;
+      lastInventory = key;
+      const body = JSON.stringify({
+        source: identity.source,
+        epoch: identity.epoch,
+        version: ++objectVersion,
+        objects,
+      });
+      inventoryQueue = inventoryQueue
+        .catch(() => {})
+        .then(async () => {
+          await controlQueue;
+          if (disposed || session.identity().epoch !== identity.epoch) return;
+          try {
+            await api('objects', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body,
+            });
+          } catch (error) {
+            if (lastInventory === key) lastInventory = '';
+            throw error;
+          }
+        });
+      return inventoryQueue;
+    };
     const publish = () => {
       if (disposed) return;
       const state = get(),
         stage = useStageStore.getState();
       if (!state.selected) return;
+      void syncInventory().catch(() => {});
       bridge.publish({
         sequence: ++sequence,
+        strokeReceipt,
         status:
           state.status === 'paused'
             ? 'paused'
@@ -121,14 +170,22 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
               : state.status === 'resetting'
                 ? 'resetting'
                 : 'sharing',
-        caption: stage.captionsOn ? (stage.caption.current?.text ?? '') : '',
+        caption: stage.captionsOn ? (stage.caption.current?.text ?? '').slice(-16000) : '',
         tutorState: stage.tutorState,
         micOn: stage.micOn,
         draw: state.draw,
         marks: state.marks,
         avatar: { ...useAvatar.getState().profile },
         notice: state.notice,
+        language: currentSession()?.language ?? app.uiLanguage,
         boardHint: stage.requested !== 'paper',
+        board: screenBoardSnapshot(useBoardStore.getState(), state.placements),
+        viewport: {
+          width: state.selected.bounds.width,
+          height: state.selected.bounds.height,
+          x: state.selected.bounds.x,
+          y: state.selected.bounds.y,
+        },
       });
     };
     const fail = () => {
@@ -140,6 +197,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
       set({
         status: prior === 'paused' ? 'paused' : 'resetting',
         marks: [],
+        placements: {},
         draw: false,
         notice: 'reset',
       });
@@ -164,6 +222,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         status: 'off',
         draw: false,
         marks: [],
+        placements: {},
         stream: null,
         selected: null,
         presentation: 'expanded',
@@ -199,9 +258,8 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         await bridge.prepare?.();
         if (disposed || version !== presentationVersion || !get().selected) return;
         set({ presentation: 'collapsing' });
-        await sleep(matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 280);
         if (disposed || version !== presentationVersion || !get().selected) return;
-        await bridge.collapse();
+        await bridge.collapse(matchMedia('(prefers-reduced-motion: reduce)').matches);
         if (version === presentationVersion) set({ presentation: 'overlay' });
       } catch {
         if (version === presentationVersion) set({ presentation: 'expanded', notice: 'failed' });
@@ -212,8 +270,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
     async function restore() {
       const version = ++presentationVersion;
       set({ presentation: 'restoring' });
-      await bridge.restore();
-      await sleep(matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 280);
+      await bridge.restore(matchMedia('(prefers-reduced-motion: reduce)').matches);
       if (version === presentationVersion) set({ presentation: 'expanded' });
     }
     function canvasFrame(width: number) {
@@ -228,17 +285,50 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
       return { canvas, context, width, height };
     }
     async function capture() {
-      if (disposed || uploading || get().status !== 'sharing' || !video) return;
+      // A second turn must await its own fresh frame rather than silently skipping a busy upload.
+      while (currentCapture) await currentCapture;
+      const task = takeFrame();
+      currentCapture = task;
+      try {
+        await task;
+      } finally {
+        if (currentCapture === task) currentCapture = null;
+      }
+    }
+    async function takeFrame() {
+      if (disposed || uploading || get().status !== 'sharing' || !video) {
+        console.info('[screen-timing]', {
+          delivered: false,
+          skipped: true,
+          status: get().status,
+          uploading,
+          video: !!video,
+        });
+        return;
+      }
       uploading = true;
       const identity = session.identity();
+      const started = performance.now();
+      let captured = started;
+      let encoded = started;
+      let uploaded = started;
+      let delivered = false;
       try {
         await controlQueue;
+        await syncInventory();
         const mask = await bridge.capture(true);
-        // Let capture deliver a frame after native ink has been hidden.
-        await sleep(160);
         if (disposed || !session.accepts(identity) || get().status !== 'sharing') return;
         const frame = canvasFrame(Math.min(1920, video.videoWidth));
-        if (!frame) return;
+        if (!frame) {
+          console.info('[screen-timing]', {
+            delivered: false,
+            reason: 'video-not-ready',
+            width: video.videoWidth,
+            height: video.videoHeight,
+            readyState: video.readyState,
+          });
+          return;
+        }
         if (mask) {
           frame.context.fillStyle = '#fff9f3';
           frame.context.fillRect(
@@ -248,12 +338,16 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
             Math.ceil(mask.height * frame.height) + 8,
           );
         }
+        paintStudentInk(frame.context, get().marks, frame.width, frame.height);
+        captured = performance.now();
         const jpeg = await new Promise<Blob | null>((resolve) =>
           frame.canvas.toBlob(resolve, 'image/jpeg', 0.88),
         );
         if (!jpeg || disposed || !session.accepts(identity) || get().status !== 'sharing') return;
+        encoded = performance.now();
         const id = crypto.randomUUID();
         lastFrameId = id;
+        lastCaptureStarted = started;
         if (!fake) {
           uploadAbort = new AbortController();
           await api(
@@ -266,9 +360,18 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
             },
           );
         }
+        uploaded = performance.now();
+        delivered = true;
       } catch {
         if (!disposed && session.accepts(identity)) set({ notice: 'failed' });
       } finally {
+        console.info('[screen-timing]', {
+          frameId: lastFrameId,
+          captureMs: Math.round(captured - started),
+          encodeMs: Math.round(Math.max(0, encoded - captured)),
+          uploadMs: delivered ? Math.round(uploaded - encoded) : null,
+          delivered,
+        });
         uploading = false;
         await bridge.capture(false).catch(() => {});
       }
@@ -280,6 +383,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         const frame = canvasFrame(160);
         if (!frame) return;
         const mask = await bridge.capture(false);
+        if (uploading || disposed || get().status !== 'sharing') return;
         if (mask)
           frame.context.clearRect(
             mask.x * frame.width,
@@ -294,7 +398,18 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
           current[i] = Math.round(
             ((rgba[i * 4] ?? 0) + (rgba[i * 4 + 1] ?? 0) + (rgba[i * 4 + 2] ?? 0)) / 3,
           );
-        const currentMarks = get().marks;
+        const currentMarks: ScreenMark[] = [
+          ...get().marks,
+          ...Object.entries(get().placements).map(([id, region]) => ({
+            id: `board:${id}`,
+            kind: 'rectangle' as const,
+            author: 'tutor' as const,
+            points: [
+              { x: region.x, y: region.y },
+              { x: region.x + region.w, y: region.y + region.h },
+            ],
+          })),
+        ];
         for (const mark of [...previousMarks, ...currentMarks]) {
           const xs = mark.points.map((p) => p.x),
             ys = mark.points.map((p) => p.y);
@@ -311,11 +426,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         if (sample && viewportChanged(sample, current)) {
           session.invalidate();
           lastFrameId = '';
-          set({ marks: [], draw: false });
-          // Invalidate server work as well as local geometry; stale speech must not continue.
-          void reset().then(() => {
-            if (!disposed) set({ notice: '' });
-          });
+          // Keep visible ink and speech. Only pending geometry belongs to the old viewport.
         }
         sample = current;
         previousMarks = currentMarks;
@@ -352,7 +463,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         cameraWasOn = useStageStore.getState().cameraOn;
         useStageStore.setState({ cameraOn: false });
         session.start(`${selected.id}:${crypto.randomUUID()}`);
-        set({ selected, stream, status: 'sharing', marks: [], draw: false });
+        set({ selected, stream, status: 'sharing', marks: [], placements: {}, draw: false });
         stream.getVideoTracks()[0]?.addEventListener('ended', () => void stop(), { once: true });
         await reset();
         timer = setInterval(() => void watch(), 300);
@@ -379,8 +490,22 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
       restore,
       pause: async () => {
         const paused = get().status === 'paused';
-        set({ status: paused ? 'sharing' : 'paused', notice: '' });
-        await reset();
+        session.invalidate();
+        lastFrameId = '';
+        uploadAbort?.abort();
+        set({ status: paused ? 'sharing' : 'paused', draw: false, notice: '' });
+        const identity = session.identity();
+        const task = async () => {
+          if (!fake)
+            await api('activity', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...identity, active: paused }),
+            });
+        };
+        const result = controlQueue.catch(() => {}).then(task);
+        controlQueue = result;
+        await result;
       },
       look: async () => {
         if (get().status !== 'sharing') return;
@@ -388,6 +513,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         useLiveVoice.getState().client?.sendText('Please look at my currently shared screen.');
       },
       stroke: (points: import('../../../shared/screen-bridge').ScreenPoint[]) => {
+        ++strokeReceipt;
         session.add(
           { id: crypto.randomUUID(), author: 'student', kind: 'freehand', points },
           session.identity(),
@@ -418,29 +544,142 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
       offStroke = bridge.onStroke(actions.stroke);
     const offScreen = useScreen.subscribe(publish),
       offStage = useStageStore.subscribe(publish),
-      offAvatar = useAvatar.subscribe(publish);
+      offAvatar = useAvatar.subscribe(publish),
+      offBoard = useBoardStore.subscribe(publish);
     captureTurn = async () => {
       if (get().selected) await capture();
     };
     const turn = captureTurn;
     receiveMarks = (value) => {
+      void applyScreenMessage(value);
+    };
+    async function applyScreenMessage(value: unknown) {
       if (!value || typeof value !== 'object') return;
-      const message = value as ScreenIdentity & { frame_id?: string; marks?: ScreenMark[] };
+      const message = value as ScreenIdentity & {
+        frame_id?: string;
+        marks?: ScreenMark[];
+        request_id?: string;
+        edit?: unknown;
+        board?: {
+          action: unknown;
+          region: { x: number; y: number; w: number; h: number; color?: ScreenMark['color'] };
+        };
+      };
+      const reply = async (ok: boolean) => {
+        if (!message.request_id || fake) return;
+        try {
+          await syncInventory();
+          await api('result', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              source: message.source,
+              epoch: message.epoch,
+              request_id: message.request_id,
+              ok,
+            }),
+          });
+        } catch {
+          /* Server times out safely instead of announcing an unconfirmed edit. */
+        }
+      };
+      const identity = session.identity();
+      if (
+        !get().selected ||
+        identity.source !== message.source ||
+        identity.epoch !== message.epoch
+      ) {
+        await reply(false);
+        return;
+      }
+      if (message.edit) {
+        const state = useBoardStore.getState();
+        const result = editScreenObjects(
+          session.marks,
+          { scene: state.scene, layouts: state.layouts, placements: get().placements },
+          message.edit,
+        );
+        if (!result) {
+          await reply(false);
+          return;
+        }
+        for (const item of result.removed) state.apply({ kind: 'board.clear', item });
+        session.marks = result.marks;
+        set({ marks: result.marks, placements: result.placements });
+        await reply(true);
+        return;
+      }
+      if (message.board) {
+        const action = parseAction(message.board.action),
+          region = message.board.region;
+        if (
+          get().status !== 'sharing' ||
+          !session.accepts(message) ||
+          message.frame_id !== lastFrameId ||
+          !action ||
+          !action.kind.startsWith('board.') ||
+          !('item' in action) ||
+          typeof action.item !== 'string' ||
+          (!Object.hasOwn(get().placements, action.item) &&
+            Object.keys(get().placements).length >= 100) ||
+          !region ||
+          ![region.x, region.y, region.w, region.h].every(Number.isFinite) ||
+          region.x < 0 ||
+          region.y < 0 ||
+          region.w <= 0 ||
+          region.h <= 0 ||
+          region.x + region.w > 1.000001 ||
+          region.y + region.h > 1.000001 ||
+          (region.color && !SCREEN_COLORS.includes(region.color))
+        ) {
+          await reply(false);
+          return;
+        }
+        const state = useBoardStore.getState();
+        const checked = reduceBoard(state.scene, action as Parameters<typeof state.apply>[0]);
+        if (checked.problem) {
+          await reply(false);
+          return;
+        }
+        set({ placements: { ...get().placements, [action.item]: region } });
+        state.apply(action as Parameters<typeof state.apply>[0]);
+        await reply(true);
+        return;
+      }
       if (
         get().status !== 'sharing' ||
         !session.accepts(message) ||
         message.frame_id !== lastFrameId ||
         !Array.isArray(message.marks)
-      )
+      ) {
+        await reply(false);
         return;
-      for (const mark of message.marks)
-        if (
-          validPoints(mark.points) &&
-          ['circle', 'pointer', 'arrow', 'underline'].includes(mark.kind)
-        )
-          session.add({ ...mark, author: 'tutor' }, message);
+      }
+      // Validate the whole batch before adding any stroke or acknowledging success.
+      const existing = new Set(session.marks.map((mark) => mark.id));
+      const newIds = new Set(message.marks.map((mark) => mark?.id));
+      if (
+        message.marks.length === 0 ||
+        message.marks.length + session.marks.length > 200 ||
+        message.marks.some((mark) => !validScreenMark(mark) || existing.has(mark.id)) ||
+        newIds.size !== message.marks.length ||
+        message.marks.reduce((n, mark) => n + mark.points.length, 0) +
+          session.marks.reduce((n, mark) => n + mark.points.length, 0) >
+          32768
+      ) {
+        await reply(false);
+        return;
+      }
+      for (const mark of message.marks) session.add({ ...mark, author: 'tutor' }, message);
+      console.info('[screen-timing]', {
+        frameId: message.frame_id,
+        stage: 'marks-received',
+        sinceCaptureRequestMs: Math.round(performance.now() - lastCaptureStarted),
+        marks: message.marks.length,
+      });
       set({ marks: session.marks });
-    };
+      await reply(true);
+    }
     const onKey = (event: KeyboardEvent) => {
       if (
         (event.ctrlKey || event.metaKey) &&
@@ -477,6 +716,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
       offScreen();
       offStage();
       offAvatar();
+      offBoard();
       offActions();
       offVoice();
       offClient();
@@ -508,6 +748,7 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         selected: null,
         stream: null,
         marks: [],
+        placements: {},
         draw: false,
         notice: '',
         presentation: 'expanded',

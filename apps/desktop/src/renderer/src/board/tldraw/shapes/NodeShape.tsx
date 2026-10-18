@@ -6,6 +6,7 @@ import { DIAGRAM_ICONS } from '@tassel/shared/beats';
 import { type JSX, useContext } from 'react';
 import { BaseBoxShapeUtil, HTMLContainer, type RecordProps, T } from 'tldraw';
 import { BoardLang } from '../board-lang';
+import { screenShapeStyle } from '../screen';
 import { NodeFigure } from './figures';
 import type { NodeShape } from './types';
 
@@ -47,7 +48,7 @@ export class NodeShapeUtil extends BaseBoxShapeUtil<NodeShape> {
 
   override component(shape: NodeShape): JSX.Element {
     return (
-      <HTMLContainer>
+      <HTMLContainer style={screenShapeStyle(shape)}>
         <Node shape={shape} />
       </HTMLContainer>
     );
@@ -62,5 +63,12 @@ export class NodeShapeUtil extends BaseBoxShapeUtil<NodeShape> {
 
 function Node({ shape }: { shape: NodeShape }): JSX.Element {
   const lang = useContext(BoardLang);
-  return <NodeFigure {...shape.props} lang={lang} />;
+  return (
+    <NodeFigure
+      {...shape.props}
+      w={shape.props.w / Number(shape.meta.screenScale ?? 1)}
+      h={shape.props.h / Number(shape.meta.screenScale ?? 1)}
+      lang={lang}
+    />
+  );
 }

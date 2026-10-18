@@ -3,6 +3,7 @@ import type { Lang } from '@tassel/shared/i18n';
 import { useEffect, useRef, useState } from 'react';
 import type { AppConfig } from '../../../../shared/bridge';
 import type { VoiceConfig } from '../../../../shared/voice-bridge';
+import { useAvatar } from '../../avatar/store';
 import { useMarksStore } from '../../board/marks/marks-store';
 import { usePaperStore } from '../../paper/paper-store';
 import { createTutorClient } from '../../tutor/create-client';
@@ -69,8 +70,17 @@ export function useVoiceSession(opts: {
       }),
       offerData: () => {
         const { sensitivity, pushToTalk } = useAudioPrefs.getState();
-        return { scenario: app.fakeScript, sensitivity, ptt: pushToTalk };
+        return {
+          scenario: app.fakeScript,
+          sensitivity,
+          ptt: pushToTalk,
+          tutor_name: useAvatar.getState().profile.name,
+        };
       },
+    });
+    const offAvatarName = useAvatar.subscribe((state, previous) => {
+      if (state.profile.name !== previous.profile.name)
+        client.voice?.setTutorName?.(state.profile.name);
     });
     let held = false;
     let unbind = () => {};
@@ -159,6 +169,7 @@ export function useVoiceSession(opts: {
     });
     setBinding({ resources, client });
     return () => {
+      offAvatarName();
       unbind();
       offPrefs();
       offStage();

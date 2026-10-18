@@ -135,7 +135,7 @@ export const useMarksStore: UseBoundStore<StoreApi<MarksState>> = create<MarksSt
           );
           if (missing) {
             console.warn(
-              `[tassel] Skipped Ada's ${mark.type} mark "${mark.id}": her paper has no such ink:`,
+              `[tassel] Skipped the tutor's ${mark.type} mark "${mark.id}": her paper has no such ink:`,
               missing,
             );
             return;

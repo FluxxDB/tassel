@@ -18,7 +18,16 @@ import type { AutomatonItem, BoardScene, DiagramItem, NoteItem, TraceItem } from
 
 export interface DesiredShape {
   id: string;
-  type: 'tassel-state' | 'tassel-trace' | 'tassel-note' | 'tassel-node' | 'tassel-group' | 'arrow';
+  type:
+    | 'tassel-state'
+    | 'tassel-trace'
+    | 'tassel-note'
+    | 'tassel-node'
+    | 'tassel-group'
+    | 'arrow'
+    | 'geo'
+    | 'line'
+    | 'text';
   x: number;
   y: number;
   opacity: 0 | 1;
@@ -27,7 +36,14 @@ export interface DesiredShape {
    * Whose shape this is and what it draws. `hidden` until Ada reveals it: tldraw then neither
    * draws it nor lets the student hit it (P5-R5, I2).
    */
-  meta: { ada: true; item: string; el: string; hidden: boolean };
+  meta: {
+    ada: true;
+    item: string;
+    el: string;
+    hidden: boolean;
+    screenScale?: number;
+    screenColor?: string;
+  };
 }
 
 export interface DesiredBinding {

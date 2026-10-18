@@ -173,7 +173,9 @@ function Editor({ open, onClose }: { open: boolean; onClose(): void }) {
               </div>
             )}
           </div>
-          <p className="text-lg font-w520 truncate max-w-full">{draft.name.trim() || 'Ada'}</p>
+          <p className="text-lg font-w520 truncate max-w-full">
+            {draft.name.trim() || DEFAULT_AVATAR.name}
+          </p>
           <p className="text-center text-[13px] text-smoke-text">{t('avatar.previewHint')}</p>
         </div>
         <div className="min-w-0">
