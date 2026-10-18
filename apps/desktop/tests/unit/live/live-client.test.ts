@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { RTVIEvent } from '@pipecat-ai/client-js';
+import type { BeatDoc } from '@tassel/shared/beats';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createBeatPlayer } from '../../../src/renderer/src/board/beats/player';
 import {
   LiveTutorClient,
   type PipecatLike,
@@ -215,6 +217,64 @@ describe('LiveTutorClient', () => {
       { type: 'caption', speaker: 'tutor', text: 'Hi', final: false, lang: 'en' },
       { type: 'caption', speaker: 'tutor', text: 'Hi', final: true, lang: 'en' },
     ]);
+    await client.disconnect();
+  });
+  it('delivers beats and placed words to the beat player; an unheard tail strands nothing (P5-R7)', async () => {
+    const { client, clients } = setup();
+    const fired: string[] = [];
+    const player = createBeatPlayer({
+      dispatch: (actions) => {
+        for (const action of actions) fired.push((action as { id: string }).id);
+      },
+      now: () => 0,
+    });
+    // As use-tutor-session routes them.
+    client.on((event) => {
+      if (event.type === 'beat') player.load(event.beat);
+      if (event.type === 'word')
+        player.hear({
+          text: event.text,
+          lang: event.lang,
+          ...(event.segment !== undefined && { segment: event.segment }),
+          ...(event.index !== undefined && { index: event.index }),
+          atMs: 0,
+        });
+    });
+    const beat = (segment: string, line: string, word: number, id: string): BeatDoc => ({
+      version: 1,
+      id: `t1-${segment}`,
+      turn: 't1',
+      segment,
+      lang: 'en',
+      text: line,
+      durationSec: null,
+      shapeSet: 'rhubarb9',
+      mouthCues: [],
+      words: line.split(' ').map((text) => ({ text, start: null, end: null })),
+      markers: [{ id: `${segment}.1`, word, action: { kind: 'paper.unmark', id } }],
+    });
+    await client.connect('s');
+    const pc = clients[0];
+    const say = (segment_id: number, status: string, accumulated: string) =>
+      pc?.emit(RTVIEvent.BotOutput, {
+        segment_id,
+        text: accumulated,
+        spoken_status: status,
+        spoken_progress: { accumulated_text: accumulated, remaining_text: '' },
+      });
+    pc?.emit(RTVIEvent.BotStartedSpeaking);
+    pc?.emit(RTVIEvent.ServerMessage, {
+      tassel: { kind: 'beat', beat: beat('7', 'We start at q zero.', 4, 'tail') },
+    });
+    pc?.emit(RTVIEvent.ServerMessage, {
+      tassel: { kind: 'beat', beat: beat('8', 'A zero takes us to q one.', 1, 'next') },
+    });
+    say(7, 'new', '');
+    say(7, 'in-progress', 'We start');
+    // Segment 7's tail ("at q zero.") is never heard; segment 8 still plays.
+    say(8, 'new', '');
+    say(8, 'in-progress', 'A zero');
+    expect(fired).toEqual(['next']);
     await client.disconnect();
   });
   it('retries after 1, 2 and 4 seconds, deduplicates error/disconnect and then fails', async () => {

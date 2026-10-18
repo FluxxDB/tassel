@@ -97,8 +97,16 @@ export function mapRtvi(
       if (input.status === 'new') break;
       const before = words(state.segment?.spoken ?? '');
       const spoken = input.accumulated ?? (input.status === 'completed' ? input.text : '');
-      for (const text of words(spoken).slice(before.length))
-        events.push({ type: 'word', text, lang: state.lang });
+      // Each word says where it sits (P5-R7): its segment, and its 0-based index there, so the
+      // beat player finds its document even after an earlier sentence's tail went unheard.
+      const heard = words(spoken);
+      for (let index = before.length; index < heard.length; index++)
+        events.push({
+          type: 'word',
+          text: heard[index] as string,
+          lang: state.lang,
+          ...(input.segmentId && { segment: input.segmentId, index }),
+        });
       if (input.status === 'completed') {
         if (spoken) state.done.push(spoken);
         state.segment = null;
@@ -115,6 +123,9 @@ export function mapRtvi(
           break;
         case 'stage':
           events.push({ type: 'stage', mode: event.view });
+          break;
+        case 'beat':
+          events.push({ type: 'beat', beat: event.beat });
           break;
         case 'language':
           state.lang = event.lang;
