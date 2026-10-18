@@ -117,7 +117,11 @@ class VoiceSettings(BaseSettings):
     # The owner's pick (2026-10-17 by ear): Matilda on Multilingual v2, faster. Over the
     # streaming WebSocket it starts in ~0.5–0.7 s (HTTP was ~1.9 s).
     tts_model: Literal[
-        "eleven_flash_v2_5", "eleven_turbo_v2_5", "eleven_multilingual_v2", "eleven_v3"
+        "eleven_flash_v2_5",
+        "eleven_turbo_v2_5",
+        "eleven_multilingual_v2",
+        "eleven_v3",
+        "eleven_v4_turbo",
     ] = "eleven_multilingual_v2"
     tts_style: float = Field(0.15, ge=0, le=1)
     tts_speaker_boost: bool = True
