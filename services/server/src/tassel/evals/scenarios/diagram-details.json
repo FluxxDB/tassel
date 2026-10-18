@@ -14,7 +14,11 @@
         "board": {
           "diagrams": 1,
           "labels": ["Sales", "Engineering", "Guest Wi-Fi", "Core Switch", "Edge Router"],
-          "group_icons": { "*": { "switch": 1, "pc": 2 } },
+          "group_icons": {
+            "Sales": { "switch": 1, "pc": 2 },
+            "Engineering": { "switch": 1, "pc": 2 },
+            "Guest": { "switch": 1, "pc": 2 }
+          },
           "edges": [{ "from": "Core Switch", "to": "Edge Router" }]
         }
       }
@@ -30,9 +34,9 @@
           "diagrams": 1,
           "labels": ["NAS", "Sales", "Edge Router"],
           "group_icons": {
-            "*": { "switch": 1, "pc": 2 },
-            "Engineering": { "server": 1 },
-            "Guest": { "laptop": 1 }
+            "Sales": { "switch": 1, "pc": 2 },
+            "Engineering": { "switch": 1, "pc": 2, "server": 1 },
+            "Guest": { "switch": 1, "pc": 2, "laptop": 1 }
           },
           "edges": [{ "from": "Core Switch", "to": "Edge Router" }]
         }

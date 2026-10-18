@@ -154,6 +154,10 @@ def usable_hosts(text: str | None) -> int:
         except ValueError:
             continue
         best = max(best, max(net.num_addresses - 2, 0) if net.prefixlen < 31 else 2)
+    # A bare prefix ("/26 (50 addresses)") sizes the zone too, when no network was given.
+    for prefix in re.findall(r"(?:^|[\s(])/(\d{1,2})\b", text or ""):
+        if 0 < int(prefix) < 31:
+            best = max(best, 2 ** (32 - int(prefix)) - 2)
     return best
 
 
