@@ -28,6 +28,7 @@ from tassel.voice.action_checker import TargetLanguage, check_tags, talker_allow
 from tassel.voice.director import report_usage, rules
 from tassel.voice.history import windowed
 from tassel.voice.illustrator import Illustrator
+from tassel.voice.pointer import MarkIntent, Pointer, mark_tags
 from tassel.voice.prompts import thinker_system_prompt
 from tassel.voice.settings import VoiceSettings
 
@@ -41,6 +42,7 @@ class GuidanceBrief(BaseModel):
     say: str = Field(min_length=1)
     board: list[str]
     paper: list[str]
+    marks: list[MarkIntent] = Field(default_factory=list)
     confidence: float = Field(ge=0, le=1)
     followups: list[str]
     language: TargetLanguage | None = None
@@ -150,9 +152,13 @@ class TutorCoordinator:
         ttl_s=300,
         lang=lambda: "en",
         illustrator=None,
+        pointer=None,
     ):
         self.thinker, self.board, self.transcript = thinker, board, transcript
         self.illustrator = illustrator
+        self.pointer = pointer
+        self.page_image = None
+        self.page_caption = ""
         self.illustrator_task = None
         self.diagram_delivered = False
         self.ttl_s = ttl_s
@@ -236,6 +242,8 @@ class TutorCoordinator:
         self.decision = decision
         self.delivered = False
         self._page = page
+        self.page_image = image
+        self.page_caption = ""
         current = ink_signature(image)
         changed = (
             current is not None
@@ -381,6 +389,7 @@ class TutorCoordinator:
         """The turn's page, fetched while the talker bridges: the thinker gets it, the talker
         never waits for it."""
         page, self._page = self._page, None
+        self.page_image, self.page_caption = None, ""
         result = await page()
         user = next((m for m in reversed(self.messages) if m.get("role") == "user"), None)
         if user is None:
@@ -388,6 +397,7 @@ class TutorCoordinator:
         text = user["content"] if isinstance(user["content"], str) else self.text
         if result and result[0]:
             image, caption = result[0], result[1]
+            self.page_image, self.page_caption = image, caption
             ink = result[2] if len(result) > 2 and result[2] else image
             current = ink_signature(ink)
             if (
@@ -414,11 +424,43 @@ class TutorCoordinator:
         else:
             user["content"] = [{"type": "text", "text": text}, {"type": "text", "text": NO_VIEW}]
 
+    async def _point(self, brief, decision, generation):
+        if not brief.marks or not (
+            decision.action == "mark_paper"
+            or (decision.action == "trace" and decision.refers_to == "paper")
+        ):
+            return brief
+        started = time.monotonic()
+        try:
+            elements = self.board.paper_elements
+            if self.page_image is None or elements is None or elements.detected is None:
+                raise ValueError("No current marked page")
+            if self.pointer is None:
+                self.pointer = Pointer(self.thinker.settings, log=self.log)
+                self.pointer.client.on_usage = getattr(self.thinker, "on_usage", None)
+            frame = self.board.paper_frame
+            resolved = await self.pointer.resolve(
+                brief.marks, self.page_image, self.page_caption, elements.detected.items
+            )
+            if generation != self.generation or frame != self.board.paper_frame:
+                return brief.model_copy(update={"paper": []})
+            return brief.model_copy(update={"paper": mark_tags(resolved)})
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            self.log("reject", source="pointer", reason=type(error).__name__)
+            return brief
+        finally:
+            self.log("pointer_duration", ms=(time.monotonic() - started) * 1000)
+
     async def _brief(self, generation, messages, effort):
         brief = lift_say_tags(await self.thinker.think(messages, effort=effort))
         if generation != self.generation:
             return None
         decision = self.decision or rules(self.text)
+        brief = await self._point(brief, decision, generation)
+        if generation != self.generation:
+            return None
         checked = await asyncio.to_thread(
             check_tags, brief.board + brief.paper, decision, self.board, brief.language
         )
@@ -441,6 +483,7 @@ class TutorCoordinator:
                 )
                 # A repair may not evade verification by removing/changing the target.
                 brief = lift_say_tags(repaired).model_copy(update={"language": original_language})
+                brief = await self._point(brief, decision, generation)
                 checked = await asyncio.to_thread(
                     check_tags,
                     brief.board + brief.paper,
@@ -529,6 +572,8 @@ class TutorCoordinator:
             await self.thinker.close()
         if self.illustrator is not None:
             await self.illustrator.close()
+        if self.pointer is not None:
+            await self.pointer.close()
 
 
 STEP = re.compile(r"\[\[\s*p?step\b")

@@ -93,6 +93,9 @@ class VoiceSettings(BaseSettings):
     # diagram in 0.8-1.3 s where luna took 4.0-4.5 s.
     illustrator_provider: Literal["openai", "openrouter"] = "openrouter"
     illustrator_timeout_s: float = 6.0
+    pointer_model: str = "gpt-6-luna"
+    pointer_provider: Literal["openai", "openrouter"] = "openai"
+    pointer_timeout_s: float = Field(2.5, gt=0)
     thinker_model: str = "gpt-6-luna"
     # Retest #7: luna at "low" took 6–8.6 s per brief; "none" read the owner's page correctly in
     # 2.6–2.9 s. Board constructions still think at "low" (thinker_draw_effort).
