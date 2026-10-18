@@ -180,7 +180,12 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
         language: currentSession()?.language ?? app.uiLanguage,
         boardHint: stage.requested !== 'paper',
         board: screenBoardSnapshot(useBoardStore.getState(), state.placements),
-        viewport: { width: state.selected.bounds.width, height: state.selected.bounds.height },
+        viewport: {
+          width: state.selected.bounds.width,
+          height: state.selected.bounds.height,
+          x: state.selected.bounds.x,
+          y: state.selected.bounds.y,
+        },
       });
     };
     const fail = () => {

@@ -6,7 +6,7 @@ import {
   maskFor,
   positionKey,
 } from '../../../src/main/overlay/placement';
-import { screenDesired } from '../../../src/renderer/src/board/tldraw/screen';
+import { screenCamera, screenDesired } from '../../../src/renderer/src/board/tldraw/screen';
 import { nudgeDelta, validNudge } from '../../../src/shared/screen-bridge';
 
 const primary = { x: 0, y: 0, width: 1440, height: 900 };
@@ -81,6 +81,37 @@ describe('the frame and the marks share the display, whatever its scale or origi
       x: 0,
       y: 0,
     });
+  });
+
+  it('aims the ink camera at the display, wherever the OS put the window', () => {
+    // macOS kept the full-height panel 33 px below the menu bar: page (0, 0) is drawn 33 px up.
+    expect(
+      screenCamera(
+        { ...primary, x: 0, y: 0 },
+        { width: 1512, height: 982, screenX: 0, screenY: 33 },
+      ),
+    ).toEqual({ x: 0, y: -33, z: 1 });
+    // An offset display with its window where it belongs: no correction, no scaling.
+    expect(
+      screenCamera(
+        { width: 1920, height: 1080, x: -1920, y: -180 },
+        { width: 1920, height: 1080, screenX: -1920, screenY: -180 },
+      ),
+    ).toEqual({ x: 0, y: 0, z: 1 });
+    // Windows constrained the window to the work area: marks keep their size and place.
+    expect(
+      screenCamera(
+        { width: 1920, height: 1080, x: 0, y: 0 },
+        { width: 1920, height: 1040, screenX: 0, screenY: 0 },
+      ),
+    ).toEqual({ x: 0, y: 0, z: 1 });
+    // No origin known (the geometry spec's resized windows): fit the viewport to the window.
+    expect(
+      screenCamera(
+        { width: 1920, height: 1080 },
+        { width: 960, height: 540, screenX: 0, screenY: 0 },
+      ),
+    ).toEqual({ x: 0, y: 0, z: 0.5 });
   });
 
   it('projects marks in display points: a 2x capture of the same display lands in the same place', () => {

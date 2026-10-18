@@ -8,6 +8,33 @@ import { readTldrawLicenseKey, tldrawKeyLine } from './config/tldraw-license';
 const tldrawKey = readTldrawLicenseKey();
 console.log(tldrawKeyLine(tldrawKey));
 
+/**
+ * Without a key, tldraw's license gate blanks the canvas a few seconds after it mounts in a
+ * production bundle (an `app://` origin is not one of its development origins), which made
+ * every later assertion of the overlay spec a race. A keyless build is an agent's or CI's E2E
+ * build, never the owner's packaged one, so there the gate reads as development, as it does
+ * for `pnpm live` on http://localhost. The owner's key still licenses real builds.
+ */
+let gatesOpened = 0;
+const keylessTldrawGate = {
+  name: 'tassel-keyless-tldraw-gate',
+  // Dev serves tldraw pre-bundled from http://localhost, which its gate already takes as development.
+  apply: 'build' as const,
+  transform(code: string, id: string) {
+    // @tldraw/editor ships as one bundled module; the gate is LicenseManager.getIsDevelopment.
+    if (tldrawKey.key || !/\/@tldraw\/editor\/.*\.m?js$/.test(id)) return null;
+    const gate =
+      /this\.isLoopbackHost\(hostname\) \|\| (?:process\.env\.NODE_ENV !== "production"|false)/;
+    if (!gate.test(code)) return null;
+    ++gatesOpened;
+    return { code: code.replace(gate, 'this.isLoopbackHost(hostname) || true'), map: null };
+  },
+  buildEnd() {
+    if (!tldrawKey.key && !gatesOpened)
+      throw new Error('tldraw’s license gate changed; update tassel-keyless-tldraw-gate');
+  },
+};
+
 // Entries are electron-vite's defaults: src/main/index.ts, src/preload/index.ts and
 // src/renderer/index.html, built to out/. Every dependency is a devDependency, so
 // externalizeDeps leaves them all bundled: the sandboxed preload can only require electron.
@@ -16,7 +43,7 @@ export default defineConfig({
   preload: {},
   renderer: {
     define: { __TASSEL_TLDRAW_LICENSE_KEY__: JSON.stringify(tldrawKey.key ?? '') },
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), keylessTldrawGate],
     // The paper detector and the board's layout are module workers: in the build too, as ES
     // modules, so OpenCV and Graphviz become chunks they import when they need them.
     worker: { format: 'es' },

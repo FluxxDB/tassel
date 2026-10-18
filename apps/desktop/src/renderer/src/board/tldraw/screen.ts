@@ -81,6 +81,31 @@ export function screenDesired(
   return { shapes, bindings: new Map() };
 }
 
+/**
+ * The ink camera for a viewport. With the display's origin known, page (0, 0) is the display's
+ * top-left corner at 1 point per pixel, wherever the OS put the window (macOS keeps a
+ * full-height panel below the menu bar: its content starts 25–37 px down, and every mark
+ * landed that far low). Without an origin, the viewport is fitted to the window, as the
+ * geometry spec's resized windows expect.
+ */
+export function screenCamera(
+  viewport: { width: number; height: number; x?: number; y?: number },
+  window: { width: number; height: number; screenX: number; screenY: number },
+): { x: number; y: number; z: number } {
+  if (Number.isFinite(viewport.x) && Number.isFinite(viewport.y)) {
+    return {
+      x: (viewport.x as number) - window.screenX,
+      y: (viewport.y as number) - window.screenY,
+      z: 1,
+    };
+  }
+  const zoom =
+    window.width > 0 && window.height > 0
+      ? Math.min(window.width / viewport.width, window.height / viewport.height)
+      : 1;
+  return { x: 0, y: 0, z: zoom };
+}
+
 /** Geometry is in display units; figures retain their regular whiteboard typography. */
 export function screenShapeStyle(shape: { meta: Record<string, unknown> }): CSSProperties {
   const color = shape.meta.screenColor;

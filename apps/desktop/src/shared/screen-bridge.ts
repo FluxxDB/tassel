@@ -55,7 +55,9 @@ export interface OverlayState {
   boardHint?: boolean;
   language?: 'en' | 'es' | 'ko';
   board?: ScreenBoard;
-  viewport?: { width: number; height: number };
+  /** The shared display in points; its origin lets the ink window map marks to the display
+   * wherever the OS put the window. */
+  viewport?: { width: number; height: number; x?: number; y?: number };
 }
 export type OverlayIntent =
   | 'reset'
@@ -186,7 +188,9 @@ export function validOverlayState(value: unknown): value is OverlayState {
       s.viewport.width <= 0 ||
       s.viewport.height <= 0 ||
       s.viewport.width > 32768 ||
-      s.viewport.height > 32768)
+      s.viewport.height > 32768 ||
+      (s.viewport.x !== undefined && !Number.isFinite(s.viewport.x)) ||
+      (s.viewport.y !== undefined && !Number.isFinite(s.viewport.y)))
   )
     return false;
   if (s.board !== undefined && !validScreenBoard(s.board)) return false;
