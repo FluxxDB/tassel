@@ -25,8 +25,8 @@
             "focus": "split",
             "needs_vision": false,
             "route": "talker",
-            "action": "none",
-            "refers_to": "conversation"
+            "action": "explain",
+            "refers_to": "board"
           }
         },
         {
@@ -71,8 +71,8 @@
             "focus": "split",
             "needs_vision": false,
             "route": "talker",
-            "action": "none",
-            "refers_to": "conversation"
+            "action": "explain",
+            "refers_to": "board"
           }
         },
         {

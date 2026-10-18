@@ -154,9 +154,10 @@ async def test_typed_reply_stage_memory_and_resume():
                 for m in bot.context.get_messages()
             )
         )
-        # A focus suggestion with no visual need leaves the current paper view alone.
+        # The scripted decision refers to the board, so the stage manager opens split once; the
+        # LLM's own stage request adds nothing.
         stages = [e for e in out.events() if e["kind"] == "stage"]
-        assert stages == []
+        assert stages == [{"kind": "stage", "view": "split"}]
     saved, lang = ctx.memory.recall(ctx.session_id)
     assert lang == "en" and any(m.get("role") == "user" for m in saved)
     assert not any(m["role"] == "system" for m in saved)
@@ -493,7 +494,8 @@ async def test_fake_session_draws_through_the_director_and_thinker(monkeypatch):
         assert "[[" not in out.text()
 
 
-async def test_scripted_focus_without_visual_need_does_not_switch():
+async def test_scripted_board_reference_opens_split():
+    # The scripted turn refers to the board, a visual need: the stage manager opens split.
     ctx = context(request=OfferRequestData(scenario="dfa-opening"))
     async with running(ctx) as (bot, out):
         await until(lambda: load_scenario("dfa-opening").langs["en"].greeting in out.text())
@@ -502,7 +504,7 @@ async def test_scripted_focus_without_visual_need_does_not_switch():
         )
         await until(lambda: "1010" in out.text())
         stages = [e["view"] for e in out.events() if e["kind"] == "stage"]
-        assert stages == []
+        assert stages == ["split"]
 
 
 @pytest.mark.parametrize("prefix", ["", "[[stage paper]]", "Look at your paper"])
