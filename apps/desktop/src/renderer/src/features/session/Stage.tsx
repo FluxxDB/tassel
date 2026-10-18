@@ -30,6 +30,8 @@ const TILE_INSET = 14;
  * 12px more keeps a gap.
  */
 const CAPTIONS_CLEARANCE = 14 + 84 + 12;
+/** The panels' top lines, whose controls the floating tiles never rest over. */
+const TOP_LINE = '[data-top-line]';
 
 const REFLOW =
   'motion-safe:transition-[flex-grow,margin-left,opacity] motion-safe:duration-[240ms] motion-safe:ease-[cubic-bezier(0.16,1,0.3,1)]';
@@ -89,9 +91,14 @@ export function Stage({ source, onUnpinned }: StageProps) {
         </TopLine>
       </Panel>
       {mode === 'board' && cameraOn && stream && (
-        <CameraPip stream={stream} inset={TILE_INSET} bottomClearance={CAPTIONS_CLEARANCE} />
+        <CameraPip
+          stream={stream}
+          inset={TILE_INSET}
+          bottomClearance={CAPTIONS_CLEARANCE}
+          clearOf={TOP_LINE}
+        />
       )}
-      <TutorTile inset={TILE_INSET} bottomClearance={CAPTIONS_CLEARANCE} />
+      <TutorTile inset={TILE_INSET} bottomClearance={CAPTIONS_CLEARANCE} clearOf={TOP_LINE} />
     </div>
   );
 }
@@ -145,7 +152,10 @@ function TopLine({
   children: ReactNode;
 }) {
   return (
-    <div className="pointer-events-none absolute top-3.5 right-3.5 left-3.5 z-10 flex flex-wrap items-center gap-2">
+    <div
+      data-top-line=""
+      className="pointer-events-none absolute top-3.5 right-3.5 left-3.5 z-10 flex flex-wrap items-center gap-2"
+    >
       {children}
       {pinIndicator && <PinIndicator onUnpinned={onUnpinned} />}
       {trailing}

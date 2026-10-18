@@ -13,7 +13,15 @@ import { useLiveVoice } from '../voice/live-voice';
 import { useStageStore } from './stage-store';
 import './tiles.css';
 
-export function TutorTile({ inset, bottomClearance }: { inset: number; bottomClearance: number }) {
+export function TutorTile({
+  inset,
+  bottomClearance,
+  clearOf,
+}: {
+  inset: number;
+  bottomClearance: number;
+  clearOf?: string;
+}) {
   const { t } = useTranslation();
   const state = useStageStore((store) => store.tutorState);
   const connection = useStageStore((store) => store.connection);
@@ -39,6 +47,7 @@ export function TutorTile({ inset, bottomClearance }: { inset: number; bottomCle
       maxWidth={360}
       inset={inset}
       bottomClearance={bottomClearance}
+      clearOf={clearOf}
     >
       <figure
         aria-labelledby={captionId}

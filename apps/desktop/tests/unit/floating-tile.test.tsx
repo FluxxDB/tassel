@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MOTION } from '../../src/renderer/src/board/motion';
@@ -31,6 +32,18 @@ beforeAll(() => {
   };
 });
 
+// Nor does it give boxes: a top line's control reads its box (x,y,w,h in window px) from data-box.
+const rectOf = HTMLElement.prototype.getBoundingClientRect;
+beforeAll(() => {
+  HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+    const [x = 0, y = 0, w = 0, h = 0] = (this.dataset.box ?? '').split(',').map(Number);
+    return new DOMRect(x, y, w, h);
+  };
+  return () => {
+    HTMLElement.prototype.getBoundingClientRect = rectOf;
+  };
+});
+
 beforeEach(() => localStorage.clear());
 afterEach(() => vi.useRealTimers());
 
@@ -49,11 +62,13 @@ async function renderTile(
   props: Partial<FloatingTileProps> = {},
   stage = { w: 1000, h: 600 },
   extra?: Partial<FloatingTileProps>,
+  topLine?: ReactNode,
 ) {
   const i18n = await initI18n('en');
   const view = render(
     <I18nextProvider i18n={i18n}>
       <div data-testid="bounds" data-w={stage.w} data-h={stage.h}>
+        {topLine}
         <FloatingTile {...TILE} {...props}>
           <span>inside</span>
         </FloatingTile>
@@ -258,6 +273,81 @@ describe('FloatingTile', () => {
     const { tile } = await renderTile();
     expect(tile).toHaveAttribute('tabindex', '0');
     expect(tile).toHaveAccessibleDescription(/arrow keys/i);
+  });
+
+  describe("clear of the stage's top line", () => {
+    /** A top line, like the stage's panels': its controls in a row 14px in from the top left. */
+    const topLine = (boxes: string[], inert = false) => (
+      <section inert={inert}>
+        <div data-top-line="">
+          {boxes.map((b) => (
+            <span key={b} data-box={b} data-testid="control" />
+          ))}
+        </div>
+      </section>
+    );
+    const CLEAR = { clearOf: '[data-top-line]' };
+
+    it('rests a top corner 8px below the controls it would cover', async () => {
+      const { tile } = await renderTile(
+        { ...CLEAR, defaultCorner: 'top-left' },
+        undefined,
+        undefined,
+        topLine(['14,14,120,26', '142,14,180,26']),
+      );
+      expect(box(tile)).toMatchObject({ left: 14, top: 14 + 26 + 8 });
+      expect(useFloatingTiles.getState().tiles.ada?.rect).toEqual({ x: 14, y: 48, w: 200, h: 100 });
+    });
+
+    it('keeps a top corner 14px in where nothing of the top line is under it', async () => {
+      const { tile } = await renderTile(CLEAR, undefined, undefined, topLine(['14,14,320,26']));
+      expect(box(tile)).toMatchObject({ left: 786, top: 14 });
+    });
+
+    it('snaps below the top line when dragged to the corner under it', async () => {
+      const { tile } = await renderTile(CLEAR, undefined, undefined, topLine(['14,14,320,26']));
+      drag(tile, 900, 50, -800, 10);
+      expect(tile).toHaveAttribute('data-corner', 'top-left');
+      expect(box(tile)).toMatchObject({ left: 14, top: 48 });
+      // Grown from its inner corner, it stays below the line.
+      const handle = tile.querySelector('[data-resize-handle]') as Element;
+      drag(handle, 214, 148, 60, 30);
+      expect(box(tile)).toMatchObject({ left: 14, top: 48, width: 260 });
+    });
+
+    it('clears a top line that wraps to two rows, and moves when the line grows under it', async () => {
+      const { tile, getByTestId } = await renderTile(
+        CLEAR,
+        undefined,
+        undefined,
+        topLine(['14,14,600,26']),
+      );
+      expect(box(tile).top).toBe(14);
+      // The line grows under the top right corner, on a second row.
+      getByTestId('control').dataset.box = '14,48,900,26';
+      act(() => window.dispatchEvent(new Event('resize')));
+      expect(box(tile)).toMatchObject({ left: 786, top: 48 + 26 + 8 });
+    });
+
+    it("ignores a hidden panel's top line", async () => {
+      const { tile } = await renderTile(
+        { ...CLEAR, defaultCorner: 'top-left' },
+        undefined,
+        undefined,
+        topLine(['14,14,320,26'], true),
+      );
+      expect(box(tile)).toMatchObject({ left: 14, top: 14 });
+    });
+
+    it('leaves the bottom corners where they were', async () => {
+      const { tile } = await renderTile(
+        { ...CLEAR, defaultCorner: 'bottom-left' },
+        undefined,
+        undefined,
+        topLine(['14,14,320,26']),
+      );
+      expect(box(tile)).toMatchObject({ left: 14, top: 600 - 110 - 100 });
+    });
   });
 
   it('passes its current size to a render function child', async () => {

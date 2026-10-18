@@ -16,10 +16,12 @@ export function CameraPip({
   stream,
   inset,
   bottomClearance,
+  clearOf,
 }: {
   stream: MediaStream;
   inset: number;
   bottomClearance: number;
+  clearOf?: string;
 }) {
   const { t } = useTranslation();
   const crop = usePaperStore((state) => state.contentRect);
@@ -36,6 +38,7 @@ export function CameraPip({
       maxWidth={480}
       inset={inset}
       bottomClearance={bottomClearance}
+      clearOf={clearOf}
       onActivate={() => pin('split')}
     >
       {(box) => (
