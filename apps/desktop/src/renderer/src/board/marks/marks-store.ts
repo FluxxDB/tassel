@@ -10,6 +10,7 @@ import type {
   PaperMark,
 } from '@tassel/shared/beats';
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
+import { type AutomatonRun, runAutomaton } from '../automata/run';
 import { targetExists, targetsOf } from './geometry';
 import { type LoadedFrame, type SnapshotImage, snapshotSourceFor } from './snapshot-sources';
 
@@ -23,9 +24,9 @@ export interface Snapshot extends Omit<LoadedFrame, 'elements' | 'spec'> {
   spec: AutomatonSpec | null;
 }
 
-/** Ada's trace over the snapshot: what she traces, and how many steps show. Task 10 runs it. */
+/** Ada's trace over the snapshot: what she traces, and how many steps show. */
 export interface PaperTrace {
-  input: string;
+  run: AutomatonRun;
   shown: number;
 }
 
@@ -157,15 +158,19 @@ export const useMarksStore: UseBoundStore<StoreApi<MarksState>> = create<MarksSt
             console.warn("[tassel] Skipped a trace: there's no automaton on this snapshot to run.");
             return;
           }
-          set({ trace: { input: action.input, shown: 0 } });
+          set({ trace: { run: runAutomaton(snapshot.spec, action.input), shown: 0 } });
           return;
         case 'paper.traceStep':
           if (!trace) {
             console.warn('[tassel] Skipped a trace step: no trace has started on the paper.');
             return;
           }
-          // Task 10 clamps it to the run's steps.
-          set({ trace: { ...trace, shown: action.step ?? trace.shown + 1 } });
+          set({
+            trace: {
+              ...trace,
+              shown: Math.min(Math.max(action.step ?? trace.shown + 1, 0), trace.run.steps.length),
+            },
+          });
           return;
         default:
           return;

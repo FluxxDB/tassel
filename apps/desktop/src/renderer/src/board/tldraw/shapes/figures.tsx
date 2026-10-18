@@ -4,6 +4,8 @@
 import type { Lang } from '@tassel/shared/i18n';
 import type { CSSProperties, JSX } from 'react';
 import { useTranslation } from 'react-i18next';
+import { MOTION } from '../../motion';
+import '../../trace.css';
 import { cn } from '../../../lib/cn';
 
 export type StateRing = 'none' | 'highlight' | 'current';
@@ -112,7 +114,15 @@ export function StateFigure({
             cx={R}
             cy={R}
             r={38}
-            style={{ fill: 'none', stroke: IRIS_INK, strokeWidth: ring === 'current' ? 3 : 2 }}
+            key={ring}
+            className={ring === 'current' ? 'trace-ring' : undefined}
+            style={{
+              fill: 'none',
+              stroke: IRIS_INK,
+              strokeWidth: ring === 'current' ? 3 : 2,
+              animationDuration: `${MOTION.pulseMs}ms`,
+              animationTimingFunction: MOTION.ease,
+            }}
           />
         )}
         <text
@@ -261,8 +271,11 @@ function TraceStep({
   return (
     <li
       data-testid="trace-row"
+      className="trace-fade"
       data-newest={newest}
       style={{
+        animationDuration: `${MOTION.fadeMs}ms`,
+        animationTimingFunction: MOTION.ease,
         display: 'flex',
         alignItems: 'baseline',
         gap: 16,
@@ -275,6 +288,7 @@ function TraceStep({
           : 'transparent',
         fontSize: 17,
         whiteSpace: 'nowrap',
+        overflowX: 'auto',
       }}
     >
       <span className="mono" style={{ fontSize: 12, color: SMOKE_TEXT }}>

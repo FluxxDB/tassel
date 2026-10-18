@@ -1,0 +1,243 @@
+{
+  "lang": "en",
+  "steps": [
+    {
+      "at": 0,
+      "event": {
+        "type": "state",
+        "state": "connecting"
+      }
+    },
+    {
+      "at": 800,
+      "event": {
+        "type": "state",
+        "state": "listening"
+      }
+    },
+    {
+      "at": 1500,
+      "event": {
+        "type": "caption",
+        "speaker": "student",
+        "text": "Can you trace 1010 for me?",
+        "lang": "en",
+        "final": true
+      }
+    },
+    {
+      "at": 2500,
+      "turn": [
+        {
+          "say": "{#setup}Let's trace 1010 on your paper and on mine.",
+          "actions": {
+            "setup": [
+              {
+                "kind": "paper.freeze",
+                "frame": {
+                  "kind": "fixture",
+                  "name": "dfa-wrong"
+                }
+              },
+              {
+                "kind": "paper.trace",
+                "input": "1010"
+              },
+              {
+                "kind": "board.automaton",
+                "item": "fix",
+                "spec": {
+                  "kind": "dfa",
+                  "states": [
+                    {
+                      "id": "q0"
+                    },
+                    {
+                      "id": "q1"
+                    },
+                    {
+                      "id": "q2"
+                    },
+                    {
+                      "id": "q3",
+                      "accept": true
+                    },
+                    {
+                      "id": "qd"
+                    }
+                  ],
+                  "start": "q0",
+                  "transitions": [
+                    {
+                      "from": "q0",
+                      "to": "q1",
+                      "symbols": ["0"]
+                    },
+                    {
+                      "from": "q1",
+                      "to": "q2",
+                      "symbols": ["1"]
+                    },
+                    {
+                      "from": "q2",
+                      "to": "q3",
+                      "symbols": ["0"]
+                    },
+                    {
+                      "from": "q3",
+                      "to": "q3",
+                      "symbols": ["0", "1"]
+                    },
+                    {
+                      "from": "q0",
+                      "to": "qd",
+                      "symbols": ["1"]
+                    },
+                    {
+                      "from": "q1",
+                      "to": "qd",
+                      "symbols": ["0"]
+                    },
+                    {
+                      "from": "q2",
+                      "to": "qd",
+                      "symbols": ["1"]
+                    },
+                    {
+                      "from": "qd",
+                      "to": "qd",
+                      "symbols": ["0", "1"]
+                    }
+                  ]
+                },
+                "reveal": "all"
+              },
+              {
+                "kind": "board.trace",
+                "item": "tr",
+                "spec": {
+                  "kind": "dfa",
+                  "states": [
+                    {
+                      "id": "q0"
+                    },
+                    {
+                      "id": "q1"
+                    },
+                    {
+                      "id": "q2"
+                    },
+                    {
+                      "id": "q3",
+                      "accept": true
+                    },
+                    {
+                      "id": "qd"
+                    }
+                  ],
+                  "start": "q0",
+                  "transitions": [
+                    {
+                      "from": "q0",
+                      "to": "q1",
+                      "symbols": ["0"]
+                    },
+                    {
+                      "from": "q1",
+                      "to": "q2",
+                      "symbols": ["1"]
+                    },
+                    {
+                      "from": "q2",
+                      "to": "q3",
+                      "symbols": ["0"]
+                    },
+                    {
+                      "from": "q3",
+                      "to": "q3",
+                      "symbols": ["0", "1"]
+                    },
+                    {
+                      "from": "q0",
+                      "to": "qd",
+                      "symbols": ["1"]
+                    },
+                    {
+                      "from": "q1",
+                      "to": "qd",
+                      "symbols": ["0"]
+                    },
+                    {
+                      "from": "q2",
+                      "to": "qd",
+                      "symbols": ["1"]
+                    },
+                    {
+                      "from": "qd",
+                      "to": "qd",
+                      "symbols": ["0", "1"]
+                    }
+                  ]
+                },
+                "input": "1010",
+                "on": "fix"
+              }
+            ]
+          }
+        },
+        {
+          "say": "{#s1}First a 1. {#s2}Then a 0. {#s3}A 1. {#s4}And a 0.",
+          "actions": {
+            "s1": [
+              {
+                "kind": "paper.traceStep"
+              },
+              {
+                "kind": "board.traceStep",
+                "item": "tr"
+              }
+            ],
+            "s2": [
+              {
+                "kind": "paper.traceStep"
+              },
+              {
+                "kind": "board.traceStep",
+                "item": "tr"
+              }
+            ],
+            "s3": [
+              {
+                "kind": "paper.traceStep"
+              },
+              {
+                "kind": "board.traceStep",
+                "item": "tr"
+              }
+            ],
+            "s4": [
+              {
+                "kind": "paper.traceStep"
+              },
+              {
+                "kind": "board.traceStep",
+                "item": "tr"
+              }
+            ]
+          }
+        },
+        {
+          "say": "{#v}Mine rejects it.",
+          "actions": {
+            "v": {
+              "kind": "board.verdict",
+              "item": "tr",
+              "got": "reject"
+            }
+          }
+        }
+      ],
+      "then": "listening"
+    }
+  ]
+}

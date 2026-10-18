@@ -1,0 +1,26 @@
+/* Durations and easing are supplied from MOTION. Only entry effects: nothing loops. */
+@keyframes trace-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes trace-ring {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+.trace-fade {
+  animation-name: trace-fade;
+}
+.trace-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation-name: trace-ring;
+}
+@media (prefers-reduced-motion: reduce) {
+  .trace-fade,
+  .trace-ring {
+    animation: none;
+  }
+}

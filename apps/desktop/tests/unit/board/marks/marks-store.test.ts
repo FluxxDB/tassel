@@ -1,5 +1,6 @@
 import type { FrameRef, PaperAction, PaperMark, PaperTarget } from '@tassel/shared/beats';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { runAutomaton } from '../../../../src/renderer/src/board/automata/run';
 import { FIXTURE_DFA_WRONG } from '../../../../src/renderer/src/board/marks/fixture-paper';
 import {
   applyPaperAction,
@@ -289,7 +290,10 @@ describe('the marks store', () => {
 
     loads[0].resolve(urlFrame().frame);
     await flush();
-    expect(store()).toMatchObject({ status: 'frozen', trace: { input: '1010', shown: 2 } });
+    expect(store()).toMatchObject({
+      status: 'frozen',
+      trace: { run: runAutomaton(FIXTURE_DFA_WRONG.spec, '1010'), shown: 2 },
+    });
     expect(store().marks.map((m) => m.id)).toEqual(['s1']);
   });
 
@@ -311,12 +315,18 @@ describe('the marks store', () => {
     applyPaperAction(FREEZE_FIXTURE);
     await flush();
     applyPaperAction({ kind: 'paper.trace', input: '1010' });
-    expect(store().trace).toEqual({ input: '1010', shown: 0 });
+    expect(store().trace).toEqual({ run: runAutomaton(FIXTURE_DFA_WRONG.spec, '1010'), shown: 0 });
     applyPaperAction({ kind: 'paper.traceStep' });
-    expect(store().trace).toEqual({ input: '1010', shown: 1 });
+    expect(store().trace).toEqual({ run: runAutomaton(FIXTURE_DFA_WRONG.spec, '1010'), shown: 1 });
     applyPaperAction({ kind: 'paper.traceStep', step: 3 });
-    expect(store().trace).toEqual({ input: '1010', shown: 3 });
+    expect(store().trace).toEqual({ run: runAutomaton(FIXTURE_DFA_WRONG.spec, '1010'), shown: 3 });
 
+    applyPaperAction({ kind: 'paper.traceStep', step: 99 });
+    expect(store().trace?.shown).toBe(4);
+    applyPaperAction({ kind: 'paper.traceStep' });
+    expect(store().trace?.shown).toBe(4);
+    applyPaperAction({ kind: 'paper.traceStep', step: 0 });
+    expect(store().trace?.shown).toBe(0);
     applyPaperAction({ kind: 'paper.clear' });
     expect(store()).toMatchObject({ status: 'frozen', trace: null });
     applyPaperAction({ kind: 'paper.trace', input: '11' });

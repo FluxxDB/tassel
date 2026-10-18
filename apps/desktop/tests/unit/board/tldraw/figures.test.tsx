@@ -75,6 +75,7 @@ describe('StateFigure', () => {
     );
     state = screen.getByRole('img', { name: 'qd' });
     expect(state).toHaveAttribute('data-ring', 'current');
+    expect(state.querySelector('.trace-ring')).not.toBeNull();
     expect(circles(state)).toContainEqual({ r: '38', stroke: 'var(--color-iris-ink)', width: '3' });
     const body = state.querySelector('circle');
     expect(body?.style.fill).toBe('color-mix(in oklab, var(--color-iris) 20%, white)');
@@ -115,6 +116,8 @@ describe('TraceCard', () => {
       'Step 1read 1q0 → q0loops',
       'Step 2read 0q0 → q1',
     ]);
+    expect(rows[0]).toHaveClass('trace-fade');
+    expect(rows[0].style.animationDuration).toBe('150ms');
     expect(rows.map((row) => row.dataset.newest)).toEqual(['false', 'true']);
     expect(within(rows[0]).getByText('loops').style.color).toBe('var(--color-iris-ink)');
   });
@@ -171,6 +174,20 @@ describe('TraceCard', () => {
       'Paso 1lee 1q0 → q0se queda',
     ]);
     expect(screen.getByText('Este AFD: acepta')).toBeInTheDocument();
+  });
+
+  it('uses Korean trace labels and the tutor verdict in a Korean session', async () => {
+    await renderIn(
+      <TraceCard
+        {...RUN}
+        lang="ko"
+        shown={1}
+        subject="tutor"
+        verdict={{ got: 'reject', note: null }}
+      />,
+    );
+    expect(screen.getByTestId('trace-row')).toHaveTextContent('1단계1 읽음q0 → q0제자리');
+    expect(screen.getByTestId('trace-verdict')).toHaveTextContent('이 DFA: 거부');
   });
 
   it('heads the card with its own title when it has one', async () => {

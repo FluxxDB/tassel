@@ -14,6 +14,8 @@ import { FixturePaper } from './fixture-paper';
 import { MarkShapes } from './MarkShapes';
 import { MarksDescription } from './MarksDescription';
 import { type Snapshot, useMarksStore } from './marks-store';
+import { TraceMarks } from './TraceMarks';
+import { planPaperTrace } from './trace-marks';
 import './marks.css';
 import { containFit, type Fit } from './project';
 import type { SnapshotImage } from './snapshot-sources';
@@ -35,6 +37,18 @@ function FrozenPaper({ snapshot }: { snapshot: Snapshot }) {
   // Her marks speak the session's language; the image's alt text is chrome.
   const lang = useSessionLang();
   const marks = useMarksStore((state) => state.marks);
+  const trace = useMarksStore((state) => state.trace);
+  const described = trace
+    ? [
+        ...marks,
+        ...planPaperTrace(trace.run, trace.shown).dots.map((dot) => ({
+          type: 'step' as const,
+          id: `trace-${dot.n}-${dot.el}`,
+          n: dot.n,
+          target: { el: dot.el },
+        })),
+      ]
+    : marks;
   const layer = useRef<HTMLDivElement>(null);
   const panel = useSize(layer);
   const fit = containFit(snapshot.image, panel);
@@ -46,7 +60,8 @@ function FrozenPaper({ snapshot }: { snapshot: Snapshot }) {
     >
       <Frame image={snapshot.image} fit={fit} alt={t('marks.alt')} />
       <MarkShapes marks={marks} snapshot={snapshot} fit={fit} panel={panel} lang={lang} />
-      <MarksDescription marks={marks} lang={lang} />
+      {trace && <TraceMarks trace={trace} snapshot={snapshot} fit={fit} />}
+      <MarksDescription marks={described} lang={lang} />
     </div>
   );
 }

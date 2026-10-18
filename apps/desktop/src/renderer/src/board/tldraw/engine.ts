@@ -2,7 +2,7 @@
 // board against her next (planSync), so it changes only what she changed. Her changes go in as
 // remote changes outside the undo history, so they never count as the student's (Task 6) and she
 // can't undo them. Effects play on an overlay; the camera fits her focus.
-import { type Pt, parseElementRef } from '@tassel/shared/beats';
+import type { Pt } from '@tassel/shared/beats';
 import type { Lang } from '@tassel/shared/i18n';
 import {
   type Editor,
@@ -29,7 +29,7 @@ import {
   desiredBoard,
   NO_SHAPES,
 } from './desired';
-import { effectsOf } from './effects';
+import { arrowPath, effectsOf } from './effects';
 import { createTextMeasure } from './measure';
 import { planSync, type SyncPlan } from './plan-sync';
 
@@ -108,6 +108,20 @@ export function createTldrawEngine(
   });
 
   const render = (scene: BoardScene, layouts: Readonly<Record<string, AutomatonLayout>>) => {
+    // A new step/run or removed drawing invalidates the old token. Copy and verdict updates
+    // keep its clock, so a fast arriving verdict cannot cut a glide short.
+    const invalidated = drawn?.scene.items.some((before) => {
+      const next = scene.items.find((item) => item.id === before.id);
+      return (
+        !next ||
+        next.kind !== before.kind ||
+        (before.kind === 'trace' &&
+          next.kind === 'trace' &&
+          (before.run !== next.run || before.shown !== next.shown)) ||
+        (before.kind === 'automaton' && next.kind === 'automaton' && before.spec !== next.spec)
+      );
+    });
+    if (invalidated) effects.stop();
     drawn = { scene, layouts };
     const next = desiredBoard(scene, layouts, text(), lang);
     apply(editor, planSync(shown, next));
@@ -123,8 +137,8 @@ export function createTldrawEngine(
       if (drawn) render(drawn.scene, drawn.layouts);
     },
     async play(effect: BoardEffect) {
-      if (reduced()) return;
       if (effect.type === 'pulse') {
+        if (reduced()) return;
         // Around the state's own circle: its page bounds come from a polygon, a little smaller.
         const state = editor.getShape(adaShapeId(effect.item, effect.el) as TLShapeId);
         if (state?.type !== 'tassel-state') return;
@@ -133,16 +147,13 @@ export function createTldrawEngine(
         await effects.play({ type: 'pulse', center: { x: center.x, y: center.y }, r });
         return;
       }
-      // Each edge from its tail state's center to its head's, where they are now (Task 10 follows
-      // the arrow's own path).
       const edges = effect.edges.flatMap((ref): Pt[][] => {
-        const edge = parseElementRef(ref);
-        if (edge?.kind !== 'edge') return [];
-        const from = centerOf(editor, adaShapeId(effect.item, `state:${edge.from}`));
-        const to = centerOf(editor, adaShapeId(effect.item, `state:${edge.to}`));
-        return from && to ? [[from, to]] : [];
+        const arrow = editor.getShape(adaShapeId(effect.item, ref) as TLShapeId);
+        if (arrow?.type !== 'arrow') return [];
+        const path = arrowPath(editor, arrow);
+        return path.length > 0 ? [path] : [];
       });
-      if (edges.length > 0) await effects.play({ type: 'glide', edges });
+      if (edges.length > 0) await effects.play({ type: 'glide', edges }, reduced());
     },
     focus(item, { animate }) {
       frame(item, animate);
@@ -270,11 +281,6 @@ function bindingCreate(binding: DesiredBinding): TLBindingCreate {
       snap: 'none',
     },
   } as TLBindingCreate;
-}
-
-function centerOf(editor: Editor, id: string): Pt | null {
-  const bounds = editor.getShapePageBounds(id as TLShapeId);
-  return bounds ? { x: bounds.center.x, y: bounds.center.y } : null;
 }
 
 function union(boxes: readonly Box[]): Box | undefined {

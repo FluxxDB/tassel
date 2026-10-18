@@ -6,6 +6,7 @@ import { FakeTutorClient } from './fake-client';
 import boardDemo from './scripts/board-demo.json';
 import dfaOpening from './scripts/dfa-opening.json';
 import marksDemo from './scripts/marks-demo.json';
+import traceDemo from './scripts/trace-demo.json';
 import type { FakeScript, TutorClient } from './types';
 
 /**
@@ -17,6 +18,7 @@ export const SCRIPTS: Record<string, AuthoredScript | FakeScript> = {
   // P5: Ada's board (Task 5) and her marks on the paper (Tasks 7 and 8).
   'board-demo': boardDemo as FakeScript,
   'marks-demo': marksDemo as AuthoredScript,
+  'trace-demo': traceDemo as AuthoredScript,
 };
 
 export function createTutorClient(cfg: AppConfig): TutorClient {

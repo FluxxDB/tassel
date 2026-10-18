@@ -31,6 +31,7 @@ import {
   OVERLAY_UTILS,
   SHAPE_UTILS,
 } from '../../../../src/renderer/src/board/tldraw/editor-config';
+import { arrowPath, effectsOf } from '../../../../src/renderer/src/board/tldraw/effects';
 import {
   createTldrawEngine,
   type TldrawEngine,
@@ -44,6 +45,7 @@ import { CORRECT, WRONG } from '../fixtures';
 
 // What tldraw needs of a browser that jsdom lacks; hoisted, so it's there before tldraw loads.
 vi.hoisted(() => {
+  Range.prototype.getClientRects ??= () => [] as unknown as DOMRectList;
   window.matchMedia ??= ((media: string) => ({
     matches: false,
     media,
@@ -291,4 +293,68 @@ describe('the tldraw engine', () => {
     const q3 = editor.getShapePageBounds(id('state:q3'));
     expect(q3 && editor.pageToViewport({ x: q3.x, y: q3.y }).y).toBeGreaterThan(tile.y + tile.h);
   });
+});
+
+it('glides along resolved arrow terminals and bends, including moved self-loops', () => {
+  const { editor, engine } = board(null, false);
+  engine.render(sceneAfter(draw(CORRECT)), { fix: fallbackLayout(CORRECT) });
+  editor.updateShapes([{ id: id('state:qd'), type: 'tassel-state', x: 900, y: 500 }]);
+  for (const el of ['edge:q0>qd', 'edge:qd>qd']) {
+    const arrow = editor.getShape(id(el)) as TLArrowShape;
+    const info = getArrowInfo(editor, arrow);
+    if (!info || info.type === 'elbow') throw new Error('expected a resolved arrow');
+    const transform = editor.getShapePageTransform(arrow);
+    const path = arrowPath(editor, arrow);
+    const start = transform.applyToPoint(info.start.point);
+    const end = transform.applyToPoint(info.end.point);
+    expect(path[0]).toEqual({ x: start.x, y: start.y });
+    expect(path.at(-1)).toEqual({ x: end.x, y: end.y });
+    if (info.type === 'arc') {
+      const mid = transform.applyToPoint(info.middle);
+      expect(path[Math.floor(path.length / 2)].x).toBeCloseTo(mid.x);
+      expect(path[Math.floor(path.length / 2)].y).toBeCloseTo(mid.y);
+    }
+    void engine.play({ type: 'glide', item: 'fix', edges: [el as `edge:${string}>${string}`] });
+    expect(effectsOf(editor).running.get().at(-1)?.effect).toEqual({
+      type: 'glide',
+      edges: [path],
+    });
+  }
+});
+
+it('reduced motion shows the glide endpoint without starting an effect clock', async () => {
+  const { editor, engine } = board();
+  engine.render(sceneAfter(draw(CORRECT)), { fix: fallbackLayout(CORRECT) });
+  const arrow = editor.getShape(id('edge:q0>qd')) as TLArrowShape;
+  const end = arrowPath(editor, arrow).at(-1);
+  await engine.play({ type: 'glide', item: 'fix', edges: ['edge:q0>qd'] });
+  expect(effectsOf(editor).running.get()).toEqual([]);
+  expect(
+    editor.overlays.getActiveOverlayEntries().flatMap((e) => e.overlays.map((o) => o.props)),
+  ).toEqual([{ kind: 'token', ...end }]);
+});
+
+it('a verdict does not cancel the current glide, but rewinding or clearing does', () => {
+  const { editor, engine } = board(null, false);
+  const layouts = { fix: fallbackLayout(CORRECT) };
+  const traced = sceneAfter(
+    draw(CORRECT),
+    { kind: 'board.trace', item: 'tr', spec: CORRECT, input: '1', on: 'fix' },
+    { kind: 'board.traceStep', item: 'tr' },
+  );
+  engine.render(traced, layouts);
+  void engine.play({ type: 'glide', item: 'fix', edges: ['edge:q0>qd'] });
+  engine.render(
+    reduceBoard(traced, { kind: 'board.verdict', item: 'tr', got: 'reject' }).scene,
+    layouts,
+  );
+  expect(effectsOf(editor).running.get()).toHaveLength(1);
+  engine.render(
+    reduceBoard(traced, { kind: 'board.traceStep', item: 'tr', step: 0 }).scene,
+    layouts,
+  );
+  expect(effectsOf(editor).running.get()).toHaveLength(0);
+  void engine.play({ type: 'glide', item: 'fix', edges: ['edge:q0>qd'] });
+  engine.render(EMPTY_SCENE, {});
+  expect(editor.overlays.getActiveOverlayEntries()).toEqual([]);
 });
