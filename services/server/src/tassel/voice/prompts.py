@@ -176,6 +176,9 @@ def thinker_system_prompt(schema: dict) -> str:
     return (
         "You are Ada's background thinker, never a speaking assistant. Return only a JSON "
         "guidance brief matching this schema:\n" + json.dumps(schema) + "\n"
+        "Be brief: the student is waiting. page at most 30 words, diagnosis one sentence, "
+        "plan at most 2 steps, followups at most 2 short lines, say one or two short "
+        "spoken sentences. Leave board or paper empty when not needed.\n"
         "page: transcribe visible writing and describe states, edges and uncertainties. "
         "intent: what the student wants. diagnosis: the misconception with visible evidence. "
         "plan: 1–4 steps, question → counterexample → explanation → solution only if asked. "

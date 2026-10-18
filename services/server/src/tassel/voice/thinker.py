@@ -65,7 +65,7 @@ class Thinker:
                     reasoning_effort=self.settings.thinker_effort,
                     messages=request,
                     response_format={"type": "json_object"},
-                    max_completion_tokens=3000,
+                    max_completion_tokens=1200,
                 )
             except (APIConnectionError, TimeoutError):
                 if attempt:

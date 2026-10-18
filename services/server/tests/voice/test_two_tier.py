@@ -145,9 +145,11 @@ async def test_invalid_json_retried_once_and_no_tools_sent():
     assert (await thinker.think([{"role": "user", "content": "check"}])).say
     assert len(requests) == 2
     assert all(
-        "tools" not in r and r["reasoning_effort"] == "low" and r["model"] == "gpt-6-astra"
+        "tools" not in r and r["reasoning_effort"] == "low" and r["model"] == "gpt-6-luna"
         for r in requests
     )
+    # Measured live on the owner's page: luna 3.1–4.6 s vs astra 7.4 s, same diagnosis.
+    assert VoiceSettings().thinker_model == "gpt-6-luna"
 
 
 def test_two_tier_defaults_require_both_keys_and_allow_opt_out():

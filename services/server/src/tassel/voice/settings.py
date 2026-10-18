@@ -82,7 +82,8 @@ class VoiceSettings(BaseSettings):
         return self
 
     two_tier: bool | None = None
-    thinker_model: str = "gpt-6-astra"
+    # Measured live on the owner's page: luna 4.6 s, astra 7.4 s, same diagnosis and mark.
+    thinker_model: str = "gpt-6-luna"
     thinker_effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"
 
     @property

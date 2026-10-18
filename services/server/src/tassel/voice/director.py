@@ -6,6 +6,7 @@ import re
 import time
 from typing import Literal
 
+from loguru import logger
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -64,7 +65,7 @@ def rules(text, *, focus="none", page_changed=False, **_):
 
 
 class Director:
-    def __init__(self, *, client=None, budget_s=0.3, log=None):
+    def __init__(self, *, client=None, budget_s=0.5, log=None):
         self.client, self.budget_s, self.log = client, budget_s, log
 
     async def decide(
@@ -124,16 +125,18 @@ class Director:
                             "provider": {
                                 "only": ["cerebras"],
                                 "allow_fallbacks": False,
-                                "require_parameters": True,
                             },
-                            "reasoning": {"effort": "none"},
+                            # Cerebras doesn't list structured output among its parameters,
+                            # so require_parameters made every call 404 (rules only).
+                            "reasoning": {"enabled": False},
                         },
                         max_tokens=150,
                     )
                     decision = Decision.model_validate_json(response.choices[0].message.content)
                     source = "model"
-            except Exception:
-                pass  # No provider details in the transcript; rules preserve the turn.
+            except Exception as error:
+                # No provider details in the transcript; rules preserve the turn.
+                logger.warning("Director fell back to rules ({})", type(error).__name__)
         if self.log:
             self.log(
                 "director",
@@ -159,6 +162,6 @@ def make_director(settings, *, log=None):
             api_key=settings.openrouter_api_key.get_secret_value(),
             base_url="https://openrouter.ai/api/v1",
             max_retries=0,
-            timeout=0.3,
+            timeout=0.5,
         )
     return Director(client=client, log=log)
