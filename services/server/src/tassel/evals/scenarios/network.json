@@ -2,7 +2,9 @@
   "name": "network",
   "title": "Network diagram: zones, add PCs, undo, an unrelated question, add them back, a note",
   "description": "Diagrams change only through the Illustrator; [[undo]] and [[redo]] put the board back; an unrelated question after the undo gets no stale 'removing the PCs' reply (2de450e6).",
-  "stage": { "view": "split" },
+  "stage": {
+    "view": "split"
+  },
   "turns": [
     {
       "student": "Can you draw a small office network on the board with three zones, Sales, Engineering and Guest, each with its own switch, and one router joining them?",
@@ -12,8 +14,25 @@
         "tags": ["board.diagram"],
         "board": {
           "diagrams": 1,
-          "groups": { "min": 3 },
-          "icons": { "router": { "min": 1 }, "switch": { "min": 3 } }
+          "groups": {
+            "min": 3
+          },
+          "icons": {
+            "router": {
+              "min": 1
+            },
+            "switch": {
+              "min": 3
+            }
+          },
+          "labels": ["Sales", "Engineering", "Guest"],
+          "group_icons": {
+            "*": {
+              "switch": {
+                "min": 1
+              }
+            }
+          }
         }
       }
     },
@@ -24,24 +43,54 @@
         "action": "draw_board",
         "tags": ["board.diagram"],
         "no_tags": ["board.clear"],
-        "board": { "diagrams": 1, "icons": { "pc": { "min": 6 }, "router": { "min": 1 } } }
+        "board": {
+          "diagrams": 1,
+          "icons": {
+            "pc": {
+              "min": 6
+            },
+            "router": {
+              "min": 1
+            }
+          },
+          "labels": ["Sales", "Engineering", "Guest"],
+          "group_icons": {
+            "*": {
+              "pc": 2,
+              "switch": {
+                "min": 1
+              }
+            }
+          }
+        }
       }
     },
     {
       "student": "Can you undo that?",
-      "expect": { "board": { "same_as_turn": 1 } }
+      "expect": {
+        "board": {
+          "same_as_turn": 1
+        }
+      }
     },
     {
       "student": "Quick question: what's the difference between a hub and a switch?",
       "expect": {
         "tags": [],
-        "board": { "unchanged": true },
+        "board": {
+          "unchanged": true
+        },
         "forbid": ["removing", "removed", "undo", "put them back", "added the"]
       }
     },
     {
       "student": "Okay, put the PCs back, please.",
-      "expect": { "route": "thinker", "board": { "same_as_turn": 2 } }
+      "expect": {
+        "route": "thinker",
+        "board": {
+          "same_as_turn": 2
+        }
+      }
     },
     {
       "student": "Add a note on the router saying it's the default gateway.",
@@ -49,7 +98,14 @@
         "route": "thinker",
         "tags": ["board.note"],
         "no_tags": ["board.clear"],
-        "board": { "diagrams": 1, "icons": { "pc": { "min": 6 } } }
+        "board": {
+          "diagrams": 1,
+          "icons": {
+            "pc": {
+              "min": 6
+            }
+          }
+        }
       }
     }
   ]

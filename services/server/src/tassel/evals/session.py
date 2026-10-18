@@ -183,6 +183,8 @@ class PipelineSession:
         )
         self.out = _Recorder()
         self.page: str | None = None
+        # The latest image she sent, a fixture name.
+        self.image: str | None = None
         self.served: dict[str, dict] | None = None
         self.last_elements: dict[str, dict] = {}
         initial = scenario.stage
@@ -345,6 +347,8 @@ class PipelineSession:
         frames = len(self.out.frames)
         self.served = None
         started = time.monotonic()
+        if turn.images:
+            self.image = turn.images[-1]
         if turn.images or not turn.voice:
             # The chat's composer: a student-message with her images, or her voice off.
             await self._message(
@@ -418,6 +422,8 @@ class PipelineSession:
             board_after=self._board(),
             page=self.page,
             elements=self.served if self.served is not None else dict(self.last_elements),
+            image=self.image,
+            image_elements=self._image_elements(),
             timings={
                 "director": first("director"),
                 "thinker": total("thinker_duration"),
@@ -429,6 +435,18 @@ class PipelineSession:
             },
             finished=finished,
         )
+
+    def _image_elements(self) -> dict[str, dict]:
+        """Her image's Set-of-Mark boxes, in the fixture's pixels."""
+        staged = self.board.image
+        if self.image is None or staged is None or staged.detected is None:
+            return {}
+        fixture, detected = render(self.image), staged.detected
+        sx, sy = fixture.width / detected.width, fixture.height / detected.height
+        return {
+            e.id: {"x": e.box.x * sx, "y": e.box.y * sy, "w": e.box.w * sx, "h": e.box.h * sy}
+            for e in detected.items
+        }
 
     async def _follow(self, stage, actions):
         """What the app does with her stage events: a pinned request pins its view; Ada's own

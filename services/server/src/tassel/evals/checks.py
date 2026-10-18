@@ -2,6 +2,7 @@
 that reached beats, the board before and after, where paper marks landed, what Ada said and how
 long each step took. They check outcomes, never wording."""
 
+import ipaddress
 import re
 from collections import Counter
 from dataclasses import asdict, dataclass, field
@@ -36,6 +37,9 @@ class Observation:
     board_after: dict = field(default_factory=lambda: {"automata": {}, "diagrams": {}})
     page: str | None = None
     elements: dict[str, dict] = field(default_factory=dict)
+    # The latest image she sent (a fixture name) and its Set-of-Mark boxes in fixture pixels.
+    image: str | None = None
+    image_elements: dict[str, dict] = field(default_factory=dict)
     timings: dict[str, float | None] = field(default_factory=dict)
     prompt_tokens: int = 0
     tokens: dict[str, dict] = field(default_factory=dict)
@@ -115,6 +119,93 @@ def _nodes(board: dict) -> list[dict]:
     return [n for d in board.get("diagrams", {}).values() for n in d.get("nodes", [])]
 
 
+def _fold(text: str | None) -> str:
+    """Case, spaces and punctuation ignored: "Guest Wi-Fi" is "guestwifi"."""
+    return re.sub(r"[\W_]+", "", (text or "").casefold())
+
+
+def _has(texts, wanted: str) -> bool:
+    return any(_fold(wanted) in _fold(t) for t in texts)
+
+
+def _texts(diagram: dict) -> list[str]:
+    parts = [diagram.get("title")]
+    for element in [*diagram.get("groups", []), *diagram.get("nodes", [])]:
+        parts += [element.get("label"), element.get("sublabel")]
+    parts += [e.get("label") for e in diagram.get("edges", [])]
+    return [p for p in parts if p]
+
+
+def _groups_named(diagrams: dict, name: str) -> list[tuple[dict, dict]]:
+    return [
+        (d, g)
+        for d in diagrams.values()
+        for g in d.get("groups", [])
+        if name == "*" or _has([g.get("label"), g.get("sublabel")], name)
+    ]
+
+
+def usable_hosts(text: str | None) -> int:
+    """The most usable hosts of any IPv4 CIDR written in this text (0 when there's none)."""
+    best = 0
+    for cidr in re.findall(r"\d+\.\d+\.\d+\.\d+/\d+", text or ""):
+        try:
+            net = ipaddress.ip_network(cidr, strict=False)
+        except ValueError:
+            continue
+        best = max(best, max(net.num_addresses - 2, 0) if net.prefixlen < 31 else 2)
+    return best
+
+
+def _detail_problems(expect, diagrams: dict) -> list[str]:
+    problems = []
+    texts = [t for d in diagrams.values() for t in _texts(d)]
+    problems += [f"no label {t!r}" for t in expect.labels if not _has(texts, t)]
+    problems += [f"label {t!r} still there" for t in expect.lacks_labels if _has(texts, t)]
+    for name, icons in expect.group_icons.items():
+        groups = _groups_named(diagrams, name)
+        if not groups:
+            problems.append(f"no group {name!r}")
+        for diagram, group in groups:
+            members = Counter(
+                n.get("icon") for n in diagram.get("nodes", []) if n.get("group") == group["id"]
+            )
+            for icon, wanted in icons.items():
+                if not _within(members[icon], wanted):
+                    problems.append(
+                        f"{group.get('label')}: {members[icon]} {icon}, wanted {_describe(wanted)}"
+                    )
+    for edge in expect.edges:
+        found = False
+        for d in diagrams.values():
+            label = {n["id"]: [n.get("label"), n.get("sublabel")] for n in d.get("nodes", [])}
+            for e in d.get("edges", []):
+                ends = (label.get(e.get("from"), []), label.get(e.get("to"), []))
+                for a, b in (ends, ends[::-1]):
+                    found = found or (_has(a, edge.from_) and _has(b, edge.to))
+        if not found:
+            problems.append(f"no edge {edge.from_} - {edge.to}")
+    for name, hosts in expect.group_hosts.items():
+        groups = _groups_named(diagrams, name)
+        best = max(
+            (usable_hosts(f"{g.get('label')} {g.get('sublabel')}") for _, g in groups), default=0
+        )
+        if best < hosts:
+            problems.append(f"{name}: {best} usable hosts, wanted {hosts}")
+    if expect.zone_hosts:
+        free = sorted(
+            usable_hosts(f"{g.get('label')} {g.get('sublabel')}")
+            for _, g in _groups_named(diagrams, "*")
+        )
+        for hosts in sorted(expect.zone_hosts, reverse=True):
+            fit = next((h for h in free if h >= hosts), None)
+            if fit is None:
+                problems.append(f"no zone fits {hosts} hosts (zones: {free})")
+            else:
+                free.remove(fit)
+    return problems
+
+
 def _board_problems(expect, obs: Observation, earlier: list[Observation]) -> list[str]:
     after = obs.board_after
     automata, diagrams = after.get("automata", {}), after.get("diagrams", {})
@@ -136,6 +227,7 @@ def _board_problems(expect, obs: Observation, earlier: list[Observation]) -> lis
     items = set(automata) | set(diagrams)
     problems += [f"missing item {item}" for item in expect.has if item not in items]
     problems += [f"item {item} still there" for item in expect.lacks if item in items]
+    problems += _detail_problems(expect, diagrams)
     if expect.same_as_turn is not None:
         if expect.same_as_turn > len(earlier):
             problems.append(f"turn {expect.same_as_turn} didn't run")
@@ -176,6 +268,28 @@ def _mark_problems(turn: Turn, obs: Observation) -> list[str]:
             box = _mark_box(mark.get("target", {}), obs, page.width, page.height)
             landed.append(box is not None and overlap_ok(box, truth))
         if not any(landed):
+            seen = ", ".join(f"{m.get('type')}→{m.get('target')}" for m in marks) or "no marks"
+            problems.append(f"no {wanted.type} on {wanted.truth} ({seen})")
+    return problems
+
+
+def _image_mark_problems(turn: Turn, obs: Observation) -> list[str]:
+    if obs.image is None:
+        return ["no image she sent"]
+    image = render(obs.image)
+    marks = [a["mark"] for a in obs.actions if a.get("kind") == "image.mark"]
+    problems = []
+    for wanted in turn.expect.image_marks:
+        truth = image.truths[wanted.truth]
+        landed = False
+        for mark in (m for m in marks if m.get("type") == wanted.type):
+            target = mark.get("target", {})
+            if "el" in target:
+                box = obs.image_elements.get(target["el"])
+            else:
+                box = _mark_box(target, obs, image.width, image.height)
+            landed = landed or (box is not None and overlap_ok(box, truth))
+        if not landed:
             seen = ", ".join(f"{m.get('type')}→{m.get('target')}" for m in marks) or "no marks"
             problems.append(f"no {wanted.type} on {wanted.truth} ({seen})")
     return problems
@@ -261,6 +375,8 @@ def check_turn(turn: Turn, obs: Observation, *, earlier: list[Observation]) -> l
         add("board", _board_problems(expect.board, obs, earlier))
     if expect.marks:
         add("marks", _mark_problems(turn, obs))
+    if expect.image_marks:
+        add("image marks", _image_mark_problems(turn, obs))
     for step, limit in expect.max_ms.items():
         ms = obs.timings.get(step)
         add(
