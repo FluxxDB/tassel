@@ -222,6 +222,11 @@ class _TurnContext(FrameProcessor):
                 latest = await self._latest_image()
                 if latest is not None:
                     self.pending_image = latest
+                    logger.info(
+                        "Page image for this turn: session={} bytes={}",
+                        self._session_id,
+                        len(latest[0]),
+                    )
                 # Keep a single latest paper image in the live context as well.
                 for message in messages:
                     if isinstance(message.get("content"), list):
