@@ -26,6 +26,7 @@ from tassel.beats.processor import FlushSpeechFrame
 from tassel.vision.turn_image import NO_VIEW
 from tassel.voice.action_checker import TargetLanguage, check_tags, talker_allowed
 from tassel.voice.director import rules
+from tassel.voice.illustrator import Illustrator
 from tassel.voice.prompts import thinker_system_prompt
 from tassel.voice.settings import VoiceSettings
 
@@ -42,6 +43,7 @@ class GuidanceBrief(BaseModel):
     confidence: float = Field(ge=0, le=1)
     followups: list[str]
     language: TargetLanguage | None = None
+    draw: str | None = None
 
 
 def make_thinker(settings: VoiceSettings):
@@ -135,9 +137,19 @@ def ink_signature(image: bytes | None):
 
 class TutorCoordinator:
     def __init__(
-        self, thinker, board: BoardContext, *, transcript=None, ttl_s=300, lang=lambda: "en"
+        self,
+        thinker,
+        board: BoardContext,
+        *,
+        transcript=None,
+        ttl_s=300,
+        lang=lambda: "en",
+        illustrator=None,
     ):
         self.thinker, self.board, self.transcript = thinker, board, transcript
+        self.illustrator = illustrator
+        self.illustrator_task = None
+        self.diagram_delivered = False
         self.ttl_s = ttl_s
         self.lang = lang
         self.task = None
@@ -161,10 +173,18 @@ class TutorCoordinator:
 
     async def cancel(self):
         self.generation += 1
-        task, self.task = self.task, None
-        if task:
+        drawing = self.illustrator_task
+        if drawing and drawing.done() and not drawing.cancelled() and not self.diagram_delivered:
+            item = drawing.result()
+            if item:
+                self.board.pending_diagrams.pop(item, None)
+        tasks = [t for t in (self.task, self.illustrator_task) if t is not None]
+        self.task = self.illustrator_task = None
+        for task in tasks:
             task.cancel()
-            await asyncio.gather(task, return_exceptions=True)
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        self.diagram_delivered = False
 
     def _notes_context(self):
         if self.context is None:
@@ -283,6 +303,12 @@ class TutorCoordinator:
                 if retry is None:
                     return None
                 brief = retry
+            decision = self.decision or rules(self.text)
+            if brief.draw and (
+                decision.action == "draw_board"
+                or (decision.action in ("explain", "trace") and decision.refers_to == "board")
+            ):
+                self.illustrator_task = asyncio.create_task(self._draw(brief.draw, generation))
             self.notes = [*self.notes[-3:], brief]
             self.expires = time.monotonic() + self.ttl_s
             self.log("thinker_brief", brief=brief.model_dump())
@@ -295,6 +321,47 @@ class TutorCoordinator:
             return None
         finally:
             self.log("thinker_duration", ms=(time.monotonic() - started) * 1000)
+
+    async def _draw(self, intent, generation):
+        started = time.monotonic()
+        try:
+            if self.illustrator is None:
+                self.illustrator = Illustrator(self.thinker.settings, log=self.log)
+            result = await self.illustrator.draw(intent, deepcopy(self.board), self.lang())
+            if result is None or generation != self.generation:
+                return None
+            item, spec = result
+            self.board.pending_diagrams[item] = spec
+            self.log(
+                "illustrator_brief",
+                item=item,
+                nodes=len(spec.nodes),
+                groups=len(spec.groups),
+                edges=len(spec.edges),
+            )
+            return item
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            self.log("reject", source="illustrator", reason=type(error).__name__)
+            return None
+        finally:
+            self.log("illustrator_duration", ms=(time.monotonic() - started) * 1000)
+
+    async def diagram_result(self):
+        task, generation = self.illustrator_task, self.generation
+        if task is None or self.diagram_delivered:
+            return None
+        try:
+            item = await asyncio.shield(task)
+        except asyncio.CancelledError:
+            if asyncio.current_task().cancelling():
+                raise
+            return None
+        if generation != self.generation or self.diagram_delivered:
+            return None
+        self.diagram_delivered = True
+        return f"[[diagram {item}]]" if item else None
 
     async def _attach_page(self):
         """The turn's page, fetched while the talker bridges: the thinker gets it, the talker
@@ -435,6 +502,10 @@ class TutorCoordinator:
         if generation != self.generation:
             return None
         self.delivered = True
+        if brief and self.illustrator_task and self.illustrator_task.done():
+            tag = await self.diagram_result()
+            if tag:
+                brief = brief.model_copy(update={"board": [tag, *brief.board]})
         self._notes_context()
         return brief
 
@@ -442,6 +513,8 @@ class TutorCoordinator:
         await self.cancel()
         if self.thinker is not None:
             await self.thinker.close()
+        if self.illustrator is not None:
+            await self.illustrator.close()
 
 
 STEP = re.compile(r"\[\[\s*p?step\b")
@@ -532,7 +605,13 @@ class ThinkerOutput(FrameProcessor):
                         [tag], decision, self.coordinator.board, allow=talker_allowed
                     )
                     structural = any(
-                        kind in ("board.automaton", "board.addState", "board.addTransition")
+                        kind
+                        in (
+                            "board.diagram",
+                            "board.automaton",
+                            "board.addState",
+                            "board.addTransition",
+                        )
                         for kind in checked.kinds
                     )
                     if not checked.tags or structural:
@@ -559,6 +638,14 @@ class ThinkerOutput(FrameProcessor):
                 brief = await self.coordinator.result()
                 if brief:
                     await self.push_frame(LLMTextFrame(compose(brief)))
+                    if self.coordinator.illustrator_task and not self.coordinator.diagram_delivered:
+                        await self.push_frame(FlushSpeechFrame())
+                        tag = await self.coordinator.diagram_result()
+                        if tag:
+                            words = {"en": "Here it is.", "es": "Aquí está.", "ko": "여기 있어요."}[
+                                self.coordinator.lang()
+                            ]
+                            await self.push_frame(LLMTextFrame(tag + words))
                 elif pending and generation == self.coordinator.generation:
                     failure = {
                         "en": "I couldn't finish checking that. Could you ask me again?",

@@ -124,6 +124,12 @@ BOARD_EXAMPLES = "\n".join(
         "Ada: [[freeze]][[circle m3]]Look at the loop you drew here. What does it read?",
     ]
 )
+BOARD_RULES += """
+Board tools
+Automata use the existing dfa/nfa tags. Any other diagram (network, flowchart, tree,
+table-like layout) goes in the brief draw field as a short intent with key facts, never in notes.
+A note is short plain text, a few lines at most.
+"""
 BOARD_RULES += "\n" + BOARD_EXAMPLES
 
 
@@ -259,4 +265,21 @@ def thinker_system_prompt(schema: dict) -> str:
         + BOARD_RULES
         + "\nWorked guidance briefs:\n"
         + json.dumps(THINKER_EXAMPLES)
+        + '\nStudent: "draw a network with zones…"\n'
+        + json.dumps(
+            {
+                "page": "",
+                "intent": "draw network zones",
+                "diagnosis": "",
+                "plan": ["Draw the zones and connections"],
+                "say": "Each subnet has its own router and hosts.",
+                "draw": "3 zones: 10.0.0.0/26 (40 hosts), 10.0.0.64/27 (20), "
+                "10.0.0.96/28 (8); each has a router at the first usable IP "
+                "and 2 PCs with IPs wired to it; routers connect to one core switch",
+                "board": [],
+                "paper": [],
+                "confidence": 1.0,
+                "followups": [],
+            }
+        )
     )

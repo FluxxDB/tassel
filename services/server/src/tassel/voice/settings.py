@@ -83,6 +83,9 @@ class VoiceSettings(BaseSettings):
 
     two_tier: bool | None = None
     # Measured live on the owner's page: luna 4.6 s, astra 7.4 s, same diagnosis and mark.
+    illustrator_model: str = "gpt-6-luna"
+    illustrator_provider: Literal["openai", "openrouter"] = "openai"
+    illustrator_timeout_s: float = 6.0
     thinker_model: str = "gpt-6-luna"
     # Retest #7: luna at "low" took 6–8.6 s per brief; "none" read the owner's page correctly in
     # 2.6–2.9 s. Board constructions still think at "low" (thinker_draw_effort).
