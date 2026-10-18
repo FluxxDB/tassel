@@ -578,7 +578,7 @@
   "memory": {
     "title": "Memory",
     "enabled": "Remember across sessions",
-    "description": "Ada keeps how you like to learn (tone, pace, language, hints), never what you worked on.",
+    "description": "Off, Ada starts every session fresh. What she kept stays here until you delete it.",
     "notes": "What Ada remembers",
     "empty": "Nothing yet. Preferences like “shorter hints” or “explain in Spanish” show up here after a session.",
     "save": "Save",

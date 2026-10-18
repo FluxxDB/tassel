@@ -578,7 +578,7 @@
   "memory": {
     "title": "Memoria",
     "enabled": "Recordar entre sesiones",
-    "description": "Ada guarda cómo te gusta aprender (tono, ritmo, idioma, pistas), nunca en qué trabajaste.",
+    "description": "Si la desactivas, Ada empieza cada sesión de cero. Lo que guardó se queda aquí hasta que lo borres.",
     "notes": "Lo que Ada recuerda",
     "empty": "Nada todavía. Preferencias como «pistas más cortas» o «explica en español» aparecen aquí después de una sesión.",
     "save": "Guardar",

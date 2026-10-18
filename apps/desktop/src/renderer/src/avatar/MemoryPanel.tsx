@@ -123,6 +123,8 @@ export function MemoryPanel({ open }: { open: boolean }) {
             {t('memory.editHint')}
             <textarea
               className="min-h-44 w-full resize-y rounded-card-sm border border-hairline bg-paper p-3.5 text-sm leading-[21px] text-ink"
+              name="preferences"
+              autoComplete="off"
               value={draft}
               maxLength={6000}
               disabled={busy}
@@ -135,7 +137,7 @@ export function MemoryPanel({ open }: { open: boolean }) {
               <li
                 // biome-ignore lint/suspicious/noArrayIndexKey: lines can repeat; order is stable.
                 key={index}
-                className="border-b border-hairline py-2.5 text-sm leading-[21px] text-ink last:border-b-0"
+                className="border-b border-hairline py-2.5 text-sm leading-[21px] text-ink break-words last:border-b-0"
               >
                 {line}
               </li>

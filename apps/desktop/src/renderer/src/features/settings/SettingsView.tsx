@@ -108,12 +108,12 @@ export function SettingsView({ config, platform = window.tassel?.platform }: Set
                 }))}
               />
             </nav>
-            <div className="min-w-0 flex-1 overflow-y-auto overscroll-contain border-l border-hairline">
+            <div className="min-w-0 flex-1 scroll-pb-28 overflow-y-auto overscroll-contain border-l border-hairline">
               {SETTINGS_SECTIONS.map((value) => (
                 <TabPanel
                   key={value}
                   value={value}
-                  className="mx-auto w-full max-w-[760px] px-10 pt-8 pb-16 max-[1100px]:px-7"
+                  className="w-full max-w-[820px] px-12 pt-8 pb-16 max-[1100px]:px-8"
                 >
                   <h2 className="text-[22px] leading-tight font-w520 text-balance ko:leading-[1.6]">
                     {t(`settings.sections.${value}`)}

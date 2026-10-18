@@ -18,8 +18,6 @@ export function DefaultsSection({ platform }: { platform: Platform }) {
   const defaults = useSessionDefaults();
   const chatOpen = useChatPrefs((state) => state.open ?? state.defaultOpen);
   const voiceReplies = useChatPrefs((state) => state.voiceReplies);
-  const languageId = useId();
-  const chatId = useId();
   const chatHint = useId();
   const paper = getPaperConfig();
   const blocked = paperUnavailable(platform, paper.fakeClip, paper.source === 'webcam');
@@ -31,9 +29,7 @@ export function DefaultsSection({ platform }: { platform: Platform }) {
     <>
       <SettingsGroup title={t('settings.defaults.newSession')}>
         <div className="flex flex-col gap-2.5">
-          <span id={languageId} className="text-sm font-w520">
-            {t('settings.defaults.language')}
-          </span>
+          <span className="text-sm font-w520">{t('settings.defaults.language')}</span>
           <Segmented<Lang | 'app'>
             label={t('settings.defaults.language')}
             value={defaults.language ?? 'app'}
@@ -65,9 +61,7 @@ export function DefaultsSection({ platform }: { platform: Platform }) {
       </SettingsGroup>
       <SettingsGroup title={t('settings.defaults.chatGroup')}>
         <div className="flex flex-col gap-2.5">
-          <span id={chatId} className="text-sm font-w520">
-            {t('settings.defaults.chat')}
-          </span>
+          <span className="text-sm font-w520">{t('settings.defaults.chat')}</span>
           <Segmented<'open' | 'closed'>
             label={t('settings.defaults.chat')}
             describedBy={chatHint}

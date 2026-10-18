@@ -57,6 +57,8 @@ export function TitleField({ initial, label, lang, onSave, onDone, className }: 
         ref={input}
         value={value}
         lang={lang}
+        name="title"
+        autoComplete="off"
         maxLength={TITLE_MAX}
         aria-label={label}
         aria-invalid={failed || undefined}
