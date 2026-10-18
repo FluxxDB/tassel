@@ -355,6 +355,60 @@ describe('the tldraw engine', () => {
   });
 });
 
+describe('the camera while a trace runs', () => {
+  const traced = (...more: BoardAction[]) =>
+    sceneAfter(
+      draw(CORRECT),
+      { kind: 'board.trace', item: 'run', spec: CORRECT, input: '0100', on: 'fix' },
+      ...more,
+    );
+  const card = adaShapeId('run', 'trace') as TLShapeId;
+  /** Where a shape's page box lands in the panel, in its px. */
+  const onScreen = (editor: Editor, shape: TLShapeId) => {
+    const bounds = editor.getShapePageBounds(shape);
+    if (!bounds) throw new Error(`${shape} not drawn`);
+    const a = editor.pageToViewport({ x: bounds.x, y: bounds.y });
+    const b = editor.pageToViewport({ x: bounds.x + bounds.w, y: bounds.y + bounds.h });
+    return { x: a.x, y: a.y, w: b.x - a.x, h: b.y - a.y };
+  };
+  const insidePanel = (box: { x: number; y: number; w: number; h: number }) =>
+    box.x >= 0 &&
+    box.y >= 0 &&
+    box.x + box.w <= SPLIT_1440.panel.w &&
+    box.y + box.h <= SPLIT_1440.panel.h;
+
+  it('frames the automaton and the tape together, the automaton whole and clear of her tile', () => {
+    const { editor, engine, container } = board(SPLIT_1440);
+    engine.render(traced(), { fix: fallbackLayout(CORRECT) });
+    expect(container.dataset.fit).toBe('clear');
+    const [tile] = boardObstructions(SPLIT_1440).tiles;
+    if (!tile) throw new Error('no tile');
+    for (const state of ['q0', 'q1', 'q2', 'q3', 'qd']) {
+      const box = onScreen(editor, id(`state:${state}`));
+      expect(insidePanel(box), state).toBe(true);
+      expect(box.y, state).toBeGreaterThanOrEqual(54);
+      expect(box.x + box.w <= tile.x || box.y >= tile.y + tile.h, `${state} under her tile`).toBe(
+        true,
+      );
+    }
+    expect(insidePanel(onScreen(editor, card))).toBe(true);
+  });
+
+  it("keeps the whole board on each step, so Ada's refit matches the student's Fit", () => {
+    const { editor, engine } = board(SPLIT_1440);
+    const layouts = { fix: fallbackLayout(CORRECT) };
+    engine.render(traced(), layouts);
+    engine.camera?.fit();
+    const whole = { ...editor.getCamera() };
+    engine.render(traced({ kind: 'board.traceStep', item: 'run' }), layouts);
+    engine.camera?.adaAction();
+    expect(editor.getCamera()).toEqual(whole);
+    for (const state of ['q0', 'q3', 'qd']) {
+      expect(insidePanel(onScreen(editor, id(`state:${state}`))), state).toBe(true);
+    }
+  });
+});
+
 describe('student camera integration', () => {
   it('holds a zoom through passive fits but refits on Ada even with unchanged bounds', () => {
     const { editor, engine } = board(SPLIT_1440);

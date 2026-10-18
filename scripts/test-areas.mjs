@@ -56,7 +56,7 @@ export const AREAS = [
       `${R}/components/{Button,Chip,IconButton,SegmentedControl,Sheet,Wordmark,icons}.tsx`,
     ],
     unit: [
-      `${UNIT}/{api,app-protocol,cn,components,config,i18n,ipc,route-store,token-store,windows}.test.{ts,tsx}`,
+      `${UNIT}/{api,app-protocol,cn,components,config,downloads,i18n,ipc,route-store,token-store,windows}.test.{ts,tsx}`,
       'packages/shared/tests/{i18n,tokens}.test.ts',
     ],
     e2e: [`${E2E}/shell.spec.ts`],
@@ -87,7 +87,7 @@ export const AREAS = [
     title: 'Board: tldraw canvas, scenes, beats, marks, diagrams, automata',
     app: [
       `${R}/board/**`,
-      `${R}/tutor/scripts/{board,diagram,marks,image}-demo.json`,
+      `${R}/tutor/scripts/{board,diagram,marks,image,trace}-demo.json`,
       `${R}/tutor/scripts/board-snapshot.json`,
     ],
     server: [`${SRC}/{board,beats}/**`, 'packages/shared/src/beats/**'],

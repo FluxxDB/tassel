@@ -13,10 +13,14 @@ const config: AppConfig = {
 };
 
 describe("P5's fake tutor scripts", () => {
-  it.each(['board-demo', 'marks-demo', 'diagram-demo', 'board-snapshot', 'image-demo'])(
-    'runs %s, by its TASSEL_FAKE_SCRIPT name',
-    (name) => {
-      expect(createTutorClient({ ...config, fakeScript: name })).toBeInstanceOf(FakeTutorClient);
-    },
-  );
+  it.each([
+    'board-demo',
+    'marks-demo',
+    'diagram-demo',
+    'board-snapshot',
+    'image-demo',
+    'trace-demo',
+  ])('runs %s, by its TASSEL_FAKE_SCRIPT name', (name) => {
+    expect(createTutorClient({ ...config, fakeScript: name })).toBeInstanceOf(FakeTutorClient);
+  });
 });

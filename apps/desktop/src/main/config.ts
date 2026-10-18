@@ -27,6 +27,11 @@ export function applyUserDataOverride(env: NodeJS.ProcessEnv = process.env): voi
   if (env.TASSEL_USER_DATA) app.setPath('userData', env.TASSEL_USER_DATA);
 }
 
+/** Where downloads (the board's PNG) go: TASSEL_DOWNLOAD_DIR (E2E), else the Downloads folder. */
+export function downloadDir(env: NodeJS.ProcessEnv = process.env): string {
+  return env.TASSEL_DOWNLOAD_DIR || app.getPath('downloads');
+}
+
 /** 'file' (plaintext JSON) when TASSEL_TOKEN_STORE=file, as dev scripts and E2E set; else 'safe'. */
 export function tokenStoreMode(env: NodeJS.ProcessEnv = process.env): 'safe' | 'file' {
   return env.TASSEL_TOKEN_STORE === 'file' ? 'file' : 'safe';

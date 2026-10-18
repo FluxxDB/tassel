@@ -13,7 +13,8 @@ import {
   systemPreferences,
 } from 'electron';
 import { handleAppProtocol, registerAppScheme } from './app-protocol';
-import { applyUserDataOverride, readConfig, tokenStoreMode } from './config';
+import { applyUserDataOverride, downloadDir, readConfig, tokenStoreMode } from './config';
+import { registerDownloads } from './downloads';
 import { registerIpc } from './ipc';
 import { registerScreenOverlay } from './overlay/controller';
 import { createCameraAccess } from './paper/camera-access';
@@ -53,6 +54,11 @@ if (!app.requestSingleInstanceLock()) {
     .then(() => {
       handleAppProtocol(join(__dirname, '../renderer'));
       restrictPermissions(session.defaultSession);
+      // The board's PNG lands in Downloads with no dialog; macOS bounces the Downloads stack.
+      registerDownloads(session.defaultSession, {
+        dir: downloadDir(),
+        finished: (path) => app.dock?.downloadFinished(path),
+      });
       registerPaper();
       registerIpc(
         createTokenStore({
