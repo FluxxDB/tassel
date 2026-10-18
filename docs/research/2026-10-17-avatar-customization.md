@@ -68,3 +68,25 @@ $env:TASSEL_PROVIDERS = 'fake'
 $env:TASSEL_VOICE_ENV_FILE = ''
 pnpm --filter @tassel/desktop e2e tests/e2e/avatar.spec.ts
 ```
+
+## Visual refinement pass
+
+- The neck now renders behind one shared notched shoulder silhouette. Every
+  clothing detail is clipped to that silhouette, so collars, hoodie trim and
+  overall straps cannot protrude above the shoulders. Sweater ribbing and seams,
+  hoodie pocket/drawstrings and overall bib/pocket were authored within it.
+- The session tile passes its existing speaking state (excluding connection
+  errors) to the SVG. Three exclusive mouth poses cycle with uneven timing
+  while speaking; leaving that state removes the animation immediately.
+  This is stylized movement, not audio-amplitude or phoneme lip-sync. It adds
+  no audio processing, timers, provider calls or changes to speech playback.
+  Celebration takes priority; reduced motion shows a static small O.
+- Save now sweeps a pastel rainbow across the whole dialog behind its contents,
+  with a stronger halo, a small happy bounce and 24 saturated colorful particles.
+  Reduced motion keeps a static tint and expression without bounce or particles.
+- Validation: 35 targeted unit tests passed; `pnpm check` and desktop build
+  passed; both Electron avatar specs passed on port 8863 and the team2 database.
+  E2E cycles all 28 outfit/hair combinations, verifies real CSS animation in
+  speaking state and its reduced-motion/static rest behavior, and covers the
+  full save/reload/session flow. All four outfit screenshots and the rainbow
+  save screenshot were reviewed. No real devices or providers used.

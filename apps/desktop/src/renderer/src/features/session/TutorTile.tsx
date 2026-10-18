@@ -32,7 +32,11 @@ export function TutorTile() {
         state === 'speaking' && 'shadow-[0_0_0_2px_var(--color-iris)]',
       )}
     >
-      <Avatar profile={avatar} className="absolute top-1.5 left-7 size-[156px]" />
+      <Avatar
+        speaking={state === 'speaking' && status === null}
+        profile={avatar}
+        className="absolute top-1.5 left-7 size-[156px]"
+      />
       <figcaption
         id={captionId}
         className="absolute bottom-2.5 left-2.5 flex h-[27px] items-center gap-1.5 rounded-pill bg-paper px-2.5"

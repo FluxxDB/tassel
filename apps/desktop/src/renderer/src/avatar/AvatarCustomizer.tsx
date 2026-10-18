@@ -34,13 +34,13 @@ export function AvatarCustomizer({
       onOpenChange={onOpenChange}
       title={t('avatar.title')}
       description={t('avatar.description')}
-      className="max-w-[860px]"
+      className="avatar-customizer isolate max-w-[860px]"
     >
       {open && <Editor onClose={() => onOpenChange(false)} />}
     </Sheet>
   );
 }
-const SPARKS = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
+const SPARKS = Array.from({ length: 24 }, (_, i) => i * 15);
 
 function Editor({ onClose }: { onClose(): void }) {
   const { t } = useTranslation();
@@ -98,9 +98,10 @@ function Editor({ onClose }: { onClose(): void }) {
   );
   return (
     <>
+      {saved && <div className="avatar-rainbow" aria-hidden="true" />}
       <fieldset
         disabled={saved}
-        className="grid min-w-0 gap-7 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]"
+        className="relative z-10 grid min-w-0 gap-7 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]"
       >
         <div className="flex min-w-0 flex-col items-center gap-3">
           <div
@@ -117,7 +118,16 @@ function Editor({ onClose }: { onClose(): void }) {
             {saved && (
               <div className="avatar-sparkles" aria-hidden="true">
                 {SPARKS.map((angle) => (
-                  <span key={angle} style={{ '--i': angle / 30 } as React.CSSProperties}>
+                  <span
+                    key={angle}
+                    style={
+                      {
+                        '--i': angle / 15,
+                        '--angle': `${angle}deg`,
+                        '--spark-color': `hsl(${angle + 15} 90% 60%)`,
+                      } as React.CSSProperties
+                    }
+                  >
                     ✦
                   </span>
                 ))}

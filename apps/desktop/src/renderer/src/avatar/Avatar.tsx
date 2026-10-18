@@ -1,17 +1,21 @@
 import { type CSSProperties, useId } from 'react';
 import { type AvatarProfile, COLORS } from './catalog';
+import './avatar.css';
 
 /** All parts share one viewBox and fixed anchors. IDs in the catalog select authored SVG layers. */
 export function Avatar({
   profile: p,
   celebrating = false,
+  speaking = false,
   className,
 }: {
   profile: AvatarProfile;
   celebrating?: boolean;
+  speaking?: boolean;
   className?: string;
 }) {
   const id = useId();
+  const body = 'M35 220V191Q40 160 87 150Q102 168 117 150Q164 160 170 191V220Z';
   const hair = COLORS.hair[p.hairColor];
   const skin = COLORS.skin[p.skin];
   const outfit = COLORS.outfit[p.outfitColor];
@@ -30,6 +34,8 @@ export function Avatar({
       className={className}
       aria-hidden="true"
       focusable="false"
+      data-speaking={speaking && !celebrating}
+      data-outfit={p.outfit}
       data-hair={p.hair}
       data-face={celebrating ? 'celebration' : p.face}
       style={
@@ -37,6 +43,9 @@ export function Avatar({
       }
     >
       <defs>
+        <clipPath id={`${id}-body`}>
+          <path d={body} />
+        </clipPath>
         <linearGradient id={`${id}-skin`} x2=".9" y2="1">
           <stop stopColor={skin} />
           <stop
@@ -74,8 +83,56 @@ export function Avatar({
         <path d="M55 90Q48 32 102 30Q157 32 150 94L142 119H63Z" />
       </g>
       {scarf && <path d="M45 92Q43 23 102 23Q164 23 162 93L169 164Q101 191 34 164Z" fill={hair} />}
-      <path d="M35 220V190Q40 151 88 148H115Q164 152 170 191V220Z" fill={outfit} />
-      <path d="M89 124H114V154Q102 166 89 154Z" fill={skin} />
+      <path d="M89 124H114V160H89Z" fill={skin} />
+      <g clipPath={`url(#${id}-body)`}>
+        <path d={body} fill={outfit} />
+        {p.outfit === 'sweater' && (
+          <g
+            fill="none"
+            stroke="color-mix(in oklab, var(--avatar-outfit), #30232b 20%)"
+            strokeWidth="3"
+          >
+            <path d="M85 150Q102 173 119 150" strokeWidth="7" />
+            <path d="M52 178Q60 194 57 220M152 178Q144 194 147 220" opacity=".45" />
+            <path d="M57 211h91" strokeWidth="6" opacity=".4" />
+          </g>
+        )}
+        {p.outfit === 'collar' && (
+          <path d="M87 150l15 13-14 15-14-23M117 150l-15 13 14 15 14-23" fill="#fff9f3" />
+        )}
+        {p.outfit === 'hoodie' && (
+          <>
+            <path
+              d="M78 153Q69 173 102 179Q136 173 126 153"
+              fill="none"
+              stroke="color-mix(in oklab, var(--avatar-outfit), #fff9f3 40%)"
+              strokeWidth="9"
+            />
+            <path
+              d="M88 178v21m28-21v21"
+              stroke="#fff9f3"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            />
+            <path
+              d="M78 216l5-15h38l5 15Z"
+              fill="none"
+              stroke="color-mix(in oklab, var(--avatar-outfit), #30232b 20%)"
+              strokeWidth="2"
+            />
+          </>
+        )}
+        {p.outfit === 'overalls' && (
+          <>
+            <path d="M73 154h12v29h34v-29h12v37l8 29H65l8-29Z" fill="#52617d" />
+            <path d="M89 193h26v15H89Z" fill="none" stroke="#adb8ca" strokeWidth="2" />
+            <g fill="#eadfc9">
+              <circle cx="79" cy="183" r="3" />
+              <circle cx="125" cy="183" r="3" />
+            </g>
+          </>
+        )}
+      </g>
       {!scarf && (
         <g fill={skin}>
           <ellipse cx="62" cy="99" rx="8" ry="11" />
@@ -102,28 +159,6 @@ export function Avatar({
           fill={`url(#${id}-hair)`}
         />
       )}
-      {p.outfit === 'collar' && (
-        <path d="M87 149l15 13-17 18-15-24M116 149l-14 13 17 18 15-24" fill="#fff9f3" />
-      )}
-      {p.outfit === 'hoodie' && (
-        <>
-          <path
-            d="M74 150Q60 176 101 182Q144 175 129 151"
-            fill="none"
-            stroke="#fff9f3"
-            strokeOpacity=".65"
-            strokeWidth="9"
-          />
-          <path d="M84 178v22m34-22v22" stroke="#fff9f3" strokeWidth="3" strokeLinecap="round" />
-        </>
-      )}
-      {p.outfit === 'overalls' && (
-        <>
-          <path d="M60 155h17v31h49v-31h17v65H60Z" fill="#52617d" />
-          <circle cx="69" cy="184" r="3" fill="#eadfc9" />
-          <circle cx="134" cy="184" r="3" fill="#eadfc9" />
-        </>
-      )}
       <g
         fill="none"
         stroke="#30232b"
@@ -132,7 +167,26 @@ export function Avatar({
         strokeLinejoin="round"
       >
         <path d={eyes} />
-        <path d="M94 112q0 12 8 12t8-12" />
+        <path className="avatar-mouth-rest" d="M94 112q0 12 8 12t8-12" />
+        <path className="avatar-mouth avatar-mouth-closed" d="M96 117h12" />
+        <ellipse
+          className="avatar-mouth avatar-mouth-small"
+          cx="102"
+          cy="117"
+          rx="4"
+          ry="4.5"
+          fill="#63363c"
+          strokeWidth="2"
+        />
+        <ellipse
+          className="avatar-mouth avatar-mouth-open"
+          cx="102"
+          cy="117"
+          rx="5.5"
+          ry="7"
+          fill="#63363c"
+          strokeWidth="2"
+        />
       </g>
       <g fill="#df8490" opacity=".4">
         <ellipse cx="77" cy="111" rx="7" ry="3" />
