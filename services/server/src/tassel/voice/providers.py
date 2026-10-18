@@ -41,6 +41,9 @@ from tassel.voice.settings import ProviderKind, VoiceConfigError, VoiceSettings,
 
 # The talker sees the last 8 exchanges plus the tutor notes; older turns live in the notes.
 TALKER_WINDOW = 16
+# Older exchanges leave the talker's window four at a time, so the cached prefix holds for four
+# turns (voice/history.py).
+TALKER_WINDOW_STEP = 8
 OPENROUTER_PROVIDER = {"only": ["cerebras"], "allow_fallbacks": False, "require_parameters": True}
 REASONING_OFF = {"effort": "none"}
 
@@ -311,7 +314,7 @@ class LiveLLMService(OpenRouterLLMService):
                 )
                 request = self.build_chat_completion_params(params)
                 request["messages"] = leading_system_only(
-                    windowed(list(request["messages"]), TALKER_WINDOW)
+                    windowed(list(request["messages"]), TALKER_WINDOW, step=TALKER_WINDOW_STEP)
                 )
                 if backup:
                     request["extra_body"] = {

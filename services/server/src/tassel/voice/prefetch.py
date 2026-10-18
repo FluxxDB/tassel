@@ -58,6 +58,7 @@ def next_request(
     note: str,
     page: list[dict],
     window: int,
+    window_step: int = 1,
     notes_prefix: str,
     drop_prefixes: tuple[str, ...] = (),
 ) -> list[dict]:
@@ -83,4 +84,7 @@ def next_request(
     if not (last and last.get("role") == "assistant" and last.get("content") == say):
         body.append({"role": "assistant", "content": say})
     body.append({"role": "user", "content": [{"type": "text", "text": STUCK[step]}, *page]})
-    return [*windowed([*body, *notes], window), {"role": "system", "content": note}]
+    return [
+        *windowed([*body, *notes], window, step=window_step),
+        {"role": "system", "content": note},
+    ]

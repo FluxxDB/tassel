@@ -7,6 +7,7 @@ import re
 import time
 from copy import deepcopy
 from functools import partial
+from uuid import uuid4
 
 import cv2
 import numpy as np
@@ -104,6 +105,8 @@ class Thinker:
         self.client = client or AsyncOpenAI(
             api_key=settings.openai_api_key.get_secret_value(), max_retries=0, timeout=20
         )
+        # One session's requests share a prefix; the key keeps them on one cache.
+        self.cache_key = f"tassel-thinker-{uuid4().hex}"
 
     async def think(self, messages: list[dict], effort=None) -> GuidanceBrief:
         effort = effort or self.settings.thinker_effort
@@ -128,6 +131,7 @@ class Thinker:
                     messages=request,
                     response_format={"type": "json_object"},
                     max_completion_tokens=BRIEF_TOKENS if effort == "none" else DRAWN_BRIEF_TOKENS,
+                    prompt_cache_key=self.cache_key,
                 )
             except (APIConnectionError, TimeoutError) as error:
                 reason = type(error).__name__
@@ -199,6 +203,9 @@ FROM_PAGE = re.compile(
 AUTOMATA = re.compile(r"\b(?:dfa|nfa|automat\w*|state machine|accept\w*|regex|language)\b", re.I)
 NOTE_PREFIX = "[tutor notes]"
 THINKER_WINDOW = 12
+# Older exchanges leave the thinker's window three at a time, so its start, and the cached prefix
+# of the request, holds for three turns (voice/history.py).
+THINKER_WINDOW_STEP = 6
 MARK_ID = re.compile(r"\bm\d+\b")
 # A structured value: digits joined by dots, slashes, colons or hyphens (an IP, a CIDR, a date).
 # What a page read and the learner memory can disagree about; plain numbers and states are not.
@@ -457,8 +464,10 @@ class TutorCoordinator:
         if not self.notes:
             self.ink = current
         self._notes_context()
-        # The thinker sees the last 6 exchanges; the notes carry what came before.
-        self.messages = windowed(deepcopy(context.get_messages()), THINKER_WINDOW)
+        # The thinker sees the last 3-6 exchanges; the notes carry what came before.
+        self.messages = windowed(
+            deepcopy(context.get_messages()), THINKER_WINDOW, step=THINKER_WINDOW_STEP
+        )
         if (
             decision.route == "thinker"
             if decision
@@ -1001,6 +1010,7 @@ class TutorCoordinator:
             note=LADDER[step],
             page=page,
             window=THINKER_WINDOW,
+            window_step=THINKER_WINDOW_STEP,
             notes_prefix=NOTE_PREFIX,
             drop_prefixes=(BRIDGE_PREFIX,),
         )
