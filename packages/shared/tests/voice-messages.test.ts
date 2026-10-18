@@ -30,6 +30,8 @@ describe('parseServerEvent', () => {
     'x',
     {},
     { tassel: { kind: 'nope' } },
+    { tassel: { kind: 'beat', beat: null } },
+    { tassel: { kind: 'beat', beat: { version: 1 } } },
     { tassel: { kind: 'title' } },
     { tassel: { kind: 'vad', speaking: 'yes' } },
     // Beyond the brief's six: every declared field is present, with its own type.

@@ -88,6 +88,8 @@ def test_envelope():
     "event",
     [
         pytest.param({"kind": "nope"}, id="unknown kind"),
+        pytest.param({"kind": "beat", "beat": None}, id="null beat"),
+        pytest.param({"kind": "beat", "beat": {"version": 1}}, id="invalid beat"),
         pytest.param({"view": "split"}, id="no kind"),
         pytest.param({"kind": "title"}, id="title missing"),
         pytest.param({"kind": "title", "title": "Strings"}, id="subject missing, not null"),

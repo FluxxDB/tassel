@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pytest
 from pipecat.frames.frames import (
+    AggregatedTextProgressFrame,
     BotStoppedSpeakingFrame,
     InputTransportMessageFrame,
     TTSAudioRawFrame,
@@ -336,3 +337,38 @@ async def test_scripted_crash_saves_memory():
     messages, lang = ctx.memory.recall(ctx.session_id)
     assert lang == "en"
     assert any(m.get("content") == "/drop" for m in messages)
+
+
+async def test_board_tags_never_reach_tts(monkeypatch):
+    from tassel.voice.fakes.tts import FakeTTSService
+
+    heard = []
+    original = FakeTTSService.run_tts
+
+    async def recording(self, text, context_id):
+        heard.append(text)
+        async for frame in original(self, text, context_id):
+            yield frame
+
+    monkeypatch.setattr(FakeTTSService, "run_tts", recording)
+    ctx = context(request=OfferRequestData(scenario="dfa-board"))
+    async with running(ctx) as (bot, out):
+        await until(lambda: load_scenario("dfa-board").langs["en"].greeting in out.text())
+        await say(bot, "Can you show me the answer?")
+        await until(lambda: "A zero takes us to q one." in out.text())
+        beats = [e["beat"] for e in out.events() if e["kind"] == "beat"]
+        assert any(b["markers"] for b in beats)
+        assert all("[[" not in text for text in heard)
+        assert "[[" not in out.text()
+        expected = load_scenario("dfa-board").langs["en"].turns[0].say
+        await asyncio.sleep(0.2)
+        assert any(
+            str(m.get("content", "")).strip() == expected
+            for m in bot.context.get_messages()
+            if m["role"] == "assistant"
+        ), bot.context.get_messages()
+        progress = [f for f in out.frames if isinstance(f, AggregatedTextProgressFrame)]
+        segments = {b["segment"] for b in beats}
+        assert progress
+        assert all(str(f.segment_id) in segments for f in progress)
+        assert all("[[" not in f.accumulated_text for f in progress)

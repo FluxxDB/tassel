@@ -11,6 +11,10 @@ def test_prompt_rules(lang):
     assert f"Reply only in {LANGUAGE_NAMES[lang]}" in prompt
     for phrase in [
         "warm",
+        "[[reveal",
+        "never spoken",
+        "quoted string",
+        "m1",
         "patient",
         "Socratic",
         "asks before telling",
