@@ -309,6 +309,8 @@ def thinker_system_prompt(schema: dict, *, ideal_tutor: str = "") -> str:
         "or picture she sent in the chat, attached as [image] with its numbered candidates and "
         "legend); the Pointer resolves them on that image and the app shows it on the stage. "
         "When she asks about her image, mark it with image_marks, never marks or paper. "
+        "When she asks you to mark her image, never withhold the mark: mark what she named, or "
+        "the closest element if it isn't drawn as she says, then teach in say. "
         "image: raw [[image circle mN]] tags as a fallback; [[image clear]] takes your marks "
         "off it. Leave both empty when no [image] is attached. "
         "board/paper: lists of individual validated command tags, empty when not needed. "

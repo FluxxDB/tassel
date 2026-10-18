@@ -399,3 +399,129 @@ def test_a_solve_or_draw_request_sent_with_an_image_stays_on_the_board():
         assert got.refers_to != "image" and got.action != "mark_image", text
     assert rules("Underline the second line", image=True).action == "mark_image"
     assert rules("Show me where on the picture", image=True).refers_to == "image"
+
+
+# Live eval 20261018-133513: the thinker never saw her image on two of three turns (a dropped
+# upload, retried without it), answered "my view didn't come through", and on a mark_image turn
+# asked a question instead of marking.
+
+
+@pytest.mark.asyncio
+async def test_a_dropped_image_upload_is_retried_with_the_image_before_going_without():
+    import httpx
+    from openai import APIConnectionError
+
+    calls = []
+
+    class Completions:
+        def __init__(self, failures):
+            self.failures = failures
+
+        async def create(self, **request):
+            calls.append(request)
+            if len(calls) <= self.failures:
+                raise APIConnectionError(request=httpx.Request("POST", "https://example.test"))
+            content = json.dumps(_brief())
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(content=content))], usage=None
+            )
+
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Circle the state on my image"},
+                {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,abc"}},
+            ],
+        }
+    ]
+    logged = []
+    once = thinker.Thinker(
+        VoiceSettings(openai_api_key="fake"),
+        client=SimpleNamespace(chat=SimpleNamespace(completions=Completions(1))),
+    )
+    once.log = lambda event, **data: logged.append((event, data))
+    assert (await once.think(messages)).say
+    assert len(calls) == 2 and "image_url" in str(calls[1])
+    assert "view didn't come through" not in str(calls[1])
+    assert ("thinker_retry", {"reason": "APIConnectionError", "images": True}) in logged
+    # Dropped twice: then without it, from the notes, as before.
+    calls.clear()
+    twice = thinker.Thinker(
+        VoiceSettings(openai_api_key="fake"),
+        client=SimpleNamespace(chat=SimpleNamespace(completions=Completions(2))),
+    )
+    assert (await twice.think(messages)).say
+    assert len(calls) == 3 and "image_url" not in str(calls[2])
+
+
+class EffortThinker(Thinker):
+    settings = VoiceSettings()
+
+    def __init__(self, **brief):
+        super().__init__(**brief)
+        self.efforts = []
+
+    async def think(self, messages, effort=None):
+        self.efforts.append(effort)
+        return await super().think(messages, effort)
+
+
+@pytest.mark.asyncio
+async def test_a_mark_image_turn_thinks_at_the_draw_effort(sent):
+    think = EffortThinker()
+    c, _ = coordinator(think, PointerClient([]))
+    await run(c, "Circle the diagram on my image.", sent)
+    assert think.efforts == [VoiceSettings().thinker_draw_effort] != [None]
+    await c.close()
+    explain = EffortThinker()
+    c, _ = coordinator(explain, PointerClient([]))
+    await run(c, "What's in my screenshot?", sent, turn=decision(action="explain"))
+    assert explain.efforts == [None]
+    await c.close()
+
+
+@pytest.mark.asyncio
+async def test_a_mark_image_brief_that_withholds_the_mark_still_marks_what_she_asked(scene, sent):
+    """The thinker answered with a question and no marks: her own words go to the Pointer, and
+    the closest element is marked."""
+    think = Thinker(say="Which circle do your arrows lead to?")
+    client = PointerClient([truth_answer(scene, sent, "diagram")])
+    c, events = coordinator(think, client)
+    result = await run(c, "Circle the diagram on my image.", sent)
+    figure = element_for(scene, sent, "diagram")
+    assert result.image == ["[[image show]]", f"[[image circle {figure.id}]]"]
+    payload = json.loads(client.requests[0]["messages"][1]["content"][0]["text"])
+    assert payload["intents"] == [
+        {"verb": "circle", "target": "the diagram", "text": None, "n": None}
+    ]
+    assert ("image_mark_fallback", {"verb": "circle", "target": "the diagram"}) in events
+    await c.close()
+
+
+@pytest.mark.parametrize(
+    ("text", "verb", "target"),
+    [
+        ("Now underline the arrow out of q2 in my screenshot.", "underline", "the arrow out of q2"),
+        ("Circle the diagram on my image.", "circle", "the diagram"),
+        ("Circle the state on my image that should be accepting.", "circle", None),
+        ("Can you mark the mistake in my picture?", "circle", "the mistake"),
+        ("Cross out the wrong line in my photo", "strike", "the wrong line"),
+    ],
+)
+def test_her_words_as_a_mark_in_words(text, verb, target):
+    intent = thinker.intent_from_words(text)
+    assert intent.verb == verb
+    if target is not None:
+        assert intent.target == target
+    else:
+        assert "state" in intent.target and "accepting" in intent.target
+    assert len(intent.target) <= 80
+
+
+def test_the_thinker_never_withholds_a_mark_she_asked_for():
+    from tassel.voice.prompts import thinker_system_prompt
+
+    prompt = thinker_system_prompt(thinker.GuidanceBrief.model_json_schema())
+    assert "never withhold" in prompt
+    assert "never withhold" in thinker.RUNGS[("mark_image", "paper")]

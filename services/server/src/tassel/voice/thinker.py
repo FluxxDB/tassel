@@ -74,6 +74,8 @@ class Thinker:
         self.on_usage = None
         self.ideal_tutor = ""
         self.learner_notes = ""
+        # The transcript's log, which the coordinator sets: retries are on the record.
+        self.log = None
         self.client = client or AsyncOpenAI(
             api_key=settings.openai_api_key.get_secret_value(), max_retries=0, timeout=20
         )
@@ -92,7 +94,8 @@ class Thinker:
             },
             *deepcopy(messages),
         ]
-        for attempt in range(2):
+        resent = stripped = invalid = False
+        while True:
             try:
                 response = await self.client.chat.completions.create(
                     model=self.settings.thinker_model,
@@ -101,9 +104,19 @@ class Thinker:
                     response_format={"type": "json_object"},
                     max_completion_tokens=1200,
                 )
-            except (APIConnectionError, TimeoutError):
-                if attempt:
+            except (APIConnectionError, TimeoutError) as error:
+                reason = type(error).__name__
+                if isinstance(error, APIConnectionError) and _has_images(request) and not resent:
+                    # This network drops some image uploads at once (bad record mac): the live
+                    # eval 20261018-133513 lost her image on two turns of three that way. Send it
+                    # again with the image before going on without it.
+                    resent = True
+                    self._log("thinker_retry", reason=reason, images=True)
+                    continue
+                if stripped:
                     raise
+                stripped = True
+                self._log("thinker_retry", reason=reason, images=False)
                 request = deepcopy(request)
                 for message in request:
                     if isinstance(message.get("content"), list):
@@ -119,8 +132,9 @@ class Thinker:
             try:
                 return GuidanceBrief.model_validate_json(content)
             except ValidationError:
-                if attempt:
+                if invalid:
                     raise
+                invalid = True
                 request.append(
                     {
                         "role": "system",
@@ -128,10 +142,21 @@ class Thinker:
                         "the correct types, 1–4 plan steps, confidence from 0 to 1.",
                     }
                 )
-        raise AssertionError("unreachable")
+
+    def _log(self, event, **data):
+        if self.log is not None:
+            self.log(event, **data)
 
     async def close(self):
         await self.client.close()
+
+
+def _has_images(request) -> bool:
+    return any(
+        isinstance(m.get("content"), list)
+        and any(p.get("type") in ("image", "image_url") for p in m["content"])
+        for m in request
+    )
 
 
 INTENT = re.compile(
@@ -220,6 +245,8 @@ class TutorCoordinator:
         reply_timeout_s=30.0,
     ):
         self.thinker, self.board, self.transcript = thinker, board, transcript
+        if thinker is not None and hasattr(thinker, "log") and thinker.log is None:
+            thinker.log = self.log
         # The longest she waits for a thinker reply before Ada says she couldn't finish.
         self.reply_timeout_s = reply_timeout_s
         self.on_brief = on_brief
@@ -396,6 +423,11 @@ class TutorCoordinator:
             ):
                 # Automata are checked by the exact verifier; give them more thought. Other
                 # diagrams are the Illustrator's, so the brief stays fast.
+                settings = getattr(self.thinker, "settings", None)
+                effort = getattr(settings, "thinker_draw_effort", "low")
+            elif self.decision and self.decision.action == "mark_image":
+                # Reading her image's arrows and lines at "none" got them wrong (live eval
+                # 20261018-133513: "no outgoing arrow from q2"); marks take a little thought.
                 settings = getattr(self.thinker, "settings", None)
                 effort = getattr(settings, "thinker_draw_effort", "low")
             brief = await self._brief(generation, self.messages, effort)
@@ -700,6 +732,12 @@ class TutorCoordinator:
         turn the brief's paper-style marks are the image's too."""
         on_image = decision.action == "mark_image" or decision.refers_to == "image"
         intents = brief.image_marks or (brief.marks if decision.action == "mark_image" else [])
+        if on_image and not intents and not brief.image and decision.action == "mark_image":
+            # She asked for a mark and the brief withheld it (live eval: a question instead of
+            # the circle): her own words are the mark, on the closest element.
+            intent = intent_from_words(self.text)
+            self.log("image_mark_fallback", verb=intent.verb, target=intent.target)
+            intents = [intent]
         if not on_image or not intents:
             return brief
         started = time.monotonic()
@@ -973,8 +1011,10 @@ RUNGS = {
     "the exact state or edge on her paper, with a few words.",
     ("mark_image", "paper"): "[app note] Mark her image (the one captioned [image]), not her "
     "paper or the board: image_marks with each target in words; the Pointer finds its numbered "
-    "candidate and the app shows the image. No [image] attached: leave image_marks empty and "
-    "say you can't see it.",
+    "candidate and the app shows the image. She asked for this mark: never withhold it. Mark "
+    "what she named, or the closest element to it, then teach in say (a hint or a question "
+    "about what the mark shows). No [image] attached: leave image_marks empty and say you "
+    "can't see it.",
 }
 
 # Rung d: she watched her machine traced and is still lost. Show the fix beside it.
@@ -983,6 +1023,45 @@ CONTRAST = (
     "again. Draw the minimal fix on the board as fix, then [[trace t fix INPUT]] the target "
     "string on it, one [[step t]] per sentence, and say in one line what changed."
 )
+
+
+# Her mark verbs, in words: the first one she uses is the mark (highlight and mark circle).
+_MARK_WORDS = (
+    (re.compile(r"\b(?:cross(?:\s+(?:it|that|this|them))?\s+out|strike|cross)\b", re.I), "strike"),
+    (re.compile(r"\bunderline\b", re.I), "underline"),
+    (re.compile(r"\b(?:tick|check\s*mark|check)\b", re.I), "check"),
+    (re.compile(r"\bwash\b", re.I), "wash"),
+    (re.compile(r"\b(?:circle|highlight|mark|point (?:at|to)|show)\b", re.I), "circle"),
+)
+# What she said around her target: the request's lead-in and where it is ("in my screenshot").
+_LEAD_IN = re.compile(
+    r"^\W*(?:(?:now|ok(?:ay)?|so|and|then|please|can you|could you|would you|will you)\b[\s,]*)*",
+    re.I,
+)
+_WHERE = re.compile(
+    r"\s*\b(?:on|in|from|of)\s+(?:my|the|this|that)\s+(?:screen\s?shot|image|picture|photo|pic|"
+    r"attachment)s?\b",
+    re.I,
+)
+
+
+def intent_from_words(text: str) -> MarkIntent:
+    """Her request as a mark in words for the Pointer: her verb, and what she named."""
+    found = [
+        (m.start(), m.end(), verb)
+        for pattern, verb in _MARK_WORDS
+        for m in [pattern.search(text)]
+        if m
+    ]
+    verb = "circle"
+    target = text
+    if found:
+        start, end, verb = min(found)
+        target = text[end:]
+    target = _WHERE.sub("", target)
+    target = re.sub(r"\b(?:please|for me)\b", "", target, flags=re.I)
+    target = " ".join(_LEAD_IN.sub("", target).split()).strip(" .,!?")
+    return MarkIntent(verb=verb, target=(target or text.strip() or "it")[:80])
 
 
 def lift_say_tags(brief):

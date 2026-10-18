@@ -43,7 +43,8 @@ async def test_thinker_image_delivery_failure_retries_from_latest_notes():
     class Completions:
         async def create(self, **kwargs):
             calls.append(kwargs)
-            if len(calls) == 1:
+            # Dropped twice: the first retry still sends the image (live eval 20261018-133513).
+            if len(calls) <= 2:
                 raise APIConnectionError(request=httpx.Request("POST", "https://example.test"))
             return SimpleNamespace(
                 choices=[
@@ -68,7 +69,8 @@ async def test_thinker_image_delivery_failure_retries_from_latest_notes():
         ]
     )
     assert result.say
-    assert len(calls) == 2
-    assert "image_url" not in str(calls[1])
-    assert "q1 accepts" in str(calls[1])
-    assert "latest page notes" in str(calls[1])
+    assert len(calls) == 3
+    assert "image_url" in str(calls[1])
+    assert "image_url" not in str(calls[2])
+    assert "q1 accepts" in str(calls[2])
+    assert "latest page notes" in str(calls[2])

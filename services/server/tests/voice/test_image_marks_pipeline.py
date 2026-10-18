@@ -113,3 +113,68 @@ async def test_a_raw_image_tag_from_the_brief_lands_on_her_latest_image():
             ("image.mark", "a-9"),
         ]
         assert actions[1]["mark"]["target"] == {"el": "m1"}
+
+
+async def test_the_thinker_sees_her_image_numbered_on_every_turn_about_it(monkeypatch):
+    """The live eval's three turns (20261018-133513): the typed message that carries her image,
+    then two marks asked in words. Each thinker request holds her image, numbered, once."""
+    import base64
+
+    from tassel.voice.fakes.thinker import FakeThinker
+    from tassel.voice.thinker import GuidanceBrief
+
+    seen = []
+
+    async def think(self, messages, effort=None):
+        seen.append(messages)
+        return GuidanceBrief.model_validate(
+            dict(
+                page="",
+                intent="",
+                diagnosis="",
+                plan=["Look"],
+                # Distinct lines: a repeated one would be asked again (the repeat check).
+                say=SAYS[len(seen) - 1],
+                board=[],
+                paper=[],
+                confidence=1.0,
+                followups=[],
+            )
+        )
+
+    SAYS = [
+        "Thanks, I can see your machine now.",
+        "The final circle is where 010 ends.",
+        "Follow the arrow that leaves q2.",
+    ]
+    monkeypatch.setattr(FakeThinker, "think", think)
+    data = textbook().png()
+    marked = image_view(data).marked_jpeg
+    chat = WorksheetChat({"dfa": data})
+    ctx = context(chat=chat, request=OfferRequestData(scenario="image-marks"))
+    turns = [
+        ("Here's a photo of my DFA for strings that start with 010.", ["dfa"]),
+        ("Circle the state on my image that should be accepting.", []),
+        ("Now underline the arrow out of q2 in my screenshot.", []),
+    ]
+    async with running(ctx) as (bot, out):
+        await greeted(out)
+        for n, (text, images) in enumerate(turns, 1):
+            await typed(bot, text, client_id=f"c-{n}", attachment_ids=images, voice=False)
+            try:
+                await until(lambda n=n: len(seen) == n)
+            except TimeoutError:
+                raise AssertionError(
+                    f"turn {n}: thinker calls {len(seen)}; {out.events()[-6:]}"
+                ) from None
+            await until(lambda n=n: len(finals(out, "tutor")) == n + 1)
+    for messages, (text, _) in zip(seen, turns, strict=True):
+        user = next(m for m in reversed(messages) if m["role"] == "user")
+        blocks = user["content"]
+        assert blocks[0] == {"type": "text", "text": text}
+        urls = [b["image_url"]["url"] for b in blocks if b["type"] == "image_url"]
+        assert [base64.b64decode(u.split(",", 1)[1]) for u in urls] == [marked], text
+        assert any("[image]" in b.get("text", "") for b in blocks), text
+        # Only the latest turn carries it: earlier turns' copies are gone.
+        earlier = [m for m in messages if m is not user and isinstance(m.get("content"), list)]
+        assert not any(b.get("type") == "image_url" for m in earlier for b in m["content"])
