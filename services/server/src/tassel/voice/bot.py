@@ -50,7 +50,7 @@ from tassel.beats.processor import BeatTagProcessor
 from tassel.models import Lang, SessionPatch
 from tassel.storage import sessions_repo
 from tassel.vision.turn_image import NO_VIEW, TurnPage
-from tassel.voice.director import Director, make_director
+from tassel.voice.director import CONFUSED, Director, escalate, make_director
 from tassel.voice.events import ServerEvents, VadForwarder
 from tassel.voice.fakes.llm import FakeLLMService
 from tassel.voice.fakes.scenario import load_scenario
@@ -188,6 +188,7 @@ class _TurnContext(FrameProcessor):
         self.frozen = False
         self.page_revision = 0
         self.seen_revision = 0
+        self.confusions = 0
         self.on_focus = None
         self.decision = None
         self.coordinator = None
@@ -279,6 +280,28 @@ class _TurnContext(FrameProcessor):
                         self.pending_image is not None or self.page_revision != self.seen_revision
                     ),
                 )
+                # The playbook's ladder: still confused after an explanation means drawing.
+                answered = any(m.get("role") == "assistant" for m in messages)
+                self.confusions = (
+                    self.confusions + 1 if answered and CONFUSED.search(student_text) else 0
+                )
+                last = (
+                    self.coordinator.notes[-1]
+                    if self.coordinator and self.coordinator.notes
+                    else None
+                )
+                escalated = escalate(
+                    student_text,
+                    self.decision,
+                    confusions=self.confusions,
+                    drew_last=bool(last and (last.board or last.paper)),
+                )
+                if escalated != self.decision:
+                    if self.director.log:
+                        self.director.log(
+                            "escalate", confusions=self.confusions, decision=escalated.model_dump()
+                        )
+                    self.decision = escalated
                 self.focus = self.decision.focus
                 if self.on_focus and self.focus != "none":
                     await self.on_focus(self.focus)
@@ -306,6 +329,19 @@ class _TurnContext(FrameProcessor):
                 )
                 if not self.decision.needs_vision:
                     self.pending_image = None
+                if (
+                    self.decision.route == "thinker"
+                    and self.decision.needs_vision
+                    and self.coordinator is not None
+                    and self.coordinator.thinker is not None
+                ):
+                    # The talker bridges at once; the thinker waits for the page.
+                    _drop_images(messages)
+                    await self.coordinator.prepare(
+                        frame.context, student_text, decision=self.decision, page=self._thinker_page
+                    )
+                    await self.push_frame(frame, direction)
+                    return
                 page = await self._turn_page() if self.decision.needs_vision else None
                 if page is not None and page.image is not None:
                     self.seen_revision = self.page_revision
@@ -351,6 +387,27 @@ class _TurnContext(FrameProcessor):
                         # and Qwen with a page attached took 5–7 s to say anything.
                         _drop_images(messages)
         await self.push_frame(frame, direction)
+
+    async def _thinker_page(self):
+        """The page for a thinker turn. A turn that gets no view asks the app for a fresh frame
+        once more: the bridge is still speaking, so the wait costs nothing."""
+        stand_in, self.pending_image = self.pending_image, None
+        for _ in range(2):
+            turn = await self._turn_page()
+            if turn is not None and turn.image is not None:
+                self.seen_revision = self.page_revision
+                logger.info(
+                    "Page image for this turn: session={} bytes={}",
+                    self._session_id,
+                    len(turn.image),
+                )
+                return turn.image, turn.caption, turn.ink_image
+            if turn is None:
+                break
+        if stand_in:
+            return stand_in[0], stand_in[1], None
+        logger.info("No current view of the paper: session={}", self._session_id)
+        return None
 
     async def cleanup(self):
         await self.director.close()

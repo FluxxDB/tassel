@@ -58,10 +58,28 @@ BOARD_MISSING = re.compile(
     r"[^.?!]{0,30}\b(?:board|whiteboard)\b|\bnothing on (?:the |your )?(?:white)?board\b",
     re.I,
 )
+# "Help me make/fix…" asks for guidance on her own work, not for the answer (retest #8).
+HELP = re.compile(
+    r"\bhelp me (?:make|build|draw|fix|with|understand)\b|"
+    r"\b(?:i'?m|i am) trying to (?:make|draw|build|write)\b|"
+    r"\bfix (?:this|my) (?:dfa|nfa|automaton|machine)\b",
+    re.I,
+)
+ANSWER = re.compile(
+    r"\b(?:(?:show|give|tell) me (?:the )?(?:answer|solution)|correct version|"
+    r"(?:write|draw) (?:me )?(?:an?|the) (?:correct )?(?:dfa|nfa))\b",
+    re.I,
+)
+CONFUSED = re.compile(
+    r"\b(?:i'?m not sure|not sure|i (?:still )?don'?t (?:quite |really |fully )?"
+    r"(?:understand|get it|get that|follow|know)|"
+    r"confus\w*|what do you mean|repeating yourself|i'?m lost|makes? no sense)\b",
+    re.I,
+)
 # A new machine or a changed version of hers is a board construction unless she names her paper.
 CONSTRUCT = re.compile(
-    r"\b(?:(?:show|draw|build|construct|make|design|convert|modify)\b[^.?!]{0,40}\b"
-    r"(?:nfa|dfa|automat\w*|machine|version)|modified version)\b",
+    r"\b(?:(?:show|draw|build|construct|make|design|convert|modify|write|give)\b[^.?!]{0,40}\b"
+    r"(?:nfa|dfa|automat\w*|machine|version)|modified version|correct version)\b",
     re.I,
 )
 COMPLEX = re.compile(
@@ -122,6 +140,10 @@ def guard(text, decision):
     update = {}
     if named_paper and not board and (draw or decision.action == "draw_board"):
         update.update(action="mark_paper", focus="paper", refers_to="paper", needs_vision=True)
+    elif HELP.search(text) and not ANSWER.search(HELP.sub(" ", text)) and not board:
+        update.update(focus="paper", refers_to="paper", needs_vision=True)
+        if decision.action == "draw_board":
+            update["action"] = "explain"
     elif self_work and not named_paper and decision.refers_to != "paper":
         update.update(focus="paper", refers_to="paper", needs_vision=True)
         if decision.action == "draw_board":
@@ -134,7 +156,11 @@ def guard(text, decision):
         update.update(action="draw_board", focus="board", refers_to="board", needs_vision=False)
     elif BOARD_MISSING.search(text):
         update.update(action="draw_board", focus="board", refers_to="board", needs_vision=False)
-    elif CONSTRUCT.search(text) and not named_paper and decision.action != "draw_board":
+    elif (
+        CONSTRUCT.search(HELP.sub(" ", text))
+        and not named_paper
+        and decision.action != "draw_board"
+    ):
         update.update(action="draw_board", focus="split" if decision.focus == "split" else "board")
     merged = decision.model_copy(update=update)
     if merged.route == "talker" and (
@@ -155,6 +181,34 @@ def guard(text, decision):
         # Short definitional questions are the fast talker's: instant, no brief needed.
         update.update(route="talker", action="explain")
     return decision.model_copy(update=update) if update else decision
+
+
+def escalate(text, decision, *, confusions, drew_last=False):
+    """The playbook's ladder, enforced: still confused after one explanation means drawing.
+    First point at her paper; if that was already done, trace the counterexample."""
+    if confusions <= 0 or not CONFUSED.search(text):
+        return decision
+    on_board = decision.refers_to == "board" or decision.focus == "board"
+    if confusions + drew_last <= 1:
+        if on_board:
+            update = dict(route="thinker", action="draw_board")
+        else:
+            update = dict(
+                route="thinker",
+                action="mark_paper",
+                focus="paper",
+                refers_to="paper",
+                needs_vision=True,
+            )
+    elif on_board:
+        update = dict(
+            route="thinker", action="trace", focus="board", refers_to="board", needs_vision=False
+        )
+    else:
+        update = dict(
+            route="thinker", action="trace", focus="split", refers_to="paper", needs_vision=True
+        )
+    return decision.model_copy(update=update)
 
 
 class Director:

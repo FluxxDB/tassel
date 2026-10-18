@@ -1,6 +1,8 @@
 """One background reasoning request per session, with bounded, expiring tutor notes."""
 
 import asyncio
+import base64
+import difflib
 import re
 import time
 from copy import deepcopy
@@ -22,7 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from tassel.beats.markup import BoardContext, MarkupStream
 from tassel.beats.processor import FlushSpeechFrame
 from tassel.vision.turn_image import NO_VIEW
-from tassel.voice.action_checker import TargetLanguage, check_tags
+from tassel.voice.action_checker import TargetLanguage, check_tags, talker_allowed
 from tassel.voice.director import rules
 from tassel.voice.prompts import thinker_system_prompt
 from tassel.voice.settings import VoiceSettings
@@ -107,6 +109,18 @@ INTENT = re.compile(
 )
 PAPER = re.compile(r"\b(on my paper|my camera|on (?:the )?camera|circle mine)\b", re.I)
 NOTE_PREFIX = "[tutor notes]"
+MARK_ID = re.compile(r"\bm\d+\b")
+
+
+def _similar(a: str, b: str) -> bool:
+    return difflib.SequenceMatcher(None, a.casefold(), b.casefold()).ratio() > 0.7
+
+
+def _image_url(image: bytes) -> str:
+    kind = "png" if image[:8] == b"\x89PNG\r\n\x1a\n" else "jpeg"
+    return f"data:image/{kind};base64," + base64.b64encode(image).decode()
+
+
 BRIDGE_PREFIX = "[thinker pending]"
 
 
@@ -136,6 +150,7 @@ class TutorCoordinator:
         self.ink = None
         self.delivered = False
         self.decision = None
+        self._page = None
 
     def log(self, event, **data):
         if self.transcript:
@@ -165,11 +180,14 @@ class TutorCoordinator:
             )
         ]
         if self.notes:
-            older = "\n".join(f"{n.intent}: {n.diagnosis}" for n in self.notes[:-1])
+            older = "\n".join(f"{n.intent}: {n.diagnosis} (said: {n.say})" for n in self.notes[:-1])
+            # Mark IDs belong to one image; the next frame renumbers them (retest #8 circled
+            # the wrong state with a stale m14).
+            latest = self.notes[-1].model_dump_json(exclude={"paper"})
             messages.append(
                 {
                     "role": "system",
-                    "content": NOTE_PREFIX + "\n" + older + "\n" + self.notes[-1].model_dump_json(),
+                    "content": MARK_ID.sub("a mark", NOTE_PREFIX + "\n" + older + "\n" + latest),
                 }
             )
         if self.task and not self.delivered:
@@ -183,11 +201,16 @@ class TutorCoordinator:
                 }
             )
 
-    async def prepare(self, context, text: str, image: bytes | None = None, *, decision=None):
+    async def prepare(
+        self, context, text: str, image: bytes | None = None, *, decision=None, page=None
+    ):
+        """page: an async callable returning (image, caption[, ink]) or None, awaited by the
+        thinker so the talker's bridge never waits for the camera."""
         await self.cancel()
         self.context, self.text = context, text
         self.decision = decision
         self.delivered = False
+        self._page = page
         current = ink_signature(image)
         changed = (
             current is not None
@@ -201,6 +224,14 @@ class TutorCoordinator:
             self.ink = current
         self._notes_context()
         self.messages = deepcopy(context.get_messages())
+        if decision is not None:
+            where = "board" if decision.refers_to == "board" else "paper"
+            rung = RUNGS.get((decision.action, where))
+            traced = any("[[dfa yours" in t for n in self.notes[-1:] for t in n.board)
+            if decision.action == "trace" and where == "paper" and traced:
+                rung = CONTRAST
+            if rung:
+                self.messages.append({"role": "system", "content": rung})
         if (
             decision.route == "thinker"
             if decision
@@ -218,57 +249,40 @@ class TutorCoordinator:
     async def _run(self, generation):
         started = time.monotonic()
         try:
+            if self._page is not None:
+                await self._attach_page()
+                if generation != self.generation:
+                    return None
             effort = None
             if self.decision and self.decision.action == "draw_board":
                 # Constructions are checked by the exact verifier; give them more thought.
                 settings = getattr(self.thinker, "settings", None)
                 effort = getattr(settings, "thinker_draw_effort", "low")
-            brief = await self.thinker.think(self.messages, effort=effort)
-            if generation != self.generation:
+            brief = await self._brief(generation, self.messages, effort)
+            if brief is None:
                 return None
-            decision = self.decision or rules(self.text)
-            checked = await asyncio.to_thread(
-                check_tags, brief.board + brief.paper, decision, self.board, brief.language
-            )
-            if checked.repair:
-                self.log("reject", source="action_checker", reason=checked.repair)
-                original_language = brief.language
-                try:
-                    repaired = await self.thinker.think(
-                        [
-                            *self.messages,
-                            {
-                                "role": "system",
-                                "content": "Repair this drawing once: "
-                                + checked.repair
-                                + " Keep the same target language and director action. "
-                                "Previous brief: " + brief.model_dump_json(),
-                            },
-                        ],
-                        effort=effort,
-                    )
-                    # A repair may not evade verification by removing/changing the target.
-                    brief = repaired.model_copy(update={"language": original_language})
-                    checked = await asyncio.to_thread(
-                        check_tags,
-                        brief.board + brief.paper,
-                        decision,
-                        self.board,
-                        original_language,
-                    )
-                except Exception:
-                    checked.tags = []
-                if generation != self.generation:
+            said = [n.say for n in self.notes[-3:]]
+            if any(_similar(brief.say, old) for old in said):
+                # Retest #8: the same sentence three times. Change words and tools instead.
+                self.log("reject", source="repeat", text=brief.say)
+                retry = await self._brief(
+                    generation,
+                    [
+                        *self.messages,
+                        {
+                            "role": "system",
+                            "content": "[app note] You already said: "
+                            + " | ".join(said)
+                            + " The student still doesn't follow. Say something new and move "
+                            "up the playbook's ladder: mark her paper, or copy her machine to "
+                            "the board as yours and trace the counterexample step by step.",
+                        },
+                    ],
+                    effort,
+                )
+                if retry is None:
                     return None
-            for tag in checked.rejected:
-                self.log("reject", source="action_checker", text=tag)
-            brief = brief.model_copy(
-                update={
-                    "board": [t for t in brief.board if t in checked.tags],
-                    "paper": [t for t in brief.paper if t in checked.tags],
-                }
-            )
-            brief = self.validate_tags(brief)
+                brief = retry
             self.notes = [*self.notes[-3:], brief]
             self.expires = time.monotonic() + self.ttl_s
             self.log("thinker_brief", brief=brief.model_dump())
@@ -281,6 +295,91 @@ class TutorCoordinator:
             return None
         finally:
             self.log("thinker_duration", ms=(time.monotonic() - started) * 1000)
+
+    async def _attach_page(self):
+        """The turn's page, fetched while the talker bridges: the thinker gets it, the talker
+        never waits for it."""
+        page, self._page = self._page, None
+        result = await page()
+        user = next((m for m in reversed(self.messages) if m.get("role") == "user"), None)
+        if user is None:
+            return
+        text = user["content"] if isinstance(user["content"], str) else self.text
+        if result and result[0]:
+            image, caption = result[0], result[1]
+            ink = result[2] if len(result) > 2 and result[2] else image
+            current = ink_signature(ink)
+            if (
+                current is not None
+                and self.ink is not None
+                and float(np.mean(current != self.ink)) > 0.015
+            ):
+                # Her page changed since the notes: they describe old ink.
+                self.notes.clear()
+                self.messages[:] = [
+                    m
+                    for m in self.messages
+                    if not (
+                        isinstance(m.get("content"), str) and m["content"].startswith(NOTE_PREFIX)
+                    )
+                ]
+            if not self.notes:
+                self.ink = current
+            user["content"] = [
+                {"type": "text", "text": text},
+                {"type": "text", "text": caption},
+                {"type": "image_url", "image_url": {"url": _image_url(image)}},
+            ]
+        else:
+            user["content"] = [{"type": "text", "text": text}, {"type": "text", "text": NO_VIEW}]
+
+    async def _brief(self, generation, messages, effort):
+        brief = lift_say_tags(await self.thinker.think(messages, effort=effort))
+        if generation != self.generation:
+            return None
+        decision = self.decision or rules(self.text)
+        checked = await asyncio.to_thread(
+            check_tags, brief.board + brief.paper, decision, self.board, brief.language
+        )
+        if checked.repair:
+            self.log("reject", source="action_checker", reason=checked.repair)
+            original_language = brief.language
+            try:
+                repaired = await self.thinker.think(
+                    [
+                        *messages,
+                        {
+                            "role": "system",
+                            "content": "Repair this drawing once: "
+                            + checked.repair
+                            + " Keep the same target language and director action. "
+                            "Previous brief: " + brief.model_dump_json(),
+                        },
+                    ],
+                    effort=effort,
+                )
+                # A repair may not evade verification by removing/changing the target.
+                brief = lift_say_tags(repaired).model_copy(update={"language": original_language})
+                checked = await asyncio.to_thread(
+                    check_tags,
+                    brief.board + brief.paper,
+                    decision,
+                    self.board,
+                    original_language,
+                )
+            except Exception:
+                checked.tags = []
+            if generation != self.generation:
+                return None
+        for tag in checked.rejected:
+            self.log("reject", source="action_checker", text=tag)
+        brief = brief.model_copy(
+            update={
+                "board": [t for t in brief.board if t in checked.tags],
+                "paper": [t for t in brief.paper if t in checked.tags],
+            }
+        )
+        return self.validate_tags(brief)
 
     def validate_tags(self, brief):
         context = deepcopy(self.board)
@@ -345,6 +444,57 @@ class TutorCoordinator:
             await self.thinker.close()
 
 
+STEP = re.compile(r"\[\[\s*p?step\b")
+PAPER_VERB = re.compile(
+    r"\[\[\s*(?:freeze|circle|wash|number|strike|check|callout|ptrace|pstep|live)\b"
+)
+SAY_TAG = re.compile(r"\[\[[^\[\]]*\]\]")
+# Per-action guidance for the thinker: the playbook's rung, made explicit for this turn.
+RUNGS = {
+    ("trace", "paper"): "[app note] Playbook rung c (show): copy her machine exactly as drawn to "
+    "the board as yours, then [[trace t yours INPUT student]] on the counterexample, with one "
+    "[[step t]] per sentence after the first.",
+    ("trace", "board"): "[app note] Trace on the board: [[trace t MACHINE INPUT]] on the machine "
+    "already there, with one [[step t]] per sentence after the first.",
+    ("mark_paper", "paper"): "[app note] Playbook rung b (point): freeze, then circle or callout "
+    "the exact state or edge on her paper, with a few words.",
+}
+
+# Rung d: she watched her machine traced and is still lost. Show the fix beside it.
+CONTRAST = (
+    "[app note] Playbook rung d (contrast): you already traced her machine; do not trace it "
+    "again. Draw the minimal fix on the board as fix, then [[trace t fix INPUT]] the target "
+    "string on it, one [[step t]] per sentence, and say in one line what changed."
+)
+
+
+def lift_say_tags(brief):
+    """Tags written inside say still count: move them to the paper or board list (compose
+    places steps per sentence) instead of dropping them."""
+    tags = SAY_TAG.findall(brief.say)
+    if not tags:
+        return brief
+    paper = [t for t in tags if PAPER_VERB.match(t)]
+    board = [t for t in tags if not PAPER_VERB.match(t)]
+    say = " ".join(SAY_TAG.sub(" ", brief.say).split())
+    return brief.model_copy(
+        update={"board": brief.board + board, "paper": brief.paper + paper, "say": say}
+    )
+
+
+def compose(brief) -> str:
+    """Tags lead, except trace steps: one lands before each sentence after the first, so a
+    trace advances as Ada speaks it."""
+    tags = brief.board + brief.paper
+    steps = [t for t in tags if STEP.match(t)]
+    text = "".join(t for t in tags if not STEP.match(t))
+    for i, sentence in enumerate(re.split(r"(?<=[.!?])\s+", brief.say.strip())):
+        if i and steps:
+            text += steps.pop(0)
+        text += sentence + " "
+    return text.rstrip() + "".join(steps)
+
+
 class ThinkerOutput(FrameProcessor):
     """Consume control tags before beats/TTS; continue the spoken turn with its brief."""
 
@@ -378,7 +528,9 @@ class ThinkerOutput(FrameProcessor):
                 decision = self.coordinator.decision
                 if decision:
                     # Structural drawings come only from the checked brief, never raw talker tags.
-                    checked = check_tags([tag], decision, self.coordinator.board)
+                    checked = check_tags(
+                        [tag], decision, self.coordinator.board, allow=talker_allowed
+                    )
                     structural = any(
                         kind in ("board.automaton", "board.addState", "board.addTransition")
                         for kind in checked.kinds
@@ -406,9 +558,7 @@ class ThinkerOutput(FrameProcessor):
                 pending = self.coordinator.task is not None and not self.coordinator.delivered
                 brief = await self.coordinator.result()
                 if brief:
-                    await self.push_frame(
-                        LLMTextFrame("".join(brief.board + brief.paper) + brief.say)
-                    )
+                    await self.push_frame(LLMTextFrame(compose(brief)))
                 elif pending and generation == self.coordinator.generation:
                     failure = {
                         "en": "I couldn't finish checking that. Could you ask me again?",

@@ -28,23 +28,33 @@ class CheckedTags:
 
 
 def allowed(kind, decision):
+    """Drawing is the tutor's strongest tool, so any thinker turn may draw where the turn points:
+    paper turns mark her paper, board turns draw and trace on the board, explanations may use
+    either. Only the director chooses the view."""
     if kind == "stage":
-        return False  # Only the director can choose the view.
+        return False
+    paper, board = kind.startswith("paper."), kind.startswith("board.")
+    if decision.action == "mark_paper":
+        return paper
+    if decision.action == "draw_board":
+        return board
+    if decision.action == "trace":
+        return board or (paper and decision.refers_to == "paper")
+    return board or (paper and decision.refers_to == "paper")
+
+
+def talker_allowed(kind, decision):
+    """The fast talker never decides to draw: only light marks that match the director's
+    action, never on an explanation turn."""
     if decision.action == "mark_paper":
         return kind in ("paper.freeze", "paper.mark", "paper.live")
     if decision.action == "draw_board":
         return kind.startswith("board.") and "trace" not in kind.lower()
-    if decision.action == "trace":
-        prefix = "paper." if decision.refers_to == "paper" else "board."
-        return kind.startswith(prefix) and kind in (
-            "paper.freeze",
-            "paper.trace",
-            "paper.traceStep",
-            "board.trace",
-            "board.traceStep",
-            "board.verdict",
-        )
     return False
+
+
+# A copy of her machine as drawn, to trace a counterexample on: it is meant to be wrong.
+STUDENT_COPY = re.compile(r"^yours\w*$")
 
 
 def _reading(spec):
@@ -91,7 +101,7 @@ def _reading(spec):
     )
 
 
-def check_tags(tags, decision, board, language=None):
+def check_tags(tags, decision, board, language=None, *, allow=allowed):
     context = deepcopy(board)
     result = CheckedTags([], [])
     for tag in tags:
@@ -103,14 +113,18 @@ def check_tags(tags, decision, board, language=None):
             not re.fullmatch(r"\[\[[^\[\]]+\]\]", tag)
             or not actions
             or any(s.problems for s in sentences)
-            or not all(allowed(a.kind, decision) for a in actions)
+            or not all(allow(a.kind, decision) for a in actions)
         ):
             result.rejected.append(tag)
             continue
         if any(len(s.states) > 8 or len(s.transitions) > 16 for s in candidate.specs.values()):
             result.repair = "Keep the drawing to at most 8 states and 16 edges."
         # Check each newly defined or changed machine, including edge/add commands.
-        changed = [s for key, s in candidate.specs.items() if context.specs.get(key) != s]
+        changed = [
+            s
+            for key, s in candidate.specs.items()
+            if context.specs.get(key) != s and not STUDENT_COPY.match(key)
+        ]
         if language and changed:
             try:
                 machine = compile_regex(language.regex, language.alphabet)

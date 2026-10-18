@@ -280,7 +280,8 @@ async def test_board_constructions_think_at_low_effort():
     for action in ("draw_board", "mark_paper"):
         await c.prepare(LLMContext([]), "x", decision=decision(route="thinker", action=action))
         await c.result()
-    assert efforts == ["low", None]
+    # The second brief repeats the first, so it is rewritten once: still at the default.
+    assert efforts[0] == "low" and set(efforts[1:]) == {None}
     await c.close()
 
 

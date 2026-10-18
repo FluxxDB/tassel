@@ -188,7 +188,28 @@ async def turn_image_for(
     view = await latest_page_view(session_id, db=db, store=store)
     if context is not None and view is not None:
         view.set_context(context)
-    return None if view is None else (view.marked_jpeg, CAPTION)
+    return None if view is None else (view.marked_jpeg, CAPTION + legend(view))
+
+
+def legend(view: PageView) -> str:
+    """Where each mark ID sits, in words: the thinker misread small badge numbers live (retest #8
+    called m4, in the heading, 'near the final state'), so it can cross-check them here."""
+    if not view.elements:
+        return ""
+
+    def where(e):
+        cx = (e.box.x + e.box.w / 2) / max(view.width, 1)
+        cy = (e.box.y + e.box.h / 2) / max(view.height, 1)
+        across = "left" if cx < 1 / 3 else "center" if cx < 2 / 3 else "right"
+        down = "top" if cy < 1 / 3 else "middle" if cy < 2 / 3 else "bottom"
+        return f"{e.id} {e.kind} at {down} {across}"
+
+    ordered = sorted(view.elements, key=lambda e: e.box.x + e.box.w / 2)
+    return (
+        " Marks from left to right: "
+        + "; ".join(where(e) for e in ordered)
+        + ". Cross-check an ID's position here before marking it."
+    )
 
 
 @dataclass(frozen=True)
@@ -255,7 +276,7 @@ async def fresh_turn_image_for(
     if view is None:
         return TurnPage(None, NO_VIEW)
     view.set_context(context)
-    return TurnPage(view.marked_jpeg, CAPTION, ink_image=view.page_jpeg)
+    return TurnPage(view.marked_jpeg, CAPTION + legend(view), ink_image=view.page_jpeg)
 
 
 def make_turn_image_for(

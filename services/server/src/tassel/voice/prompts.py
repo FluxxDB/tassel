@@ -1,5 +1,7 @@
 """Spoken tutoring instructions, independent of the fake scenarios."""
 
+from pathlib import Path
+
 from tassel.models import Lang
 from tassel.voice.messages import LANGUAGE_SWITCH_PREFIX
 
@@ -76,8 +78,9 @@ one or more symbols always; in an edge tag it is [[edge ITEM FROM TO SYMS]], lik
 [[unhighlight ITEM EL]] removes its highlight.
 [[pulse ITEM EL]] briefly emphasizes an element.
 [[note ITEM "TEXT" [near=ITEM:EL]]] adds a note.
-[[trace ITEM ON INPUT [student]]] traces INPUT on a previously defined automaton ON.
-[[step ITEM]] advances that trace.
+[[trace TRACE MACHINE INPUT [student]]] starts a trace named TRACE of INPUT on the previously
+defined automaton MACHINE, like [[trace t yours 010 student]] (no word "ON").
+[[step TRACE]] advances that trace one symbol, like [[step t]].
 [[verdict ITEM accept|reject [expected=accept|reject] [note="TEXT"]]] gives its verdict.
 [[focus [ITEM]]] focuses an item, or all items.
 [[clear [ITEM]]] clears an item, or the board.
@@ -139,7 +142,14 @@ Never invent complex drawing tags yourself. Use the brief's validated tags.
 Only an explicit board request or a necessary new diagram goes on the board; keep drawings small.
 Never promise a drawing ("let me put it on the board") yourself: only the thinker's brief draws,
 and only on a thinker turn.
+Guide, don't narrate: never describe the page back or say you can see it. Hints before answers.
+Never repeat what you already said; if she is still confused, say you'll draw it out.
 """
+
+# The tutor's playbook: an editable skills file, playbook.md beside this module. Owner, retest
+# #8: "a backlog, like a skills file… if it tries once to guide me and I don't understand, it
+# should move on to other tools like drawing".
+TUTOR_PLAYBOOK = (Path(__file__).with_name("playbook.md")).read_text(encoding="utf-8").strip()
 
 _CASE = {
     "page": "Heading: Language for 0101 ?; chain q0 -0-> q1 -1-> q2 -0-> a double circle. "
@@ -163,6 +173,24 @@ _CASE = {
 }
 THINKER_EXAMPLES = [
     {"student": "Can you check this?", "brief": _CASE},
+    {
+        "student": "I still don't understand.",
+        "brief": {
+            **_CASE,
+            "intent": "See why 010 is accepted, by tracing it on a copy of her machine.",
+            "plan": ["Copy her chain to the board as yours and trace 010 step by step."],
+            "say": "Let's run 010 on your machine. Zero takes you to q one. One takes you to "
+            "q two. Zero lands on q three, a double circle, so it accepts. But is 010 your "
+            "target?",
+            "board": [
+                "[[dfa yours start=q0 accept=q3 q0-0-q1 q1-1-q2 q2-0-q3]]",
+                "[[trace t yours 010 student]]",
+                "[[step t]]",
+                "[[step t]]",
+                "[[step t]]",
+            ],
+        },
+    },
     {
         "student": "Circle the mistake on my paper.",
         "brief": {
@@ -193,8 +221,16 @@ def thinker_system_prompt(schema: dict) -> str:
         "guidance brief matching this schema:\n" + json.dumps(schema) + "\n"
         "Be brief: the student is waiting. page at most 30 words, diagnosis one sentence, "
         "plan at most 2 steps, followups at most 2 short lines, say one or two short "
-        "spoken sentences. Leave board or paper empty when not needed.\n"
-        "page: transcribe visible writing and describe states, edges and uncertainties. "
+        "spoken sentences, except a trace: one short sentence per step, with one [[step]] "
+        "tag per sentence after the first, in order. Leave board or paper empty when not "
+        "needed.\n" + TUTOR_PLAYBOOK + "\n"
+        "page: transcribe visible writing and describe states, edges and uncertainties, and name "
+        "what each mark ID you use is, like 'm4 = the double-circled final state'. Mark IDs "
+        "change with every image: use only IDs on this image, never one from notes or an "
+        "earlier turn, and check the ID's box sits on the element you mean. Colored boxes "
+        "and numbers are the app's labels, and purple circles or callouts are your own "
+        "earlier marks: they are not her ink. A single circle inside your purple ring is "
+        "still a single circle. "
         "intent: what the student wants. diagnosis: the misconception with visible evidence. "
         "plan: 1–4 steps, question → counterexample → explanation → solution only if asked. "
         "say: what the tutor says next, in the conversation language, no tags. The talker has "
@@ -215,8 +251,10 @@ def thinker_system_prompt(schema: dict) -> str:
         "leave paper empty and say what you cannot see. Never ask the student to send, share or "
         "resend an image: the app captures the page itself; say you'll look again instead. "
         "A mark may also point at a diagnosed mistake. "
-        "Use the board only for an explicit board request or a needed new diagram. Keep drawings "
-        "small: the student's automaton or minimal fix, not a new machine unless requested. "
+        "Use the board for an explicit board request, a needed new diagram, or the playbook's "
+        "trace. Keep drawings small: her automaton (as yours) or the minimal fix, not a new "
+        "machine unless requested. Her copy as yours is exempt from the target check; your "
+        "own machines must be correct. "
         "Examples use m4 only because it is visible there; use only IDs in the actual turn image.\n"
         + BOARD_RULES
         + "\nWorked guidance briefs:\n"
