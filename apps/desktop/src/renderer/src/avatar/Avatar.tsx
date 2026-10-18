@@ -16,7 +16,9 @@ export function Avatar({
 }) {
   const id = useId();
   const dress = p.outfit === 'dress';
-  const body = 'M35 220V191Q40 160 87 150Q102 168 117 150Q164 160 170 191V220Z';
+  const body = dress
+    ? 'M35 220V191Q40 160 87 150Q89 149 89 145H114Q114 149 117 150Q164 160 170 191V220Z'
+    : 'M35 220V191Q40 160 87 150Q102 168 117 150Q164 160 170 191V220Z';
   const hair = COLORS.hair[p.hairColor];
   const skin = COLORS.skin[p.skin];
   const outfit = COLORS.outfit[p.outfitColor];
@@ -91,7 +93,10 @@ export function Avatar({
         <path d={body} fill={outfit} />
         {dress && (
           <g data-testid="dress-layer">
-            <path d="M87 150Q102 168 117 150L122 173Q102 194 82 173Z" fill={skin} />
+            <path
+              d="M89 145H114Q114 149 117 150L127 153L122 177Q102 184 81 177L76 153L87 150Q89 149 89 145Z"
+              fill={skin}
+            />
             <path
               d="M71 210Q102 219 133 210L137 220H67Z"
               fill="color-mix(in oklab, var(--avatar-outfit), #30232b 10%)"
