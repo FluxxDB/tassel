@@ -41,7 +41,9 @@ export type TutorEvent =
   | { type: 'language'; lang: Lang }
   | { type: 'voice-debug'; event: VoiceDebugEvent }
   /** The server asks for her paper as it is now: her turn began. */
-  | { type: 'paper-request' };
+  | { type: 'paper-request' }
+  /** The server asks for the board as it is now, a PNG for Ada's board turn. */
+  | { type: 'board-snapshot' };
 
 /** The live voice tutor's controls, beyond P1's TutorClient. */
 export interface VoiceControls {

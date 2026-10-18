@@ -1,7 +1,8 @@
 // The tldraw engine behind Ada's board (BoardEngine). It draws her scene by diffing her last desired
 // board against her next (planSync), so it changes only what she changed. Her changes go in as
 // remote changes outside the undo history, so they never count as the student's (Task 6) and she
-// can't undo them. Effects play on an overlay; the camera fits her focus.
+// can't undo them. Effects play on an overlay; the camera fits her focus. Its snapshot is the whole
+// page as a PNG, for Ada's board turn.
 import { type Pt, parseElementRef } from '@tassel/shared/beats';
 import type { Lang } from '@tassel/shared/i18n';
 import {
@@ -34,6 +35,11 @@ import {
 import { effectsOf } from './effects';
 import { createTextMeasure } from './measure';
 import { planSync, type SyncPlan } from './plan-sync';
+
+/** Page units around the board's shapes in its snapshot. */
+const SNAPSHOT_PADDING = 32;
+/** The most a snapshot scales a small board up. */
+const SNAPSHOT_MAX_SCALE = 2;
 
 /** i18next's t: a key in a language. */
 type Translate = (key: string, opts: Record<string, unknown> & { lng: Lang }) => string;
@@ -178,6 +184,23 @@ export function createTldrawEngine(
     },
     focus(item, { animate }) {
       control.refit(() => frame(item, animate));
+    },
+    async snapshot(maxSide) {
+      const ids = [...editor.getCurrentPageShapeIds()];
+      const bounds = editor.getCurrentPageBounds();
+      if (ids.length === 0 || !bounds) return null;
+      // Fixed padding, so the long side comes out at maxSide; a small board grows at most 2x.
+      const long = Math.max(bounds.w, bounds.h) + 2 * SNAPSHOT_PADDING;
+      const scale = Math.min(SNAPSHOT_MAX_SCALE, maxSide / long);
+      const { blob } = await editor.toImage(ids, {
+        format: 'png',
+        background: true,
+        padding: SNAPSHOT_PADDING,
+        pixelRatio: 1,
+        scale,
+        darkMode: false,
+      });
+      return blob;
     },
     onStudentEdit(listener) {
       // Task 6 reports her edits; until then there are none to report.

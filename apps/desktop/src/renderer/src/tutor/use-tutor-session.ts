@@ -2,10 +2,13 @@
 // and view requests go to the stage store. Her title shows in the title strip at once (R4). The
 // app never saves a title: the server writes the live tutor's (P2-R4), and the scripted tutor's
 // are display-only, naming only an untitled session (spec §5.1). Her board, paper and stage
-// actions go to the dispatcher, now or, in a beat, as the beat player hears her words (P5).
+// actions go to the dispatcher, now or, in a beat, as the beat player hears her words (P5). The
+// server's board-snapshot request sends the board as it is now, for Ada's board turn. Ending a
+// live session hands it to learner memory.
 import { useEffect, useRef } from 'react';
 import { beatPlayer } from '../board/beats/player';
 import { dispatchActions } from '../board/dispatch';
+import { sendBoardSnapshot } from '../board/snapshot';
 import { useCurrentSession } from '../features/session/current-session';
 import { useStageStore } from '../features/session/stage-store';
 import { useVoiceDebug } from '../features/voice/voice-debug';
@@ -23,7 +26,11 @@ export function useTutorSession(
   ready: boolean,
 ): void {
   const { nameIfUntitled, patchLocal } = useCurrentSession();
-  const api = useApi();
+  // Read when a snapshot is asked for or memory is handed over, so a new API client never
+  // reconnects the tutor.
+  const apiClient = useApi();
+  const api = useRef(apiClient);
+  api.current = apiClient;
   const visit = useRef(0);
 
   useEffect(() => {
@@ -33,7 +40,7 @@ export function useTutorSession(
     const finishMemory = () => {
       if (finishing || !client.voice) return;
       finishing = true;
-      void api
+      void api.current
         .POST('/v1/sessions/{session_id}/memory', {
           params: { path: { session_id: sessionId } },
           keepalive: true,
@@ -93,6 +100,9 @@ export function useTutorSession(
         case 'paper-request':
           void requestTurnFrame();
           break;
+        case 'board-snapshot':
+          void sendBoardSnapshot(api.current, sessionId);
+          break;
       }
     });
     void client
@@ -113,5 +123,5 @@ export function useTutorSession(
       // The next session starts with no beats of this one's pending.
       beatPlayer.reset();
     };
-  }, [api, client, nameIfUntitled, patchLocal, ready, sessionId]);
+  }, [client, nameIfUntitled, patchLocal, ready, sessionId]);
 }

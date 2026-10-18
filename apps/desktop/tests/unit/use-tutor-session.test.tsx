@@ -16,6 +16,8 @@ import { useTutorSession } from '../../src/renderer/src/tutor/use-tutor-session'
 
 const { requestTurnFrame } = vi.hoisted(() => ({ requestTurnFrame: vi.fn(async () => {}) }));
 vi.mock('../../src/renderer/src/paper/turn-frame', () => ({ requestTurnFrame }));
+const { sendBoardSnapshot } = vi.hoisted(() => ({ sendBoardSnapshot: vi.fn(async () => {}) }));
+vi.mock('../../src/renderer/src/board/snapshot', () => ({ sendBoardSnapshot }));
 
 const SESSION: Session = {
   id: '7c2a5f1e-0b3d-4e8a-9f6c-1d2e3f4a5b6c',
@@ -138,6 +140,18 @@ describe('useTutorSession', () => {
     renderTutor(client);
     emit({ type: 'paper-request' });
     expect(requestTurnFrame).toHaveBeenCalledTimes(1);
+  });
+
+  it("the server's board-snapshot request sends her board for this session", () => {
+    const { client, emit } = scriptedTutor();
+    const { api } = fakeApi();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <ApiProvider client={api}>{children}</ApiProvider>
+    );
+    renderHook(() => useTutorSession(SESSION.id, client, true), { wrapper });
+    emit({ type: 'board-snapshot' });
+    expect(sendBoardSnapshot).toHaveBeenCalledTimes(1);
+    expect(sendBoardSnapshot).toHaveBeenCalledWith(api, SESSION.id);
   });
 
   it('stage event calls requestMode', () => {
