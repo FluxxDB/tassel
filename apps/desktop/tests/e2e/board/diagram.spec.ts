@@ -205,6 +205,15 @@ test('draws a network: zones around their routers and PCs, wired to the core swi
     await expect
       .poll(() => page.locator('[data-testid="board-canvas"] [data-fit]').getAttribute('data-fit'))
       .toMatch(/^(clear|no-captions)$/);
+    // Her note beside it is in the fit too: wholly on the board, clear of her tile.
+    const board = await page.getByRole('region', { name: "Ada's board" }).boundingBox();
+    const tile = await page.getByTestId('tutor-tile').boundingBox();
+    await expect
+      .poll(async () => {
+        const box = await note.boundingBox();
+        return Boolean(box && board && tile && inside(box, board) && !overlaps(box, tile));
+      })
+      .toBe(true);
     await settle(page);
     await page.waitForTimeout(400);
     await snap(page, 'diagram-network-split');

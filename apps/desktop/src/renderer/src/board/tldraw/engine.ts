@@ -18,7 +18,7 @@ import {
 import type { BoardEngine, StageGeometry, StudentBoardEdit } from '../engine';
 import type { BoardLayout } from '../layout/types';
 import { prefersReducedMotion } from '../motion';
-import { type BoardText, type Box, placeItems } from '../scene/placement';
+import { type BoardText, focusBox, placeItems } from '../scene/placement';
 import type { BoardEffect, BoardScene } from '../scene/types';
 import { fitCamera, onSettledResize } from './camera';
 import { createCameraControl } from './camera-control';
@@ -82,7 +82,8 @@ export function createTldrawEngine(
   const frame = (item: string | null, animate: boolean): boolean => {
     if (!drawn) return false;
     const boxes = placeItems(drawn.scene, drawn.layouts, text());
-    const bounds = item === null ? union(Object.values(boxes)) : boxes[item];
+    // Her notes with it, so none is cut off at the panel's edge.
+    const bounds = focusBox(drawn.scene, boxes, item);
     if (!bounds) return false;
     const key = JSON.stringify([item, bounds]);
     const fit = fitCamera(editor, bounds, {
@@ -108,7 +109,8 @@ export function createTldrawEngine(
     if (!drawn) return;
     const item = drawn.scene.focus;
     const boxes = placeItems(drawn.scene, drawn.layouts, text());
-    const bounds = item === null ? union(Object.values(boxes)) : boxes[item];
+    // Her notes with it, so none is cut off at the panel's edge.
+    const bounds = focusBox(drawn.scene, boxes, item);
     if (bounds && JSON.stringify([item, bounds]) !== fitted) {
       control.refit(() => frame(item, fitted !== null));
     }
@@ -313,13 +315,4 @@ function bindingCreate(binding: DesiredBinding): TLBindingCreate {
 function centerOf(editor: Editor, id: string): Pt | null {
   const bounds = editor.getShapePageBounds(id as TLShapeId);
   return bounds ? { x: bounds.center.x, y: bounds.center.y } : null;
-}
-
-function union(boxes: readonly Box[]): Box | undefined {
-  if (boxes.length === 0) return undefined;
-  const x = Math.min(...boxes.map((box) => box.x));
-  const y = Math.min(...boxes.map((box) => box.y));
-  const right = Math.max(...boxes.map((box) => box.x + box.w));
-  const bottom = Math.max(...boxes.map((box) => box.y + box.h));
-  return { x, y, w: right - x, h: bottom - y };
 }
