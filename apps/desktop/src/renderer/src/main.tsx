@@ -6,14 +6,21 @@ import { I18nextProvider } from 'react-i18next';
 import { App } from './app/App';
 import { initI18n } from './i18n';
 import { apiClientFromBridge } from './lib/api';
+import { setPaperConfig } from './paper/paper-config';
 import './styles/global.css';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('index.html has no #root element');
 
 async function boot(container: HTMLElement): Promise<void> {
-  const config = await window.tassel.getConfig();
-  const voiceConfig = await window.tassel.voice.getConfig();
+  const [config, voiceConfig, paperConfig] = await Promise.all([
+    window.tassel.getConfig(),
+    window.tassel.voice.getConfig(),
+    window.tassel.paper.getConfig(),
+  ]);
+  // Before the first render, so render-time code (the new session sheet, the paper panel) reads
+  // the paper config synchronously.
+  setPaperConfig(paperConfig);
   const i18n = await initI18n(config.uiLanguage);
   const api = apiClientFromBridge(config.serverUrl);
   createRoot(container).render(

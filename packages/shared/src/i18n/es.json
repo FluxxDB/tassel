@@ -137,6 +137,56 @@
       "cancel": "Seguir"
     }
   },
+  "paper": {
+    "tag": {
+      "window": "Tu papel · Ventana de Desk View"
+    },
+    "state": {
+      "starting": {
+        "title": "Preparando tu papel…"
+      },
+      "off": {
+        "title": "La cámara está apagada",
+        "body": "Enciéndela cuando quieras que Ada vea tu papel.",
+        "action": "Encender la cámara"
+      },
+      "denied": {
+        "title": "Tassel no puede usar la cámara",
+        "body": "Permite el acceso a la cámara para Tassel en Configuración del Sistema y vuelve a intentarlo. Si sigue sin funcionar, cierra y vuelve a abrir Tassel.",
+        "settings": "Abrir Configuración del Sistema"
+      },
+      "unavailable": {
+        "title": "No se encontró ninguna cámara Desk View",
+        "body": "Desk View necesita una cámara de Mac reciente o un iPhone en un soporte.",
+        "setup": "Abrir la configuración de Desk View",
+        "useWindow": "Compartir la ventana de Desk View"
+      },
+      "lost": {
+        "title": "Desk View se detuvo",
+        "body": "La cámara se desconectó u otra app la está usando."
+      },
+      "ended": {
+        "title": "Se dejó de compartir",
+        "body": "Comparte de nuevo la ventana de Desk View cuando quieras. Si no aparece nada, permite Grabación de pantalla y audio del sistema para Tassel en Configuración del Sistema.",
+        "action": "Compartir de nuevo"
+      },
+      "error": {
+        "title": "Algo salió mal con la cámara",
+        "body": "Vuelve a intentarlo. Si sigue pasando, cierra y vuelve a abrir Tassel."
+      }
+    },
+    "devices": {
+      "switch": "Cambiar de cámara"
+    },
+    "upload": {
+      "failing": "Ada todavía no ve tu trabajo más reciente. Reconectando…"
+    },
+    "debug": {
+      "toggle": "Mapa de calor",
+      "stats": "{kind} · {changed} cambiadas · quieto {quiet}/{stable} · {sent} enviadas",
+      "noOpenCv": "OpenCV no se cargó: se usa el recorte central"
+    }
+  },
   "platform": {
     "windowsNoDeskView": "Desk View no está disponible en Windows. Comparte tu pantalla en su lugar."
   },

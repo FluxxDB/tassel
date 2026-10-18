@@ -1,10 +1,10 @@
 // Helpers for E2E specs. They drive the built app, so run `pnpm --filter @tassel/desktop build`
 // first.
-
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  type ConsoleMessage,
   type ElectronApplication,
   _electron as electron,
   expect,
@@ -28,6 +28,7 @@ export const E2E_SERVER_URL = `http://127.0.0.1:${e2ePort(process.env.TASSEL_E2E
 const appDir = join(__dirname, '..', '..');
 const mainEntry = join(appDir, 'out', 'main', 'index.js');
 const screensDir = join(appDir, 'test-results', 'screens');
+const i18nDir = join(appDir, '..', '..', 'packages', 'shared', 'src', 'i18n');
 
 /**
  * Launches the built app against the E2E server, with the plaintext token store (no keychain
@@ -152,6 +153,126 @@ export async function callApi(page: Page, path: string, init: RequestInit = {}):
     ...init,
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
   });
+}
+
+/** A UI string from the app's catalogs (packages/shared/src/i18n), by its dotted key. */
+export function catalogText(lang: Lang, key: string): string {
+  let node: unknown = catalogs[lang];
+  for (const part of key.split('.')) node = (node as Record<string, unknown> | undefined)?.[part];
+  if (typeof node !== 'string') throw new Error(`The ${lang} catalog has no string ${key}`);
+  return node;
+}
+
+const catalogs: Record<Lang, unknown> = Object.fromEntries(
+  (['en', 'es', 'ko'] as const).map((lang) => [
+    lang,
+    JSON.parse(readFileSync(join(i18nDir, `${lang}.json`), 'utf8')),
+  ]),
+) as Record<Lang, unknown>;
+
+/**
+ * Starts a paper session from the library through the new session sheet, as she would, with the
+ * sheet's labels in the UI's language. Resolves once the session screen shows its stage.
+ */
+export async function startPaperSession(
+  page: Page,
+  {
+    type = 'homework',
+    language = 'en',
+    uiLang = 'en',
+  }: { type?: 'homework' | 'studying' | 'research' | 'other'; language?: Lang; uiLang?: Lang } = {},
+): Promise<void> {
+  const t = (key: string) => catalogText(uiLang, key);
+  const newSession = page
+    .getByRole('banner')
+    .getByRole('button', { name: t('library.newSession') });
+  await newSession.click();
+  const sheet = page.getByRole('dialog', { name: t('newSession.title') });
+  await expect(sheet).toBeVisible();
+  await sheet.getByRole('radio', { name: t(`newSession.type.${type}`), exact: true }).click();
+  await sheet
+    .getByRole('radio', { name: t(`newSession.language.${language}`), exact: true })
+    .click();
+  await sheet.getByRole('radio', { name: t('newSession.source.paper'), exact: true }).click();
+  await sheet.getByRole('button', { name: t('newSession.start'), exact: true }).click();
+  await expect(sheet).toBeHidden();
+  await expect(page.getByTestId('stage')).toBeVisible();
+}
+
+export interface SessionJson {
+  id: string;
+  type: string;
+  language: string;
+  source: string;
+  title: string | null;
+}
+
+/** The learner's most recently active session, from the API. */
+export async function latestSession(page: Page): Promise<SessionJson> {
+  const response = await callApi(page, '/v1/sessions?sort=recent');
+  expect(response.status).toBe(200);
+  const { items } = (await response.json()) as { items: SessionJson[] };
+  const [latest] = items;
+  if (!latest) throw new Error('The learner has no sessions');
+  return latest;
+}
+
+export interface FrameJson {
+  id: string;
+  seq: number;
+  reason: 'ink' | 'page';
+  source: string;
+  width: number;
+  height: number;
+  has_crop: boolean;
+  bytes: number;
+  page_found: boolean;
+}
+
+/** A session's uploaded frames, oldest first. */
+export async function framesOf(page: Page, sessionId: string): Promise<FrameJson[]> {
+  const response = await callApi(page, `/v1/sessions/${sessionId}/frames`);
+  expect(response.status).toBe(200);
+  const { items } = (await response.json()) as { items: FrameJson[] };
+  return [...items].sort((a, b) => a.seq - b.seq);
+}
+
+/** A frame's JPEG bytes, through the API. */
+export async function frameImage(
+  page: Page,
+  sessionId: string,
+  frameId: string,
+  part: 'full' | 'crop' = 'full',
+): Promise<Uint8Array> {
+  const response = await callApi(
+    page,
+    `/v1/sessions/${sessionId}/frames/${frameId}/image?part=${part}`,
+  );
+  expect(response.status).toBe(200);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+/**
+ * Collects what a paper spec must never see: console errors from paper's code (the renderer's
+ * and its detector worker's, which say "[paper"), uncaught page errors, and any CSP violation.
+ */
+export function watchPaperConsole(page: Page): string[] {
+  const problems: string[] = [];
+  const check = (message: ConsoleMessage) => {
+    const text = message.text();
+    if (/Content Security Policy|Refused to (load|execute|connect|create|evaluate)/i.test(text)) {
+      problems.push(`CSP: ${text}`);
+    } else if (
+      message.type() === 'error' &&
+      /\[paper|paper\//i.test(`${text} ${message.location().url}`)
+    ) {
+      problems.push(`console: ${text}`);
+    }
+  };
+  page.on('console', check);
+  page.on('worker', (worker) => worker.on('console', check));
+  page.on('pageerror', (error) => problems.push(`page: ${error.message}`));
+  return problems;
 }
 
 /**

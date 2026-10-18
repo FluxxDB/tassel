@@ -10,6 +10,8 @@ import { SessionScreen } from '../../src/renderer/src/features/session/SessionSc
 import { useStageStore } from '../../src/renderer/src/features/session/stage-store';
 import { initI18n } from '../../src/renderer/src/i18n';
 import { ApiProvider } from '../../src/renderer/src/lib/api';
+import { usePaperStore } from '../../src/renderer/src/paper/paper-store';
+import type { PaperBridge } from '../../src/shared/paper-bridge';
 
 const UNTITLED: Session = {
   id: '3a8f0d5e-62a4-4c0b-a3bb-2b5c1f7e9d10',
@@ -369,5 +371,90 @@ describe('SessionScreen', () => {
     stage().pushCaption('tutor', 'From an earlier session');
     await renderSession();
     expect(stage()).toMatchObject({ mode: 'paper', pinned: null, caption: {} });
+  });
+
+  it("a paper session mounts the paper panel under P1's TopLine", async () => {
+    // A Mac whose Desk View helper can't start: the capture controller runs, and the panel
+    // says so in its card. Nothing here reaches a camera.
+    const paper: PaperBridge = {
+      getConfig: vi.fn(),
+      startHelper: vi.fn(async () => ({ ok: false as const, reason: 'missing-binary' as const })),
+      stopHelper: vi.fn(async () => {}),
+      cameraAccess: vi.fn(async () => 'granted' as const),
+      requestCameraAccess: vi.fn(async () => true),
+      openCameraSettings: vi.fn(async () => {}),
+    };
+    vi.stubGlobal('tassel', { platform: 'darwin', paper });
+    await renderSession();
+    const region = screen.getByRole('region', { name: 'Your paper · Desk View' });
+    const card = await within(region).findByRole('status');
+    expect(card).toHaveTextContent('No Desk View camera found');
+    expect(paper.startHelper).toHaveBeenCalledTimes(1);
+    // P1's TopLine keeps the tag, and lies over the panel's body: after it, and above it.
+    const tag = within(region).getByText('Your paper · Desk View');
+    const topLine = tag.parentElement as HTMLElement;
+    expect(topLine).toHaveClass('z-10', 'pointer-events-none');
+    expect(region.lastElementChild).toBe(topLine);
+    expect(topLine).not.toContainElement(card);
+    // Paper's extras ride on the TopLine, after the pin indicator: here, an upload notice.
+    act(() =>
+      usePaperStore.getState().setUploads({ sent: 0, pending: 1, failed: 1, lastError: 'offline' }),
+    );
+    const notice = within(topLine).getByText("Ada can't see your latest work yet. Reconnecting…");
+    expect(notice).toHaveClass('pointer-events-auto');
+    expect(within(topLine).getByText('Pinned · Paper').compareDocumentPosition(notice)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it("an unpinned pin indicator leaves the top line's row, so paper's extras sit by the tag", async () => {
+    await renderSession();
+    const pill = () => screen.getByText('Pinned · Paper').parentElement as HTMLElement;
+    // Unpinned: out of the row (after its fade), not an invisible gap before the extras.
+    expect(pill()).toHaveClass('hidden');
+    expect(pill()).not.toHaveClass('invisible');
+    act(() => stage().pin('paper'));
+    expect(pill()).toHaveClass('flex');
+    expect(pill()).not.toHaveClass('hidden');
+  });
+
+  it("the title strip's dot stays neutral until paper is live", async () => {
+    // P1's stub has no paper bridge, so the controller stays idle and the store is the test's.
+    await renderSession();
+    const strip = screen.getByRole('banner');
+    const label = await within(strip).findByText('Desk View');
+    const dot = () =>
+      within(strip)
+        .getByText(/^Desk View/)
+        .querySelector('[aria-hidden]');
+    expect(dot()).toHaveClass('bg-smoke');
+    for (const status of [
+      'starting',
+      'off',
+      'denied',
+      'unavailable',
+      'lost',
+      'ended',
+      'error',
+    ] as const) {
+      act(() => usePaperStore.getState().setStatus(status));
+      expect(label).toHaveTextContent(/^Desk View$/);
+      expect(dot()).toHaveClass('bg-smoke');
+    }
+    act(() => usePaperStore.getState().setStatus('live'));
+    expect(within(strip).getByText('Desk View · Live')).toBeInTheDocument();
+    expect(dot()).toHaveClass('bg-live');
+    act(() => usePaperStore.getState().setStatus('lost'));
+    expect(within(strip).getByText('Desk View')).toBeInTheDocument();
+    expect(dot()).toHaveClass('bg-smoke');
+  });
+
+  it("a screen session's dot ignores paper's status", async () => {
+    await renderSession({ session: { ...UNTITLED, source: 'screen' } });
+    const strip = screen.getByRole('banner');
+    await within(strip).findByText('Screen');
+    act(() => usePaperStore.getState().setStatus('live'));
+    expect(within(strip).getByText('Screen')).toBeInTheDocument();
+    expect(within(strip).queryByText('Screen · Live')).not.toBeInTheDocument();
   });
 });

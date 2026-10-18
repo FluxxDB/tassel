@@ -1,14 +1,17 @@
 // Playwright global setup. It generates the synthetic paper clip that launchApp plays as a fake
 // camera (into <repo>/.cache/paper-clips, reused while the generator is unchanged) and sets
-// TASSEL_E2E_CLIP_DFA_SHORT for the specs. When services/server exists, it creates and migrates
-// the tassel_e2e database and starts the server on the E2E port; the function it returns stops
-// the server.
+// TASSEL_E2E_CLIP_DFA_SHORT for the specs. On macOS it builds the Desk View helper if it's
+// missing, for the helper-clip spec. When services/server exists, it checks that local S3 is up,
+// creates and migrates the tassel_e2e database, and starts the server on the E2E port, storing
+// frames in the tassel-e2e bucket (TASSEL_E2E_S3_BUCKET overrides it); the function it returns
+// stops the server.
 // tassel_e2e is separate from the server tests' tassel_test, so the two suites can run at once.
 // TASSEL_E2E_DATABASE_URL points it at another database, as TASSEL_TEST_DATABASE_URL does for
 // the server tests, and TASSEL_E2E_PORT at another port (fixtures.ts reads it), so checkouts
 // can run E2E side by side.
 import type { ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
+import { connect } from 'node:net';
 import { join } from 'node:path';
 import spawn from 'cross-spawn';
 import { E2E_SERVER_URL } from './fixtures';
@@ -17,6 +20,17 @@ const repoRoot = join(__dirname, '..', '..', '..', '..');
 const serverDir = join(repoRoot, 'services', 'server');
 const clipsDir = join(repoRoot, '.cache', 'paper-clips');
 const genClip = join(repoRoot, 'packages', 'paper-synth', 'scripts', 'gen-clip.ts');
+/** Where `node scripts/native.mjs build` puts the helper, and where the app looks in dev. */
+const HELPER_BINARY = join(
+  repoRoot,
+  'native',
+  'deskview-helper',
+  '.build',
+  'release',
+  'deskview-helper',
+);
+/** The compose service `s3` (local Versity), where the server keeps frames. */
+const S3_PORT = 7070;
 const healthUrl = `${E2E_SERVER_URL}/v1/health`;
 const databaseUrl =
   process.env.TASSEL_E2E_DATABASE_URL ??
@@ -47,6 +61,7 @@ finally:
 export default async function globalSetup(): Promise<(() => Promise<void>) | undefined> {
   // Workers inherit this, and launchApp passes it to every launch as TASSEL_FAKE_CLIP.
   process.env.TASSEL_E2E_CLIP_DFA_SHORT = generateClip('dfa-short');
+  if (process.platform === 'darwin' && !existsSync(HELPER_BINARY)) buildHelper();
   return startE2EServer({ mode: 'fake' });
 }
 
@@ -90,10 +105,14 @@ export async function startE2EServer(opts: {
   if (await isHealthy()) {
     throw new Error(`[e2e] Something already answers ${healthUrl}. Stop it, then rerun.`);
   }
+  if (!(await accepts(S3_PORT))) {
+    throw new Error("[e2e] Local S3 isn't running: docker compose up -d s3");
+  }
   const env = {
     ...e2eServerEnv(process.env, opts.mode),
     TASSEL_DATABASE_URL: databaseUrl,
     TASSEL_PORT: new URL(E2E_SERVER_URL).port,
+    TASSEL_S3_BUCKET: process.env.TASSEL_E2E_S3_BUCKET || 'tassel-e2e',
   };
   mkdirSync(join(__dirname, '../../test-results'), { recursive: true });
   uvSync('create the E2E database', ['python', '-c', CREATE_DATABASE_PY], env);
@@ -136,6 +155,34 @@ function generateClip(variant: string): string {
   };
   if (!mjpeg || !existsSync(mjpeg)) throw new Error(`[e2e] gen-clip named no ${variant} clip`);
   return mjpeg;
+}
+
+/** Builds the Desk View helper (SwiftPM, then an ad-hoc signature) for the helper-clip spec. */
+function buildHelper(): void {
+  console.log("[e2e] The Desk View helper isn't built yet: node scripts/native.mjs build…");
+  const result = spawn.sync(process.execPath, [join(repoRoot, 'scripts', 'native.mjs'), 'build'], {
+    cwd: repoRoot,
+    stdio: 'inherit',
+    timeout: 600_000,
+  });
+  if (result.error) throw new Error(`[e2e] Couldn't build the helper: ${result.error.message}`);
+  if (result.status !== 0 || !existsSync(HELPER_BINARY)) {
+    throw new Error(`[e2e] Couldn't build the helper (exit ${result.status}).`);
+  }
+}
+
+/** Whether something accepts TCP connections on 127.0.0.1:port. */
+function accepts(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = connect({ host: '127.0.0.1', port });
+    const done = (ok: boolean) => {
+      socket.destroy();
+      resolve(ok);
+    };
+    socket.setTimeout(1_000, () => done(false));
+    socket.once('connect', () => done(true));
+    socket.once('error', () => done(false));
+  });
 }
 
 /** Runs `uv run <args>` in services/server and throws with its output if it fails. */

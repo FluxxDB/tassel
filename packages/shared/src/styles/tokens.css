@@ -18,6 +18,9 @@
   --color-board-dot: #e6e1da;
   --color-caption-muted: #bdb8b4;
 
+  /* The mock's desk, behind her paper. Only behind a live feed, never the paper placeholder. */
+  --color-desk: #cdc4b6;
+
   /* Smoke is for large text and non-text only; small text uses smoke-text (WCAG AA). */
   --color-smoke: #7a7876;
   --color-smoke-text: #6b6966;

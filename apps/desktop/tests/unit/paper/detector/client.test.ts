@@ -117,6 +117,27 @@ describe('createChangeDetector', () => {
     }
   });
 
+  it('tells onReady once OpenCV has settled, either way (the watchdog arms on it, re-review N4)', () => {
+    const worker = new FakeWorker();
+    const onReady = vi.fn();
+    const stream = { getVideoTracks: () => [{ kind: 'video' }] } as unknown as MediaStream;
+    const detector = createChangeDetector(stream, {
+      onStats: vi.fn(),
+      onTrigger: vi.fn(),
+      onError: vi.fn(),
+      onReady,
+      createWorker: () => worker as unknown as Worker,
+      createProcessor: () => ({ readable: new ReadableStream<VideoFrame>() }),
+    });
+    worker.emit({ type: 'stats', stats: { ...STATS, opencv: false } });
+    expect(onReady).not.toHaveBeenCalled();
+    worker.emit({ type: 'ready', opencv: false });
+    expect(onReady).toHaveBeenCalledWith(false);
+    detector.stop();
+    worker.emit({ type: 'ready', opencv: true });
+    expect(onReady).toHaveBeenCalledTimes(1);
+  });
+
   it('reports a worker that fails', () => {
     const s = setup();
     s.worker.onerror?.({ message: 'Uncaught SyntaxError' } as ErrorEvent);

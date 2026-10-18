@@ -11,6 +11,7 @@ import { registerSnapshotSource } from '../../board/marks/snapshot-sources';
 import { Button } from '../../components/Button';
 import { Sheet } from '../../components/Sheet';
 import { useApi } from '../../lib/api';
+import { usePaperCapture } from '../../paper/use-paper-capture';
 import type { TutorClient } from '../../tutor/types';
 import { useTutorSession } from '../../tutor/use-tutor-session';
 import { VoiceNotices } from '../voice/MicNotice';
@@ -80,6 +81,10 @@ export function SessionScreen({ sessionId, createTutor, app, voiceConfig }: Sess
   });
   // With the app's config, VoiceSession runs the live tutor instead.
   useTutorSession(sessionId, app ? null : tutor, session !== null);
+  // Her paper (P3): captured for the life of this screen, so it goes on while the board fills
+  // the stage. It starts once the session is known to be a paper session.
+  const cameraOn = useStageStore((state) => state.cameraOn);
+  usePaperCapture({ sessionId, sessionSource: session?.source ?? null, cameraOn });
   useSessionShortcuts();
 
   const end = () => {

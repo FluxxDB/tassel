@@ -17,7 +17,8 @@ import { Button } from '../../components/Button';
 import { SegmentedControl } from '../../components/SegmentedControl';
 import { Sheet } from '../../components/Sheet';
 import { useApi } from '../../lib/api';
-import { defaultSource } from './defaults';
+import { getPaperConfig } from '../../paper/paper-config';
+import { defaultSource, paperUnavailable } from './defaults';
 
 const TYPES: readonly SessionType[] = ['homework', 'studying', 'research', 'other'];
 const SOURCES: readonly Source[] = ['paper', 'screen', 'talk'];
@@ -29,12 +30,15 @@ export interface NewSessionSheetProps {
   onOpenChange(open: boolean): void;
   /** Defaults to the preload bridge's platform. */
   platform?: Platform;
+  /** Whether this run plays the fake clip as her paper (R11); defaults to the paper config's. */
+  paperFakeClip?: boolean;
 }
 
 export function NewSessionSheet({
   open,
   onOpenChange,
   platform = window.tassel.platform,
+  paperFakeClip = getPaperConfig().fakeClip,
 }: NewSessionSheetProps) {
   const { t } = useTranslation();
   return (
@@ -43,6 +47,7 @@ export function NewSessionSheet({
       <NewSessionForm
         open={open}
         platform={platform}
+        paperFakeClip={paperFakeClip}
         onCancel={() => onOpenChange(false)}
         onStarted={() => onOpenChange(false)}
       />
@@ -53,11 +58,13 @@ export function NewSessionSheet({
 function NewSessionForm({
   open,
   platform,
+  paperFakeClip,
   onCancel,
   onStarted,
 }: {
   open: boolean;
   platform: Platform;
+  paperFakeClip: boolean;
   onCancel(): void;
   onStarted(): void;
 }) {
@@ -138,7 +145,7 @@ function NewSessionForm({
             options={SOURCES.map((value) => ({
               value,
               label: t(`newSession.source.${value}`),
-              disabled: value === 'paper' && windows,
+              disabled: value === 'paper' && paperUnavailable(platform, paperFakeClip),
             }))}
             value={source}
             onChange={setSource}

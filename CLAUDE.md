@@ -9,13 +9,14 @@ Tassel is a live AI tutor for the desktop: an Electron + React app (`apps/deskto
 | `pnpm install` | Installs everything, downloads Electron 44.9.0, copies the fonts |
 | `pnpm dev` | Postgres, migrations, the server on 8787, then the app (`scripts/dev.mjs`); Ctrl+C stops both |
 | `pnpm test` | Every package's unit tests (Vitest), then the server's tests (pytest, database `tassel_test`) |
-| `pnpm e2e` | Builds the desktop app and runs its Playwright E2E specs (server on 8799, database `tassel_e2e`) |
+| `pnpm e2e` | Builds the desktop app and runs its Playwright E2E specs (server on 8799, database `tassel_e2e`, frames in local S3), on the fake clip |
+| `node scripts/camera.mjs` | Tassel on the real Desk View camera through LaunchServices (owner at the Mac only) |
 | `pnpm check` | Biome, typechecks, `check:i18n`, `check:api` and ruff |
 | `pnpm gen:api` | Regenerates the API schema and client types after a server API change |
 | `pnpm --filter @tassel/desktop test <pattern>` | Desktop unit tests matching a pattern |
 | `pnpm --filter @tassel/desktop e2e <pattern>` | E2E specs matching a pattern (build the app first) |
 
-`pnpm test` and `pnpm e2e` need Postgres: `docker compose up -d db`. Checkouts that run tests side by side each set their own `TASSEL_E2E_PORT`, `TASSEL_E2E_DATABASE_URL` and `TASSEL_TEST_DATABASE_URL`; the test setups create and migrate those databases. Run every command to completion: no watch modes, and no dev server or app window left running when you're done.
+`pnpm test` and `pnpm e2e` need Postgres, and E2E local S3: `docker compose up -d db s3`. Checkouts that run tests side by side each set their own `TASSEL_E2E_PORT`, `TASSEL_E2E_DATABASE_URL` and `TASSEL_TEST_DATABASE_URL`; the test setups create and migrate those databases. Run every command to completion: no watch modes, and no dev server or app window left running when you're done.
 
 ## Layout
 
@@ -33,6 +34,14 @@ Tassel is a live AI tutor for the desktop: an Electron + React app (`apps/deskto
 - **Every UI string** goes through the catalogs in `packages/shared/src/i18n`, in en, es and ko. `pnpm check:i18n` fails on a missing key or mismatched ICU placeholders.
 - **Design:** the Hume tokens (`docs/design-system/DESIGN.md`) live in `packages/shared/src/styles/tokens.css` as Tailwind v4 `@theme`, with the deviations in the spec's §6. Hairline borders only, no drop shadows. Geist and Geist Mono; Pretendard renders Hangul only. Sans tracking −0.025em; mono lab labels uppercase at +0.025em; Korean untracked at 1.6 leading. Functional text never below 11 px.
 - **Commits:** conventional messages, ending with the co-author trailer the session gives you.
+
+## Paper and the camera (P3)
+
+- No agent-run test or tool opens the real camera, microphone or screen. E2E goes through `launchApp`, which pins the fake clip, sets `TASSEL_REQUIRE_FAKE_CAPTURE=1` (fake camera and microphone devices for every source) and runs the capture guard.
+- Plain `pnpm dev` uses the real Desk View camera (R39). Agents run it only as `TASSEL_PAPER_SOURCE=fake-clip pnpm dev` (the demo clip, real capture refused), and never set `TASSEL_PAPER_SOURCE` to `auto`, `deskview-helper`, `window-capture` or `screen` without a clip or `TASSEL_FAKE_DISPLAY=self`.
+- `TASSEL_HELPER_CLIP` tests the Desk View helper without the camera.
+- Camera checks run only through `node scripts/camera.mjs` or `e2e:camera`, with the owner at the Mac.
+- Never commit, post or screenshot a real camera frame; `pnpm check` enforces the file part. Agents never answer TCC prompts.
 
 ## Constraints in brief
 
