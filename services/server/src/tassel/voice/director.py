@@ -144,6 +144,13 @@ ERASE = re.compile(
 )
 
 
+# Putting something back on the board: "put the PCs back", "restore", "redo".
+RESTORE = re.compile(
+    r"\b(?:(?:put|add|bring)\s+(?:\w+\s+){0,3}back|restore|redo)\b",
+    re.I,
+)
+
+
 def _draw_request(text):
     return bool(DRAW.search(SELF_WORK.sub(" ", text)))
 
@@ -214,7 +221,7 @@ def guard(text, decision):
         and (decision.action != "draw_board" or decision.focus not in ("board", "split"))
     ):
         update.update(action="draw_board", focus="split" if decision.focus == "split" else "board")
-    if ERASE.search(text) and not named_paper:
+    if (ERASE.search(text) or RESTORE.search(text)) and not named_paper:
         # Erasing or undoing her drawing is board work: the thinker picks what to take back.
         update.update(action="draw_board", refers_to="board", needs_vision=False, route="thinker")
         if decision.focus not in ("board", "split"):

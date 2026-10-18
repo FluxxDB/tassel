@@ -114,3 +114,24 @@ def test_erasing_is_board_work_for_the_thinker(text):
         "draw_board",
         "board",
     )
+
+
+def test_a_dfa_without_a_name_gets_one():
+    # Real-token eval (2026-10-18): the thinker wrote [[dfa start=q0 accept=q3 …]] with no item,
+    # the checker dropped it, and the trace and the note after it had no DFA to work on.
+    ctx = BoardContext()
+    [action] = turn(ctx, "[[dfa start=q0 accept=q1 q0-0-q1]]")
+    assert isinstance(action, BoardAutomaton) and action.item == "dfa"
+    [second] = turn(ctx, "[[nfa start=p0 accept=p0 p0-1-p0]]")
+    assert second.item == "nfa"
+    [third] = turn(ctx, "[[dfa start=s accept=s s-0-s]]")
+    assert third.item == "dfa2"
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["Okay, put the PCs back, please.", "Can you restore what you removed?", "Redo that."],
+)
+def test_putting_things_back_is_board_work_for_the_thinker(text):
+    decision = guard(text, rules(text, focus="board"))
+    assert (decision.route, decision.action) == ("thinker", "draw_board")

@@ -171,3 +171,20 @@ def test_the_learner_memory_refresh_keeps_the_talker_on_its_own_prompt():
     assert BOARD_RULES not in two_tier and "show_stage" not in two_tier
     assert two_tier.endswith("[memory] likes DFAs")
     assert talker_instruction("en", tools=True, two_tier=False) == system_prompt("en")
+
+
+@pytest.mark.asyncio
+async def test_an_erase_request_never_goes_to_the_illustrator():
+    """Real-token eval: "erase the network diagram" came back as a redrawn diagram and Ada said
+    "The network is erased." Erasing is [[clear ITEM]] or [[undo]], never a drawing."""
+    request = "Please erase the network diagram but keep the DFA."
+    illustrator = Illustrator()
+    c = TutorCoordinator(
+        Thinker(brief().model_copy(update={"say": "The network is erased.", "draw": "net"})),
+        BoardContext(),
+        illustrator=illustrator,
+    )
+    await c.prepare(LLMContext([{"role": "user", "content": request}]), request, decision=DRAW)
+    await spoken(c)
+    assert illustrator.intents == []
+    await c.close()

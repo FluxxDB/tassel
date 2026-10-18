@@ -358,6 +358,11 @@ class TutorCoordinator:
                     return None
                 brief = retry
             decision = self.decision or rules(self.text)
+            if brief.draw and ERASE.search(self.text):
+                # Erasing is [[clear ITEM]] or [[undo]], never a drawing: the eval's "erase the
+                # network" came back as the same diagram redrawn, with "The network is erased."
+                self.log("reject", source="draw", reason="erase request")
+                brief = brief.model_copy(update={"draw": None})
             if (
                 decision.action == "draw_board"
                 and not brief.board
