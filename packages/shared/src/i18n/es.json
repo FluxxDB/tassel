@@ -185,6 +185,22 @@
       "toggle": "Mapa de calor",
       "stats": "{kind} · {changed} cambiadas · quieto {quiet}/{stable} · {sent} enviadas",
       "noOpenCv": "OpenCV no se cargó: se usa el recorte central"
+    },
+    "webcam": {
+      "choice": "Papel · Cámara",
+      "hint": "Usa una cámara web o la cámara de un teléfono conectado para mostrar tu papel.",
+      "camera": "Cámara del papel",
+      "tag": "Tu papel · Cámara",
+      "source": "Cámara",
+      "live": "Cámara · En directo",
+      "denied": {
+        "title": "Acceso a la cámara bloqueado",
+        "body": "Permite que las aplicaciones de escritorio accedan a la cámara en Configuración de Windows → Privacidad y seguridad → Cámara e inténtalo de nuevo."
+      },
+      "unavailable": {
+        "title": "Cámara no disponible",
+        "body": "Conecta la cámara o inicia la aplicación de cámara del teléfono, cierra otras aplicaciones que la usen e inténtalo de nuevo."
+      }
     }
   },
   "platform": {

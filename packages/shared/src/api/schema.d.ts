@@ -286,7 +286,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "deskview-helper" | "window-capture" | "fake-clip" | "screen";
+            source: "deskview-helper" | "window-capture" | "fake-clip" | "screen" | "webcam";
         };
         /** FrameOut */
         FrameOut: {
@@ -333,7 +333,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "deskview-helper" | "window-capture" | "fake-clip" | "screen";
+            source: "deskview-helper" | "window-capture" | "fake-clip" | "screen" | "webcam";
             /** Width */
             width: number;
         };

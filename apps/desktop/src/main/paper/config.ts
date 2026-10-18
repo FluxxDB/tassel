@@ -1,5 +1,5 @@
 // Paper's launch settings, read from TASSEL_* environment variables (P3). A packaged app honors
-// TASSEL_PAPER_SOURCE only as auto, deskview-helper or window-capture, and ignores every fake
+// TASSEL_PAPER_SOURCE only as auto, webcam, deskview-helper or window-capture, and ignores every fake
 // and dev switch.
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -27,6 +27,7 @@ export interface PaperSettings {
 
 const SOURCES: readonly (PaperSourceKind | 'auto')[] = [
   'auto',
+  'webcam',
   'deskview-helper',
   'window-capture',
   'fake-clip',
@@ -35,6 +36,7 @@ const SOURCES: readonly (PaperSourceKind | 'auto')[] = [
 /** The sources a packaged app honors; anything else is auto. */
 const PACKAGED_SOURCES: readonly (PaperSourceKind | 'auto')[] = [
   'auto',
+  'webcam',
   'deskview-helper',
   'window-capture',
 ];
@@ -66,7 +68,11 @@ export function readPaperSettings(
       source,
       debug: env.TASSEL_PAPER_DEBUG === '1',
       helperClip: helperClipPath !== null && exists(helperClipPath),
-      fakeClip: source === 'fake-clip' && fakeClipPath !== null && exists(fakeClipPath),
+      fakeClip:
+        (source === 'fake-clip' ||
+          (source === 'webcam' && env.TASSEL_REQUIRE_FAKE_CAPTURE === '1')) &&
+        fakeClipPath !== null &&
+        exists(fakeClipPath),
       params: detectorParams(env.TASSEL_PAPER_PARAMS),
     },
     fakeClipPath,

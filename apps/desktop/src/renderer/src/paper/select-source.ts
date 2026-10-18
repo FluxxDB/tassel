@@ -5,6 +5,7 @@ import type { createCanvasFeed } from './sources/canvas-feed';
 import { createHelperSource } from './sources/deskview-helper';
 import { createFakeClipSource } from './sources/fake-clip';
 import { createScreenSource } from './sources/screen';
+import { createWebcamSource } from './sources/webcam';
 import { createWindowCaptureSource } from './sources/window-capture';
 import type { PaperSource } from './types';
 
@@ -43,6 +44,8 @@ export interface SourceDeps {
 
 export function createPaperSource(kind: PaperSourceKind, deps: SourceDeps): PaperSource {
   switch (kind) {
+    case 'webcam':
+      return createWebcamSource(deps);
     case 'deskview-helper':
       return createHelperSource(deps);
     case 'fake-clip':

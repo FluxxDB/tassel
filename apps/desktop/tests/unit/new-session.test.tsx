@@ -146,6 +146,15 @@ describe('NewSessionSheet', () => {
     );
   });
 
+  it('allows a Windows paper session with the explicit webcam source', async () => {
+    setPaperConfig({ ...DEFAULT_PAPER_CONFIG, source: 'webcam' });
+    await renderSheet({ platform: 'win32' });
+    expect(screen.getByRole('radio', { name: 'Paper · Camera' })).toBeEnabled();
+    expect(
+      screen.getByText('Use a webcam or a connected phone camera to show your paper.'),
+    ).toBeInTheDocument();
+  });
+
   it('win32 with a fake clip enables Paper, keeps screen as the default, and keeps the notice', async () => {
     // R11: a dev or E2E run on Windows can try paper on the synthetic clip.
     const notice = "Desk View isn't available on Windows. Share your screen instead.";

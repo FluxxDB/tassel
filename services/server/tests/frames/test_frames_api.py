@@ -83,7 +83,11 @@ async def serve(db_url: str, **settings: Any) -> AsyncIterator[tuple[httpx.Async
 
 
 @pytest.mark.asyncio
-async def test_upload_stores_objects_row_and_returns_frame_out(client, store, make_jpeg, ink_meta):
+@pytest.mark.parametrize("source", ["fake-clip", "webcam"])
+async def test_upload_stores_objects_row_and_returns_frame_out(
+    client, store, make_jpeg, ink_meta, source
+):
+    ink_meta = {**ink_meta, "source": source}
     headers, learner_id, session_id = await learner_with_session(client)
     full, crop = make_jpeg(64, 48), make_jpeg(16, 16)
 
@@ -93,7 +97,7 @@ async def test_upload_stores_objects_row_and_returns_frame_out(client, store, ma
     out = r.json()
     assert (out["seq"], out["width"], out["height"], out["has_crop"]) == (1, 64, 48, True)
     assert (out["session_id"], out["bytes"]) == (session_id, len(full))
-    assert (out["reason"], out["source"], out["page_found"]) == ("ink", "fake-clip", True)
+    assert (out["reason"], out["source"], out["page_found"]) == ("ink", source, True)
     assert at(out["captured_at"]) == at("2026-10-17T14:32:05.120Z")
     assert at(out["created_at"]).tzinfo is not None
     for field in ("page_quad", "crop_rect", "mask"):

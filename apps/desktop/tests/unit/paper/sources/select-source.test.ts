@@ -12,7 +12,13 @@ import type {
   PaperSourceKind,
 } from '../../../../src/shared/paper-bridge';
 
-const KINDS: PaperSourceKind[] = ['deskview-helper', 'window-capture', 'fake-clip', 'screen'];
+const KINDS: PaperSourceKind[] = [
+  'deskview-helper',
+  'window-capture',
+  'fake-clip',
+  'screen',
+  'webcam',
+];
 const CONFIG: PaperConfig = {
   source: 'auto',
   debug: false,

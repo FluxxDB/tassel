@@ -14,7 +14,7 @@ from typing import Annotated, Literal
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 FrameReason = Literal["ink", "page"]
-PaperSourceKind = Literal["deskview-helper", "window-capture", "fake-clip", "screen"]
+PaperSourceKind = Literal["deskview-helper", "window-capture", "fake-clip", "screen", "webcam"]
 
 GRID_MAX = 200  # cells per side of the page grid
 MASK_CELLS_MAX = 40_000  # GRID_MAX squared

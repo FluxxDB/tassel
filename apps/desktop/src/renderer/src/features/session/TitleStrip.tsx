@@ -9,6 +9,7 @@ import { prefersReducedMotion } from '../../board/motion';
 import { Chip } from '../../components/Chip';
 import { Wordmark } from '../../components/Wordmark';
 import { cn } from '../../lib/cn';
+import { usePaperStore } from '../../paper/paper-store';
 import { usePaperLive } from '../../paper/use-paper-capture';
 import { LanguageMenu } from '../voice/LanguageMenu';
 import { useLiveVoice } from '../voice/live-voice';
@@ -146,6 +147,7 @@ function TypedTitle({ title, opening }: { title: string; opening: string | null 
  * captured (P3's paper feed); otherwise it stays neutral and the label doesn't claim "Live".
  */
 function SourceLabel({ source, live = false }: { source: Source; live?: boolean }) {
+  const webcam = usePaperStore((state) => state.kind === 'webcam');
   const { t } = useTranslation();
   return (
     <span className="mono flex items-center gap-1.5 text-[11px] leading-[14px] text-ink">
@@ -153,7 +155,11 @@ function SourceLabel({ source, live = false }: { source: Source; live?: boolean 
         aria-hidden="true"
         className={cn('size-[7px] rounded-pill', live ? 'bg-live' : 'bg-smoke')}
       />
-      {live ? t(`session.liveSource.${source}`) : t(`session.source.${source}`)}
+      {source === 'paper' && webcam
+        ? t(live ? 'paper.webcam.live' : 'paper.webcam.source')
+        : live
+          ? t(`session.liveSource.${source}`)
+          : t(`session.source.${source}`)}
     </span>
   );
 }

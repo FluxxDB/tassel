@@ -16,7 +16,10 @@ export function applyPaperSwitches(
   settings: PaperSettings = readPaperSettings(),
 ): void {
   const { config, fakeClipPath, requireFake } = settings;
-  const clip = config.source === 'fake-clip' && config.fakeClip && fakeClipPath !== null;
+  const clip =
+    (config.source === 'fake-clip' || (config.source === 'webcam' && requireFake)) &&
+    config.fakeClip &&
+    fakeClipPath !== null;
   if (config.source === 'fake-clip' && !clip) {
     // The renderer then shows paper as unavailable, without calling getUserMedia.
     console.error(
