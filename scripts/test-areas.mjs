@@ -70,7 +70,11 @@ export const AREAS = [
   {
     name: 'board',
     title: 'Board: tldraw canvas, scenes, beats, marks, diagrams, automata',
-    app: [`${R}/board/**`, `${R}/tutor/scripts/{board,diagram,marks}-demo.json`],
+    app: [
+      `${R}/board/**`,
+      `${R}/tutor/scripts/{board,diagram,marks}-demo.json`,
+      `${R}/tutor/scripts/board-snapshot.json`,
+    ],
     server: [`${SRC}/{board,beats}/**`, 'packages/shared/src/beats/**'],
     unit: [`${UNIT}/board/**`, 'packages/shared/tests/beats.test.ts'],
     e2e: [`${E2E}/board/**`],
