@@ -348,7 +348,8 @@ describe('the tldraw engine', () => {
     expect(editor.getCamera()).toMatchObject(cameraFor(content, fit));
     expect(container.dataset.fit).toBe('clear');
     // Her drawing on screen sits below her tile.
-    const { tile } = boardObstructions(SPLIT_1440);
+    const [tile] = boardObstructions(SPLIT_1440).tiles;
+    if (!tile) throw new Error('no tile');
     const q3 = editor.getShapePageBounds(id('state:q3'));
     expect(q3 && editor.pageToViewport({ x: q3.x, y: q3.y }).y).toBeGreaterThan(tile.y + tile.h);
   });

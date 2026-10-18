@@ -6,6 +6,7 @@ import { MOTION } from '../../src/renderer/src/board/motion';
 import {
   FloatingTile,
   type FloatingTileProps,
+  useFloatingTiles,
 } from '../../src/renderer/src/components/FloatingTile';
 import { initI18n } from '../../src/renderer/src/i18n';
 
@@ -243,6 +244,14 @@ describe('FloatingTile', () => {
     const pip = screen.getByRole('group', { name: 'Your desk' });
     expect(box(pip).top).toBe(600 - 110 - 100);
     expect(box(pip).left).toBe(786);
+  });
+
+  it('reports where it rests, in window px, for the board to keep clear of', async () => {
+    const { tile } = await renderTile();
+    // jsdom puts the stage at the window's top left.
+    expect(useFloatingTiles.getState().tiles.ada?.rect).toEqual({ x: 786, y: 14, w: 200, h: 100 });
+    drag(tile, 900, 50, -600, 300);
+    expect(useFloatingTiles.getState().tiles.ada?.rect).toEqual({ x: 14, y: 390, w: 200, h: 100 });
   });
 
   it('describes its keyboard controls', async () => {

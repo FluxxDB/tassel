@@ -37,6 +37,8 @@ export interface StageGeometry {
   /** The session's main area: its bottom and width place the captions. */
   main: StageRect;
   captions: boolean;
+  /** The session's floating tiles where they rest, in window px; unset means her default tile. */
+  tiles?: StageRect[];
 }
 
 export interface BoardEngine {

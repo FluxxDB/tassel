@@ -16,6 +16,7 @@ import {
   useState,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useFloatingTiles } from '../components/FloatingTile';
 import { useStageStore } from '../features/session/stage-store';
 import { BoardDescription } from './BoardDescription';
 import { type BoardState, useBoardStore } from './board-store';
@@ -63,8 +64,21 @@ export function BoardPanel(): JSX.Element {
       panel: boxOf(element),
       main: boxOf(element.closest('main') ?? document.documentElement),
       captions: useStageStore.getState().captionsOn,
+      tiles: Object.values(useFloatingTiles.getState().tiles).map((tile) => tile.rect),
     };
   }, []);
+
+  // Her tile and her desk camera move and resize: fit again when one does, or comes or goes.
+  useEffect(
+    () =>
+      useFloatingTiles.subscribe((now, before) => {
+        const rects = (state: typeof now) =>
+          JSON.stringify(Object.entries(state.tiles).map(([id, tile]) => [id, tile.rect]));
+        if (rects(now) === rects(before)) return;
+        engine.current?.focus(useBoardStore.getState().scene.focus, { animate: true });
+      }),
+    [],
+  );
 
   // The captions band is kept free whenever captions are on, so the camera fits again when
   // they're turned on or off, and never as their lines come and go.

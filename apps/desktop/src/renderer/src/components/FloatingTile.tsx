@@ -50,9 +50,19 @@ export interface FloatingTileProps {
 }
 
 /** Where each floating tile is, so tiles never snap into one another (and others can avoid them). */
+export interface TileRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** A tile's corner and size, and where it rests in window px (not where a drag has it). */
+export type TilePlace = { corner: Corner; rect: TileRect } & TileSize;
+
 export interface FloatingTiles {
-  tiles: Record<string, { corner: Corner } & TileSize>;
-  place(id: string, place: { corner: Corner } & TileSize): void;
+  tiles: Record<string, TilePlace>;
+  place(id: string, place: TilePlace): void;
   remove(id: string): void;
 }
 
@@ -216,9 +226,19 @@ export function FloatingTile({
       setCorner(free[0] as Corner);
       return;
     }
+    const origin = element.current?.parentElement?.getBoundingClientRect();
+    const rest = at(corner);
+    const rect = {
+      x: (origin?.left ?? 0) + rest.left,
+      y: (origin?.top ?? 0) + rest.top,
+      ...size,
+    };
     const held = useFloatingTiles.getState().tiles[id];
-    if (held?.corner !== corner || held.w !== size.w || held.h !== size.h) {
-      place(id, { corner, ...size });
+    if (
+      held?.corner !== corner ||
+      (Object.keys(rect) as (keyof TileRect)[]).some((key) => held.rect[key] !== rect[key])
+    ) {
+      place(id, { corner, ...size, rect });
     }
   });
   useEffect(() => () => remove(id), [id, remove]);

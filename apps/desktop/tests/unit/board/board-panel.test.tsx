@@ -211,9 +211,45 @@ describe('BoardPanel', () => {
     await screen.findByTestId('tldraw');
     // jsdom lays nothing out, so every box is empty; the app measures the panel and main.
     const none = { x: 0, y: 0, w: 0, h: 0 };
-    expect(canvas.stage?.()).toEqual({ panel: none, main: none, captions: true });
+    expect(canvas.stage?.()).toEqual({ panel: none, main: none, captions: true, tiles: [] });
     act(() => fresh.stage.getState().toggleCaptions());
-    expect(canvas.stage?.()).toEqual({ panel: none, main: none, captions: false });
+    expect(canvas.stage?.()).toEqual({ panel: none, main: none, captions: false, tiles: [] });
+    // The session's floating tiles, where they rest, so her drawing stays clear of them.
+    const { useFloatingTiles } = await import('../../../src/renderer/src/components/FloatingTile');
+    const rect = { x: 1198, y: 74, w: 212, h: 176 };
+    act(() =>
+      useFloatingTiles.getState().place('tutor', { corner: 'top-right', w: 212, h: 176, rect }),
+    );
+    expect(canvas.stage?.()).toMatchObject({ tiles: [rect] });
+  });
+
+  it("refits Ada's focus when a floating tile moves or resizes, not when it stays put", async () => {
+    const fresh = await freshPanel();
+    const { useFloatingTiles } = await import('../../../src/renderer/src/components/FloatingTile');
+    const ada = {
+      corner: 'top-right' as const,
+      w: 212,
+      h: 176,
+      rect: { x: 1198, y: 74, w: 212, h: 176 },
+    };
+    useFloatingTiles.getState().place('tutor', ada);
+    await renderPanel(fresh);
+    act(() => fresh.stage.getState().requestMode('split'));
+    await screen.findByTestId('tldraw');
+    await waitFor(() => expect(canvas.engine.render).toHaveBeenCalled());
+    expect(canvas.engine.focus).not.toHaveBeenCalled();
+
+    act(() => useFloatingTiles.getState().place('tutor', { ...ada }));
+    expect(canvas.engine.focus).not.toHaveBeenCalled();
+    act(() =>
+      useFloatingTiles
+        .getState()
+        .place('tutor', { ...ada, corner: 'bottom-left', rect: { x: 30, y: 510, w: 212, h: 176 } }),
+    );
+    expect(canvas.engine.focus).toHaveBeenCalledTimes(1);
+    expect(canvas.engine.focus).toHaveBeenLastCalledWith(null, { animate: true });
+    act(() => useFloatingTiles.getState().remove('tutor'));
+    expect(canvas.engine.focus).toHaveBeenCalledTimes(2);
   });
 
   it("refits Ada's focus when captions go on or off, not as their lines come and go", async () => {

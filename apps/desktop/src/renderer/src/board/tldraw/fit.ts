@@ -1,10 +1,12 @@
 // Where the camera puts what Ada focuses on (ruling P5-R9): in the board panel, clear of what the
-// stage lays over it. Her tile sits in the panel's top right corner, the TopLine across its top,
-// and the captions band near its bottom whenever captions are on (reserved, lines or none, so the
-// camera never moves as they come and go). Her drawing goes in the region below her tile or the
-// one left of it, whichever shows it larger. Under a 0.75 zoom her Geist Mono 15 labels would
-// fall below 11 px, so it gives up the captions band first, then fits the whole panel as
-// tldraw's zoomToBounds would (inset 48, at most 1.25). Pure: no tldraw, no DOM.
+// stage lays over it. The session's floating tiles (her tile, top right by default, and her desk
+// camera on the board) sit wherever the student put them, the TopLine across the top, and the
+// captions band near the bottom whenever captions are on (reserved, lines or none, so the camera
+// never moves as they come and go). Her drawing goes in the largest region free of the tiles:
+// with her tile alone in the top right, the region below it or the one left of it. Under a 0.75
+// zoom her Geist Mono 15 labels would fall below 11 px, so it gives up the captions band first,
+// then fits the whole panel as tldraw's zoomToBounds would (inset 48, at most 1.25). Pure: no
+// tldraw, no DOM.
 import type { StageGeometry, StageRect } from '../engine';
 
 export type Rect = StageRect;
@@ -37,7 +39,8 @@ export const FIT = Object.freeze({
 
 /** What the stage lays over the board panel, in the panel's px from its top left. */
 export interface Obstructions {
-  tile: Rect;
+  /** Ada's tile and her desk camera, wherever she put them: the ones over this panel. */
+  tiles: Rect[];
   topLine: Rect;
   /** Null while captions are off, or where they miss the panel. */
   captions: Rect | null;
@@ -55,13 +58,24 @@ export interface BoardFit {
 }
 
 /** Every obstruction, from the stage's geometry: the one place they're worked out. */
-export function boardObstructions({ panel, main, captions }: StageGeometry): Obstructions {
+export function boardObstructions({ panel, main, captions, tiles }: StageGeometry): Obstructions {
   const { tile, topLine, captions: band } = STAGE;
   return {
-    tile: { x: panel.w - tile.inset - tile.w, y: tile.inset, w: tile.w, h: tile.h },
+    tiles: tiles
+      ? tiles.flatMap((rect) => clip({ ...rect, x: rect.x - panel.x, y: rect.y - panel.y }))
+      : [{ x: panel.w - tile.inset - tile.w, y: tile.inset, w: tile.w, h: tile.h }],
     topLine: { x: 0, y: 0, w: panel.w, h: topLine },
     captions: captions ? captionsBand(panel, main) : null,
   };
+
+  /** The part of `rect` over the panel, if any. */
+  function clip(rect: Rect): Rect[] {
+    const x = Math.max(0, rect.x);
+    const y = Math.max(0, rect.y);
+    const right = Math.min(panel.w, rect.x + rect.w);
+    const bottom = Math.min(panel.h, rect.y + rect.h);
+    return right > x && bottom > y ? [{ x, y, w: right - x, h: bottom - y }] : [];
+  }
 
   function captionsBand(panel: Rect, main: Rect): Rect | null {
     const width = Math.min(band.maxWidth, main.w - band.sideRoom);
@@ -90,7 +104,7 @@ export function fitBoard(content: Rect, stage: StageGeometry): BoardFit | null {
       ]
     : [{ stage: 'clear', band: null }];
   for (const attempt of tries) {
-    const best = besideTile(content, panel, obstructions, attempt.band);
+    const best = besideTiles(content, panel, obstructions, attempt.band);
     if (best && best.zoom >= FIT.minZoom) return { ...best, stage: attempt.stage };
   }
   return { ...plainFit(content, panel), stage: 'plain' };
@@ -114,22 +128,50 @@ export function cameraFor(content: Rect, fit: BoardFit): { x: number; y: number;
   return { x: fit.x / fit.zoom - content.x, y: fit.y / fit.zoom - content.y, z: fit.zoom };
 }
 
-/** The larger fit of the region below her tile and the one left of it, above `band` if any. */
-function besideTile(
+/**
+ * The largest fit in a region free of the tiles, under the TopLine and above `band` if any. With
+ * her tile alone in the top right, that's the region below it or the one left of it. Candidate
+ * regions span the panel's and the tiles' edges; on equal zooms the larger region wins.
+ */
+function besideTiles(
   content: Rect,
   panel: Rect,
-  { tile, topLine }: Obstructions,
+  { tiles, topLine }: Obstructions,
   band: Rect | null,
 ): Omit<BoardFit, 'stage'> | null {
+  const top = topLine.h;
   const bottom = band ? band.y : panel.h;
-  const below = { x: 0, y: tile.y + tile.h, w: panel.w, h: bottom - (tile.y + tile.h) };
-  const left = { x: 0, y: topLine.h, w: tile.x, h: bottom - topLine.h };
-  let best: Omit<BoardFit, 'stage'> | null = null;
-  for (const region of [below, left]) {
-    const fit = fitIn(content, region);
-    if (fit && (!best || fit.zoom > best.zoom)) best = fit;
+  const within = (n: number, lo: number, hi: number) => Math.min(Math.max(n, lo), hi);
+  const xs = [...new Set([0, panel.w, ...tiles.flatMap((t) => [t.x, t.x + t.w])])]
+    .map((x) => within(x, 0, panel.w))
+    .sort((a, b) => a - b);
+  const ys = [...new Set([top, bottom, ...tiles.flatMap((t) => [t.y, t.y + t.h])])]
+    .map((y) => within(y, top, bottom))
+    .sort((a, b) => a - b);
+  let best: { fit: Omit<BoardFit, 'stage'>; area: number } | null = null;
+  for (const [i, x1] of xs.entries()) {
+    for (const x2 of xs.slice(i + 1)) {
+      for (const [j, y1] of ys.entries()) {
+        for (const y2 of ys.slice(j + 1)) {
+          const region = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+          if (region.w <= 0 || region.h <= 0 || tiles.some((t) => overlaps(region, t))) continue;
+          const fit = fitIn(content, region);
+          const area = region.w * region.h;
+          if (
+            fit &&
+            (!best || fit.zoom > best.fit.zoom || (fit.zoom === best.fit.zoom && area > best.area))
+          ) {
+            best = { fit, area };
+          }
+        }
+      }
+    }
   }
-  return best;
+  return best?.fit ?? null;
+}
+
+function overlaps(a: Rect, b: Rect): boolean {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 }
 
 /** `content` centered in `region` with FIT.pad around it, or null when there's no room. */
