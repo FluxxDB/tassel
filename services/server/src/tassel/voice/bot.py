@@ -69,7 +69,7 @@ from tassel.voice.messages import (
     is_note,
 )
 from tassel.voice.prompts import language_switch_note, system_prompt
-from tassel.voice.providers import make_llm, make_stt, make_tts, stt_kind
+from tassel.voice.providers import llm_tools_supported, make_llm, make_stt, make_tts, stt_kind
 from tassel.voice.routes import VoiceRoute, route_for
 from tassel.voice.settings import VoiceSettings, resolve_mode
 from tassel.voice.tools import TOOLS
@@ -404,7 +404,8 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     saved, previous_lang = ctx.memory.recall(ctx.session_id)
     # The live factory installs Ada's persona in the constructor, before tool
     # synchronization; duplicating it here would create competing instructions.
-    context = LLMContext(saved, tools=TOOLS)
+    tools_ok = llm_tools_supported(ctx.settings)
+    context = LLMContext(saved, tools=TOOLS) if tools_ok else LLMContext(saved)
     llm = make_llm(route, ctx.settings, scenario)
     stt = _RoutedService(lambda lang: make_stt(route_for(lang), ctx.settings, scenario), ctx.lang)
     tts = _RoutedService(lambda lang: make_tts(route_for(lang), ctx.settings), ctx.lang)
@@ -467,7 +468,9 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
             llm.set_language(lang)
         else:
             await llm.queue_frame(
-                LLMUpdateSettingsFrame(delta=llm.Settings(system_instruction=system_prompt(lang)))
+                LLMUpdateSettingsFrame(
+                    delta=llm.Settings(system_instruction=system_prompt(lang, tools=tools_ok))
+                )
             )
 
     async def language_ready(lang):

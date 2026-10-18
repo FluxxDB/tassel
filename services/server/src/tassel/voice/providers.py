@@ -296,10 +296,18 @@ class LiveLLMService(OpenRouterLLMService):
             await self._fallback_client.close()
 
 
+def llm_tools_supported(s: VoiceSettings) -> bool:
+    """gpt-6-astra refuses function tools on /v1/chat/completions at every reasoning effort."""
+    requested = s.llm_provider or s.providers
+    return not (requested == "openai" and s.openai_model.startswith("gpt-6-astra"))
+
+
 def make_llm(route: VoiceRoute, s: VoiceSettings, scenario: FakeScenario | None) -> LLMService:
     if _mode("llm", s) == "fake":
         return FakeLLMService(scenario=scenario or load_scenario(s.fake_scenario), lang=route.lang)
-    return LiveLLMService(s, system_instruction=system_prompt(route.lang))
+    return LiveLLMService(
+        s, system_instruction=system_prompt(route.lang, tools=llm_tools_supported(s))
+    )
 
 
 def make_tts(route: VoiceRoute, s: VoiceSettings) -> TTSService:

@@ -432,3 +432,28 @@ async def test_stream_transport_failure_retries_only_before_output(partial, fail
         "Already spoken" if partial else "Recovered"
     ]
     assert any(isinstance(f, ErrorFrame) for f in down + up) == partial
+
+
+def test_astra_on_openai_gets_no_tools():
+    # gpt-6-astra refuses function tools on /v1/chat/completions at every reasoning effort
+    # (HTTP 400: "use /v1/responses or set reasoning_effort to 'none'", and 'none' is refused).
+    from tassel.voice.providers import llm_tools_supported
+
+    astra = VoiceSettings(llm_provider="openai", openai_model="gpt-6-astra", openai_api_key="oa")
+    assert llm_tools_supported(astra) is False
+    assert llm_tools_supported(VoiceSettings(llm_provider="openai", openai_api_key="oa")) is True
+    assert (
+        llm_tools_supported(VoiceSettings(llm_provider="openrouter", openrouter_api_key="or"))
+        is True
+    )
+
+
+def test_persona_without_tools_uses_tags_and_the_language_menu():
+    from tassel.voice.prompts import system_prompt
+
+    with_tools = system_prompt("en")
+    without = system_prompt("en", tools=False)
+    assert "Call show_stage" in with_tools and "Call show_stage" not in without
+    assert "Call set_language" not in without
+    assert "[[stage paper|board|split]]" in without
+    assert "language menu" in without
