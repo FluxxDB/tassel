@@ -53,6 +53,7 @@ export const useBoardStore: UseBoundStore<StoreApi<BoardState>> = create<BoardSt
         held.push(...effects);
         playReady();
       }
+      if (!problem) engine?.camera?.adaAction();
     },
     attach(next) {
       engine = next;

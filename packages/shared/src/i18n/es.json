@@ -232,6 +232,12 @@
     },
     "state": {
       "accepting": "{id}, de aceptación"
+    },
+    "camera": {
+      "label": "Board camera controls",
+      "in": "Zoom in",
+      "out": "Zoom out",
+      "fit": "Fit"
     }
   },
   "marks": {

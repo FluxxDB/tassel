@@ -46,6 +46,12 @@ export interface BoardEngine {
   play(effect: BoardEffect): Promise<void>;
   /** Fits the camera to an item, or to everything for null. */
   focus(item: string | null, opts: { animate: boolean }): void;
+  /** Optional student navigation surface; no shape editing is exposed. */
+  camera?: {
+    zoom(direction: 'in' | 'out'): void;
+    fit(): void;
+    adaAction(): void;
+  };
   /** Her edits, one per quiet moment. Returns the unsubscribe. */
   onStudentEdit(listener: (edit: StudentBoardEdit) => void): () => void;
   dispose(): void;

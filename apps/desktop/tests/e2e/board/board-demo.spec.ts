@@ -371,3 +371,73 @@ test('keeps her pinned paper, and shows the finished board when she unpins (Revi
   expect(problems).toEqual([]);
   await app.close();
 });
+
+for (const reducedMotion of ['reduce', 'no-preference'] as const) {
+  test(`student camera controls keep Ada's shapes read-only (${reducedMotion})`, async () => {
+    test.skip(!seesTldraw(), NO_TLDRAW);
+    const { app, page } = await launchDemo();
+    try {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await startSession(page);
+      await expect.poll(() => described(page), { timeout: 10_000 }).toEqual(WHOLE_BOARD);
+      const controls = page.getByRole('group', { name: 'Board camera controls' });
+      const fit = controls.getByRole('button', { name: 'Fit', exact: true });
+      await fit.click();
+      await settle(page);
+      const state = shapeOf(page, 'state:q0');
+      const original = await state.boundingBox();
+      expect(original).not.toBeNull();
+      if (!original) return;
+      await page.emulateMedia({ reducedMotion });
+      const restoreFit = async () => {
+        await fit.click();
+        await expect
+          .poll(async () => {
+            const box = await state.boundingBox();
+            return box
+              ? Math.max(
+                  Math.abs(box.x - original.x),
+                  Math.abs(box.y - original.y),
+                  Math.abs(box.width - original.width),
+                )
+              : Infinity;
+          })
+          .toBeLessThan(0.1);
+      };
+      await controls.getByRole('button', { name: 'Zoom in' }).click();
+      await expect
+        .poll(async () => (await state.boundingBox())?.width ?? 0)
+        .toBeGreaterThan(original.width);
+      await controls.getByRole('button', { name: 'Zoom out' }).click();
+      await restoreFit();
+
+      const panel = await boardRegion(page).boundingBox();
+      if (!panel) throw new Error('Board panel missing');
+      await page.mouse.move(panel.x + 40, panel.y + 250);
+      await page.mouse.down();
+      await page.mouse.move(panel.x + 140, panel.y + 290, { steps: 8 });
+      await page.mouse.up();
+      await settle(page);
+      expect((await state.boundingBox())?.x).not.toBeCloseTo(original.x, 0);
+      await restoreFit();
+      await expect.poll(async () => (await state.boundingBox())?.x ?? 0).toBeCloseTo(original.x, 0);
+
+      for (const modifier of ['Meta', 'Control'] as const) {
+        await page.mouse.move(panel.x + 150, panel.y + 250);
+        await page.keyboard.down(modifier);
+        await page.mouse.wheel(0, -180);
+        await page.keyboard.up(modifier);
+        await expect
+          .poll(async () => (await state.boundingBox())?.width ?? 0)
+          .toBeGreaterThan(original.width);
+        await restoreFit();
+      }
+      await state.click();
+      await page.keyboard.press('Delete');
+      await expect(shapes(page, 'tassel-state')).toHaveCount(5);
+      expect(await described(page)).toEqual(WHOLE_BOARD);
+    } finally {
+      await app.close();
+    }
+  });
+}
