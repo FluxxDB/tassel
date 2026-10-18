@@ -59,6 +59,28 @@ RESOLUTIONS_SCHEMA = _strict(Resolutions.model_json_schema())
 BOX_SLACK = 0.01  # A model's box may overshoot the image edge by this much; it's trimmed.
 
 
+SNAP_IOU = 0.4  # A model's box this close to a detected marker is that marker.
+
+
+def snap(box, elements, size) -> str | None:
+    """The detected marker a model's box matches best, when it matches well enough."""
+    if box is None or size is None or not elements:
+        return None
+    width, height = size
+    b = (box.x * width, box.y * height, box.w * width, box.h * height)
+    best, best_iou = None, SNAP_IOU
+    for element in elements:
+        e = (element.box.x, element.box.y, element.box.w, element.box.h)
+        ix = max(0.0, min(b[0] + b[2], e[0] + e[2]) - max(b[0], e[0]))
+        iy = max(0.0, min(b[1] + b[3], e[1] + e[3]) - max(b[1], e[1]))
+        inter = ix * iy
+        union = b[2] * b[3] + e[2] * e[3] - inter
+        iou = inter / union if union else 0.0
+        if iou >= best_iou:
+            best, best_iou = element.id, iou
+    return best
+
+
 def box_target(box):
     """A model's box as a checked `box=` target, or None when it isn't a usable region."""
     if box is None:
@@ -159,7 +181,9 @@ class Pointer:
         self.timeout_s = settings.pointer_timeout_s
         self.log = log or (lambda *args, **kwargs: None)
 
-    async def resolve(self, intents, image_jpeg, legend_text, elements):
+    async def resolve(self, intents, image_jpeg, legend_text, elements, *, size=None):
+        """`size`: the marked page's (width, height) in the elements' pixels; with it, a box a
+        detected marker matches well snaps to that marker."""
         messages = [
             {
                 "role": "system",
@@ -212,7 +236,11 @@ class Pointer:
             mark_id = None if mark is None else mark.id
             element = known.get(mark_id)
             accepted = element is not None and compatible(intent.target, element, elements)
-            # A null or rejected id falls back to the model's box, when it gave a usable one.
+            # A null or rejected id falls back to the model's box, when it gave a usable one;
+            # a box a detected marker matches well lands on that marker, which follows the ink.
+            snapped = None if accepted or mark is None else snap(mark.box, elements, size)
+            if snapped is not None:
+                mark_id, accepted = snapped, True
             box = None if accepted or mark is None else box_target(mark.box)
             self.log(
                 "pointer_brief",

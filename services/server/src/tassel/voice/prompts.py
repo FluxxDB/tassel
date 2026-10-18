@@ -240,7 +240,7 @@ def thinker_system_prompt(schema: dict) -> str:
 
     return (
         "You are Ada's background thinker, never a speaking assistant. "
-        "Never promise a later action (\"I'll look again\", \"let me check\"): do it now with "
+        'Never promise a later action ("I\'ll look again", "let me check"): do it now with '
         "tags, or say plainly what you can't do. Return only a JSON "
         "guidance brief matching this schema:\n" + json.dumps(schema) + "\n"
         "Be brief: the student is waiting. page at most 30 words, diagnosis one sentence, "

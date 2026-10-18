@@ -208,9 +208,10 @@ async def test_the_coordinator_delivers_a_box_mark_that_validates(page):
             pass
 
     ctx = board(page)
-    pointer = Pointer(
-        VoiceSettings(), client=Client([{"i": 0, "id": None, "box": normalized(page)}])
-    )
+    # A box over blank paper: no marker matches it, so it stays a box (a box on the IP's
+    # line snaps to its marker; see the next test).
+    blank = {"x": 0.02, "y": 0.9, "w": 0.1, "h": 0.05}
+    pointer = Pointer(VoiceSettings(), client=Client([{"i": 0, "id": None, "box": blank}]))
     events = []
     transcript = SimpleNamespace(record=lambda e, d: events.append((e, d)))
     c = thinker.TutorCoordinator(Thinker(), ctx, pointer=pointer, transcript=transcript)
@@ -230,3 +231,27 @@ async def test_the_coordinator_delivers_a_box_mark_that_validates(page):
     [tag] = result.paper[1:]
     assert tag.startswith("[[underline box=")
     await c.close()
+
+
+@pytest.mark.asyncio
+async def test_a_box_a_marker_mostly_matches_snaps_to_that_marker(page):
+    """Real-token eval: the Pointer gave a box over two thirds of the IP while its whole-line
+    marker was there; the mark then missed the rest of the line. A box that a detected marker
+    matches well (IoU ≥ 0.4) lands on that marker, which follows the ink."""
+    x, y, w, h = page.truth
+    short = {"x": x / page.view.width, "y": y / page.view.height}
+    short |= {"w": 0.67 * w / page.view.width, "h": h / page.view.height}
+    client = Client([{"i": 0, "id": None, "box": short}])
+    pointer = Pointer(VoiceSettings(), client=client)
+    size = (page.view.width, page.view.height)
+    resolved = await pointer.resolve(
+        [UNDERLINE_IP], b"jpeg", legend(page.view), page.view.elements, size=size
+    )
+    assert resolved == [("underline", page.ip.id, None, None)]
+    # A box over blank paper, far from every marker, stays a box.
+    blank = {"x": 0.02, "y": 0.9, "w": 0.1, "h": 0.05}
+    client.marks = [{"i": 0, "id": None, "box": blank}]
+    [(_, where, _, _)] = await pointer.resolve(
+        [UNDERLINE_IP], b"jpeg", "", page.view.elements, size=size
+    )
+    assert where.startswith("box=")

@@ -522,8 +522,13 @@ class TutorCoordinator:
                 self.pointer = Pointer(self.thinker.settings, log=self.log)
                 self.pointer.client.on_usage = getattr(self.thinker, "on_usage", None)
             frame = self.board.paper_frame
+            detected = elements.detected
             resolved = await self.pointer.resolve(
-                brief.marks, self.page_image, self.page_caption, elements.detected.items
+                brief.marks,
+                self.page_image,
+                self.page_caption,
+                detected.items,
+                size=(detected.width, detected.height),
             )
             if generation != self.generation or frame != self.board.paper_frame:
                 return brief.model_copy(update={"paper": []})

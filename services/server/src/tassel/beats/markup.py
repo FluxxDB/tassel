@@ -576,8 +576,10 @@ def _automaton(
         raise MarkupError(f"{kind} needs an item")
     if "=" in args[0].text or _MOVE.search(args[0].text):
         # No item name (the real-token eval's [[dfa start=q0 …]]): name it, never drop it.
-        name = kind if kind not in ctx.specs else next(
-            f"{kind}{n}" for n in range(2, 100) if f"{kind}{n}" not in ctx.specs
+        name = (
+            kind
+            if kind not in ctx.specs
+            else next(f"{kind}{n}" for n in range(2, 100) if f"{kind}{n}" not in ctx.specs)
         )
         args = [_Arg(name, False), *args]
         notes.append(f"named {name}")
