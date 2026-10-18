@@ -5,6 +5,9 @@ import { type ReactNode, type RefObject, useEffect, useId, useRef, useState } fr
 import { useTranslation } from 'react-i18next';
 import { AppFrame } from '../../app/AppFrame';
 import { useRoute } from '../../app/route-store';
+import { Avatar } from '../../avatar/Avatar';
+import { AvatarCustomizer } from '../../avatar/AvatarCustomizer';
+import { useAvatar } from '../../avatar/store';
 import { Button } from '../../components/Button';
 import { Close, Plus, Search } from '../../components/icons';
 import { SegmentedControl } from '../../components/SegmentedControl';
@@ -32,6 +35,8 @@ export function LibraryScreen({
   returning = false,
 }: LibraryScreenProps) {
   const { t } = useTranslation();
+  const [customizing, setCustomizing] = useState(false);
+  const avatar = useAvatar((state) => state.profile);
   const headingId = useId();
   const [sort, setSort] = useState<SessionSort>('recent');
   const [search, setSearch] = useState('');
@@ -90,10 +95,21 @@ export function LibraryScreen({
 
   return (
     <>
+      <AvatarCustomizer open={customizing} onOpenChange={setCustomizing} />
       <AppFrame className="relative">
         <Wordmark />
         <SearchField value={search} onChange={setSearch} inputRef={searchInput} />
-        <Button size="sm" className="ml-auto" onClick={newSession}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-auto"
+          onClick={() => setCustomizing(true)}
+          aria-label={t('avatar.open')}
+        >
+          <Avatar profile={avatar} className="h-8 w-8 rounded-full bg-blush" />
+          <span className="hidden lg:inline">{t('avatar.open')}</span>
+        </Button>
+        <Button size="sm" onClick={newSession}>
           <Plus className="-ml-1 size-[18px]" />
           {t('library.newSession')}
         </Button>
@@ -212,7 +228,7 @@ function SearchField({
   const { t } = useTranslation();
   return (
     // Centered on the window, whatever the strip's insets on either side.
-    <search className="absolute top-1/2 left-1/2 w-[min(400px,36vw)] -translate-x-1/2 -translate-y-1/2">
+    <search className="absolute top-1/2 left-1/2 w-[min(320px,26vw)] -translate-x-1/2 -translate-y-1/2">
       <Search className="pointer-events-none absolute top-1/2 left-3 size-[18px] -translate-y-1/2 text-smoke-text" />
       <input
         ref={input}

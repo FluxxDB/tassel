@@ -2,9 +2,10 @@
 // is always named on it; the iris ring shows only while she speaks, and never alone.
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Avatar } from '../../avatar/Avatar';
+import { useAvatar } from '../../avatar/store';
 import { cn } from '../../lib/cn';
 import { useLiveVoice } from '../voice/live-voice';
-import { AvatarPlaceholder } from './AvatarPlaceholder';
 import { useStageStore } from './stage-store';
 
 export function TutorTile() {
@@ -14,6 +15,7 @@ export function TutorTile() {
   const live = useLiveVoice((store) => store.live);
   const client = useLiveVoice((store) => store.client);
   const captionId = useId();
+  const avatar = useAvatar((store) => store.profile);
   // The live tutor's connection, until she's there: then her state, as with the scripted tutor.
   const status =
     live &&
@@ -30,15 +32,18 @@ export function TutorTile() {
         state === 'speaking' && 'shadow-[0_0_0_2px_var(--color-iris)]',
       )}
     >
-      <AvatarPlaceholder className="absolute top-1.5 left-7 size-[156px]" />
+      <Avatar profile={avatar} className="absolute top-1.5 left-7 size-[156px]" />
       <figcaption
         id={captionId}
         className="absolute bottom-2.5 left-2.5 flex h-[27px] items-center gap-1.5 rounded-pill bg-paper px-2.5"
       >
         {status === null ? (
           <>
-            <span className="text-[13px] leading-4 font-w520 text-ink">
-              {t('session.tutorName')}
+            <span
+              title={avatar.name}
+              className="max-w-[88px] truncate text-[13px] leading-4 font-w520 text-ink"
+            >
+              {avatar.name}
             </span>
             <span className="mono text-[11px] leading-[14px] text-iris-ink">
               {t(`session.tutorState.${state}`)}
