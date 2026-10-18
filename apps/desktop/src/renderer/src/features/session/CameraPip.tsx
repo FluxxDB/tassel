@@ -8,6 +8,7 @@ import { FloatingTile } from '../../components/FloatingTile';
 import { cropTransform, type Size } from '../../paper/crop-transform';
 import { PaperVideo } from '../../paper/PaperVideo';
 import { usePaperStore } from '../../paper/paper-store';
+import { useStageCover } from '../chat/chat-layout';
 import { useStageStore } from './stage-store';
 
 const NO_SIZE: Size = { w: 0, h: 0 };
@@ -24,6 +25,8 @@ export function CameraPip({
   clearOf?: string;
 }) {
   const { t } = useTranslation();
+  // Clear of the chat sidebar while it lies over the stage.
+  const coverRight = useStageCover();
   const crop = usePaperStore((state) => state.contentRect);
   const pin = useStageStore((state) => state.pin);
   const [video, setVideo] = useState<Size>(NO_SIZE);
@@ -38,6 +41,7 @@ export function CameraPip({
       maxWidth={480}
       inset={inset}
       bottomClearance={bottomClearance}
+      coverRight={coverRight}
       clearOf={clearOf}
       onActivate={() => pin('split')}
     >

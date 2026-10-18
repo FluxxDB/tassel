@@ -44,9 +44,13 @@ class BeatTagProcessor(FrameProcessor):
         board: BoardContext,
         transcript=None,
         on_actions=None,
+        on_sentence=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
+        # Told each sentence before its words go on, with its text frame's id (None when it has
+        # no words): the chat's action rows.
+        self._on_sentence = on_sentence
         self._events = events
         self._transcript = transcript
         self._on_actions = on_actions
@@ -82,6 +86,8 @@ class BeatTagProcessor(FrameProcessor):
             await self._events.send(BeatEvent(beat=beat))
             if self._on_actions:
                 self._on_actions([marker.action for marker in beat.markers])
+            if self._on_sentence:
+                await self._on_sentence(sentence, frame.id if sentence.clean else None)
             if sentence.clean:
                 await self.push_frame(frame)
 

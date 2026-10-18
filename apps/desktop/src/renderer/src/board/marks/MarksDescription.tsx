@@ -9,14 +9,21 @@ import { useTranslation } from 'react-i18next';
 export function MarksDescription({
   marks,
   lang,
+  label,
 }: {
-  marks: PaperMark[];
+  marks: readonly PaperMark[];
   lang: Lang;
+  /** The list's name: Ada's marks on her paper unless said otherwise (on the student's image). */
+  label?: string;
 }): JSX.Element | null {
   const { t } = useTranslation();
   if (marks.length === 0) return null;
   return (
-    <ul aria-label={t('marks.description.label', { lng: lang })} lang={lang} className="sr-only">
+    <ul
+      aria-label={label ?? t('marks.description.label', { lng: lang })}
+      lang={lang}
+      className="sr-only"
+    >
       {marks.map((mark) => (
         <li key={`${mark.type}-${mark.id}`}>{describeMark(t, mark, lang)}</li>
       ))}

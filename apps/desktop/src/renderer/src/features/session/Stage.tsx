@@ -9,6 +9,7 @@ import { type ReactNode, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BoardCameraControls } from '../../board/BoardCameraControls';
 import { BoardPanel } from '../../board/BoardPanel';
+import { ImageTag, StageImage, useImageOnStage } from '../../board/marks/ImageLayer';
 import { PaperMarksLayer } from '../../board/marks/PaperMarksLayer';
 import { SnapshotTag } from '../../board/marks/SnapshotTag';
 import { Mic, Pin, Screen } from '../../components/icons';
@@ -19,6 +20,7 @@ import { usePaperStore } from '../../paper/paper-store';
 import { usePaperTag } from '../../paper/use-paper-capture';
 import { ScreenPanel } from '../../screen/ScreenControls';
 import { useScreen } from '../../screen/store';
+import { useStageInset } from '../chat/chat-layout';
 import { CameraPip } from './CameraPip';
 import { type StageMode, useStageStore } from './stage-store';
 import { TutorTile } from './TutorTile';
@@ -56,12 +58,25 @@ export function Stage({ source, onUnpinned }: StageProps) {
   const boardShown = mode !== 'paper';
   const screenActive = useScreen((state) => state.selected !== null);
   const paper = source === 'paper' && !screenActive;
-  const tag = paper ? paperTag : t(`session.placeholder.${source}.tag`);
+  // The student's image, from the chat, takes this panel's slot while it's shown: the panel is
+  // tagged as hers, and the paper's own pills wait under it until Back to paper.
+  const imageOnStage = useImageOnStage();
+  const tag = imageOnStage
+    ? t('session.stage.image.tag')
+    : paper
+      ? paperTag
+      : t(`session.placeholder.${source}.tag`);
   // Her camera's picture in picture: any paper source's stream, only while the board is alone.
   const stream = usePaperStore((state) => state.stream);
   const cameraOn = useStageStore((state) => state.cameraOn);
+  // Clear of the chat sidebar while it lies over the stage in split.
+  const inset = useStageInset();
   return (
-    <div data-testid="stage" className="absolute top-2 right-4 bottom-[104px] left-4 flex">
+    <div
+      data-testid="stage"
+      className="absolute top-2 right-4 bottom-[104px] left-4 flex"
+      style={inset}
+    >
       <Panel shown={paperShown} label={tag}>
         {paper ? (
           <PaperPanel fallback={<Waiting source="paper" />} />
@@ -72,13 +87,16 @@ export function Stage({ source, onUnpinned }: StageProps) {
         )}
         {/* Ada's marks over a snapshot of her paper (P5-R8). */}
         {paper && <PaperMarksLayer />}
+        {/* The student's image, with Ada's marks on it, over whatever the panel shows. */}
+        <StageImage />
         <TopLine
           pinIndicator={paperShown}
           onUnpinned={onUnpinned}
           trailing={
             <>
-              {paper && <PaperTopLineExtras />}
-              <SnapshotTag />
+              {paper && !imageOnStage && <PaperTopLineExtras />}
+              {!imageOnStage && <SnapshotTag />}
+              <ImageTag />
             </>
           }
         >

@@ -27,6 +27,7 @@ from pipecat.frames.frames import (
     LLMTextFrame,
     LLMUpdateSettingsFrame,
     StartFrame,
+    TextFrame,
     TTSTextFrame,
     UserStartedSpeakingFrame,
     VADUserStartedSpeakingFrame,
@@ -51,6 +52,9 @@ from tassel.beats.models import BeatAction
 from tassel.beats.processor import BeatTagProcessor
 from tassel.board.history import BoardHistory, replay
 from tassel.board.snapshots import BoardSnapshots
+from tassel.chat.log import ChatLog
+from tassel.chat.store import ChatStore
+from tassel.chat.turns import model_text, with_images
 from tassel.models import Lang, SessionPatch
 from tassel.screen.api import ScreenDrawing
 from tassel.screen.session import ScreenSession
@@ -77,6 +81,7 @@ from tassel.voice.messages import (
     BoardSnapshotEvent,
     ClientMetricsEvent,
     LanguageEvent,
+    MessageAttachment,
     OfferRequestData,
     PaperFrameEvent,
     PushToTalkEvent,
@@ -86,6 +91,7 @@ from tassel.voice.messages import (
     StageHintEvent,
     StageStateEvent,
     SttKind,
+    StudentMessageEvent,
     is_note,
 )
 from tassel.voice.prompts import language_switch_note, system_prompt
@@ -130,6 +136,37 @@ class BotContext:
     board_snapshots: BoardSnapshots | None = None
     board_actions: list[BeatAction] = field(default_factory=list)
     board_history: BoardHistory | None = None
+    # The chat's storage (``chat.store.ChatStore``): her images, and the lines it saves. None
+    # keeps the chat live but unsaved, without images.
+    chat: ChatStore | None = None
+    # The session's last saved chat seq, which this bot's lines follow.
+    chat_seq: int = 0
+
+
+@dataclass
+class ReplyMode:
+    """How Ada answers the turn now reaching her: aloud, or in text only (a typed message sent
+    with voice off). A spoken turn always gets her voice."""
+
+    voice: bool = True
+
+
+@dataclass
+class TypedTurn:
+    """A typed message on its way to the model: its message in the context, and its images."""
+
+    message: dict
+    images: list = field(default_factory=list)
+
+
+@dataclass
+class TextOnlyFrame(TextFrame):
+    """One of Ada's sentences in a text-only reply: the TTS passes it by (skip_tts), the context
+    gets ``text`` (tags included), and the chat shows ``clean``. Not an AggregatedTextFrame, so
+    RTVI never holds it as a caption for her next spoken reply."""
+
+    clean: str = ""
+    source_id: int = 0
 
 
 @dataclass
@@ -260,6 +297,10 @@ class _TurnContext(FrameProcessor):
         self.board_snapshots: BoardSnapshots | None = None
         self.transcript = None
         self.board_history: BoardHistory | None = None
+        # A typed message waiting for its turn, how she's answered, and her spoken lines.
+        self.typed: TypedTurn | None = None
+        self.reply = ReplyMode()
+        self.on_spoken: Callable[[str], Awaitable[None]] | None = None
 
     def _board_items(self):
         items = dict(self.board_history.board_items) if self.board_history else {}
@@ -352,6 +393,15 @@ class _TurnContext(FrameProcessor):
                 and not is_note(user["content"])
             ):
                 self._last_user = user
+                typed = (
+                    self.typed if self.typed is not None and self.typed.message is user else None
+                )
+                self.typed = None
+                if typed is None:
+                    # A spoken turn: always answered aloud, and a line in the chat.
+                    self.reply.voice = True
+                    if self.on_spoken is not None:
+                        await self.on_spoken(user["content"])
                 # Flux can split one question into two turns ("What's wrong with my DFA?" then
                 # "on your whiteboard."); unanswered fragments reach the director together.
                 fragments = []
@@ -498,6 +548,7 @@ class _TurnContext(FrameProcessor):
                         decision=self.decision,
                         page=self._thinker_page if self.decision.needs_vision else None,
                         board_page=self._thinker_board_page,
+                        attachments=typed.images if typed else None,
                     )
                     await self._thinker_reply(direction)
                     return
@@ -539,6 +590,10 @@ class _TurnContext(FrameProcessor):
                         {"type": "text", "text": user["content"]},
                         {"type": "text", "text": note},
                     ]
+                if typed is not None and typed.images:
+                    # Her images ride with her words for this turn; the next turn strips them
+                    # with the paper's.
+                    user["content"] = with_images(user["content"], typed.images)
                 if self.screen and self.screen.epoch != screen_epoch:
                     return
                 if self.screen and self.screen.source and self.on_screen_turn:
@@ -632,6 +687,66 @@ class _SpeechStarts(BaseObserver):
             data.frame, (UserStartedSpeakingFrame, VADUserStartedSpeakingFrame)
         ):
             await self.turn_context.speech_started()
+
+
+class _ReplyVoice(FrameProcessor):
+    """Before the TTS: a text-only reply passes it by. Each response is aloud or not as it
+    starts; while it's text-only, its start, its sentences and its end carry skip_tts, so the
+    TTS neither speaks them nor holds the end for audio that never comes, and the response ends
+    at the output as a spoken one does."""
+
+    def __init__(self, reply: ReplyMode):
+        super().__init__()
+        self.reply = reply
+        self._silent = False
+
+    async def process_frame(self, frame, direction):
+        await super().process_frame(frame, direction)
+        if isinstance(frame, InterruptionFrame):
+            self._silent = False
+        elif direction == FrameDirection.DOWNSTREAM:
+            if isinstance(frame, LLMFullResponseStartFrame):
+                self._silent = not self.reply.voice
+            if self._silent:
+                if isinstance(frame, AggregatedTextFrame) and not isinstance(frame, TTSTextFrame):
+                    shown = TextOnlyFrame(
+                        text=(frame.raw_text or frame.text) + " ",
+                        clean=frame.text,
+                        source_id=frame.id,
+                    )
+                    shown.includes_inter_frame_spaces = True
+                    frame = shown
+                if isinstance(
+                    frame, (TextFrame, LLMFullResponseStartFrame, LLMFullResponseEndFrame)
+                ):
+                    frame.skip_tts = True
+                if isinstance(frame, LLMFullResponseEndFrame):
+                    self._silent = False
+        await self.push_frame(frame, direction)
+
+
+class _ChatFrames(BaseObserver):
+    """Feeds the chat log what reaches the output: each of Ada's sentences as it's heard (or
+    shown, when she types), each response's end, and every interruption."""
+
+    def __init__(self, chat: ChatLog, output: FrameProcessor):
+        super().__init__()
+        self.chat, self.output = chat, output
+
+    async def on_push_frame(self, data: FramePushed):
+        frame = data.frame
+        if isinstance(frame, InterruptionFrame):
+            if data.first_push:
+                await self.chat.interrupted()
+            return
+        if data.source is not self.output or data.direction != FrameDirection.DOWNSTREAM:
+            return
+        if isinstance(frame, TextOnlyFrame):
+            await self.chat.heard(frame.clean, frame.source_id)
+        elif isinstance(frame, AggregatedTextFrame) and not isinstance(frame, TTSTextFrame):
+            await self.chat.heard(frame.text, frame.id)
+        elif isinstance(frame, LLMFullResponseEndFrame):
+            await self.chat.ended()
 
 
 class _RouteMonitor(FrameProcessor):
@@ -895,12 +1010,24 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
 
     turn_context.on_view = pin_view
     turn_context.lang = lambda: ctx.lang
+    chat_log = ChatLog(
+        events.send,
+        save=(lambda seq, line: ctx.chat.save(ctx.session_id, seq, line)) if ctx.chat else None,
+        first_seq=ctx.chat_seq,
+    )
+    events.listeners.append(chat_log.server_event)
+
+    async def spoken_line(text):
+        await chat_log.student(text, source="voice")
+
+    turn_context.on_spoken = spoken_line
     beats = BeatTagProcessor(
         events=events,
         lang=lambda: ctx.lang,
         board=ctx.board,
         transcript=transcript,
         on_actions=ctx.board_history.record if ctx.board_history else None,
+        on_sentence=chat_log.sentence,
     )
     thinker = make_thinker(ctx.settings)
     if thinker is None and fake_llm:
@@ -926,6 +1053,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
                 llm,
                 *reasoning,
                 beats,
+                _ReplyVoice(turn_context.reply),
                 tts,
                 monitor,
                 output,
@@ -970,6 +1098,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     worker.add_observer(transcript)
     worker.add_observer(VadForwarder(worker))
     worker.add_observer(_SpeechStarts(turn_context))
+    worker.add_observer(_ChatFrames(chat_log, output))
     language_lock = asyncio.Lock()
 
     async def apply_language(lang):
@@ -1140,6 +1269,45 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
                 )
             )
 
+    async def typed_message(event: StudentMessageEvent):
+        """What RTVI's send-text does, for the chat: interrupt her, then the message as a turn,
+        with the student's own images for this session, and her voice off if she asked."""
+        images = []
+        if event.attachment_ids:
+            if ctx.chat is None:
+                logger.warning("Dropped a typed message's images: no chat store")
+            else:
+                try:
+                    images = await ctx.chat.load_attachments(
+                        ctx.learner_id, ctx.session_id, event.attachment_ids
+                    )
+                except Exception as error:  # noqa: BLE001 - her words still get an answer
+                    logger.warning(
+                        "Couldn't load a typed message's images: {}", type(error).__name__
+                    )
+            if len(images) < len(event.attachment_ids):
+                logger.warning(
+                    "Dropped {} of a typed message's images",
+                    len(event.attachment_ids) - len(images),
+                )
+        if not event.text.strip() and not images:
+            logger.warning("Dropped a typed message with nothing left in it")
+            return
+        await worker.rtvi.interrupt_bot()
+        # The interruption commits what she'd said before the new message lands (RTVI).
+        await worker.flush_pipeline()
+        await chat_log.student(
+            event.text,
+            source="typed",
+            client_id=event.client_id,
+            attachments=[MessageAttachment(id=i.id, w=i.width, h=i.height) for i in images],
+        )
+        turn_context.reply.voice = event.voice
+        user = {"role": "user", "content": model_text(event.text, len(images))}
+        turn_context.typed = TypedTurn(user, images)
+        transcript.record("student_typed", {"voice": event.voice, "images": len(images)})
+        await worker.queue_frame(LLMMessagesAppendFrame([user], run_llm=True))
+
     @worker.rtvi.event_handler("on_client_message")
     async def client_message(rtvi, msg):
         if msg.type != ENVELOPE:
@@ -1149,7 +1317,10 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         except ValidationError:
             logger.warning("Dropped invalid Tassel client event")
             return
-        if isinstance(event, StageStateEvent):
+        if isinstance(event, StudentMessageEvent):
+            await typed_message(event)
+        elif isinstance(event, StageStateEvent):
+            chat_log.app_view(event.view)
             stage.on_state(event, time.monotonic())
             turn_context.focus = event.view
             turn_context.frozen = event.frozen
@@ -1171,6 +1342,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
 
     bot.log_sink = log_sink
     bot.transcript = transcript
+    bot.chat_log = chat_log
     return bot
 
 
@@ -1180,6 +1352,11 @@ async def run_bot(connection, ctx: BotContext) -> None:
     ctx.board_history = history
     try:
         ctx.board_actions = await history.load()
+        if ctx.chat is not None:
+            try:
+                ctx.chat_seq = await ctx.chat.last_seq(ctx.session_id)
+            except Exception as error:  # noqa: BLE001 - lines then save after the last seen
+                logger.warning("Couldn't read the chat's last seq: {}", type(error).__name__)
         transport = SmallWebRTCTransport(
             webrtc_connection=connection,
             params=TransportParams(audio_in_enabled=True, audio_out_enabled=True),
@@ -1201,6 +1378,8 @@ async def run_bot(connection, ctx: BotContext) -> None:
                     logger.remove(bot.log_sink)
                 if getattr(bot, "transcript", None) is not None:
                     bot.transcript.record_cost()
+                if getattr(bot, "chat_log", None) is not None:
+                    await bot.chat_log.close()
         finally:
             try:
                 await history.close()

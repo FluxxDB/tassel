@@ -88,7 +88,7 @@ function Frame({ image, fit, alt }: { image: SnapshotImage; fit: Fit; alt: strin
  * The element's size, kept current by a ResizeObserver. Each change renders at once, before the
  * frame is painted, so the frame and the marks never trail the panel.
  */
-function useSize(ref: RefObject<HTMLElement | null>): { w: number; h: number } {
+export function useSize(ref: RefObject<HTMLElement | null>): { w: number; h: number } {
   const [size, setSize] = useState({ w: 0, h: 0 });
   useLayoutEffect(() => {
     const element = ref.current;

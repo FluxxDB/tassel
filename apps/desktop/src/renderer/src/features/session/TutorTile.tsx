@@ -9,6 +9,7 @@ import { useAvatar } from '../../avatar/store';
 import { FloatingTile } from '../../components/FloatingTile';
 import { useReducedMotion } from '../../components/use-reduced-motion';
 import { cn } from '../../lib/cn';
+import { useStageCover } from '../chat/chat-layout';
 import { useLiveVoice } from '../voice/live-voice';
 import { useStageStore } from './stage-store';
 import './tiles.css';
@@ -23,6 +24,8 @@ export function TutorTile({
   clearOf?: string;
 }) {
   const { t } = useTranslation();
+  // Clear of the chat sidebar while it lies over the stage.
+  const coverRight = useStageCover();
   const state = useStageStore((store) => store.tutorState);
   const connection = useStageStore((store) => store.connection);
   const live = useLiveVoice((store) => store.live);
@@ -47,6 +50,7 @@ export function TutorTile({
       maxWidth={360}
       inset={inset}
       bottomClearance={bottomClearance}
+      coverRight={coverRight}
       clearOf={clearOf}
     >
       <figure

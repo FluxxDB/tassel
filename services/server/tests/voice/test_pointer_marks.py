@@ -6,13 +6,16 @@ import uuid
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
+import cv2
 import pytest
+from image_marks_fixtures import FIXTURES, box_of
 from pipecat.processors.aggregators.llm_context import LLMContext
 from test_retest8_fixes import decision
 from test_two_tier import brief
 
 from tassel.beats.markup import BoardContext, parse_command
 from tassel.beats.models import BEAT_ACTION
+from tassel.vision.image_marks import image_view
 from tassel.vision.page import encode_jpeg
 from tassel.vision.synth import IP, scene
 from tassel.vision.turn_image import _page_view, legend
@@ -255,3 +258,53 @@ async def test_a_box_a_marker_mostly_matches_snaps_to_that_marker(page):
         [UNDERLINE_IP], b"jpeg", "", page.view.elements, size=size
     )
     assert where.startswith("box=")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("name", FIXTURES)
+@pytest.mark.parametrize("scale", [1, 2])
+async def test_student_image_intents_snap_to_original_image_pixels(name, scale):
+    scene = FIXTURES[name]()
+    if scale != 1:
+        from dataclasses import replace
+
+        scene.rgb = cv2.resize(scene.rgb, None, fx=scale, fy=scale)
+        scene.truth = [replace(t, box=tuple(v * scale for v in t.box)) for t in scene.truth]
+    view = image_view(scene.png())
+    targets = [next(t for t in scene.truth if t.name == name) for name in ("line 2", "diagram")]
+    expected = [next(e for e in view.elements if iou(box_of(e), t.box) >= 0.5) for t in targets]
+    # The fake model returns independently rendered truth boxes, not detector boxes. This
+    # exercises the real Pointer's normalized-to-pixel snapping, including a resized JPEG.
+    answers = []
+    for i, t in enumerate(targets):
+        x, y, w, h = t.box
+        answers.append(
+            {
+                "i": i,
+                "id": None,
+                "box": {
+                    "x": x / view.width,
+                    "y": y / view.height,
+                    "w": w / view.width,
+                    "h": h / view.height,
+                },
+            }
+        )
+    pointer = Pointer(VoiceSettings(), client=Client(answers))
+    try:
+        resolved = await pointer.resolve(
+            [
+                thinker.MarkIntent(verb="underline", target="the second line"),
+                thinker.MarkIntent(verb="circle", target="the diagram"),
+            ],
+            view.marked_jpeg,
+            view.legend_text,
+            view.elements,
+            size=(view.width, view.height),
+        )
+        assert resolved == [
+            ("underline", expected[0].id, None, None),
+            ("circle", expected[1].id, None, None),
+        ]
+    finally:
+        await pointer.close()

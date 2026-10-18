@@ -93,7 +93,15 @@
     "stage": {
       "paper": "Papel",
       "board": "Pizarra",
-      "split": "Papel y pizarra"
+      "split": "Papel y pizarra",
+      "image": {
+        "tag": "Tu imagen",
+        "backToPaper": "Volver al papel",
+        "loading": "Cargando tu imagen…",
+        "failed": "No se pudo cargar tu imagen",
+        "alt": "La imagen que enviaste",
+        "marksLabel": "Las marcas de Ada en tu imagen"
+      }
     },
     "placeholder": {
       "paper": {
@@ -144,6 +152,68 @@
       "label": "Tu mesa",
       "live": "En vivo",
       "hint": "Haz doble clic o pulsa Intro para ver tu papel junto a la pizarra."
+    },
+    "chat": {
+      "title": "Conversación",
+      "toggle": "Chat",
+      "hide": "Ocultar el chat",
+      "empty": "Habla con Ada o escríbele aquí. Lo que digan las dos aparece aquí.",
+      "spoken": "Hablado",
+      "cutOff": "Interrumpida",
+      "action": {
+        "draw": {
+          "board": "Dibujó en la pizarra",
+          "paper": "Dibujó en tu papel",
+          "image": "Dibujó en tu imagen"
+        },
+        "clear": {
+          "board": "Borró la pizarra",
+          "paper": "Borró sus marcas en tu papel",
+          "image": "Borró sus marcas en tu imagen"
+        },
+        "mark": {
+          "board": "Marcó la pizarra",
+          "paper": "Marcó tu papel",
+          "image": "Marcó tu imagen"
+        },
+        "view": {
+          "board": "Cambió a la pizarra",
+          "paper": "Cambió a tu papel",
+          "image": "Cambió a tu imagen"
+        },
+        "undo": "Deshizo eso",
+        "redo": "Rehízo eso"
+      },
+      "show": {
+        "board": "Mostrar la pizarra",
+        "paper": "Mostrar tu papel",
+        "image": "Mostrar tu imagen"
+      },
+      "composer": {
+        "label": "Mensaje para Ada",
+        "placeholder": "Escribe a Ada",
+        "attach": "Adjuntar imágenes",
+        "snap": "Fotografiar mi papel",
+        "voiceOn": "Ada responde en voz alta",
+        "voiceOff": "Solo respuestas escritas",
+        "voiceOnHint": "Ada responde a tus mensajes en voz alta. Cambiar a solo respuestas escritas.",
+        "voiceOffHint": "Ada responde a tus mensajes solo por escrito. Cambiar a respuestas habladas.",
+        "send": "Enviar mensaje",
+        "removeImage": "Quitar la imagen {n}",
+        "count": "{count} de {max} caracteres",
+        "limit": "Hasta {max} imágenes por mensaje",
+        "unreadable": "No se pudo leer esa imagen. Prueba con un PNG o un JPEG.",
+        "snapFailed": "No se pudo fotografiar tu papel. Inténtalo de nuevo en un momento.",
+        "drop": "Suelta las imágenes para enviarlas"
+      },
+      "image": "Imagen {n}",
+      "sending": "Enviando",
+      "failed": "No enviado",
+      "retry": "Reintentar",
+      "viewer": {
+        "title": "Tu imagen",
+        "close": "Cerrar"
+      }
     }
   },
   "paper": {

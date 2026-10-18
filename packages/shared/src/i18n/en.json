@@ -93,7 +93,15 @@
     "stage": {
       "paper": "Paper",
       "board": "Board",
-      "split": "Paper and board"
+      "split": "Paper and board",
+      "image": {
+        "tag": "Your image",
+        "backToPaper": "Back to paper",
+        "loading": "Getting your image…",
+        "failed": "Couldn't load your image",
+        "alt": "The image you sent",
+        "marksLabel": "Ada's marks on your image"
+      }
     },
     "placeholder": {
       "paper": {
@@ -144,6 +152,68 @@
       "label": "Your desk",
       "live": "Live",
       "hint": "Double-click it, or press Enter, to show your paper beside the board."
+    },
+    "chat": {
+      "title": "Conversation",
+      "toggle": "Chat",
+      "hide": "Hide chat",
+      "empty": "Talk to Ada, or type to her here. What you both say shows up here.",
+      "spoken": "Spoken",
+      "cutOff": "Cut off",
+      "action": {
+        "draw": {
+          "board": "Drew on the board",
+          "paper": "Drew on your paper",
+          "image": "Drew on your image"
+        },
+        "clear": {
+          "board": "Cleared the board",
+          "paper": "Cleared her marks on your paper",
+          "image": "Cleared her marks on your image"
+        },
+        "mark": {
+          "board": "Marked the board",
+          "paper": "Marked your paper",
+          "image": "Marked your image"
+        },
+        "view": {
+          "board": "Switched to the board",
+          "paper": "Switched to your paper",
+          "image": "Switched to your image"
+        },
+        "undo": "Undid that",
+        "redo": "Redid that"
+      },
+      "show": {
+        "board": "Show the board",
+        "paper": "Show your paper",
+        "image": "Show your image"
+      },
+      "composer": {
+        "label": "Message to Ada",
+        "placeholder": "Message Ada",
+        "attach": "Attach images",
+        "snap": "Snap my paper",
+        "voiceOn": "Ada speaks replies",
+        "voiceOff": "Text replies only",
+        "voiceOnHint": "Ada answers your messages aloud. Switch to text replies only.",
+        "voiceOffHint": "Ada answers your messages in text only. Switch to spoken replies.",
+        "send": "Send message",
+        "removeImage": "Remove image {n}",
+        "count": "{count} of {max} characters",
+        "limit": "Up to {max} images in a message",
+        "unreadable": "That image couldn't be read. Try a PNG or a JPEG.",
+        "snapFailed": "Couldn't snap your paper. Try again in a moment.",
+        "drop": "Drop images to send them"
+      },
+      "image": "Image {n}",
+      "sending": "Sending",
+      "failed": "Not sent",
+      "retry": "Retry",
+      "viewer": {
+        "title": "Your image",
+        "close": "Close"
+      }
     }
   },
   "paper": {

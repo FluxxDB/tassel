@@ -166,7 +166,17 @@ export type PaperAction =
 
 export type StageAction = { kind: 'stage'; view: StageView };
 
-export type BeatAction = BoardAction | PaperAction | StageAction;
+/**
+ * The student's image (an attachment she sent in the chat), shown in the paper panel's slot and
+ * marked up as her paper is: `el` names a detected id from the image's Set-of-Mark (`mN`); `at`
+ * and `box` are normalized to the image. `attachmentId` is 1–64 characters.
+ */
+export type ImageAction =
+  | { kind: 'image.show'; attachmentId: string }
+  | { kind: 'image.mark'; attachmentId: string; mark: PaperMark }
+  | { kind: 'image.clear'; attachmentId: string };
+
+export type BeatAction = BoardAction | PaperAction | StageAction | ImageAction;
 
 /**
  * The action in `data`, or null if any field is wrong. The rules, which the server's mirror
@@ -410,10 +420,6 @@ function frame(value: unknown): FrameRef {
   switch (kind) {
     case 'paper': {
       const f = fields(value, ['kind', 'id', 'capturedAt']);
-      const docId = (v: unknown) => {
-        const s = string(v);
-        return [...s].length >= 1 && [...s].length <= 64 ? s : invalid();
-      };
       return { kind, id: docId(f.id), capturedAt: docId(f.capturedAt) };
     }
     case 'frame': {
@@ -430,6 +436,13 @@ function frame(value: unknown): FrameRef {
     default:
       return invalid();
   }
+}
+
+/** A document id (a frame's, an attachment's, a capture time): 1–64 code points. */
+function docId(value: unknown): string {
+  const s = string(value);
+  const length = [...s].length;
+  return length >= 1 && length <= 64 ? s : invalid();
 }
 
 export function isDetectedId(value: unknown): value is DetectedId {
@@ -654,6 +667,13 @@ function readAction(data: unknown): BeatAction {
         kind,
         view: oneOf(['paper', 'board', 'split'] as const)(fields(data, ['kind', 'view']).view),
       };
+    case 'image.show':
+    case 'image.clear':
+      return { kind, attachmentId: docId(fields(data, ['kind', 'attachmentId']).attachmentId) };
+    case 'image.mark': {
+      const f = fields(data, ['kind', 'attachmentId', 'mark']);
+      return { kind, attachmentId: docId(f.attachmentId), mark: mark(f.mark) };
+    }
     default:
       return invalid();
   }

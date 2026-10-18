@@ -6,11 +6,13 @@
 import {
   type BeatAction,
   type BoardAction,
+  type ImageAction,
   type PaperAction,
   parseAction,
 } from '@tassel/shared/beats';
 import { useStageStore } from '../features/session/stage-store';
 import { applyBoardAction } from './board-store';
+import { applyImageAction } from './marks/image-store';
 import { applyPaperAction } from './marks/marks-store';
 
 /** Checks and applies each action, in order. */
@@ -37,7 +39,7 @@ export function dispatchActions(actions: readonly unknown[]): void {
 /**
  * True when the action puts something in view, so the stage should show its side: every action
  * but focus, clear, an automaton or diagram drawn hidden, a highlight turned off, unmark, paper.clear,
- * paper.live and stage.
+ * paper.live, image.clear and stage.
  */
 export function isShowing(action: BeatAction): boolean {
   switch (action.kind) {
@@ -46,6 +48,7 @@ export function isShowing(action: BeatAction): boolean {
     case 'paper.unmark':
     case 'paper.clear':
     case 'paper.live':
+    case 'image.clear':
     case 'stage':
       return false;
     case 'board.automaton':
@@ -64,14 +67,22 @@ function apply(action: BeatAction): void {
   } else if (isBoardAction(action)) {
     showBeside('paper', action);
     applyBoardAction(action);
+  } else if (isImageAction(action)) {
+    // The student's image takes the paper panel's slot, so it shows where her paper does.
+    showBeside('board', action);
+    applyImageAction(action);
   } else {
     showBeside('board', action);
     applyPaperAction(action);
   }
 }
 
-function isBoardAction(action: BoardAction | PaperAction): action is BoardAction {
+function isBoardAction(action: BoardAction | PaperAction | ImageAction): action is BoardAction {
   return action.kind.startsWith('board.');
+}
+
+function isImageAction(action: PaperAction | ImageAction): action is ImageAction {
+  return action.kind.startsWith('image.');
 }
 
 /** Requests split when a showing action's side is hidden by `hiding`, Ada's view. */
