@@ -222,6 +222,8 @@ test('keeps keyboard focus moving: the title on arrival, and the Board control a
   // Arriving from the card she pressed, focus lands on the session's title.
   await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
   await page.keyboard.press('b');
+  // From the title, past the title strip's chat toggle, to the stage's Unpin.
+  await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Unpin' })).toBeFocused();
   await page.keyboard.press('Enter');

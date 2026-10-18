@@ -47,7 +47,8 @@ export function ChatLog({ sessionId, lang, onRetry, onOpenImage }: ChatLogProps)
         const el = event.currentTarget;
         stuck.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX;
       }}
-      className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-1 pb-5"
+      // Lines scrolled up past the header fade out under it, as the captions do.
+      className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-3 pb-5 [mask-image:linear-gradient(to_bottom,transparent,#000_14px)]"
     >
       {lines.length === 0 ? (
         <p className="m-auto max-w-[248px] text-center text-[13px] leading-5 text-smoke-text">
@@ -59,6 +60,7 @@ export function ChatLog({ sessionId, lang, onRetry, onOpenImage }: ChatLogProps)
           {lines.map((line, index) => (
             <li
               key={line.key}
+              data-testid="chat-line"
               data-role={line.role}
               className={cn(
                 'flex flex-col',

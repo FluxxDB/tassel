@@ -1,13 +1,16 @@
 // Sending one of her chat messages: it shows in the chat at once, its images upload first, then
 // the student-message goes to the tutor with their ids (and interrupts Ada, as speaking over her
 // does; the server does that). The server's echo, matched by client_id, then takes its place. A
-// failed upload or a missing connection leaves it in the chat, marked, with a retry that uploads
-// only what didn't go.
+// failed upload, a missing connection or no echo in 15 s leaves it in the chat, marked, with a
+// retry that uploads only what didn't go.
 import type { ApiClient } from '@tassel/shared/api';
 import { MESSAGE_MAX_ATTACHMENTS, MESSAGE_MAX_CHARS } from '@tassel/shared/voice';
 import type { TutorClient } from '../../tutor/types';
 import { uploadImage } from './chat-api';
 import { type ChatImage, useChatStore } from './chat-store';
+
+/** The server echoes a message it took within moments; one with no echo by then failed. */
+export const ECHO_TIMEOUT_MS = 15_000;
 
 export interface SendDeps {
   api: ApiClient;
@@ -15,6 +18,8 @@ export interface SendDeps {
   client: TutorClient | null;
   /** The message's client id; random by default. */
   newId?: () => string;
+  /** How long to wait for the server's echo; ECHO_TIMEOUT_MS by default. */
+  echoTimeoutMs?: number;
 }
 
 export interface Draft {
@@ -73,4 +78,20 @@ async function deliver(deps: SendDeps, clientId: string): Promise<void> {
       voice: line.voice,
     }) ?? false;
   useChatStore.getState().update(clientId, { status: sent ? 'sending' : 'failed' });
+  // The server drops a message it can't take (none of its images load, say) without a word:
+  // still unanswered after a while, it's offered for a retry.
+  if (!sent) return;
+  // Only the latest try's wait counts: a retry starts its own.
+  const attempt = (attempts.get(clientId) ?? 0) + 1;
+  attempts.set(clientId, attempt);
+  setTimeout(() => {
+    if (attempts.get(clientId) !== attempt) return;
+    const still = useChatStore
+      .getState()
+      .lines.find((l) => l.clientId === clientId && l.id === null && l.status === 'sending');
+    if (still) useChatStore.getState().update(clientId, { status: 'failed' });
+  }, deps.echoTimeoutMs ?? ECHO_TIMEOUT_MS);
 }
+
+/** Each message's latest try, by client id. */
+const attempts = new Map<string, number>();

@@ -97,7 +97,10 @@ export function SessionScreen({ sessionId, createTutor, app, voiceConfig }: Sess
   const cameraOn = useStageStore((state) => state.cameraOn);
   usePaperCapture({ sessionId, sessionSource: session?.source ?? null, cameraOn });
   useSessionShortcuts();
-  useSessionChat(api, sessionId, app?.chatSidebar === 'closed');
+  useSessionChat(api, sessionId, {
+    startClosed: app?.chatSidebar === 'closed',
+    history: app?.tutorMode !== 'fake',
+  });
   // Typed messages go to the tutor this screen runs: the voice session's, or the injected one.
   const liveClient = useLiveVoice((state) => state.client);
   const chatClient = app ? liveClient : tutor === NO_TUTOR ? null : tutor;

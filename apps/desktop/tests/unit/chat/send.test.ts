@@ -131,6 +131,26 @@ describe('sending a chat message', () => {
     expect(chat().lines[0]).toMatchObject({ id: 'm-9', status: 'sent', key: 'c-4' });
   });
 
+  it('offers a retry when no echo comes, and a retry waits afresh', async () => {
+    vi.useFakeTimers();
+    try {
+      const { api } = fakeApi({});
+      const { client, sent } = fakeClient();
+      const deps = { api, sessionId: SESSION, client, newId: () => 'c-6', echoTimeoutMs: 1000 };
+      await sendMessage(deps, { text: 'Hello?', images: [], voice: true });
+      vi.advanceTimersByTime(999);
+      expect(chat().lines[0]?.status).toBe('sending');
+      vi.advanceTimersByTime(1);
+      expect(chat().lines[0]?.status).toBe('failed');
+      await retryMessage(deps, 'c-6');
+      expect(sent).toHaveLength(2);
+      vi.advanceTimersByTime(500);
+      expect(chat().lines[0]?.status).toBe('sending');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('sends nothing for an empty message', async () => {
     const { api } = fakeApi({});
     const { client, sent } = fakeClient();
