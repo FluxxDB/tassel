@@ -189,3 +189,15 @@ export const Pencil = icon(
   </>,
 );
 export const UndoRound = icon('UndoRound', <path d="M8 4 3 9l5 5M3 9h10a6 6 0 0 1 0 12h-3" />);
+/** The overlay bar's grip: two columns of dots, dragged with the mouse or nudged with arrows. */
+export const Grip = icon(
+  'Grip',
+  <>
+    <circle cx="9" cy="6" r="1.2" />
+    <circle cx="15" cy="6" r="1.2" />
+    <circle cx="9" cy="12" r="1.2" />
+    <circle cx="15" cy="12" r="1.2" />
+    <circle cx="9" cy="18" r="1.2" />
+    <circle cx="15" cy="18" r="1.2" />
+  </>,
+);

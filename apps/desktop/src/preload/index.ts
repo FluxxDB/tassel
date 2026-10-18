@@ -24,6 +24,7 @@ const tassel: TasselBridge = {
     publish: (state) => ipcRenderer.send(SCREEN_IPC.publish, state),
     intent: (intent) => ipcRenderer.send(SCREEN_IPC.intent, intent),
     stroke: (points) => ipcRenderer.send(SCREEN_IPC.stroke, points),
+    move: (dx, dy) => ipcRenderer.send(SCREEN_IPC.move, { dx, dy }),
     ready: () => ipcRenderer.send(SCREEN_IPC.ready),
     onArrived: (listener) => subscribe(SCREEN_IPC.arrived, listener),
     onState: (listener) => subscribe<OverlayState>(SCREEN_IPC.state, listener),

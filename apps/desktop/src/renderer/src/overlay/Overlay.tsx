@@ -1,18 +1,19 @@
 import type { Lang } from '@tassel/shared/i18n';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type {
-  OverlayIntent,
-  OverlayState,
-  ScreenBoard,
-  ScreenMark,
-  ScreenPoint,
+import {
+  nudgeDelta,
+  type OverlayIntent,
+  type OverlayState,
+  type ScreenBoard,
+  type ScreenMark,
+  type ScreenPoint,
 } from '../../../shared/screen-bridge';
 import { Avatar } from '../avatar/Avatar';
 import { readAvatar } from '../avatar/catalog';
 import { useAvatar } from '../avatar/store';
 import type { BoardEngine } from '../board/engine';
-import { Board, Mic, MicOff, Pause, Pencil, Play, UndoRound } from '../components/icons';
+import { Board, Grip, Mic, MicOff, Pause, Pencil, Play, UndoRound } from '../components/icons';
 import './overlay.css';
 
 const action = (intent: OverlayIntent) => window.tassel.screen.intent(intent);
@@ -261,6 +262,21 @@ export function Overlay({ kind }: { kind: 'hud' | 'ink' }) {
           <div key={arrivals} className="overlay-arrival avatar-rainbow" aria-hidden="true" />
         )}
         <div className="overlay-main">
+          <button
+            type="button"
+            className="overlay-icon overlay-grip"
+            aria-label={t('screen.move')}
+            title={t('screen.moveHint')}
+            aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"
+            onKeyDown={(event) => {
+              const delta = nudgeDelta(event.key, event.shiftKey);
+              if (!delta) return;
+              event.preventDefault();
+              window.tassel.screen.move(delta.dx, delta.dy);
+            }}
+          >
+            <Grip />
+          </button>
           <span className="overlay-avatar">
             <Avatar
               profile={readAvatar(state?.avatar)}

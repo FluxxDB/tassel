@@ -581,6 +581,8 @@
     "collapse": "Minimizar a la barra",
     "draw": "Draw",
     "drawHint": "Draw on your screen · Escape to finish",
+    "move": "Mover la barra",
+    "moveHint": "Arrastra la barra a donde quieras, o púlsala y usa las flechas",
     "undo": "Undo ink",
     "look": "Look again",
     "listening": "Listening",

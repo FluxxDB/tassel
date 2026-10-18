@@ -16,6 +16,20 @@ html[data-overlay] #root {
   border-radius: 24px;
   background: var(--color-bone);
   overflow: hidden;
+  /* The whole bar drags the window; its controls and the scrolling caption opt out below. */
+  -webkit-app-region: drag;
+}
+.overlay-bar button,
+.overlay-caption p {
+  -webkit-app-region: no-drag;
+}
+/* The grip drags with the mouse like the rest of the bar; Tab reaches it for the arrow keys. */
+.overlay-bar .overlay-grip {
+  flex-shrink: 0;
+  margin-left: -6px;
+  color: var(--color-smoke-text);
+  cursor: grab;
+  -webkit-app-region: drag;
 }
 .overlay-main {
   min-height: 70px;

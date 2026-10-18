@@ -1,5 +1,7 @@
-import { join } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import {
+  app,
   BrowserWindow,
   desktopCapturer,
   globalShortcut,
@@ -14,18 +16,58 @@ import {
   OVERLAY_INTENTS,
   type OverlayState,
   SCREEN_IPC,
+  validNudge,
   validOverlayState,
   validPoints,
 } from '../../shared/screen-bridge';
 import { type DisplayMediaOptions, registerDisplayMedia } from '../paper/display-media';
 import { isTrustedUrl, rendererUrl } from '../windows';
 import { destroyAlive, hideAlive } from './lifetime';
+import { clampToArea, hudPlacement, maskFor, positionKey } from './placement';
+
+/** Where the bar was last left on each display, kept across sessions in the user's data dir. */
+function positionStore(file: string) {
+  let positions: Record<string, { x: number; y: number }> | null = null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const load = () => {
+    if (positions) return positions;
+    positions = {};
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'));
+      if (parsed && typeof parsed === 'object')
+        for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+          const p = value as { x?: unknown; y?: unknown };
+          if (typeof p?.x === 'number' && typeof p?.y === 'number')
+            positions[key] = { x: p.x, y: p.y };
+        }
+    } catch {
+      /* A missing or unreadable file means the home position. */
+    }
+    return positions;
+  };
+  return {
+    get: (key: string) => load()[key] ?? null,
+    set(key: string, position: { x: number; y: number }) {
+      load()[key] = position;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        try {
+          mkdirSync(dirname(file), { recursive: true });
+          writeFileSync(file, JSON.stringify(positions));
+        } catch {
+          /* The position is still remembered for this run. */
+        }
+      }, 200);
+    },
+  };
+}
 
 /** Main renderer owns the session; these windows contain presentation only. */
 export function registerScreenOverlay(
   owner: BrowserWindow,
   captureOptions: DisplayMediaOptions,
 ): void {
+  const positions = positionStore(join(app.getPath('userData'), 'overlay-positions.json'));
   let selected: DisplayChoice | null = null;
   let grant: { id: string; expires: number } | null = null;
   let grantTimer: ReturnType<typeof setTimeout> | undefined;
@@ -194,18 +236,10 @@ export function registerScreenOverlay(
   async function createOverlay(kind: 'hud' | 'ink') {
     if (!selected) throw new Error('No selected display');
     const bounds = selected.bounds;
-    const area = screen.getDisplayMatching(bounds).workArea;
-    const width = Math.min(720, area.width - 32),
-      height = area.width < 600 ? 220 : 166;
+    const display = screen.getDisplayMatching(bounds);
+    const area = display.workArea;
     const window = new BrowserWindow({
-      ...(kind === 'hud'
-        ? {
-            x: Math.round(area.x + (area.width - width) / 2),
-            y: area.y + area.height - height - 24,
-            width,
-            height,
-          }
-        : bounds),
+      ...(kind === 'hud' ? hudPlacement(area, positions.get(positionKey(display))) : bounds),
       show: false,
       frame: false,
       transparent: true,
@@ -226,15 +260,20 @@ export function registerScreenOverlay(
     if (process.platform === 'darwin')
       window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     window.setContentProtection(true);
-    if (kind === 'hud')
-      window.on('moved', () => {
+    if (kind === 'hud') {
+      // Dragged (the bar is an app region) or nudged: it stays in the work area, and the
+      // display remembers where it was left. Windows emits 'move' only, macOS 'moved' too.
+      const settle = () => {
         if (transitioning || window.isDestroyed() || !selected) return;
         const b = window.getBounds(),
-          a = screen.getDisplayMatching(selected.bounds).workArea;
-        const x = Math.round(Math.max(a.x, Math.min(a.x + a.width - b.width, b.x)));
-        const y = Math.round(Math.max(a.y, Math.min(a.y + a.height - b.height, b.y)));
+          d = screen.getDisplayMatching(selected.bounds);
+        const { x, y } = clampToArea(b, d.workArea);
         if (x !== b.x || y !== b.y) window.setPosition(x, y);
-      });
+        positions.set(positionKey(d), { x, y });
+      };
+      window.on('moved', settle);
+      window.on('move', settle);
+    }
     if (kind === 'ink') window.setIgnoreMouseEvents(!last?.draw, { forward: true });
     const prepared = new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -337,14 +376,24 @@ export function registerScreenOverlay(
     // Native content protection is configured once when windows are created. Never hide
     // visible ink to capture a frame: upload latency must not change its presentation.
     if (!selected || !hud?.isVisible()) return null;
-    const h = hud.getBounds(),
-      d = selected.bounds;
-    return {
-      x: (h.x - d.x) / d.width,
-      y: (h.y - d.y) / d.height,
-      width: h.width / d.width,
-      height: h.height / d.height,
-    };
+    return maskFor(hud.getBounds(), selected.bounds);
+  });
+  ipcMain.on(SCREEN_IPC.move, (event, nudge: unknown) => {
+    if (
+      !isOverlay(event) ||
+      event.sender.id !== hud?.webContents.id ||
+      transitioning ||
+      !selected ||
+      !validNudge(nudge)
+    )
+      return;
+    const b = hud.getBounds();
+    const { x, y } = clampToArea(
+      { ...b, x: b.x + nudge.dx, y: b.y + nudge.dy },
+      screen.getDisplayMatching(selected.bounds).workArea,
+    );
+    hud.setPosition(x, y);
+    hud.emit('moved');
   });
   ipcMain.on(SCREEN_IPC.ready, (event) => {
     if (isOverlay(event)) {
@@ -412,6 +461,7 @@ export function registerScreenOverlay(
       SCREEN_IPC.publish,
       SCREEN_IPC.intent,
       SCREEN_IPC.stroke,
+      SCREEN_IPC.move,
     ])
       ipcMain.removeAllListeners(channel);
   });

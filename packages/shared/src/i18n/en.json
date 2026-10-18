@@ -581,6 +581,8 @@
     "collapse": "Minimize to overlay",
     "draw": "Draw",
     "drawHint": "Draw on your screen · Escape to finish",
+    "move": "Move the bar",
+    "moveHint": "Drag the bar anywhere, or press it and use the arrow keys",
     "undo": "Undo ink",
     "look": "Look again",
     "listening": "Listening",

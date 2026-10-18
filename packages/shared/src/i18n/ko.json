@@ -581,6 +581,8 @@
     "collapse": "오버레이로 최소화",
     "draw": "Draw",
     "drawHint": "Draw on your screen · Escape to finish",
+    "move": "바 이동",
+    "moveHint": "바를 원하는 곳으로 끌거나, 누른 뒤 화살표 키를 사용하세요",
     "undo": "Undo ink",
     "look": "Look again",
     "listening": "Listening",

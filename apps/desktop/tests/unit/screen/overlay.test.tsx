@@ -117,3 +117,27 @@ it('keeps optimistic ink through unrelated updates and removes it after owner re
   act(() => publish({ ...state, sequence: 3, strokeReceipt: 1 }));
   expect(screen.mock.calls.at(-1)?.[0]).toHaveLength(0);
 });
+
+it('moves the bar from the keyboard: the grip takes the arrow keys, Shift strides', () => {
+  const move = vi.fn();
+  vi.stubGlobal('tassel', {
+    screen: {
+      ready: vi.fn(),
+      intent: vi.fn(),
+      stroke: vi.fn(),
+      move,
+      onState: () => () => {},
+    },
+  });
+  const view = render(<Overlay kind="hud" />);
+  const grip = view.getByRole('button', { name: 'Move the bar' });
+  expect(grip.getAttribute('aria-keyshortcuts')).toBe('ArrowUp ArrowDown ArrowLeft ArrowRight');
+  grip.focus();
+  fireEvent.keyDown(grip, { key: 'ArrowRight' });
+  fireEvent.keyDown(grip, { key: 'ArrowDown', shiftKey: true });
+  fireEvent.keyDown(grip, { key: 'Enter' });
+  expect(move.mock.calls).toEqual([
+    [24, 0],
+    [0, 96],
+  ]);
+});
