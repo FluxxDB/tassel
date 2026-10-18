@@ -63,7 +63,12 @@ def registry_factory(monkeypatch):
 
 def row(learner_id, *, titled=False):
     return SimpleNamespace(
-        id=uuid4(), learner_id=learner_id, language="en", title="Lesson" if titled else None
+        id=uuid4(),
+        learner_id=learner_id,
+        language="en",
+        title="Lesson" if titled else None,
+        subject=None,
+        title_source="ai" if titled else None,
     )
 
 
