@@ -49,8 +49,9 @@ class ChatLog:
         self._source: Source = "voice"
         # Action rows waiting for their sentence to be heard, by its text frame's id.
         self._waiting: dict[int, list[MessageAction]] = {}
-        # Which side the app shows, as far as the chat knows: a view row only for a change.
-        self._side: str | None = None
+        # Which side the app shows (and which of her images), as far as the chat knows: a
+        # view row only for a change.
+        self._side: tuple[str, str | None] | None = None
         self._tasks: set[asyncio.Task] = set()
 
     def _next(self) -> int:
@@ -165,9 +166,10 @@ class ChatLog:
     async def _rows(self, rows: Iterable[MessageAction]) -> None:
         for row in rows:
             if row.kind == "view":
-                if row.side == self._side:
+                shown = (row.side, row.attachment_id)
+                if shown == self._side:
                     continue
-                self._side = row.side
+                self._side = shown
             await self._emit(
                 ChatMessageEvent(
                     id=str(uuid.uuid4()),
@@ -190,7 +192,7 @@ class ChatLog:
 
     def app_view(self, view: Literal["paper", "board", "split"]) -> None:
         """What the app says it shows now."""
-        self._side = view_row(view).side
+        self._side = (view_row(view).side, None)
 
     async def close(self, timeout: float = 5.0) -> None:
         """Waits for the last saves."""

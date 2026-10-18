@@ -35,6 +35,11 @@ def allowed(kind, decision):
     if kind == "stage":
         return False
     paper, board = kind.startswith("paper."), kind.startswith("board.")
+    # Her image (one she sent in the chat): only on turns about it, and only it.
+    if decision.action == "mark_image":
+        return kind.startswith("image.")
+    if kind.startswith("image."):
+        return decision.refers_to == "image"
     if decision.action == "mark_paper":
         return paper
     if decision.action == "draw_board":

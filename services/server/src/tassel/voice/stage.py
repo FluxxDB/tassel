@@ -1,7 +1,7 @@
 """Deterministic view policy. Times are supplied monotonic seconds; no tasks or model calls."""
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from tassel.voice.messages import StageHintEvent, StageStateEvent
@@ -12,6 +12,7 @@ Side = Literal["paper", "board"]
 LINES = {
     "board": {"en": "It's on the board.", "es": "Está en la pizarra.", "ko": "칠판에 있어요."},
     "paper": {"en": "Look at your paper.", "es": "Mira tu hoja.", "ko": "종이를 보세요."},
+    "image": {"en": "Look at your image.", "es": "Mira tu imagen.", "ko": "이미지를 보세요."},
 }
 
 
@@ -23,6 +24,8 @@ class StageDrawing:
     paper: list[str]
     say: str = ""
     draw: str | None = None
+    # Marks on the student's image, which shows in the paper panel's slot.
+    image: list[str] = field(default_factory=list)
 
 
 class StageManager:
@@ -108,10 +111,11 @@ class StageManager:
 
     def on_turn(self, decision, now: float) -> View | None:
         self.hinted.clear()
+        # Her image takes the paper panel's slot: a turn about it needs that side too.
         paper = (
             decision.needs_vision
-            or decision.refers_to == "paper"
-            or decision.action == "mark_paper"
+            or decision.refers_to in ("paper", "image")
+            or decision.action in ("mark_paper", "mark_image")
         )
         board = decision.refers_to == "board" or decision.action == "draw_board"
         if not paper and not board:
@@ -137,14 +141,16 @@ class StageManager:
                 or (decision.action in ("explain", "trace") and decision.refers_to == "board")
             )
         )
-        paper = bool(brief.paper)
+        paper = bool(brief.paper) or bool(getattr(brief, "image", None))
         if paper or board:
             self.last_drawing = now
         if self.pin is not None:
             for side, drawing in (("paper", paper), ("board", board)):
                 if drawing and not self._visible(side) and side not in self.hinted:
                     self.hinted.add(side)
-                    line = LINES[side][self.lang()]
+                    # Marks on her image alone: the line names the image, the side stays paper.
+                    image_only = side == "paper" and not brief.paper
+                    line = LINES["image" if image_only else side][self.lang()]
                     brief.say = brief.say.rstrip() + " " + line
                     self._record(self.view, "hidden-" + side)
                     return StageHintEvent(side=side)

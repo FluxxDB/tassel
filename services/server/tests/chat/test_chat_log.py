@@ -129,6 +129,24 @@ async def test_a_view_row_only_when_the_view_changes():
     ]
 
 
+async def test_showing_her_image_is_a_view_row_once_per_image():
+    from tassel.beats.markup import StageImage
+
+    chat, sink = log()
+    chat.app_view("paper")
+    board = BoardContext(image=StageImage("a-1"))
+    await chat.sentence(sentence("[[image show]]Here.", board), None)
+    await chat.sentence(sentence("[[image show]]Still here.", board), None)
+    board.image = StageImage("a-2")
+    await chat.sentence(sentence("[[image show]]And this one.", board), None)
+    await chat.server_event(StageEvent(view="paper"))
+    assert [(m.action.kind, m.action.side, m.action.attachment_id) for m in sink.sent] == [
+        ("view", "image", "a-1"),
+        ("view", "image", "a-2"),
+        ("view", "paper", None),
+    ]
+
+
 async def test_a_failing_save_or_send_never_raises():
     async def broken(*args):
         raise RuntimeError("database down")

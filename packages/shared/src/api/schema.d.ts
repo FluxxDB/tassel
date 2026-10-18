@@ -173,6 +173,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sessions/{session_id}/attachments/{attachment_id}/elements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Attachment Elements
+         * @description The image's numbered Set-of-Mark boxes in its own pixels: the markers Ada's marks on it
+         *     name (``image.mark`` with ``el: mN``), the same ones she was shown.
+         */
+        get: operations["get_attachment_elements_v1_sessions__session_id__attachments__attachment_id__elements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sessions/{session_id}/board/snapshot": {
         parameters: {
             query?: never;
@@ -606,6 +627,17 @@ export interface components {
              */
             status: "correct" | "wrong" | "unsure" | "unknown" | "unreadable";
         };
+        /** ElementBoxOut */
+        ElementBoxOut: {
+            /** H */
+            h: number;
+            /** W */
+            w: number;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
         /** Fix */
         Fix: {
             /**
@@ -779,6 +811,29 @@ export interface components {
         IceServersOut: {
             /** Ice Servers */
             ice_servers: components["schemas"]["IceServerOut"][];
+        };
+        /** ImageElementOut */
+        ImageElementOut: {
+            box: components["schemas"]["ElementBoxOut"];
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "circle" | "label";
+        };
+        /**
+         * ImageElementsOut
+         * @description An image's Set-of-Mark: the beats ``DetectedElements`` shape, in the image's pixels.
+         */
+        ImageElementsOut: {
+            /** Height */
+            height: number;
+            /** Items */
+            items: components["schemas"]["ImageElementOut"][];
+            /** Width */
+            width: number;
         };
         /** Issue */
         Issue: {
@@ -1678,6 +1733,52 @@ export interface operations {
                 content: {
                     "image/jpeg": unknown;
                     "image/png": unknown;
+                };
+            };
+            /** @description No such image for this learner */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description The frame store is unavailable; try again later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_attachment_elements_v1_sessions__session_id__attachments__attachment_id__elements_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageElementsOut"];
                 };
             };
             /** @description No such image for this learner */

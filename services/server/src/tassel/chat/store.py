@@ -100,6 +100,17 @@ class ChatStore:
         async with self.sessions() as db:
             return await load_attachments(db, self.objects, learner_id, session_id, ids)
 
+    async def latest_attachment(
+        self, learner_id: uuid.UUID, session_id: uuid.UUID
+    ) -> LoadedAttachment | None:
+        """The newest image she sent in the session, or None before her first."""
+        async with self.sessions() as db:
+            row = await repo.latest_attachment(db, learner_id, session_id)
+            if row is None:
+                return None
+            loaded = await load_attachments(db, self.objects, learner_id, session_id, [row.id])
+        return loaded[0] if loaded else None
+
     async def last_seq(self, session_id: uuid.UUID) -> int:
         async with self.sessions() as db:
             return await repo.last_seq(db, session_id)

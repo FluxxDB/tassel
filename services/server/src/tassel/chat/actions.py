@@ -18,8 +18,8 @@ _DRAWS = {
 }
 
 
-def _row(kind, side, item=None) -> MessageAction:
-    return MessageAction(kind=kind, side=side, item=item, attachment_id=None)
+def _row(kind, side, item=None, attachment_id=None) -> MessageAction:
+    return MessageAction(kind=kind, side=side, item=item, attachment_id=attachment_id)
 
 
 def view_row(view: Literal["paper", "board", "split"]) -> MessageAction:
@@ -61,4 +61,11 @@ def _action_row(action) -> MessageAction | None:
         return _row("clear", "paper")
     if kind == "stage":
         return view_row(action.view)
+    # Her image: showing it is a view row, a mark or a clear names it.
+    if kind == "image.show":
+        return _row("view", "image", attachment_id=action.attachment_id)
+    if kind == "image.mark":
+        return _row("mark", "image", action.mark.id, action.attachment_id)
+    if kind == "image.clear":
+        return _row("clear", "image", attachment_id=action.attachment_id)
     return None

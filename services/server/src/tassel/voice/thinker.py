@@ -38,7 +38,7 @@ from tassel.voice.erase import (
 )
 from tassel.voice.history import windowed
 from tassel.voice.illustrator import Illustrator
-from tassel.voice.pointer import MarkIntent, Pointer, mark_tags
+from tassel.voice.pointer import MarkIntent, Pointer, image_mark_tags, mark_tags
 from tassel.voice.prompts import thinker_system_prompt
 from tassel.voice.settings import VoiceSettings
 from tassel.voice.stage import StageDrawing
@@ -54,6 +54,10 @@ class GuidanceBrief(BaseModel):
     board: list[str]
     paper: list[str]
     marks: list[MarkIntent] = Field(default_factory=list)
+    # Her own image (one she sent in the chat): marks in words for the Pointer, or raw
+    # [[image …]] tags as a fallback, as paper has marks and paper.
+    image_marks: list[MarkIntent] = Field(default_factory=list)
+    image: list[str] = Field(default_factory=list)
     confidence: float = Field(ge=0, le=1)
     followups: list[str]
     language: TargetLanguage | None = None
@@ -183,6 +187,8 @@ def _done(brief) -> str:
         parts.append("changed the board")
     if brief.paper:
         parts.append("marked her paper")
+    if getattr(brief, "image", None):
+        parts.append("marked her image")
     return " and ".join(parts) or "answered without drawing"
 
 
@@ -238,6 +244,9 @@ class TutorCoordinator:
         self._page = None
         self._board_page = None
         self.attachments = []
+        # Her latest image for this turn (``chat.student_image.StudentImage``), once fetched.
+        self.student_image = None
+        self._student_image = None
 
     def log(self, event, **data):
         if self.transcript:
@@ -303,14 +312,19 @@ class TutorCoordinator:
         page=None,
         board_page=None,
         attachments=None,
+        student_image=None,
     ):
         """page: an async callable returning (image, caption[, ink]) or None, awaited by the
         thinker so the talker's bridge never waits for the camera. board_page returns PNG
         bytes or None and is fetched only for board-focused thinker turns. attachments: the
-        images she sent with a typed message (``chat.store.LoadedAttachment``), for this turn."""
+        images she sent with a typed message (``chat.store.LoadedAttachment``), for this turn.
+        student_image: an async callable returning her latest image with its Set-of-Mark
+        (``chat.student_image.StudentImage``) or None, for a turn about her image: the thinker
+        sees it numbered, and its marks go on it."""
         await self.cancel()
         self.context, self.text = context, text
         self.attachments = list(attachments or [])
+        self._student_image, self.student_image = student_image, None
         self.decision = decision
         self.delivered = False
         self._page = page
@@ -368,7 +382,11 @@ class TutorCoordinator:
                 await self._attach_board_page()
                 if generation != self.generation:
                     return None
-            if self.attachments:
+            if self._student_image is not None:
+                await self._attach_image()
+                if generation != self.generation:
+                    return None
+            if self.attachments or self.student_image is not None:
                 self._attach_student_images()
             effort = None
             if (
@@ -562,12 +580,33 @@ class TutorCoordinator:
             user["content"] = [{"type": "text", "text": text}, {"type": "text", "text": NO_VIEW}]
 
     def _attach_student_images(self):
-        """The images she sent with this turn's message, after her words and her page."""
-        from tassel.chat.turns import with_images
+        """The images she sent with this turn's message, after her words and her page; her
+        latest image, on a turn about it, numbered with its legend in place of its pixels."""
+        from tassel.chat.turns import marked_image_blocks, with_images
 
         user = next((m for m in reversed(self.messages) if m.get("role") == "user"), None)
-        if user is not None:
-            user["content"] = with_images(user["content"], self.attachments)
+        if user is None:
+            return
+        image = self.student_image
+        raw = [a for a in self.attachments if image is None or a.id != image.id]
+        content = with_images(user["content"], raw)
+        if image is not None:
+            content = [*content, *marked_image_blocks(image)]
+        user["content"] = content
+
+    async def _attach_image(self):
+        """Her latest image, fetched with the thinker's turn: what its tags act on now."""
+        fetch, self._student_image = self._student_image, None
+        try:
+            image = await fetch()
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            self.log("reject", source="student_image", reason=type(error).__name__)
+            image = None
+        self.student_image = image
+        if image is not None:
+            self.board.image = image.stage()
 
     async def _attach_board_page(self):
         page, self._board_page = self._board_page, None
@@ -656,6 +695,41 @@ class TutorCoordinator:
         marks = [m for m in marks if m.target]
         return brief.model_copy(update={"page": page, "marks": marks})
 
+    async def _point_image(self, brief, decision, generation):
+        """Her image's marks in words, resolved by the Pointer on that image: on a mark_image
+        turn the brief's paper-style marks are the image's too."""
+        on_image = decision.action == "mark_image" or decision.refers_to == "image"
+        intents = brief.image_marks or (brief.marks if decision.action == "mark_image" else [])
+        if not on_image or not intents:
+            return brief
+        started = time.monotonic()
+        try:
+            image = self.student_image
+            if image is None:
+                raise ValueError("No student image")
+            if self.pointer is None:
+                self.pointer = Pointer(self.thinker.settings, log=self.log)
+                self.pointer.client.on_usage = getattr(self.thinker, "on_usage", None)
+            view = image.view
+            resolved = await self.pointer.resolve(
+                intents,
+                view.marked_jpeg,
+                view.legend_text,
+                view.elements,
+                size=(view.width, view.height),
+            )
+            on_stage = self.board.image
+            if generation != self.generation or on_stage is None or on_stage.id != image.id:
+                return brief.model_copy(update={"image": []})
+            return brief.model_copy(update={"image": image_mark_tags(resolved)})
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            self.log("reject", source="pointer", reason=type(error).__name__)
+            return brief
+        finally:
+            self.log("pointer_duration", ms=(time.monotonic() - started) * 1000)
+
     async def _think(self, messages, effort):
         brief = lift_say_tags(await self.thinker.think(messages, effort=effort))
         return self._page_over_memory(brief)
@@ -668,9 +742,12 @@ class TutorCoordinator:
         brief = await self._point(brief, decision, generation)
         if generation != self.generation:
             return None
+        brief = await self._point_image(brief, decision, generation)
+        if generation != self.generation:
+            return None
         checked = await asyncio.to_thread(
             partial(check_tags, student_text=self.text),
-            brief.board + brief.paper,
+            brief.board + brief.paper + brief.image,
             decision,
             self.board,
             brief.language,
@@ -695,9 +772,10 @@ class TutorCoordinator:
                 # A repair may not evade verification by removing/changing the target.
                 brief = repaired.model_copy(update={"language": original_language})
                 brief = await self._point(brief, decision, generation)
+                brief = await self._point_image(brief, decision, generation)
                 checked = await asyncio.to_thread(
                     partial(check_tags, student_text=self.text),
-                    brief.board + brief.paper,
+                    brief.board + brief.paper + brief.image,
                     decision,
                     self.board,
                     original_language,
@@ -713,6 +791,7 @@ class TutorCoordinator:
             update={
                 "board": [t for t in brief.board if t in checked.tags],
                 "paper": [t for t in brief.paper if t in checked.tags],
+                "image": [t for t in brief.image if t in checked.tags],
             }
         )
         return self._honest_tags(wanted, self.validate_tags(brief))
@@ -772,7 +851,7 @@ class TutorCoordinator:
             and not re.search(r"\bboard\b", self.text, re.I)
             and decision.action != "trace"
         )
-        valid = {"board": [], "paper": []}
+        valid = {"board": [], "paper": [], "image": []}
         for location in valid:
             for tag in getattr(brief, location):
                 candidate = deepcopy(context)
@@ -794,6 +873,16 @@ class TutorCoordinator:
                         else set()
                     )
                     good = good and ids <= known and context.paper_frame is not None
+                if location == "image":
+                    # Only markers on her image as the thinker saw it.
+                    image = context.image
+                    ids = set(re.findall(r"\bm\d+\b", tag))
+                    known = (
+                        {el.id for el in image.detected.items}
+                        if image is not None and image.detected is not None
+                        else set()
+                    )
+                    good = good and image is not None and ids <= known
                 if good:
                     valid[location].append(tag)
                     context = candidate
@@ -802,6 +891,9 @@ class TutorCoordinator:
         # Freeze only with marks, and always pin the exact page used for the brief.
         marks = [t for t in valid["paper"] if not re.match(r"\[\[freeze\b", t)]
         valid["paper"] = ["[[freeze]]", *marks] if marks else []
+        # Her image is shown before it's marked: an image she just sent goes up with the marks.
+        image = [t for t in valid["image"] if not IMAGE_SHOW.match(t)]
+        valid["image"] = ["[[image show]]", *image] if any(map(IMAGE_MARK.match, image)) else image
 
         def drop_spoken_tag(match):
             self.log("reject", source="thinker_say_tag", text=match.group())
@@ -848,6 +940,11 @@ class TutorCoordinator:
 
 
 STEP = re.compile(r"\[\[\s*p?step\b")
+IMAGE_TAG = re.compile(r"\[\[\s*image\b", re.I)
+IMAGE_SHOW = re.compile(r"\[\[\s*image\s+show\s*\]\]", re.I)
+IMAGE_MARK = re.compile(
+    r"\[\[\s*image\s+(?:circle|wash|number|strike|underline|check|callout)\b", re.I
+)
 FREEZE = re.compile(r"\[\[\s*freeze\b")
 # A tag's verb, to tell what kind of thing the brief meant to show.
 TAG_VERB = re.compile(r"\[\[\s*([A-Za-z]+)")
@@ -874,6 +971,10 @@ RUNGS = {
     "already there, with one [[step t]] per sentence after the first.",
     ("mark_paper", "paper"): "[app note] Playbook rung b (point): freeze, then circle or callout "
     "the exact state or edge on her paper, with a few words.",
+    ("mark_image", "paper"): "[app note] Mark her image (the one captioned [image]), not her "
+    "paper or the board: image_marks with each target in words; the Pointer finds its numbered "
+    "candidate and the app shows the image. No [image] attached: leave image_marks empty and "
+    "say you can't see it.",
 }
 
 # Rung d: she watched her machine traced and is still lost. Show the fix beside it.
@@ -890,18 +991,24 @@ def lift_say_tags(brief):
     tags = SAY_TAG.findall(brief.say)
     if not tags:
         return brief
+    image = [t for t in tags if IMAGE_TAG.match(t)]
     paper = [t for t in tags if PAPER_VERB.match(t)]
-    board = [t for t in tags if not PAPER_VERB.match(t)]
+    board = [t for t in tags if not PAPER_VERB.match(t) and not IMAGE_TAG.match(t)]
     say = " ".join(SAY_TAG.sub(" ", brief.say).split())
     return brief.model_copy(
-        update={"board": brief.board + board, "paper": brief.paper + paper, "say": say}
+        update={
+            "board": brief.board + board,
+            "paper": brief.paper + paper,
+            "image": brief.image + image,
+            "say": say,
+        }
     )
 
 
 def compose(brief) -> str:
     """Tags lead, except trace steps: one lands before each sentence after the first, so a
     trace advances as Ada speaks it."""
-    tags = brief.board + brief.paper
+    tags = brief.board + brief.paper + list(getattr(brief, "image", []))
     steps = [t for t in tags if STEP.match(t)]
     text = "".join(t for t in tags if not STEP.match(t))
     for i, sentence in enumerate(re.split(r"(?<=[.!?])\s+", brief.say.strip())):
@@ -942,6 +1049,11 @@ NOT_FINISHED = {
 LOOK = {
     "paper": {"en": "Take a look at your paper.", "es": "Mira tu hoja.", "ko": "종이를 보세요."},
     "board": {"en": "Take a look at the board.", "es": "Mira la pizarra.", "ko": "칠판을 보세요."},
+    "image": {
+        "en": "Take a look at your image.",
+        "es": "Mira tu imagen.",
+        "ko": "이미지를 보세요.",
+    },
 }
 
 
@@ -957,6 +1069,8 @@ def fill_silence(brief, lang):
         return brief
     if brief.paper:
         say = LOOK["paper"][lang]
+    elif getattr(brief, "image", None):
+        say = LOOK["image"][lang]
     elif brief.board:
         say = LOOK["board"][lang]
     else:
@@ -987,8 +1101,9 @@ class ThinkerOutput(FrameProcessor):
             self.heard = True
         tags = SAY_TAG.findall(text)
         if tags:
-            paper = any(PAPER_VERB.match(t) for t in tags)
-            self.marked = "paper" if paper or self.marked == "paper" else "board"
+            paper = any(PAPER_VERB.match(t) for t in tags) or self.marked == "paper"
+            image = any(IMAGE_TAG.match(t) for t in tags) or self.marked == "image"
+            self.marked = "paper" if paper else "image" if image else "board"
         await self.push_frame(LLMTextFrame(text))
 
     async def _text(self, text, final=False):

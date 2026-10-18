@@ -26,12 +26,13 @@ class Decision(BaseModel):
     focus: Literal["paper", "board", "split", "none"]
     needs_vision: bool
     route: Literal["talker", "thinker"]
-    action: Literal["none", "explain", "draw_board", "mark_paper", "trace"]
-    refers_to: Literal["paper", "board", "conversation"]
+    action: Literal["none", "explain", "draw_board", "mark_paper", "mark_image", "trace"]
+    # "image": an image she sent in the chat (a screenshot, a photo), never her paper.
+    refers_to: Literal["paper", "board", "image", "conversation"]
 
     @model_validator(mode="after")
     def no_paper_on_board(self):
-        if self.refers_to == "board":
+        if self.refers_to in ("board", "image"):
             self.needs_vision = False
         return self
 
@@ -39,9 +40,16 @@ class Decision(BaseModel):
 PAPER = re.compile(
     r"\b(paper|page|camera|circle mine|on top of my|my drawing|my work|my sketch)\b", re.I
 )
+# An image she sent in the chat: "my screenshot", "the picture I sent", "on my image".
+IMAGE = re.compile(
+    r"\b(?:screen\s?shots?|images?|(?<!big )pictures?|photos?|pics?|attachments?|"
+    r"(?:the )?(?:file|one) I (?:sent|attached|uploaded))\b",
+    re.I,
+)
 SIMPLE = re.compile(r"^\W*(what(?: is|'s| are)|define|what does .{1,30} mean)\b", re.I)
 BOARD = re.compile(r"\b(board|whiteboard)\b", re.I)
 DRAW = re.compile(r"\b(draw|mark|highlight|circle|wash|strike|underline|callout)\b", re.I)
+MARK = re.compile(r"\b(mark|highlight|circle|wash|strike|underline|callout)\b", re.I)
 # Her own work ("the DFA I tried to draw", "my DFA") is a paper reference, not a draw request.
 SELF_WORK = re.compile(
     r"\b(?:I (?:try|tried|was trying|am trying|'m trying) to draw|I drew|I(?:'ve| have) drawn|"
@@ -155,7 +163,29 @@ def _draw_request(text):
     return bool(DRAW.search(SELF_WORK.sub(" ", text)))
 
 
-def rules(text, *, focus="none", page_changed=False, **_):
+def _image_ref(text, *, image=False) -> bool:
+    """Her words point at an image she sent: they name one and neither her paper nor the board,
+    or (`image`: this message carries one) they ask to draw without naming either."""
+    if PAPER.search(text) or BOARD.search(text):
+        return False
+    # A message that carries an image and asks for a mark (circle, underline…) means that
+    # image; "show me the answer" or "draw a DFA" with a screenshot asks Ada to solve it, which
+    # she does on the board.
+    return bool(IMAGE.search(text)) or (image and bool(MARK.search(SELF_WORK.sub(" ", text))))
+
+
+def rules(text, *, focus="none", page_changed=False, image=False, **_):
+    if _image_ref(text, image=image):
+        # Her image shows in the paper panel's slot; only the thinker sees it, numbered.
+        mark = _draw_request(text) or bool(SHOW.search(text)) or bool(ERASE.search(text))
+        explain = COMPLEX.search(text) or re.search(r"\b(explain|what is|how)\b", text, re.I)
+        return Decision(
+            focus="paper",
+            needs_vision=False,
+            route="thinker",
+            action="mark_image" if mark else "explain" if explain else "none",
+            refers_to="image",
+        )
     board = bool(BOARD.search(text))
     paper = bool(PAPER.search(text)) or (bool(SELF_WORK.search(text)) and not board)
     if (
@@ -189,10 +219,18 @@ def rules(text, *, focus="none", page_changed=False, **_):
     )
 
 
-def guard(text, decision):
+def guard(text, decision, *, image=False):
     """Explicit words beat the model: naming the paper or camera (and not the board) means
-    paper marks; her own drawing means the paper; board requests and complaints mean a board
-    drawing; anything that needs the page or a construction goes to the thinker."""
+    paper marks; naming an image she sent (or asking to draw on the one this message carries)
+    means her image; her own drawing means the paper; board requests and complaints mean a
+    board drawing; anything that needs the page or a construction goes to the thinker."""
+    if _image_ref(text, image=image):
+        wanted = rules(text, image=image)
+        if decision.refers_to != "image" or decision.action in ("draw_board", "mark_paper"):
+            decision = wanted
+        elif wanted.action == "mark_image":
+            decision = decision.model_copy(update={"action": "mark_image"})
+        return decision.model_copy(update={"route": "thinker", "needs_vision": False})
     named_paper, board = bool(PAPER.search(text)), bool(BOARD.search(text))
     self_work = bool(SELF_WORK.search(text)) and not board
     draw = _draw_request(text) or bool(SHOW.search(text))
@@ -276,6 +314,8 @@ def certain(text):
         return guard(text, rules(text))
     if (_draw_request(text) or SHOW.search(text)) and named_paper != board:
         return guard(text, rules(text))
+    if _image_ref(text) and (_draw_request(text) or SHOW.search(text)):
+        return guard(text, rules(text))
     return None
 
 
@@ -284,6 +324,9 @@ def escalate(text, decision, *, confusions, drew_last=False):
     First point at her paper; if that was already done, trace the counterexample."""
     if confusions <= 0 or not CONFUSED.search(text):
         return decision
+    if decision.refers_to == "image":
+        # Her own image: point at it; there is no copy of it to trace.
+        return decision.model_copy(update=dict(route="thinker", action="mark_image"))
     on_board = decision.refers_to == "board" or decision.focus == "board"
     if confusions + drew_last <= 1:
         if on_board:
@@ -329,11 +372,20 @@ class Director:
         self.script = script
 
     async def decide(
-        self, text, history, *, focus="none", board_items=None, frozen=False, page_changed=False
+        self,
+        text,
+        history,
+        *,
+        focus="none",
+        board_items=None,
+        frozen=False,
+        page_changed=False,
+        image=False,
     ):
+        """`image`: this message carries an image she sent."""
         started = time.monotonic()
         source = "rules"
-        decision = rules(text, focus=focus, page_changed=page_changed)
+        decision = rules(text, focus=focus, page_changed=page_changed, image=image)
         sure = certain(text)
         scripted = self.script(text) if self.script is not None else None
         if scripted is not None:
@@ -364,8 +416,11 @@ class Director:
                                     "multi-step reasoning "
                                     "go to thinker. 'The DFA I drew' or 'my DFA' is her "
                                     "paper (needs vision). A complaint that the board is "
-                                    "empty means draw_board. Resolve intent from context; "
-                                    "don't reconfirm clear intent."
+                                    "empty means draw_board. An image she sent in the chat "
+                                    "(a screenshot, photo or picture; sent_image: one comes "
+                                    "with this message) is refers_to image, never her paper: "
+                                    "marking it means mark_image. Resolve intent from "
+                                    "context; don't reconfirm clear intent."
                                 ),
                             },
                             {
@@ -378,6 +433,7 @@ class Director:
                                         board_items=board_items or {},
                                         frozen=frozen,
                                         page_changed=page_changed,
+                                        sent_image=image,
                                     )
                                 ),
                             },
@@ -417,7 +473,7 @@ class Director:
                 logger.warning("Director fell back to rules ({})", type(error).__name__)
                 if self.log:
                     self.log("director_fallback", reason=type(error).__name__)
-        decision = guard(text, decision)
+        decision = guard(text, decision, image=image)
         if self.log:
             self.log(
                 "director",
