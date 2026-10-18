@@ -75,3 +75,40 @@ export function movingFraction(a: Uint8Array, b: Uint8Array, delta: number): num
   }
   return moved / n;
 }
+
+/**
+ * The moving fraction after the best whole-image shift of up to `maxShift` pixels: a sheet
+ * nudged a pixel or a camera wobble moves everything together and reads as still, while a hand
+ * or a pen moves part of the image and doesn't (owner's live test; Perry's audit measured a
+ * one-pixel page shift at 2.6 % of pixels against a 0.5 % limit). Compared over the overlap.
+ */
+export function stillFraction(
+  a: Uint8Array,
+  b: Uint8Array,
+  w: number,
+  h: number,
+  delta: number,
+  maxShift = 2,
+): number {
+  if (a.length !== w * h || b.length !== w * h) return movingFraction(a, b, delta);
+  // The same interior of `a` for every shift, so no shift can slide a change out of view.
+  const m = maxShift;
+  const n = Math.max(0, w - 2 * m) * Math.max(0, h - 2 * m);
+  if (n === 0) return movingFraction(a, b, delta);
+  let best = 1;
+  for (let dy = -m; dy <= m && best > 0; dy++) {
+    for (let dx = -m; dx <= m && best > 0; dx++) {
+      let moved = 0;
+      for (let y = m; y < h - m; y++) {
+        const ra = y * w;
+        const rb = (y + dy) * w + dx;
+        for (let x = m; x < w - m; x++) {
+          const d = (a[ra + x] as number) - (b[rb + x] as number);
+          if (d > delta || d < -delta) moved++;
+        }
+      }
+      best = Math.min(best, moved / n);
+    }
+  }
+  return best;
+}

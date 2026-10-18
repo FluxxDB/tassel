@@ -90,6 +90,8 @@ export function createFrameLoop<F extends FrameLike>(
   let size = '';
   /** The last page quad found, in native pixels. */
   let lastQuad: Quad | null = null;
+  /** When the page finder last found the page, in ms: the quad bridges only a brief miss. */
+  let lastFoundAt = Number.NEGATIVE_INFINITY;
 
   const settle = (ok: boolean) => {
     opencv = ok ? 'ready' : 'failed';
@@ -149,7 +151,13 @@ export function createFrameLoop<F extends FrameLike>(
         const height = Math.max(1, Math.round(nativeH * scale));
         big = { rgba: deps.readRgba(frame, width, height, crop), width, height };
         const found = deps.findQuad(big.rgba, width, height);
-        if (found) lastQuad = scaleQuad(found, nativeW / width, nativeH / height);
+        if (found) {
+          lastQuad = scaleQuad(found, nativeW / width, nativeH / height);
+          lastFoundAt = t;
+        } else if (lastQuad && t - lastFoundAt > p.quadGraceMs) {
+          // Lost for longer than a passing hand: no longer the page (Perry's audit).
+          lastQuad = null;
+        }
       }
       if (opencv === 'ready' && lastQuad && big) {
         const page = big;

@@ -1,0 +1,74 @@
+{
+  "name": "replay-eb3eeab4",
+  "title": "Owner live test eb3eeab4: VLSM network zones, more PCs, desk view",
+  "description": "The owner's student lines from this live transcript, in order (nothing else copied); the expectations are the eval's. Runs only by name: about 13 turns.",
+  "default": false,
+  "stage": {
+    "view": "paper"
+  },
+  "turns": [
+    {
+      "student": "Do you see my paper?",
+      "page": "ip-page"
+    },
+    {
+      "student": "Is he in a favor?"
+    },
+    {
+      "student": "Do you see my paper"
+    },
+    {
+      "student": "We need to do VLSM on this. I need a subnet. I need four subnets, one with ten addresses, one with twenty addresses, one with fifty addresses, and one with eighteen addresses."
+    },
+    {
+      "student": "I don't know. You should know this. How much slash twenty four gives us? How many usable?"
+    },
+    {
+      "student": "Okay. I'm I'm not trying to study this. Okay."
+    },
+    {
+      "student": "I I just want you to create a diagram a whole a whole network zone with all these subnets and all these devices in the subnets.",
+      "expect": {
+        "tags": ["board.diagram"]
+      }
+    },
+    {
+      "student": "Add more PCs to fill up the subnets."
+    },
+    {
+      "student": "Did you do it?"
+    },
+    {
+      "student": "Okay. Do it."
+    },
+    {
+      "student": "Can we go back to desk view?",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "paper",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "Switch back to desk view.",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "paper",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "No. The whiteboard is still open."
+    }
+  ]
+}

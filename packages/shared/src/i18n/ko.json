@@ -495,8 +495,9 @@
     "loadError": "기억을 불러올 수 없어요. 다시 시도해 주세요.",
     "saveError": "저장할 수 없어요. 수정 내용은 유지돼요.",
     "conflict": "기억이 변경되었어요. 보관할 수정 내용을 복사한 후 메모를 새로고침하세요.",
-<<<<<<< HEAD
-    "saved": "저장됨"
+    "saved": "저장됨",
+    "personalizationTitle": "맞춤 설정 및 기억",
+    "savedTitle": "저장된 기억"
   },
   "screen": {
     "choose": "Share a display",
@@ -523,10 +524,6 @@
     "micOff": "Mic off",
     "resetDone": "Annotations reset · Ada is listening",
     "board": "Open board"
-=======
-    "saved": "저장됨",
-    "personalizationTitle": "맞춤 설정 및 기억",
-    "savedTitle": "저장된 기억"
   },
   "personalization": {
     "title": "나의 이상적인 튜터",
@@ -542,6 +539,5 @@
     "saveError": "튜터 스타일을 저장할 수 없어요. 수정 내용은 유지돼요.",
     "conflict": "튜터 스타일이 변경되었어요. 보관할 수정 내용을 복사한 후 새로고침하세요.",
     "saved": "튜터 스타일 저장됨"
->>>>>>> origin/codex/tutor-personality
   }
 }

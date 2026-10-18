@@ -33,7 +33,8 @@ export type VariantName =
   | 'slow-drift'
   | 'printed-box'
   | 'dark-desk'
-  | 'bold-pen';
+  | 'bold-pen'
+  | 'nudge-while-writing';
 
 export interface ExpectedTrigger {
   reason: 'ink' | 'page';

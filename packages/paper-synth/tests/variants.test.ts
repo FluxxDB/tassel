@@ -39,6 +39,7 @@ const TABLE: Record<VariantName, Row> = {
   'printed-box': { seconds: 22, triggers: [['ink', 18.5, ['q0']]] },
   'dark-desk': { seconds: 22, triggers: [['ink', 18.5, ['q0']]] },
   'bold-pen': { seconds: 12, triggers: [['ink', 7.5, ['q0']]] },
+  'nudge-while-writing': { seconds: 18, triggers: [['ink', 12.5, ['q1']]] },
 };
 
 const W = 320;

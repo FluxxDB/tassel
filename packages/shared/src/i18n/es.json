@@ -495,8 +495,9 @@
     "loadError": "No se pudo cargar la memoria. Inténtalo de nuevo.",
     "saveError": "No se pudo guardar. Tus cambios siguen aquí.",
     "conflict": "La memoria cambió. Copia los cambios que quieras conservar y recarga las notas.",
-<<<<<<< HEAD
-    "saved": "Guardado"
+    "saved": "Guardado",
+    "personalizationTitle": "Personalización y memoria",
+    "savedTitle": "Recuerdos guardados"
   },
   "screen": {
     "choose": "Share a display",
@@ -523,10 +524,6 @@
     "micOff": "Mic off",
     "resetDone": "Annotations reset · Ada is listening",
     "board": "Open board"
-=======
-    "saved": "Guardado",
-    "personalizationTitle": "Personalización y memoria",
-    "savedTitle": "Recuerdos guardados"
   },
   "personalization": {
     "title": "Tu tutor ideal",
@@ -542,6 +539,5 @@
     "saveError": "No se pudo guardar el estilo. Tus cambios siguen aquí.",
     "conflict": "El estilo cambió. Copia los cambios que quieras conservar y recarga.",
     "saved": "Estilo guardado"
->>>>>>> origin/codex/tutor-personality
   }
 }

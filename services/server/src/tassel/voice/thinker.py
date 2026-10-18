@@ -26,7 +26,7 @@ from tassel.beats.markup import BoardContext, MarkupStream
 from tassel.beats.processor import FlushSpeechFrame
 from tassel.vision.turn_image import NO_VIEW
 from tassel.voice.action_checker import TargetLanguage, check_tags, talker_allowed
-from tassel.voice.director import report_usage, rules
+from tassel.voice.director import ERASE, report_usage, rules
 from tassel.voice.history import windowed
 from tassel.voice.illustrator import Illustrator
 from tassel.voice.pointer import MarkIntent, Pointer, mark_tags
@@ -140,6 +140,20 @@ def _image_url(image: bytes) -> str:
     return f"data:image/{kind};base64," + base64.b64encode(image).decode()
 
 
+# What the talker may read of a brief: the reasoning, never the words or tags (see _done).
+NOTE_FIELDS = {"page", "intent", "diagnosis", "plan", "confidence", "followups"}
+
+
+def _done(brief) -> str:
+    """What the last brief did, in words, for the notes: never its tags."""
+    parts = []
+    if brief.board or brief.draw:
+        parts.append("changed the board")
+    if brief.paper:
+        parts.append("marked her paper")
+    return " and ".join(parts) or "answered without drawing"
+
+
 # Older contexts may still hold this note; the talker no longer bridges thinker turns.
 BRIDGE_PREFIX = "[thinker pending]"
 
@@ -225,14 +239,21 @@ class TutorCoordinator:
             )
         ]
         if self.notes:
-            older = "\n".join(f"{n.intent}: {n.diagnosis} (said: {n.say})" for n in self.notes[:-1])
+            older = "\n".join(f"{n.intent}: {n.diagnosis}" for n in self.notes[:-1])
             # Mark IDs belong to one image; the next frame renumbers them (retest #8 circled
-            # the wrong state with a stale m14).
-            latest = self.notes[-1].model_dump_json(exclude={"paper"})
+            # the wrong state with a stale m14). Never her last words or tags: the talker read
+            # them back on unrelated turns ("I'll remove the three PCs", [[undo]], 2de450e6).
+            last = self.notes[-1]
+            latest = last.model_dump_json(include=NOTE_FIELDS)
+            done = _done(last)
             messages.append(
                 {
                     "role": "system",
-                    "content": MARK_ID.sub("a mark", NOTE_PREFIX + "\n" + older + "\n" + latest),
+                    "content": MARK_ID.sub(
+                        "a mark",
+                        f"{NOTE_PREFIX}\n{older}\n{latest}\nAlready done last turn: {done}. "
+                        "Never say it again or redo it unless she asks.",
+                    ),
                 }
             )
 
@@ -345,16 +366,25 @@ class TutorCoordinator:
                     return None
                 brief = retry
             decision = self.decision or rules(self.text)
+            if brief.draw and ERASE.search(self.text):
+                # Erasing is [[clear ITEM]] or [[undo]], never a drawing: the eval's "erase the
+                # network" came back as the same diagram redrawn, with "The network is erased."
+                self.log("reject", source="draw", reason="erase request")
+                brief = brief.model_copy(update={"draw": None})
             if (
                 decision.action == "draw_board"
                 and not brief.board
                 and not brief.draw
                 and not AUTOMATA.search(self.text)
+                and not ERASE.search(self.text)
             ):
                 # The brief said it would draw but carried nothing to draw (live test: "I'll add
                 # two PCs in each zone", then nothing): the Illustrator draws her request itself.
                 self.log("draw_fallback", text=self.text)
-                brief = brief.model_copy(update={"draw": self.text})
+                # Her words and the brief's own plan: "add the PCs back" alone told the
+                # Illustrator nothing about which PCs (2de450e6).
+                intent = f"{brief.say} (She asked: {self.text})" if brief.say else self.text
+                brief = brief.model_copy(update={"draw": intent})
             if brief.draw and (
                 decision.action == "draw_board"
                 or (decision.action in ("explain", "trace") and decision.refers_to == "board")
@@ -385,6 +415,10 @@ class TutorCoordinator:
             if result is None or generation != self.generation:
                 return None
             item, spec = result
+            if self.board.diagrams.get(item) == spec:
+                # The same diagram again changes nothing: not "Here it is." (2de450e6).
+                self.log("reject", source="illustrator", reason="unchanged")
+                return None
             self.board.pending_diagrams[item] = spec
             self.log(
                 "illustrator_brief",
@@ -496,8 +530,13 @@ class TutorCoordinator:
                 self.pointer = Pointer(self.thinker.settings, log=self.log)
                 self.pointer.client.on_usage = getattr(self.thinker, "on_usage", None)
             frame = self.board.paper_frame
+            detected = elements.detected
             resolved = await self.pointer.resolve(
-                brief.marks, self.page_image, self.page_caption, elements.detected.items
+                brief.marks,
+                self.page_image,
+                self.page_caption,
+                detected.items,
+                size=(detected.width, detected.height),
             )
             if generation != self.generation or frame != self.board.paper_frame:
                 return brief.model_copy(update={"paper": []})

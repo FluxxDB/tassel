@@ -32,6 +32,19 @@ LABEL_DILATION = 0.01  # Join glyphs into labels using this kernel size in page 
 LABEL_MIN_SIDE = 0.008  # Smallest retained label bounding-box side in page widths.
 LABEL_MAX_SIDE = 0.12  # Largest retained side, rejecting arrows and printed lines.
 LABEL_MIN_AREA = 12  # Ignore components with fewer than this many pixels.
+# Handwritten lines wider than LABEL_MAX_SIDE but no taller ("10.0.0.0/24", a sentence). They're
+# told from arrows and printed rules by how writing looks: several separate strokes, many columns
+# that cross ink twice (o, a, 0, 4…), and column centers that don't follow one smooth curve.
+TEXT_MIN_STROKES = 3  # Separate raw ink strokes in the group; an arrow or a rule has one or two.
+TEXT_STROKE_AREA = 0.002  # A stroke's smallest area is this side squared, in page widths.
+TEXT_MIN_MULTIRUN = 0.25  # Fraction of inked columns crossing ink at least twice.
+TEXT_MIN_DENSITY = 0.04  # Ink over the group's tight box: a long diagonal stroke is sparser.
+TEXT_MAX_DENSITY = 0.5  # A filled blob or a thick bar is denser than writing.
+TEXT_MAX_FIT = 0.85  # Fraction of columns whose ink center lies on one quadratic: a stroke.
+TEXT_CURSIVE_FIT = 0.7  # A joined-up word has fewer strokes, so it must stray further from one.
+TEXT_FIT_TOLERANCE = 0.12  # A center "lies on" the curve within this fraction of line height.
+TEXT_CHUNK = 0.25  # Split longer lines into markers of at most about this many page widths…
+TEXT_MIN_GAP = 0.08  # …only at empty column runs at least this fraction of the line height.
 ROW_HEIGHT = 0.15  # Number marks in rows of this fraction of page height.
 TAG_RGB = (29, 78, 216)  # Model-only blue tags (#1d4ed8), distinct from page ink.
 TAG_FONT_SCALE = 0.45  # Hershey font scale at the full deep-reader resolution.
@@ -171,22 +184,164 @@ def find_candidates(page: FlatPage, mask: np.ndarray | None = None) -> Candidate
             )
     size = max(1, round(LABEL_DILATION * w))
     joined = cv2.dilate(labels_mask, np.ones((size, size), np.uint8))
-    _, _, stats, _ = cv2.connectedComponentsWithStats(joined)
+    _, components, stats, _ = cv2.connectedComponentsWithStats(joined)
+    # (x, y, w, h, area, line): small labels as before, then handwritten lines' chunks.
     groups = [
-        tuple(map(int, s))
+        (*map(int, s), False)
         for s in stats[1:]
         if LABEL_MIN_SIDE * w <= s[2] <= LABEL_MAX_SIDE * w
         and LABEL_MIN_SIDE * w <= s[3] <= LABEL_MAX_SIDE * w
         and s[4] >= LABEL_MIN_AREA
     ]
+    for index, s in enumerate(stats[1:], start=1):
+        if s[2] > LABEL_MAX_SIDE * w and LABEL_MIN_SIDE * w <= s[3] <= LABEL_MAX_SIDE * w:
+            groups += _text_chunks(components, labels_mask, index, s, page, size // 2)
     groups.sort(key=lambda s: (-s[4], s[1], s[0]))
     groups = groups[: MAX_MARKS - len(circles)]
-    groups.sort(key=lambda s: (int(s[1] / (ROW_HEIGHT * h)), s[0], s[1]))
+    # A line whose glyphs stand apart ("10.0.0.0/24" in a spaced hand) is several small labels:
+    # it gets one more marker for the whole line, so Ada can underline it, not just its "1".
+    groups += _glyph_lines(groups, w, circles)[: max(0, MAX_MARKS - len(circles) - len(groups))]
+    # Lines number after the small labels, and glyph lines after those, so adding them never
+    # renumbers existing marks.
+    groups.sort(key=lambda s: (int(s[5]), int(s[1] / (ROW_HEIGHT * h)), s[0], s[1]))
     labels = tuple(
         LabelMark(len(circles) + i + 1, float(x), float(y), float(bw), float(bh))
-        for i, (x, y, bw, bh, _) in enumerate(groups)
+        for i, (x, y, bw, bh, _, _) in enumerate(groups)
     )
     return Candidates(tuple(circles), labels)
+
+
+def _glyph_lines(groups: list, page_width: int, circles: list) -> list:
+    """Rows of small labels that sit side by side on one line, each as one more group (kind 2):
+    boxes overlapping vertically by half the shorter one, at most one glyph height apart, and
+    together wider than any single label can be. Rows a handwritten-line chunk already covers
+    are left out, and so are a state's name inside its circle and any row through a state: on
+    a DFA those chained the arrows' labels into one marker across every state."""
+
+    def in_circle(g) -> bool:
+        cx, cy = g[0] + g[2] / 2, g[1] + g[3] / 2
+        return any(hypot(cx - c.cx, cy - c.cy) <= c.r for c in circles)
+
+    def through_state(x0, y0, x1, y1) -> bool:
+        return any(x0 <= c.cx <= x1 and y0 <= c.cy <= y1 for c in circles)
+
+    small = sorted((g for g in groups if g[5] is False and not in_circle(g)), key=lambda g: g[0])
+    chunks = [g for g in groups if g[5] is True]
+    parent = list(range(len(small)))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for i, a in enumerate(small):
+        for j in range(i + 1, len(small)):
+            b = small[j]
+            overlap = min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1])
+            gap = max(0, b[0] - (a[0] + a[2]), a[0] - (b[0] + b[2]))
+            if overlap >= 0.5 * min(a[3], b[3]) and gap <= max(a[3], b[3]):
+                parent[find(j)] = find(i)
+    rows: dict[int, list] = {}
+    for i, g in enumerate(small):
+        rows.setdefault(find(i), []).append(g)
+    out = []
+    for members in rows.values():
+        if len(members) < 2:
+            continue
+        x0 = min(g[0] for g in members)
+        y0 = min(g[1] for g in members)
+        x1 = max(g[0] + g[2] for g in members)
+        y1 = max(g[1] + g[3] for g in members)
+        if x1 - x0 <= LABEL_MAX_SIDE * page_width or through_state(x0, y0, x1, y1):
+            continue
+        line = (x0, y0, x1 - x0, y1 - y0)
+        if any(_overlap(line, c[:4]) > 0.5 for c in chunks):
+            continue
+        out.append((*line, sum(g[4] for g in members), 2))
+    return out
+
+
+def _overlap(a, b) -> float:
+    """Intersection over union of two (x, y, w, h) boxes."""
+    ix = max(0, min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0]))
+    iy = max(0, min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1]))
+    inter = ix * iy
+    union = a[2] * a[3] + b[2] * b[3] - inter
+    return inter / union if union else 0.0
+
+
+def _runs(ink: np.ndarray) -> np.ndarray:
+    """Per column, how many separate vertical ink runs it crosses."""
+    return ink[0].astype(int) + (ink[1:] & ~ink[:-1]).sum(axis=0)
+
+
+def _looks_written(ink: np.ndarray, page_width: int) -> bool:
+    """Writing, not an arrow, a rule or a curve: see the TEXT_* constants."""
+    inked = ink.any(axis=0)
+    if not inked.any():
+        return False
+    if (_runs(ink)[inked] >= 2).mean() < TEXT_MIN_MULTIRUN:
+        return False
+    min_area = max(4, round((TEXT_STROKE_AREA * page_width) ** 2))
+    _, _, strokes, _ = cv2.connectedComponentsWithStats(ink.astype(np.uint8), connectivity=8)
+    cursive = int((strokes[1:, 4] >= min_area).sum()) < TEXT_MIN_STROKES
+    rows = np.flatnonzero(ink.any(axis=1))
+    columns = np.flatnonzero(inked)
+    tight = (rows[-1] - rows[0] + 1) * (columns[-1] - columns[0] + 1)
+    if not TEXT_MIN_DENSITY <= ink.sum() / tight <= TEXT_MAX_DENSITY:
+        return False
+    ys = np.arange(ink.shape[0])[:, None]
+    centers = (ink * ys).sum(axis=0)[inked] / ink.sum(axis=0)[inked]
+    fit = np.polyval(np.polyfit(columns, centers, 2), columns)
+    tolerance = max(2.0, TEXT_FIT_TOLERANCE * _line_height(ink))
+    on_curve = (np.abs(centers - fit) <= tolerance).mean()
+    return on_curve <= (TEXT_CURSIVE_FIT if cursive else TEXT_MAX_FIT)
+
+
+def _line_height(ink: np.ndarray) -> float:
+    """The writing's height, robust to a tilted line: tall columns' ink spans, not the box."""
+    inked = ink.any(axis=0)
+    top = ink.argmax(axis=0)
+    bottom = ink.shape[0] - ink[::-1].argmax(axis=0)
+    return float(np.percentile((bottom - top)[inked], 90))
+
+
+def _split(inked: np.ndarray, lo: int, hi: int, longest: float, min_gap: float) -> list:
+    """Column spans of at most `longest`, cut at the widest gaps first so words stay whole."""
+    columns = lo + np.flatnonzero(inked[lo:hi])
+    lo, hi = int(columns[0]), int(columns[-1]) + 1
+    if hi - lo <= longest:
+        return [(lo, hi)]
+    empty = ~inked[lo:hi]
+    edges = np.flatnonzero(np.diff(np.concatenate(([0], empty.astype(int), [0]))))
+    gaps = [(b - a, lo + a, lo + b) for a, b in zip(edges[::2], edges[1::2]) if b - a >= min_gap]
+    if not gaps:
+        return [(lo, hi)]
+    middle = (lo + hi) / 2
+    _, start, end = max(gaps, key=lambda g: (g[0], -abs((g[1] + g[2]) / 2 - middle)))
+    return _split(inked, lo, start, longest, min_gap) + _split(inked, end, hi, longest, min_gap)
+
+
+def _text_chunks(components, mask, index, stat, page: FlatPage, pad: int) -> list:
+    """A wide, short ink group's word-sized chunks if it's handwriting, else none."""
+    x, y, bw, bh = map(int, stat[:4])
+    group = components[y : y + bh, x : x + bw] == index
+    ink = group & (mask[y : y + bh, x : x + bw] != 0)
+    if not _looks_written(ink, page.width):
+        return []
+    inked = ink.any(axis=0)
+    min_gap = TEXT_MIN_GAP * _line_height(ink)
+    chunks = []
+    for lo, hi in _split(inked, 0, bw, TEXT_CHUNK * page.width, min_gap):
+        part = ink[:, lo:hi]
+        if (_runs(part)[part.any(axis=0)] >= 2).mean() < TEXT_MIN_MULTIRUN:
+            continue
+        rows = np.flatnonzero(part.any(axis=1))
+        x0, x1 = max(0, x + lo - pad), min(page.width, x + hi + pad)
+        y0, y1 = max(0, y + int(rows[0]) - pad), min(page.height, y + int(rows[-1]) + 1 + pad)
+        chunks.append((x0, y0, x1 - x0, y1 - y0, int(group[:, lo:hi].sum()), True))
+    return chunks
 
 
 def draw_marks(

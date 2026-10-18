@@ -21,7 +21,8 @@ Commands (ITEM is a board item's id; EL is "start", a state such as "q0", or an 
     highlight ITEM EL · unhighlight ITEM EL · pulse ITEM EL · note ITEM "…" [near=ITEM:EL]
     trace ITEM ON INPUT [student] · step ITEM · verdict ITEM accept|reject [expected=…] [note="…"]
     focus [ITEM] · clear [ITEM] · stage paper|board|split
-    circle EL · wash EL · number N EL · strike EL · check EL · callout EL "…"
+    circle EL · wash EL · number N EL · strike EL · underline EL · check EL · callout EL "…"
+      (on paper EL may also be a numbered marker, m3, or a page region, box=x,y,w,h)
     ptrace INPUT · pstep · live · freeze [latest|frame=ID]   (review I8)
 """
 
@@ -89,6 +90,11 @@ class BoardContext:
         default_factory=list
     )
     _turn_start: tuple[dict[str, AutomatonSpec], dict[str, DiagramSpec]] | None = None
+    # What [[undo]] took away, newest last, for [[redo]]; a new drawing turn clears it.
+    redo_stack: list[tuple[dict[str, AutomatonSpec], dict[str, DiagramSpec]]] = field(
+        default_factory=list
+    )
+    _stepped: bool = False
 
     def _state(self) -> tuple[dict[str, AutomatonSpec], dict[str, DiagramSpec]]:
         return deepcopy(self.specs), deepcopy(self.diagrams)
@@ -96,19 +102,46 @@ class BoardContext:
     def begin_turn(self) -> None:
         """One of her replies begins: remember the board as it is."""
         self._turn_start = self._state()
+        self._stepped = False
 
     def end_turn(self) -> None:
-        """Her reply ended: a reply that changed the board is a step [[undo]] can take back."""
+        """Her reply ended: a reply that changed the board is a step [[undo]] can take back, and
+        a new drawing (not an undo or redo) ends what [[redo]] could put back."""
         start, self._turn_start = self._turn_start, None
         if start is not None and start != (self.specs, self.diagrams):
             self.history = [*self.history[-(UNDO_DEPTH - 1) :], start]
+            if not self._stepped:
+                self.redo_stack.clear()
 
     def undo(self) -> list[BeatAction]:
         """The actions that put back the board as it was before her last drawing turn: what it
         added is cleared, what it changed or cleared is drawn again whole."""
         if not self.history:
             return []
-        specs, diagrams = self.history.pop()
+        self.redo_stack.append(self._state())
+        return self._restore(self.history.pop())
+
+    def redo(self) -> list[BeatAction]:
+        """The actions that put back what her last [[undo]] took away."""
+        if not self.redo_stack:
+            return []
+        self.history = [*self.history[-(UNDO_DEPTH - 1) :], self._state()]
+        return self._restore(self.redo_stack.pop())
+
+    def redo_items(self) -> list[str]:
+        """The items [[redo]] would change, for the thinker's Board items."""
+        if not self.redo_stack:
+            return []
+        specs, diagrams = self.redo_stack[-1]
+        return sorted(
+            item
+            for item in {*specs, *diagrams, *self.specs, *self.diagrams}
+            if specs.get(item) != self.specs.get(item)
+            or diagrams.get(item) != self.diagrams.get(item)
+        )
+
+    def _restore(self, state) -> list[BeatAction]:
+        specs, diagrams = state
         actions: list[BeatAction] = [
             _make(BoardClear, item=item)
             for item in [*self.specs, *self.diagrams]
@@ -121,8 +154,9 @@ class BoardContext:
             if self.diagrams.get(item) != diagram:
                 actions.append(_make(BoardDiagram, item=item, spec=diagram, reveal="all"))
         self.specs, self.diagrams = deepcopy(specs), deepcopy(diagrams)
+        self._stepped = True
         if self._turn_start is not None:
-            # The undo isn't a step of its own: what else this reply draws is.
+            # The step isn't one of its own: what else this reply draws is.
             self._turn_start = self._state()
         return actions
 
@@ -193,9 +227,10 @@ class MarkupStream:
             if closing >= 0:
                 raw = self._pending[: closing + 2]
                 self._pending = self._pending[closing + 2 :]
-                if raw[2:-2].strip().lower() == "undo":
-                    # One tag, as many actions as the last drawing turn changed items.
-                    for action in self._ctx.undo():
+                step = raw[2:-2].strip().lower()
+                if step in ("undo", "redo"):
+                    # One tag, as many actions as the step changes items.
+                    for action in self._ctx.undo() if step == "undo" else self._ctx.redo():
                         self._add(_Tag(raw, action, None))
                 else:
                     self._add(self._tag(raw))
@@ -539,6 +574,15 @@ def _automaton(
     notes = [] if notes is None else notes
     if not args:
         raise MarkupError(f"{kind} needs an item")
+    if "=" in args[0].text or _MOVE.search(args[0].text):
+        # No item name (the real-token eval's [[dfa start=q0 …]]): name it, never drop it.
+        name = (
+            kind
+            if kind not in ctx.specs
+            else next(f"{kind}{n}" for n in range(2, 100) if f"{kind}{n}" not in ctx.specs)
+        )
+        args = [_Arg(name, False), *args]
+        notes.append(f"named {name}")
     item = args[0].text
     hidden = False
     title: str | None = None
@@ -688,18 +732,18 @@ def _mark(verb: str, args: list[_Arg], ctx: BoardContext) -> BeatAction:
         n, el = _between(args, 2, 2, "number N EL")
         if not re.fullmatch(r"[0-9]+", n):
             raise MarkupError(f"{n!r} isn't a number")
-        mark |= {"type": "step", "n": int(n), "target": {"el": _paper_element(el)}}
+        mark |= {"type": "step", "n": int(n), "target": _paper_target(el)}
     elif verb == "callout":
         if len(args) != 2 or not args[1].quoted:
             raise MarkupError('callout needs EL "TEXT"')
         mark |= {
             "type": "callout",
-            "target": {"el": _paper_element(args[0].text)},
+            "target": _paper_target(args[0].text),
             "text": args[1].text,
         }
     else:
         [el] = _between(args, 1, 1, f"{verb} EL")
-        mark |= {"type": "circle" if verb == "wash" else verb, "target": {"el": _paper_element(el)}}
+        mark |= {"type": "circle" if verb == "wash" else verb, "target": _paper_target(el)}
         if verb == "wash":
             mark["wash"] = True
     action = _make(PaperMarkAction, mark=mark)
@@ -732,8 +776,39 @@ def _between(args: list[_Arg], low: int, high: int | None, usage: str) -> list[s
     return [arg.text for arg in args]
 
 
-def _paper_element(text: str) -> str:
-    return text if re.fullmatch(r"m[1-9][0-9]{0,2}", text) else _element(text)
+def _paper_target(text: str) -> dict[str, Any]:
+    if text.startswith("box="):
+        return {"box": paper_box(text)}
+    return {"el": text if re.fullmatch(r"m[1-9][0-9]{0,2}", text) else _element(text)}
+
+
+# A box target's sides, as fractions of the page: big enough to be ink, smaller than the page.
+BOX_MIN_SIDE = 0.005
+BOX_MAX_SIDE = 0.95
+_BOX_EDGE = 1e-6  # Float slack at the page's right and bottom edges.
+_NUMBER = re.compile(r"[0-9]*\.?[0-9]+")
+
+
+def paper_box(text: str) -> dict[str, float]:
+    """`box=x,y,w,h` as a NormRect on the page, or a MarkupError: four plain numbers, inside the
+    page, each side from BOX_MIN_SIDE to BOX_MAX_SIDE of it."""
+    _, equals, value = text.partition("=")
+    parts = value.split(",")
+    if not equals or len(parts) != 4 or not all(_NUMBER.fullmatch(p) for p in parts):
+        raise MarkupError(f"box needs x,y,w,h, not {value!r}")
+    x, y, w, h = map(float, parts)
+    if not (BOX_MIN_SIDE <= w <= BOX_MAX_SIDE and BOX_MIN_SIDE <= h <= BOX_MAX_SIDE):
+        raise MarkupError(f"box sides must be from {BOX_MIN_SIDE} to {BOX_MAX_SIDE} of the page")
+    if x + w > 1 + _BOX_EDGE or y + h > 1 + _BOX_EDGE:
+        raise MarkupError("box runs off the page")
+    return {"x": x, "y": y, "w": w, "h": h}
+
+
+def box_arg(x: float, y: float, w: float, h: float) -> str:
+    """The `box=` argument for a page region, to three decimals, kept on the page."""
+    x, y = min(max(round(x, 3), 0.0), 1.0), min(max(round(y, 3), 0.0), 1.0)
+    w, h = min(round(w, 3), round(1 - x, 3)), min(round(h, 3), round(1 - y, 3))
+    return f"box={x:.3f},{y:.3f},{w:.3f},{h:.3f}"
 
 
 def _element(text: str) -> str:

@@ -54,6 +54,25 @@ def test_undo_walks_back_turn_by_turn_and_then_does_nothing():
     assert turn(ctx, "[[undo]]") == []
 
 
+def test_redo_puts_back_what_undo_took_and_a_new_drawing_ends_it():
+    # Live test 2de450e6: "Add the PCs back, please" after an undo had nothing to go on.
+    ctx = BoardContext()
+    turn(ctx, A)
+    turn(ctx, B)
+    turn(ctx, "[[undo]]")
+    assert ctx.redo_items() == ["b"]
+    [back] = turn(ctx, "[[redo]]")
+    assert isinstance(back, BoardAutomaton) and back.item == "b"
+    assert set(ctx.specs) == {"a", "b"}
+    assert turn(ctx, "[[redo]]") == []
+    # And it can be undone again.
+    assert turn(ctx, "[[undo]]") == [BoardClear(kind="board.clear", item="b")]
+    # A new drawing turn ends the redo.
+    turn(ctx, A2)
+    assert ctx.redo_items() == []
+    assert turn(ctx, "[[redo]]") == []
+
+
 def test_a_turn_that_draws_nothing_is_no_step_in_the_history():
     ctx = BoardContext()
     turn(ctx, A)
@@ -95,3 +114,24 @@ def test_erasing_is_board_work_for_the_thinker(text):
         "draw_board",
         "board",
     )
+
+
+def test_a_dfa_without_a_name_gets_one():
+    # Real-token eval (2026-10-18): the thinker wrote [[dfa start=q0 accept=q3 …]] with no item,
+    # the checker dropped it, and the trace and the note after it had no DFA to work on.
+    ctx = BoardContext()
+    [action] = turn(ctx, "[[dfa start=q0 accept=q1 q0-0-q1]]")
+    assert isinstance(action, BoardAutomaton) and action.item == "dfa"
+    [second] = turn(ctx, "[[nfa start=p0 accept=p0 p0-1-p0]]")
+    assert second.item == "nfa"
+    [third] = turn(ctx, "[[dfa start=s accept=s s-0-s]]")
+    assert third.item == "dfa2"
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["Okay, put the PCs back, please.", "Can you restore what you removed?", "Redo that."],
+)
+def test_putting_things_back_is_board_work_for_the_thinker(text):
+    decision = guard(text, rules(text, focus="board"))
+    assert (decision.route, decision.action) == ("thinker", "draw_board")

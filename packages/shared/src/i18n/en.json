@@ -495,8 +495,9 @@
     "loadError": "Could not load memory. Please try again.",
     "saveError": "Could not save memory. Your changes are still here.",
     "conflict": "Memory changed since you opened it. Copy any edits you want to keep, then reload notes.",
-<<<<<<< HEAD
-    "saved": "Saved"
+    "saved": "Saved",
+    "personalizationTitle": "Personalization & memory",
+    "savedTitle": "Saved memories"
   },
   "screen": {
     "choose": "Share a display",
@@ -523,10 +524,6 @@
     "micOff": "Mic off",
     "resetDone": "Annotations reset · Ada is listening",
     "board": "Open board"
-=======
-    "saved": "Saved",
-    "personalizationTitle": "Personalization & memory",
-    "savedTitle": "Saved memories"
   },
   "personalization": {
     "title": "Your ideal tutor",
@@ -542,6 +539,5 @@
     "saveError": "Could not save tutor style. Your edits are still here.",
     "conflict": "Tutor style changed since you opened it. Copy any edits you want to keep, then reload.",
     "saved": "Tutor style saved"
->>>>>>> origin/codex/tutor-personality
   }
 }
