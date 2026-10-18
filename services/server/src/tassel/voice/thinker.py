@@ -1073,8 +1073,10 @@ LADDER = {
     "seeing her own work. Draw the correct machine on the board as fix (or the correct diagram "
     "through draw), [[highlight fix EL]] what changed, and walk an input it now handles "
     "correctly through it: [[trace t fix INPUT]], then one [[step t]] per symbol, each with one "
-    "short spoken sentence. Say in one line what changed, then ask her to fix her own work to "
-    "match. Nothing on her paper.",
+    "short spoken sentence. Pick a different input from the one you walked before, and new "
+    "words: she has heard that walk, so never repeat one of its sentences. Say in one line what "
+    "changed, then end with a question asking her to fix her own work to match. Nothing on her "
+    "paper.",
 }
 # She answered the ladder's question with a try of her own ("is it q3?").
 ATTEMPT = (

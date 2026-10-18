@@ -140,6 +140,16 @@ def install_pointer_effort(coordinator, effort: str) -> bool:
     return True
 
 
+def turn_decision(log: list[dict]) -> dict | None:
+    """The decision the turn ran on: the ladder's escalation when there was one (the director's
+    own decision is what the ladder overrode), else the director's."""
+    for name in ("escalate", "director"):
+        found = next((e.get("decision") for e in log if e["event"] == name), None)
+        if found is not None:
+            return found
+    return None
+
+
 def seed_actions(scenario: Scenario):
     actions = []
     if scenario.seed_tags:
@@ -402,7 +412,7 @@ class PipelineSession:
                 if e["event"] in ("reject", "director_fallback", "draw_fallback")
             ]
             + [{"warning": e.get("text")} for e in log if e["event"] == "server_warning"],
-            decision=first("director", "decision"),
+            decision=turn_decision(log),
             view_request=first("view_request", "view"),
             board_before=before,
             board_after=self._board(),
