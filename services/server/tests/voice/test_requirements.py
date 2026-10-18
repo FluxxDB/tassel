@@ -132,8 +132,26 @@ def test_an_edit_keeps_every_part_under_its_id_unless_she_removed_it():
     assert "keep 'Guest Wi-Fi' (id g); she didn't ask to remove it" in missing(
         dropped, before=before
     )
-    # Removing the Guest zone takes its devices with it only when she named them.
-    assert missing(dropped, before=before, remove=["Guest", "PC 3"]) == []
+    # Removing the Guest zone (by id, or its one exact label) takes its devices with it.
+    assert missing(dropped, before=before, remove=["g"]) == []
+    assert missing(dropped, before=before, remove=["Guest Wi-Fi"]) == []
+    # A generic label names no part: "PC" never excuses dropping Sales' PCs (live dd-after).
+    no_pcs = {
+        **OFFICE,
+        "nodes": [n for n in OFFICE["nodes"] if n["id"] not in ("p1", "p2")],
+        "edges": OFFICE["edges"][:2],
+    }
+    assert missing(no_pcs, before=before, remove=["PC", "Switch"]) == [
+        "keep 'PC 1' (id p1); she didn't ask to remove it",
+        "keep 'PC 2' (id p2); she didn't ask to remove it",
+    ]
+    relabeled = {
+        **OFFICE,
+        "groups": [{**OFFICE["groups"][0], "label": "Retail"}, *OFFICE["groups"][1:]],
+    }
+    assert missing(relabeled, before=before) == [
+        "keep 'Sales' as it was (id s); she didn't rename it"
+    ]
 
 
 def test_checklist_schema_is_strict():

@@ -261,9 +261,11 @@ One requirement per concrete detail she asked for; never invent details she didn
 Unused fields are null (each and exact false). Icons: router, switch, pc, laptop, server, cloud,
 firewall, phone, database, box, circle.
 On an edit of a board item (board_items), set item to its id and list what this request adds
-or changes; put the labels of groups or nodes it removes or renames in remove. What stays is
+or changes; put the ids of the groups or nodes it removes or renames in remove (a removed
+group's devices go with it; never list a part she keeps). What stays is
 checked without being listed. text names the detail in a few words in lang, as the tutor would
-say it to her ("two PCs in Guest"). An empty list when she asked for nothing specific.
+say it to her ("two PCs in Guest"). At most 20, the most specific first; none when she asked
+for nothing specific.
 Schema: """
 
 FUZZY = """You check a board drawing against requirements no rule can check. Return only JSON
@@ -392,7 +394,7 @@ class Illustrator:
                 ],
                 name="checklist",
                 schema=checklist_schema(),
-                max_tokens=1500,
+                max_tokens=3000,
             )
             checklist = Checklist.model_validate_json(content)
         except Exception as error:

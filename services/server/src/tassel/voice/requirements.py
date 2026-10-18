@@ -66,7 +66,7 @@ class Requirement(_Strict):
 class Checklist(_Strict):
     # The board item this request edits, or null for a new drawing.
     item: str | None
-    # Labels of existing groups or nodes this request removes or renames.
+    # Ids of existing groups or nodes this request removes or renames.
     remove: list[str]
     requirements: list[Requirement] = Field(max_length=30)
 
@@ -255,15 +255,20 @@ def keep_problems(spec: DiagramSpec, before: DiagramSpec | None, remove: list[st
     there, under the same id (the board outline names parts by id)."""
     if before is None:
         return []
-    gone = [fold(r) for r in remove if fold(r)]
-
-    def removed(*texts) -> bool:
-        return any(g and g in fold(t) for g in gone for t in texts if t)
+    parts = [*before.groups, *before.nodes]
+    # Ids name parts exactly; a label only when exactly one part has it ("PC" names none of six).
+    gone = {r for r in remove if r in {p.id for p in parts}}
+    for name in remove:
+        named = [p for p in parts if fold(p.label) == fold(name) and fold(name)]
+        if len(named) == 1:
+            gone.add(named[0].id)
+    # A zone that goes takes its devices with it.
+    gone |= {n.id for n in before.nodes if n.group in gone}
 
     problems = []
     now = {g.id: g for g in spec.groups} | {n.id: n for n in spec.nodes}
-    for old in [*before.groups, *before.nodes]:
-        if removed(old.label, old.sublabel):
+    for old in parts:
+        if old.id in gone:
             continue
         same = now.get(old.id)
         if same is not None and fold(same.label) == fold(old.label):
@@ -271,9 +276,11 @@ def keep_problems(spec: DiagramSpec, before: DiagramSpec | None, remove: list[st
         moved = next(
             (e for e in now.values() if fold(e.label) == fold(old.label) and e.id != old.id), None
         )
-        if moved is not None and old.id not in now:
+        if moved is not None and same is None:
             problems.append(f"keep the id {old.id} for {old.label!r} (it became {moved.id})")
-        elif same is None and moved is None:
+        elif same is not None:
+            problems.append(f"keep {old.label!r} as it was (id {old.id}); she didn't rename it")
+        elif moved is None:
             problems.append(f"keep {old.label!r} (id {old.id}); she didn't ask to remove it")
     return problems
 
