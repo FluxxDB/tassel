@@ -13,6 +13,7 @@ import type { MicOptions } from './live/mic';
 import { VoiceConnectionError } from './live/voice-error';
 import boardDemo from './scripts/board-demo.json';
 import dfaOpening from './scripts/dfa-opening.json';
+import diagramDemo from './scripts/diagram-demo.json';
 import marksDemo from './scripts/marks-demo.json';
 import type { FakeScript, TutorClient } from './types';
 
@@ -25,6 +26,8 @@ export const SCRIPTS: Record<string, AuthoredScript | FakeScript> = {
   // P5: Ada's board (Task 5) and her marks on the paper (Tasks 7 and 8).
   'board-demo': boardDemo as FakeScript,
   'marks-demo': marksDemo as AuthoredScript,
+  // A network on the board (board.diagram): three zones behind their routers, and a note.
+  'diagram-demo': diagramDemo as FakeScript,
 };
 
 export interface LiveDeps {

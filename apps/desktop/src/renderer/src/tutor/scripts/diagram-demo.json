@@ -1,0 +1,247 @@
+{
+  "steps": [
+    {
+      "at": 0,
+      "event": {
+        "type": "state",
+        "state": "connecting"
+      }
+    },
+    {
+      "at": 800,
+      "event": {
+        "type": "state",
+        "state": "listening"
+      }
+    },
+    {
+      "at": 1500,
+      "event": {
+        "type": "caption",
+        "speaker": "student",
+        "text": "Can you draw the three subnets as a network?",
+        "lang": "en",
+        "final": true
+      }
+    },
+    {
+      "at": 2500,
+      "event": {
+        "type": "state",
+        "state": "speaking"
+      }
+    },
+    {
+      "at": 2600,
+      "event": {
+        "type": "caption",
+        "speaker": "tutor",
+        "text": "Here are the three zones, each behind its own router.",
+        "lang": "en",
+        "final": true
+      }
+    },
+    {
+      "at": 2700,
+      "event": {
+        "type": "actions",
+        "actions": [
+          {
+            "kind": "board.diagram",
+            "item": "net",
+            "spec": {
+              "title": "Subnets 192.168.1.0/24",
+              "direction": "LR",
+              "groups": [
+                {
+                  "id": "zoneA",
+                  "label": "Zone A",
+                  "sublabel": "192.168.1.0/26"
+                },
+                {
+                  "id": "zoneB",
+                  "label": "Zone B",
+                  "sublabel": "192.168.1.64/27"
+                },
+                {
+                  "id": "zoneC",
+                  "label": "Zone C",
+                  "sublabel": "192.168.1.96/28"
+                }
+              ],
+              "nodes": [
+                {
+                  "id": "core",
+                  "label": "Core switch",
+                  "icon": "switch"
+                },
+                {
+                  "id": "rA",
+                  "label": "Router A",
+                  "sublabel": "192.168.1.1",
+                  "icon": "router",
+                  "group": "zoneA"
+                },
+                {
+                  "id": "pcA1",
+                  "label": "PC A1",
+                  "sublabel": "192.168.1.10",
+                  "icon": "pc",
+                  "group": "zoneA"
+                },
+                {
+                  "id": "pcA2",
+                  "label": "PC A2",
+                  "sublabel": "192.168.1.11",
+                  "icon": "pc",
+                  "group": "zoneA"
+                },
+                {
+                  "id": "rB",
+                  "label": "Router B",
+                  "sublabel": "192.168.1.65",
+                  "icon": "router",
+                  "group": "zoneB"
+                },
+                {
+                  "id": "pcB1",
+                  "label": "PC B1",
+                  "sublabel": "192.168.1.70",
+                  "icon": "pc",
+                  "group": "zoneB"
+                },
+                {
+                  "id": "pcB2",
+                  "label": "PC B2",
+                  "sublabel": "192.168.1.71",
+                  "icon": "laptop",
+                  "group": "zoneB"
+                },
+                {
+                  "id": "rC",
+                  "label": "Router C",
+                  "sublabel": "192.168.1.97",
+                  "icon": "router",
+                  "group": "zoneC"
+                },
+                {
+                  "id": "pcC1",
+                  "label": "PC C1",
+                  "sublabel": "192.168.1.100",
+                  "icon": "pc",
+                  "group": "zoneC"
+                },
+                {
+                  "id": "pcC2",
+                  "label": "PC C2",
+                  "sublabel": "192.168.1.101",
+                  "icon": "pc",
+                  "group": "zoneC"
+                }
+              ],
+              "edges": [
+                {
+                  "from": "core",
+                  "to": "rA",
+                  "label": "Gi0/1",
+                  "directed": false,
+                  "style": "solid"
+                },
+                {
+                  "from": "core",
+                  "to": "rB",
+                  "label": "Gi0/2",
+                  "directed": false,
+                  "style": "solid"
+                },
+                {
+                  "from": "core",
+                  "to": "rC",
+                  "label": "Gi0/3",
+                  "directed": false,
+                  "style": "solid"
+                },
+                {
+                  "from": "rA",
+                  "to": "pcA1",
+                  "directed": false,
+                  "style": "solid"
+                },
+                {
+                  "from": "rA",
+                  "to": "pcA2",
+                  "directed": false,
+                  "style": "solid"
+                },
+                {
+                  "from": "rB",
+                  "to": "pcB1",
+                  "directed": false,
+                  "style": "solid"
+                },
+                {
+                  "from": "rB",
+                  "to": "pcB2",
+                  "directed": false,
+                  "style": "dashed"
+                },
+                {
+                  "from": "rC",
+                  "to": "pcC1",
+                  "directed": false,
+                  "style": "solid"
+                },
+                {
+                  "from": "rC",
+                  "to": "pcC2",
+                  "directed": false,
+                  "style": "solid"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "at": 4200,
+      "event": {
+        "type": "caption",
+        "speaker": "tutor",
+        "text": "Router A is the gateway for the first sixty-two hosts.",
+        "lang": "en",
+        "final": true
+      }
+    },
+    {
+      "at": 4300,
+      "event": {
+        "type": "actions",
+        "actions": [
+          {
+            "kind": "board.highlight",
+            "item": "net",
+            "el": "node:rA",
+            "on": true
+          },
+          {
+            "kind": "board.note",
+            "item": "hosts",
+            "text": "Zone A /26: 62 hosts\nZone B /27: 30 hosts\nZone C /28: 14 hosts",
+            "near": {
+              "item": "net",
+              "el": "node:rA"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "at": 5400,
+      "event": {
+        "type": "state",
+        "state": "listening"
+      }
+    }
+  ]
+}
