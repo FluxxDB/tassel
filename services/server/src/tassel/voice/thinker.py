@@ -138,6 +138,29 @@ AUTOMATA = re.compile(r"\b(?:dfa|nfa|automat\w*|state machine|accept\w*|regex|la
 NOTE_PREFIX = "[tutor notes]"
 THINKER_WINDOW = 12
 MARK_ID = re.compile(r"\bm\d+\b")
+# A structured value: digits joined by dots, slashes, colons or hyphens (an IP, a CIDR, a date).
+# What a page read and the learner memory can disagree about; plain numbers and states are not.
+FACT = re.compile(r"(?<![\w.])\d+(?:[./:-]\d+)+(?!\w)")
+
+
+def facts(text: str) -> set[str]:
+    return set(FACT.findall(text or ""))
+
+
+def fact_shape(fact: str) -> str:
+    if re.fullmatch(r"\d+(?:\.\d+){3}/\d+", fact):
+        return "cidr"
+    if re.fullmatch(r"\d+(?:\.\d+){3}", fact):
+        return "dotted"
+    return "other"
+
+
+def _replace_fact(text: str, fact: str, replacement: str | None) -> str:
+    if replacement is not None:
+        return text.replace(fact, replacement)
+    # The value goes, with the quotes around it; the words around it stay.
+    text = re.sub(r"[\"“”']?" + re.escape(fact) + r"[\"“”']?", "", text)
+    return re.sub(r"\s{2,}", " ", text).strip()
 
 
 def _similar(a: str, b: str) -> bool:
@@ -597,8 +620,40 @@ class TutorCoordinator:
         finally:
             self.log("pointer_duration", ms=(time.monotonic() - started) * 1000)
 
-    async def _brief(self, generation, messages, effort):
+    def _page_over_memory(self, brief):
+        """A value the learner memory holds, which this page's earlier reads contradict, never
+        stands in page or a mark target: the reads' own value replaces it, or, when they name
+        several, it goes. Her words, the legend and the reads make a value current; a page
+        with no read to disagree is left to the image. Live session 3d8b1d78: the memory's
+        10.0.0.0/24 became the page read and the Pointer's target over a paper that said
+        192.168.1.0/24."""
+        memory = facts(getattr(self.thinker, "learner_notes", "") or "")
+        if not memory:
+            return brief
+        reads = {f for note in self.notes for f in facts(note.page)}
+        current = reads | facts(self.page_caption) | facts(self.text)
+        written = facts(brief.page) | {f for m in brief.marks for f in facts(m.target)}
+        page, marks = brief.page, list(brief.marks)
+        for fact in sorted((memory - current) & written):
+            same = {f for f in reads if f != fact and fact_shape(f) == fact_shape(fact)}
+            if not same:
+                continue
+            replacement = next(iter(same)) if len(same) == 1 else None
+            self.log("memory_not_paper", fact=fact, page=replacement)
+            page = _replace_fact(page, fact, replacement)
+            marks = [
+                m.model_copy(update={"target": _replace_fact(m.target, fact, replacement)[:80]})
+                for m in marks
+            ]
+        marks = [m for m in marks if m.target]
+        return brief.model_copy(update={"page": page, "marks": marks})
+
+    async def _think(self, messages, effort):
         brief = lift_say_tags(await self.thinker.think(messages, effort=effort))
+        return self._page_over_memory(brief)
+
+    async def _brief(self, generation, messages, effort):
+        brief = await self._think(messages, effort)
         if generation != self.generation:
             return None
         decision = self.decision or rules(self.text)
@@ -616,7 +671,7 @@ class TutorCoordinator:
             self.log("reject", source="action_checker", reason=checked.repair)
             original_language = brief.language
             try:
-                repaired = await self.thinker.think(
+                repaired = await self._think(
                     [
                         *messages,
                         {
@@ -627,10 +682,10 @@ class TutorCoordinator:
                             "Previous brief: " + brief.model_dump_json(),
                         },
                     ],
-                    effort=effort,
+                    effort,
                 )
                 # A repair may not evade verification by removing/changing the target.
-                brief = lift_say_tags(repaired).model_copy(update={"language": original_language})
+                brief = repaired.model_copy(update={"language": original_language})
                 brief = await self._point(brief, decision, generation)
                 checked = await asyncio.to_thread(
                     partial(check_tags, student_text=self.text),
