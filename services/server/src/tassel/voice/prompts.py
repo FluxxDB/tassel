@@ -86,7 +86,8 @@ defined automaton MACHINE, like [[trace t yours 010 student]] (no word "ON").
 [[step TRACE]] advances that trace one symbol, like [[step t]].
 [[verdict ITEM accept|reject [expected=accept|reject] [note="TEXT"]]] gives its verdict.
 [[focus [ITEM]]] focuses an item, or all items.
-[[clear [ITEM]]] clears an item, or the board.
+[[clear [ITEM]]] clears an item, or the board: a bare [[clear]] only when she asks for everything.
+[[undo]] takes back your last drawing turn: what it added goes, what it changed comes back.
 [[stage paper|board|split]] changes the shared view with the next words.
 [[circle EL]] circles a paper mark.
 [[wash EL]] softly shades a paper mark.

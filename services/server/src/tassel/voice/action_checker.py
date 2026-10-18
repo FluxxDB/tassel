@@ -102,10 +102,33 @@ def _reading(spec):
     )
 
 
-def check_tags(tags, decision, board, language=None, *, allow=allowed):
+# Her words asking for the whole board to go (a bare [[clear]]); anything less names an item.
+CLEAR_ALL = re.compile(
+    r"\b(?:everything|all of (?:it|them)|the whole (?:board|thing)|(?:the )?entire board|"
+    r"start (?:over|fresh)|clean slate|blank board|clear (?:the|your) (?:white)?board|"
+    r"wipe (?:the|your|it)\b)",
+    re.I,
+)
+BARE_CLEAR = re.compile(r"\[\[\s*clear\s*\]\]", re.I)
+
+
+def check_tags(tags, decision, board, language=None, *, allow=allowed, student_text=None):
     context = deepcopy(board)
     result = CheckedTags([], [])
     for tag in tags:
+        if (
+            student_text is not None
+            and BARE_CLEAR.fullmatch(tag.strip())
+            and not CLEAR_ALL.search(student_text)
+            and len(context.specs) + len(context.diagrams) > 1
+        ):
+            # Live test: "delete the old drawing" wiped everything. Clear what she means.
+            return CheckedTags(
+                [],
+                list(tags),
+                "Clear only what she means: [[clear ITEM]] with its id, or [[undo]] to take back "
+                "your last drawing turn. A bare [[clear]] only when she asks to clear everything.",
+            )
         candidate = deepcopy(context)
         stream = MarkupStream(candidate)
         sentences = stream.feed(tag + " Check.") + stream.flush()

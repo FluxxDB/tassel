@@ -6,6 +6,7 @@ import difflib
 import re
 import time
 from copy import deepcopy
+from functools import partial
 
 import cv2
 import numpy as np
@@ -507,7 +508,11 @@ class TutorCoordinator:
         if generation != self.generation:
             return None
         checked = await asyncio.to_thread(
-            check_tags, brief.board + brief.paper, decision, self.board, brief.language
+            partial(check_tags, student_text=self.text),
+            brief.board + brief.paper,
+            decision,
+            self.board,
+            brief.language,
         )
         if checked.repair:
             self.log("reject", source="action_checker", reason=checked.repair)
@@ -530,7 +535,7 @@ class TutorCoordinator:
                 brief = lift_say_tags(repaired).model_copy(update={"language": original_language})
                 brief = await self._point(brief, decision, generation)
                 checked = await asyncio.to_thread(
-                    check_tags,
+                    partial(check_tags, student_text=self.text),
                     brief.board + brief.paper,
                     decision,
                     self.board,

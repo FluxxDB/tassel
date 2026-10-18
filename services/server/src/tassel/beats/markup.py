@@ -26,6 +26,7 @@ Commands (ITEM is a board item's id; EL is "start", a state such as "q0", or an 
 """
 
 import re
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -66,6 +67,10 @@ MAX_TAG = 1000
 """How long an open "[[" may run, in characters, before it's taken as unclosed."""
 
 
+# How many of her drawing turns [[undo]] can take back.
+UNDO_DEPTH = 10
+
+
 @dataclass
 class BoardContext:
     """One per bot: the automata Ada has defined, which trace copies, and the paper-mark counter.
@@ -78,6 +83,48 @@ class BoardContext:
     paper_frame: PaperFrame | None = None
     paper_elements: PaperElements | None = None
     paper_spec: AutomatonSpec | None = None
+    # Her edit history: the board (automata and diagrams) as it was before each of her last
+    # drawing turns, newest last, so [[undo]] can put it back (owner, 2026-10-18).
+    history: list[tuple[dict[str, AutomatonSpec], dict[str, DiagramSpec]]] = field(
+        default_factory=list
+    )
+    _turn_start: tuple[dict[str, AutomatonSpec], dict[str, DiagramSpec]] | None = None
+
+    def _state(self) -> tuple[dict[str, AutomatonSpec], dict[str, DiagramSpec]]:
+        return deepcopy(self.specs), deepcopy(self.diagrams)
+
+    def begin_turn(self) -> None:
+        """One of her replies begins: remember the board as it is."""
+        self._turn_start = self._state()
+
+    def end_turn(self) -> None:
+        """Her reply ended: a reply that changed the board is a step [[undo]] can take back."""
+        start, self._turn_start = self._turn_start, None
+        if start is not None and start != (self.specs, self.diagrams):
+            self.history = [*self.history[-(UNDO_DEPTH - 1) :], start]
+
+    def undo(self) -> list[BeatAction]:
+        """The actions that put back the board as it was before her last drawing turn: what it
+        added is cleared, what it changed or cleared is drawn again whole."""
+        if not self.history:
+            return []
+        specs, diagrams = self.history.pop()
+        actions: list[BeatAction] = [
+            _make(BoardClear, item=item)
+            for item in [*self.specs, *self.diagrams]
+            if item not in specs and item not in diagrams
+        ]
+        for item, spec in specs.items():
+            if self.specs.get(item) != spec:
+                actions.append(_make(BoardAutomaton, item=item, spec=_dumped(spec), reveal="all"))
+        for item, diagram in diagrams.items():
+            if self.diagrams.get(item) != diagram:
+                actions.append(_make(BoardDiagram, item=item, spec=diagram, reveal="all"))
+        self.specs, self.diagrams = deepcopy(specs), deepcopy(diagrams)
+        if self._turn_start is not None:
+            # The undo isn't a step of its own: what else this reply draws is.
+            self._turn_start = self._state()
+        return actions
 
 
 @dataclass(frozen=True)
@@ -146,7 +193,12 @@ class MarkupStream:
             if closing >= 0:
                 raw = self._pending[: closing + 2]
                 self._pending = self._pending[closing + 2 :]
-                self._add(self._tag(raw))
+                if raw[2:-2].strip().lower() == "undo":
+                    # One tag, as many actions as the last drawing turn changed items.
+                    for action in self._ctx.undo():
+                        self._add(_Tag(raw, action, None))
+                else:
+                    self._add(self._tag(raw))
             elif final:
                 self._add(
                     _Tag(self._pending, None, f"unclosed tag dropped: {_short(self._pending)}")

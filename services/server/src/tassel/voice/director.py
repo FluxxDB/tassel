@@ -126,6 +126,14 @@ def view_request(text) -> Literal["paper", "board", "split"] | None:
     return None
 
 
+# Taking something off the board: erase, delete, undo, "get rid of".
+ERASE = re.compile(
+    r"\b(?:erase|delete|undo|remove|get rid of|take (?:it|that|them) (?:off|away)|"
+    r"clear (?:it|that|the|your|this))\b",
+    re.I,
+)
+
+
 def _draw_request(text):
     return bool(DRAW.search(SELF_WORK.sub(" ", text)))
 
@@ -196,6 +204,11 @@ def guard(text, decision):
         and (decision.action != "draw_board" or decision.focus not in ("board", "split"))
     ):
         update.update(action="draw_board", focus="split" if decision.focus == "split" else "board")
+    if ERASE.search(text) and not named_paper:
+        # Erasing or undoing her drawing is board work: the thinker picks what to take back.
+        update.update(action="draw_board", refers_to="board", needs_vision=False, route="thinker")
+        if decision.focus not in ("board", "split"):
+            update["focus"] = "board"
     merged = decision.model_copy(update=update)
     if merged.route == "talker" and (
         merged.needs_vision

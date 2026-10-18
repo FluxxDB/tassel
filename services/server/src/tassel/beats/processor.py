@@ -113,8 +113,11 @@ class BeatTagProcessor(FrameProcessor):
         if isinstance(frame, InterruptionFrame):
             self._guard_buffer = self._reply_text = ""
             self._stream = MarkupStream(self._board)
+            # What she drew before the interruption is still a step [[undo]] can take back.
+            self._board.end_turn()
         if direction == FrameDirection.DOWNSTREAM:
             if isinstance(frame, LLMFullResponseStartFrame):
+                self._board.begin_turn()
                 self._turn = uuid4().hex[:8]
                 self._sequence = 0
                 self._guard_buffer = self._reply_text = ""
@@ -129,4 +132,5 @@ class BeatTagProcessor(FrameProcessor):
             elif isinstance(frame, LLMFullResponseEndFrame):
                 await self._feed_guarded("", final=True)
                 await self._emit(self._stream.flush())
+                self._board.end_turn()
         await self.push_frame(frame, direction)
