@@ -267,3 +267,17 @@ async def test_failed_lookup_clears_previous_turn_context(client, db, store):
     with pytest.raises(ObjectStoreError):
         await turn_image_for(uuid.UUID(sid), db=db, store=FailedStore(), context=ctx)
     assert ctx.paper_frame is None and ctx.paper_elements is None and ctx.paper_spec is None
+
+
+def test_turn_image_caps_marks_but_the_deep_reader_keeps_them():
+    # The voice model's page shows at most 12 marks (drawn circles first, then the largest
+    # labels); find_candidates still returns up to 40 for P4's deep reader.
+    from tassel.vision.marks import MAX_MARKS, Candidates, CircleMark, LabelMark
+    from tassel.vision.turn_image import TURN_MAX_MARKS, _turn_candidates
+
+    circles = tuple(CircleMark(mark=i + 1, cx=10 * i, cy=10, r=5, inner=False) for i in range(3))
+    labels = tuple(LabelMark(mark=4 + i, x=0, y=0, w=1 + i, h=1 + i) for i in range(30))
+    capped = _turn_candidates(Candidates(circles=circles, labels=labels))
+    assert MAX_MARKS == 40 and TURN_MAX_MARKS == 12
+    assert len(capped.circles) == 3 and len(capped.labels) == 9
+    assert [m.w for m in capped.labels] == sorted((m.w for m in labels), reverse=True)[:9]

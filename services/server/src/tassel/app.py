@@ -12,11 +12,11 @@ from tassel.config import Settings
 from tassel.frames import api as frames
 from tassel.frames.objects import make_object_store
 from tassel.storage.db import make_engine, session_factory
-from tassel.voice import api as voice_api
-from tassel.voice.settings import VoiceConfigError, VoiceSettings, check_voice_settings
 from tassel.vision import api as vision
 from tassel.vision.registry import VisionRegistry
 from tassel.vision.settings import VisionConfigError, VisionSettings, check_vision_settings
+from tassel.voice import api as voice_api
+from tassel.voice.settings import VoiceConfigError, VoiceSettings, check_voice_settings
 
 
 @asynccontextmanager

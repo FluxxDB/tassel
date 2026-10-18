@@ -29,7 +29,7 @@ from tassel.domains.dfa.contract import Pt
 from tassel.frames import repo
 from tassel.frames.objects import ObjectStore
 from tassel.frames.tables import Frame
-from tassel.vision.marks import draw_marks, find_candidates
+from tassel.vision.marks import Candidates, draw_marks, find_candidates
 from tassel.vision.page import FlatPage, decode_jpeg, encode_jpeg, enhance_for_llm, flatten_page
 
 
@@ -79,6 +79,21 @@ def _model_jpeg(rgb: np.ndarray) -> bytes:
         )
 
 
+TURN_MAX_MARKS = 12  # The voice model's page: drawn circles first, then the largest ink labels.
+
+
+def _turn_candidates(c: Candidates) -> Candidates:
+    """Few, meaningful marks for the voice model; the deep reader keeps the full set."""
+    circles = list(c.circles)[:TURN_MAX_MARKS]
+    room = TURN_MAX_MARKS - len(circles)
+    labels = sorted(c.labels, key=lambda m: m.w * m.h, reverse=True)[: max(0, room)]
+    return replace(
+        c,
+        circles=tuple(circles) if isinstance(c.circles, tuple) else circles,
+        labels=tuple(labels) if isinstance(c.labels, tuple) else labels,
+    )
+
+
 def _page_view(jpeg: bytes, row: Frame) -> PageView | None:
     stored_quad = row.meta.get("page_quad")
     quad = None if stored_quad is None else [Pt(**point) for point in stored_quad]
@@ -91,7 +106,7 @@ def _page_view(jpeg: bytes, row: Frame) -> PageView | None:
         h, w = rgb.shape[:2]
         corners = (Pt(x=0, y=0), Pt(x=w, y=0), Pt(x=w, y=h), Pt(x=0, y=h))
         page = FlatPage(rgb, w, h, corners, False)
-    candidates = find_candidates(page)
+    candidates = _turn_candidates(find_candidates(page))
     elements = []
     for circle in candidates.circles:
         x, y = max(0, circle.cx - circle.r), max(0, circle.cy - circle.r)

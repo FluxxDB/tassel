@@ -8,7 +8,7 @@ import numpy as np
 
 from tassel.vision.page import PAGE_LONG_SIDE, FlatPage, ink_mask
 
-MAX_MARKS = 12  # Bound the numbered geometry sent to the reader.
+MAX_MARKS = 40  # Bound the numbered geometry sent to the deep reader.
 HOUGH_BLUR_SIZE = 5  # Smooth JPEG noise before the gradient-based circle finder.
 HOUGH_DP = 1.5  # Ratio of image resolution to accumulator resolution.
 HOUGH_MIN_DISTANCE = 0.05  # Minimum circle-center separation in page widths.
