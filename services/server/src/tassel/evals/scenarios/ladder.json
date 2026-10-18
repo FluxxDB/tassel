@@ -1,0 +1,49 @@
+{
+  "name": "ladder",
+  "title": "The whiteboard ladder on her DFA: spot it, see hers traced, see the correct one",
+  "description": "The owner's flow (2026-10-18) on her 010 DFA with q3 not accepting. A check of her work gets only 'there's an error, can you spot it?'; 'no' redraws her machine on the board as yours, highlights it and steps one breaking input through it, ending in a question; still stuck draws the correct machine and steps a correct input through it. Board only: no paper marks.",
+  "stage": { "view": "paper" },
+  "turns": [
+    {
+      "student": "Can you take a look at my DFA?",
+      "page": "dfa-page",
+      "expect": {
+        "route": "thinker",
+        "action": "explain",
+        "no_tags": [
+          "board.automaton",
+          "board.trace",
+          "board.traceStep",
+          "board.diagram",
+          "paper.mark"
+        ],
+        "board": { "unchanged": true },
+        "forbid": ["q three", "q3", "q 3"],
+        "asks": true
+      }
+    },
+    {
+      "student": "No, I can't see it.",
+      "expect": {
+        "route": "thinker",
+        "action": "draw_board",
+        "tags": ["board.automaton", "board.highlight", "board.trace"],
+        "counts": { "board.traceStep": { "min": 3 } },
+        "no_tags": ["paper.mark"],
+        "board": { "automata": { "min": 1 } },
+        "asks": true
+      }
+    },
+    {
+      "student": "I still don't get it.",
+      "expect": {
+        "route": "thinker",
+        "action": "draw_board",
+        "tags": ["board.automaton", "board.trace"],
+        "counts": { "board.traceStep": { "min": 3 } },
+        "no_tags": ["paper.mark"],
+        "board": { "automata": { "min": 2 } }
+      }
+    }
+  ]
+}
