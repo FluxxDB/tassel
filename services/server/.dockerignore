@@ -1,0 +1,14 @@
+# The build context is services/server. Secrets, local state and host environments stay out.
+.env
+.env*
+**/.env*
+.local
+.cache
+.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+node_modules
+tests
+no-provider-keys.env
