@@ -119,11 +119,15 @@ export const AREAS = [
   },
   {
     name: 'vision',
-    title: 'Vision: reading the paper, gates, transcription, the read-back card',
+    title: 'Vision: paper and student-image marks, gates, transcription, the read-back card',
     app: [`${R}/vision/**`],
     server: [`${SRC}/vision/**`, 'packages/shared/src/vision/**'],
     unit: [`${UNIT}/vision/**`, 'packages/shared/tests/vision-contract.test.ts'],
-    pytest: [`${PY}/vision/**`],
+    pytest: [
+      `${PY}/vision/**`,
+      `${PY}/image_marks_fixtures.py`,
+      `${PY}/voice/test_pointer_marks.py`,
+    ],
   },
   {
     name: 'voice',
