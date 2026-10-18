@@ -58,27 +58,25 @@ export function OptionCards<T extends string>({
             aria-labelledby={`${id}-${option.value}`}
             aria-describedby={`${id}-${option.value}-about`}
             className={cn(
-              'relative flex min-h-[92px] min-w-0 flex-col items-start gap-1.5 rounded-card-sm bg-paper p-3.5 text-left transition-[box-shadow,background-color] duration-150 disabled:cursor-not-allowed disabled:opacity-40',
+              'relative flex min-h-[76px] min-w-0 flex-col items-start gap-1.5 rounded-card-sm bg-paper p-3.5 text-left transition-[box-shadow,background-color] duration-150 disabled:cursor-not-allowed disabled:opacity-40',
               selected
                 ? 'shadow-[0_0_0_1.5px_var(--color-ink)]'
                 : 'shadow-[0_0_0_1px_var(--color-hairline)] hover:shadow-[0_0_0_1px_var(--color-smoke)]',
             )}
           >
-            <span className="flex w-full items-center justify-between gap-2">
-              {option.icon && (
-                <span aria-hidden="true" className="text-ink [&>svg]:size-5">
-                  {option.icon}
-                </span>
-              )}
-              <span
-                aria-hidden="true"
-                className={cn(
-                  'ml-auto grid size-[18px] place-items-center rounded-pill transition-opacity duration-150 [&>svg]:size-3',
-                  selected ? 'bg-ink text-paper opacity-100' : 'opacity-0',
-                )}
-              >
-                <Check strokeWidth={2.4} />
+            {option.icon && (
+              <span aria-hidden="true" className="text-ink [&>svg]:size-5">
+                {option.icon}
               </span>
+            )}
+            <span
+              aria-hidden="true"
+              className={cn(
+                'absolute top-3.5 right-3.5 grid size-[18px] place-items-center rounded-pill transition-opacity duration-150 [&>svg]:size-3',
+                selected ? 'bg-ink text-paper opacity-100' : 'opacity-0',
+              )}
+            >
+              <Check strokeWidth={2.4} />
             </span>
             <span
               id={`${id}-${option.value}`}

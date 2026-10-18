@@ -201,6 +201,10 @@ export const More = icon(
 
 export const ChevronDown = icon('ChevronDown', <path d="m7 10 5 5 5-5" />);
 
+export const ChevronLeft = icon('ChevronLeft', <path d="m14.5 6-6 6 6 6" />);
+
+export const ChevronRight = icon('ChevronRight', <path d="m9.5 6 6 6-6 6" />);
+
 export const Check = icon('Check', <path d="m5 12.5 4.5 4.5L19 7.5" />);
 
 /** Push-to-talk: a raised hand, held while she talks. */

@@ -27,7 +27,7 @@ export function DefaultsSection({ platform }: { platform: Platform }) {
       : (defaults.source ?? defaultSource(platform));
   return (
     <>
-      <SettingsGroup title={t('settings.defaults.newSession')}>
+      <SettingsGroup>
         <div className="flex flex-col gap-2.5">
           <span className="text-sm font-w520">{t('settings.defaults.language')}</span>
           <Segmented<Lang | 'app'>
@@ -47,6 +47,7 @@ export function DefaultsSection({ platform }: { platform: Platform }) {
         <div className="flex flex-col gap-2.5">
           <span className="text-sm font-w520">{t('newSession.groups.source')}</span>
           <SourceCards
+            icons={false}
             platform={platform}
             value={source}
             onChange={(value) => defaults.set({ source: value })}

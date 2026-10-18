@@ -19,6 +19,8 @@ export interface SourceCardsProps {
   paperFakeClip?: boolean;
   paperWebcam?: boolean;
   describedBy?: string;
+  /** The sheet shows an icon on each card; Settings' denser panel leaves them out. */
+  icons?: boolean;
 }
 
 export function SourceCards({
@@ -28,6 +30,7 @@ export function SourceCards({
   paperFakeClip = getPaperConfig().fakeClip,
   paperWebcam = getPaperConfig().source === 'webcam',
   describedBy,
+  icons = true,
 }: SourceCardsProps) {
   const { t } = useTranslation();
   return (
@@ -38,7 +41,7 @@ export function SourceCards({
       onChange={onChange}
       options={SOURCES.map((source) => ({
         value: source,
-        icon: ICONS[source],
+        icon: icons ? ICONS[source] : undefined,
         label:
           source === 'paper' && paperWebcam
             ? t('paper.webcam.choice')

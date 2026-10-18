@@ -668,7 +668,6 @@
     },
     "defaults": {
       "description": "How a new session starts. You can still change each one when you start it.",
-      "newSession": "New sessions",
       "language": "Session language",
       "languageApp": "Same as app",
       "captions": "Captions on",

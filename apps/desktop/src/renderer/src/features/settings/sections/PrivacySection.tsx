@@ -57,7 +57,7 @@ export function PrivacySection() {
           {t('settings.privacy.deleteAll')}
         </Button>
       </div>
-      <p role="status" className="min-h-5 text-sm text-smoke-text">
+      <p role="status" className="text-sm text-smoke-text empty:sr-only">
         {outcome?.kind === 'done' && t('settings.privacy.done', { count: outcome.count })}
         {outcome?.kind === 'failed' && t('settings.privacy.failed')}
       </p>

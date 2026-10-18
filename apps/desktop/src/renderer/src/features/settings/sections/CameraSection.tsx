@@ -39,7 +39,11 @@ export function CameraSection({ platform }: { platform: Platform }) {
               description: t(`settings.camera.hints.${value}`),
             }))}
           />
-          <p id={note} role="status" className="min-h-5 text-xs leading-relaxed text-smoke-text">
+          <p
+            id={note}
+            role="status"
+            className="text-xs leading-relaxed text-smoke-text empty:sr-only"
+          >
             {atLaunch !== null && saved !== atLaunch ? t('settings.camera.restart') : ''}
           </p>
         </div>

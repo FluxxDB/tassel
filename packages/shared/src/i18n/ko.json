@@ -668,7 +668,6 @@
     },
     "defaults": {
       "description": "새 세션이 시작되는 방식입니다. 시작할 때 하나씩 바꿀 수도 있어요.",
-      "newSession": "새 세션",
       "language": "세션 언어",
       "languageApp": "앱과 같게",
       "captions": "자막 켜기",

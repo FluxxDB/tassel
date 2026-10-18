@@ -174,10 +174,10 @@ export function TitleStrip({ session, failed, startedAt }: TitleStripProps) {
         />
         {session && live && <LanguageMenu session={session} />}
         {session && !live && (
-          <Chip tone="ink">
+          <span className="mono flex h-7 items-center rounded-pill bg-paper px-3 text-[11px] leading-[14px] text-ink shadow-[0_0_0_1px_var(--color-hairline)]">
             <span aria-hidden="true">{session.language}</span>
             <span className="sr-only">{t(`newSession.language.${session.language}`)}</span>
-          </Chip>
+          </span>
         )}
         <span className="flex items-center gap-0.5">
           {/* Above where the chat sidebar opens. */}

@@ -49,7 +49,8 @@ export function Segmented<T extends string>({
       aria-describedby={describedBy}
       className={cn(
         'inline-flex max-w-full items-center gap-0.5 rounded-pill bg-ink/[0.05] p-[3px]',
-        fill && 'flex w-full',
+        // Its own width in a column, unless it fills it.
+        fill ? 'flex w-full' : 'self-start',
         className,
       )}
     >

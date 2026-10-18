@@ -668,7 +668,6 @@
     },
     "defaults": {
       "description": "Cómo empieza una sesión nueva. Puedes cambiar cada opción al empezarla.",
-      "newSession": "Sesiones nuevas",
       "language": "Idioma de la sesión",
       "languageApp": "Como la app",
       "captions": "Subtítulos activados",

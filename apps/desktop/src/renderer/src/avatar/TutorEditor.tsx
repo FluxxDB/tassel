@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../components/Button';
+import { ChevronLeft, ChevronRight } from '../components/icons';
 import { TabList, TabPanel, Tabs } from '../components/Tabs';
 import { Avatar } from './Avatar';
 import {
@@ -94,7 +95,7 @@ export function TutorEditor({ open, onDone }: TutorEditorProps) {
           aria-label={t('avatar.previous', { part: t(`avatar.fields.${key}`) })}
           onClick={() => update(key, cycle(options, draft[key], -1))}
         >
-          ‹
+          <ChevronLeft className="size-5" />
         </button>
         <span className="min-w-[100px] text-center text-[13px]" aria-live="polite">
           {t(`avatar.options.${draft[key]}`)}
@@ -105,7 +106,7 @@ export function TutorEditor({ open, onDone }: TutorEditorProps) {
           aria-label={t('avatar.next', { part: t(`avatar.fields.${key}`) })}
           onClick={() => update(key, cycle(options, draft[key], 1))}
         >
-          ›
+          <ChevronRight className="size-5" />
         </button>
       </div>
     </div>
@@ -261,7 +262,7 @@ export function TutorEditor({ open, onDone }: TutorEditorProps) {
                           id={`avatar-voice-${lang}`}
                           value={draft[VOICE_FIELDS[lang]]}
                           onChange={(event) => update(VOICE_FIELDS[lang], event.target.value)}
-                          className="w-full min-w-0 rounded-input border border-hairline bg-paper p-2 text-ink"
+                          className="h-10 w-full min-w-0 rounded-pill border border-hairline bg-bone px-3.5 text-sm text-ink"
                         >
                           <option value="off">{t('avatar.voiceOff')}</option>
                           {VOICES.filter((item) => item.language === lang).map((item) => (
