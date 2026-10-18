@@ -13,6 +13,8 @@ from tassel.board.snapshots import BoardSnapshots
 from tassel.config import Settings
 from tassel.frames import api as frames
 from tassel.frames.objects import make_object_store
+from tassel.screen import api as screen_api
+from tassel.screen.session import ScreenSessions
 from tassel.storage.db import make_engine, session_factory
 from tassel.vision import api as vision
 from tassel.vision.registry import VisionRegistry
@@ -44,6 +46,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.vision = registry
         app.state.voice = VoiceRegistry(
             settings=voice_settings,
+            screens=app.state.screens,
             sessions=app.state.session_factory,
             board_snapshots=app.state.board_snapshots,
             # Each student turn sees her latest stored page (vision-lite), on the bot's board.
@@ -78,6 +81,7 @@ def create_app(
     app.state.object_store = make_object_store(settings)
     app.state.voice_settings = voice_settings
     app.state.board_snapshots = BoardSnapshots()
+    app.state.screens = ScreenSessions()
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -94,6 +98,7 @@ def create_app(
         frames.router,
         board_api.router,
         voice_api.router,
+        screen_api.router,
         vision.router,
     ):
         app.include_router(router, prefix="/v1")

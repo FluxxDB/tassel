@@ -1647,6 +1647,52 @@
         "title": "ReferenceInfo",
         "type": "object"
       },
+      "ScreenAck": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "epoch": {
+            "title": "Epoch",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "epoch",
+          "active"
+        ],
+        "title": "ScreenAck",
+        "type": "object"
+      },
+      "ScreenControl": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "epoch": {
+            "maximum": 9007199254740991.0,
+            "minimum": 1.0,
+            "title": "Epoch",
+            "type": "integer"
+          },
+          "source": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "epoch",
+          "active"
+        ],
+        "title": "ScreenControl",
+        "type": "object"
+      },
       "SessionCreate": {
         "properties": {
           "language": {
@@ -2765,6 +2811,154 @@
         "summary": "Finish Memory",
         "tags": [
           "memory"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/screen/control": {
+      "post": {
+        "operationId": "control_v1_sessions__session_id__screen_control_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScreenControl"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenAck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Control",
+        "tags": [
+          "screen"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/screen/frame": {
+      "post": {
+        "operationId": "upload_v1_sessions__session_id__screen_frame_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Source",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "epoch",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Epoch",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision",
+            "required": true,
+            "schema": {
+              "minimum": 0,
+              "title": "Revision",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "frame_id",
+            "required": true,
+            "schema": {
+              "maxLength": 80,
+              "minLength": 1,
+              "title": "Frame Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenAck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "DeviceToken": []
+          }
+        ],
+        "summary": "Upload",
+        "tags": [
+          "screen"
         ]
       }
     },

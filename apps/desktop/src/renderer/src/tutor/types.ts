@@ -43,6 +43,7 @@ export type TutorEvent =
   | { type: 'voice-debug'; event: VoiceDebugEvent }
   /** The server asks for her paper as it is now: her turn began. */
   | { type: 'paper-request' }
+  | { type: 'screen-marks'; data: unknown }
   /** The server asks for the board as it is now, a PNG for Ada's board turn. */
   | { type: 'board-snapshot' };
 
@@ -66,6 +67,8 @@ export interface TutorClient {
   on(listener: (e: TutorEvent) => void): () => void;
   /** The dev/fake path: a typed student line. */
   sendText(text: string): void;
+  /** Immediately suppress the current response until a fresh screen turn is acknowledged. */
+  interrupt?(epoch: number): void;
   /** Only the live voice tutor has these. */
   readonly voice?: VoiceControls;
 }

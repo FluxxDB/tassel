@@ -44,6 +44,12 @@ export class FakeTutorClient implements TutorClient {
     };
   }
 
+  interrupt(_epoch: number): void {
+    this.stop();
+    this.connected = true;
+    this.emit({ type: 'state', state: 'listening' });
+  }
+
   sendText(text: string): void {
     this.emit({ type: 'caption', speaker: 'student', text, lang: this.lang, final: true });
   }

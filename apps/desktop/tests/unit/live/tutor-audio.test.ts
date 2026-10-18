@@ -147,3 +147,19 @@ describe('TutorAudio', () => {
     expect(audio.level()).toBe(0);
   });
 });
+
+it('screen reset silences primary and presenter outputs even across duck changes', async () => {
+  const { audio, element, contexts } = setup();
+  audio.attach(new FakeTrack().asTrack());
+  await audio.setSinks({ primary: 'one', presenter: 'two' });
+  audio.interrupt(true);
+  expect(element.muted).toBe(true);
+  expect(contexts[1]?.destination.signal()).toBe(0);
+  audio.duck(true);
+  audio.duck(false);
+  expect(contexts[1]?.destination.signal()).toBe(0);
+  audio.interrupt(false);
+  expect(element.muted).toBe(false);
+  expect(contexts[1]?.destination.signal()).toBeCloseTo(0.5);
+  audio.dispose();
+});

@@ -12,10 +12,14 @@ from tassel.voice.messages import VadEvent, envelope
 class ServerEvents:
     def __init__(self, worker: PipelineWorker | None = None):
         self.worker = worker
+        self.screen = None
 
     async def send(self, event: BaseModel) -> None:
         assert self.worker is not None, "ServerEvents must be bound before the pipeline starts"
-        await self.worker.rtvi.send_server_message(envelope(event))
+        data = envelope(event)
+        if self.screen is not None and self.screen.source:
+            data["screen_epoch"] = self.screen.epoch
+        await self.worker.rtvi.send_server_message(data)
 
 
 class VadForwarder(BaseObserver):

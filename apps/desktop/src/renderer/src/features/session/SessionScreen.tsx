@@ -12,6 +12,9 @@ import { Button } from '../../components/Button';
 import { Sheet } from '../../components/Sheet';
 import { useApi } from '../../lib/api';
 import { usePaperCapture } from '../../paper/use-paper-capture';
+import { useScreenController } from '../../screen/controller';
+import { ScreenPicker } from '../../screen/ScreenControls';
+import { useScreen } from '../../screen/store';
 import type { TutorClient } from '../../tutor/types';
 import { useTutorSession } from '../../tutor/use-tutor-session';
 import { VoiceNotices } from '../voice/MicNotice';
@@ -22,6 +25,7 @@ import { Dock } from './Dock';
 import { Stage } from './Stage';
 import { useSessionShortcuts } from './shortcuts';
 import { useStageStore } from './stage-store';
+import '../../overlay/overlay.css';
 import { TitleStrip } from './TitleStrip';
 
 export interface SessionScreenProps {
@@ -42,6 +46,8 @@ const NO_TUTOR: TutorClient = {
 
 export function SessionScreen({ sessionId, createTutor, app, voiceConfig }: SessionScreenProps) {
   const { t } = useTranslation();
+  useScreenController(sessionId, app);
+  const presentation = useScreen((state) => state.presentation);
   const api = useApi();
   // Registered before useTutorSession connects and may deliver its first freeze.
   useLayoutEffect(
@@ -94,7 +100,8 @@ export function SessionScreen({ sessionId, createTutor, app, voiceConfig }: Sess
   };
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="screen-presentation flex h-full flex-col" data-presentation={presentation}>
+      <ScreenPicker />
       <TitleStrip session={session} failed={failed} startedAt={startedAt} />
       <main className="relative min-h-0 flex-1">
         {/* Until the session loads, the stage shows her paper, as a paper session would. */}

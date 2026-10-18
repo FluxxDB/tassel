@@ -22,6 +22,7 @@ export class TutorAudio {
   private presenterGain: GainNode | null = null;
   private presenterId: string | null = null;
   private ducked = false;
+  private interrupted = false;
   private disposed = false;
   private sinkQueue: Promise<unknown> = Promise.resolve();
   private listeners = new Set<(on: boolean, atMs: number) => void>();
@@ -84,7 +85,7 @@ export class TutorAudio {
     try {
       this.presenterContext = this.deps.createContext({ sinkId: presenter });
       this.presenterGain = this.presenterContext.createGain();
-      this.presenterGain.gain.value = this.ducked ? 0.25 : 1;
+      this.presenterGain.gain.value = this.interrupted ? 0 : this.ducked ? 0.25 : 1;
       this.presenterGain.connect(this.presenterContext.destination);
       await this.presenterContext.resume();
       if (this.disposed) {
@@ -104,7 +105,7 @@ export class TutorAudio {
   duck(on: boolean) {
     if (this.disposed || on === this.ducked) return;
     this.ducked = on;
-    const value = on ? 0.25 : 1;
+    const value = this.interrupted ? 0 : on ? 0.25 : 1;
     this.element.volume = value;
     if (this.presenterGain && this.presenterContext) {
       const gain = this.presenterGain.gain;
@@ -115,6 +116,16 @@ export class TutorAudio {
     }
     const atMs = performance.now();
     for (const listener of this.listeners) listener(on, atMs);
+  }
+  interrupt(on: boolean) {
+    if (this.disposed) return;
+    this.interrupted = on;
+    this.element.muted = on;
+    if (this.presenterGain && this.presenterContext) {
+      const gain = this.presenterGain.gain;
+      gain.cancelScheduledValues(this.presenterContext.currentTime);
+      gain.setValueAtTime(on ? 0 : this.ducked ? 0.25 : 1, this.presenterContext.currentTime);
+    }
   }
   onDuck(listener: (on: boolean, atMs: number) => void) {
     this.listeners.add(listener);

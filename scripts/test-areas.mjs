@@ -27,6 +27,21 @@ const PY = `${S}/tests`;
 
 export const AREAS = [
   {
+    name: 'screen',
+    title: 'Screen capture, desktop overlay and reset interruption',
+    app: [
+      `${D}/src/main/overlay/**`,
+      `${D}/playwright.screen.config.ts`,
+      `${D}/src/shared/screen-bridge.ts`,
+      `${R}/screen/**`,
+      `${R}/overlay/**`,
+    ],
+    server: [`${SRC}/screen/**`],
+    unit: [`${UNIT}/screen/**`],
+    e2e: [`${E2E}/screen-overlay.spec.ts`],
+    pytest: [`${PY}/screen/**`],
+  },
+  {
     name: 'shell',
     title:
       'App shell: main process, preload bridge, protocol, IPC, token store, app frame, components',

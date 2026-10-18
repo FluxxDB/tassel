@@ -570,3 +570,19 @@ async def test_saved_board_restores_once_after_client_ready():
         await message(bot, "client-ready", {"version": "2.1.0"})
         await asyncio.sleep(0.1)
         assert len([e for e in out.events() if e["kind"] == "actions"]) == 1
+
+
+async def test_screen_reset_propagates_interruption_without_starting_a_new_reply():
+    from pipecat.frames.frames import InterruptionFrame
+
+    from tassel.screen.session import ScreenSession
+
+    screen = ScreenSession()
+    async with running(context(screen=screen)) as (bot, out):
+        await until(lambda: SCRIPT.langs["en"].greeting in out.text())
+        await screen.reset(source="display", epoch=1, active=True)
+        assert any(isinstance(frame, InterruptionFrame) for frame in out.frames)
+        assert screen.frame is None
+        count = len(out.text())
+        await asyncio.sleep(0.1)
+        assert len(out.text()) == count

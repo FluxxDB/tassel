@@ -496,5 +496,31 @@
     "saveError": "저장할 수 없어요. 수정 내용은 유지돼요.",
     "conflict": "기억이 변경되었어요. 보관할 수정 내용을 복사한 후 메모를 새로고침하세요.",
     "saved": "저장됨"
+  },
+  "screen": {
+    "choose": "Share a display",
+    "noDisplays": "No displays available. Try again.",
+    "ready": "Open your assignment and share a display with Ada.",
+    "sharing": "Screen shared",
+    "paused": "Screen sharing paused",
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop sharing",
+    "reset": "Reset annotations",
+    "resetHint": "Clear annotations and interrupt Ada (Ctrl/Cmd+Shift+Backspace)",
+    "restore": "Open Tassel",
+    "collapse": "Collapse to bar",
+    "draw": "Draw",
+    "drawHint": "Draw on your screen · Escape to finish",
+    "undo": "Undo ink",
+    "look": "Look again",
+    "listening": "Listening",
+    "thinking": "Thinking",
+    "speaking": "Speaking",
+    "failed": "Screen sharing needs attention. Restore Tassel and retry.",
+    "micOn": "Mic on",
+    "micOff": "Mic off",
+    "resetDone": "Annotations reset · Ada is listening",
+    "board": "Open board"
   }
 }

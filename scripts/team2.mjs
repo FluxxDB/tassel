@@ -6,7 +6,7 @@ import spawn from 'cross-spawn';
 
 export function team2Env(mode, { root, env = process.env }) {
   const next = { ...env };
-  const live = mode === 'voice' || mode === 'webcam';
+  const live = mode === 'voice' || mode === 'webcam' || mode === 'screen';
   for (const key of Object.keys(next)) {
     if (
       key.startsWith('TASSEL_FAKE_') ||
@@ -17,20 +17,22 @@ export function team2Env(mode, { root, env = process.env }) {
   }
   const db = 'postgresql+psycopg://tassel:tassel@127.0.0.1:54329/';
   Object.assign(next, {
-    TASSEL_PORT: '8861',
-    TASSEL_SERVER_URL: 'http://127.0.0.1:8861',
+    TASSEL_PORT: mode === 'screen' ? '8865' : '8861',
+    TASSEL_SERVER_URL: mode === 'screen' ? 'http://127.0.0.1:8865' : 'http://127.0.0.1:8861',
     TASSEL_E2E_PORT: '8862',
-    TASSEL_DATABASE_URL: `${db}tassel_t2_webcam`,
+    TASSEL_DATABASE_URL: `${db}${mode === 'screen' ? 'tassel_t2_screen_dev' : 'tassel_t2_webcam'}`,
     TASSEL_TEST_DATABASE_URL: `${db}tassel_t2_webcam_test`,
     TASSEL_E2E_DATABASE_URL: `${db}tassel_t2_webcam_e2e`,
-    TASSEL_S3_BUCKET: 'tassel-t2-webcam',
+    TASSEL_S3_BUCKET: mode === 'screen' ? 'tassel-t2-screen' : 'tassel-t2-webcam',
     TASSEL_E2E_S3_BUCKET: 'tassel-t2-webcam-e2e',
     TASSEL_USER_DATA: env.TASSEL_LOCAL_USER_DATA || join(root, '.cache', 'team2', 'user-data'),
     TASSEL_TUTOR: live ? 'live' : 'fake',
     TASSEL_PROVIDERS: live ? 'live' : 'fake',
     TASSEL_REQUIRE_FAKE_CAPTURE: live ? '0' : '1',
     TASSEL_PAPER_SOURCE: live ? (mode === 'webcam' ? 'webcam' : 'auto') : 'fake-clip',
-    TASSEL_VOICE_ENV_FILE: live ? join(root, 'services', 'server', '.env') : '',
+    TASSEL_VOICE_ENV_FILE: live
+      ? env.TASSEL_VOICE_ENV_FILE || join(root, 'services', 'server', '.env')
+      : '',
     TASSEL_PAPER_DEBUG: '1',
   });
   if (!live)
@@ -63,6 +65,7 @@ function main() {
       'demo',
       'voice',
       'webcam',
+      'screen',
       'desktop-test',
       'server-test',
       'e2e',
@@ -78,7 +81,7 @@ function main() {
     if (result.error) throw result.error;
     if (result.status !== 0) process.exit(result.status || 1);
   }
-  if (['demo', 'voice', 'webcam'].includes(mode)) {
+  if (['demo', 'voice', 'webcam', 'screen'].includes(mode)) {
     if (mode !== 'demo' && !existsSync(env.TASSEL_VOICE_ENV_FILE))
       throw new Error('Put provider keys in services/server/.env first.');
     run('docker', ['compose', 'up', '-d', '--wait', 'db', 's3']);

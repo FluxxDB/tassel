@@ -496,5 +496,31 @@
     "saveError": "No se pudo guardar. Tus cambios siguen aquí.",
     "conflict": "La memoria cambió. Copia los cambios que quieras conservar y recarga las notas.",
     "saved": "Guardado"
+  },
+  "screen": {
+    "choose": "Share a display",
+    "noDisplays": "No displays available. Try again.",
+    "ready": "Open your assignment and share a display with Ada.",
+    "sharing": "Screen shared",
+    "paused": "Screen sharing paused",
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop sharing",
+    "reset": "Reset annotations",
+    "resetHint": "Clear annotations and interrupt Ada (Ctrl/Cmd+Shift+Backspace)",
+    "restore": "Open Tassel",
+    "collapse": "Collapse to bar",
+    "draw": "Draw",
+    "drawHint": "Draw on your screen · Escape to finish",
+    "undo": "Undo ink",
+    "look": "Look again",
+    "listening": "Listening",
+    "thinking": "Thinking",
+    "speaking": "Speaking",
+    "failed": "Screen sharing needs attention. Restore Tassel and retry.",
+    "micOn": "Mic on",
+    "micOff": "Mic off",
+    "resetDone": "Annotations reset · Ada is listening",
+    "board": "Open board"
   }
 }

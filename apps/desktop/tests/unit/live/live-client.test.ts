@@ -61,7 +61,13 @@ function setup(opts: { lang?: () => 'en' | 'es' | 'ko' } = {}) {
   const h = micHarness();
   const mic = new Mic(h.deps);
   cleanup.push(() => mic.close());
-  const audio = { attach: vi.fn(), duck: vi.fn(), setSinks: vi.fn(), presenterSinkId: null };
+  const audio = {
+    interrupt: vi.fn(),
+    attach: vi.fn(),
+    duck: vi.fn(),
+    setSinks: vi.fn(),
+    presenterSinkId: null,
+  };
   const clock = new ManualClock();
   const clients: FakePipecat[] = [];
   const events: TutorEvent[] = [];
@@ -446,4 +452,37 @@ describe('LiveTutorClient', () => {
     expect(clients).toHaveLength(1);
     await client.disconnect();
   });
+});
+
+describe('screen interruption', () => {
+  it('cuts playback immediately and drops old response events until a fresh matching turn', async () => {
+    const h = setup();
+    await h.client.connect('screen-session');
+    const pc = h.clients[0];
+    if (!pc) throw new Error('missing client');
+    h.events.length = 0;
+    h.client.interrupt(4);
+    expect(h.audio.interrupt).toHaveBeenLastCalledWith(true);
+    pc.emit(RTVIEvent.BotStartedSpeaking);
+    pc.emit(RTVIEvent.ServerMessage, { tassel: { kind: 'screen-turn', epoch: 3 } });
+    pc.emit(RTVIEvent.BotStartedSpeaking);
+    expect(h.events.some((e) => e.type === 'state' && e.state === 'speaking')).toBe(false);
+    pc.emit(RTVIEvent.ServerMessage, { tassel: { kind: 'screen-turn', epoch: 4 } });
+    expect(h.audio.interrupt).toHaveBeenLastCalledWith(false);
+    pc.emit(RTVIEvent.BotStartedSpeaking);
+    expect(h.events.some((e) => e.type === 'state' && e.state === 'speaking')).toBe(true);
+    expect(h.clients).toHaveLength(1);
+    await h.client.disconnect();
+  });
+});
+
+it('releases normal transport audio interruption on the next bot response', async () => {
+  const h = setup();
+  await h.client.connect('paper-session');
+  const pc = h.clients[0];
+  if (!pc) throw new Error('missing client');
+  h.audio.interrupt(true);
+  pc.emit(RTVIEvent.BotStartedSpeaking);
+  expect(h.audio.interrupt).toHaveBeenLastCalledWith(false);
+  await h.client.disconnect();
 });

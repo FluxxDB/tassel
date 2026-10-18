@@ -32,6 +32,7 @@ export interface MediaManagerShape {
 export interface TutorAudioLike {
   setSinks(s: { primary: string | null; presenter: string | null }): Promise<unknown>;
   readonly presenterSinkId: string | null;
+  interrupt?(on: boolean): void;
 }
 export class TasselMediaManager implements MediaManagerShape {
   private options: PipecatClientOptions | null = null;
@@ -49,7 +50,9 @@ export class TasselMediaManager implements MediaManagerShape {
   }
   // SmallWebRTC sends tracks, not PCM; these three hooks are unused by that transport.
   setUserAudioCallback(_callback: (data: ArrayBuffer) => void) {}
-  async interruptBotAudio() {}
+  async interruptBotAudio() {
+    this.audio.interrupt?.(true);
+  }
   bufferBotAudio(_data: ArrayBuffer | Int16Array, _id?: string) {
     return undefined;
   }
