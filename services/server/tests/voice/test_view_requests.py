@@ -25,6 +25,17 @@ from tassel.voice.messages import OfferRequestData, StageEvent
         ("No. I want the board with the paper view and picture and picture.", "board"),
         ("Put my paper and the board side by side.", "split"),
         ("Show me the split view.", "split"),
+        # Missed in live test 2de450e6.
+        ("Can you switch the board to full screen, please?", "board"),
+        ("Can you switch the board to full screen?", "board"),
+        ("Go back desk view.", "paper"),
+        ("Desk view, please.", "paper"),
+        ("desk view full screen.", "paper"),
+        ("back to board.", "board"),
+        ("I'll go back to camera view or desk view.", "paper"),
+        ("Make the camera full screen.", "paper"),
+        ("The whiteboard, please.", "board"),
+        ("Split view.", "split"),
     ],
 )
 def test_her_view_requests_name_the_view(text, view):
@@ -41,6 +52,10 @@ def test_her_view_requests_name_the_view(text, view):
         "Where's the camera view at the bottom?",
         "I just want you to create a diagram with all these subnets.",
         "Draw it on the board, please.",
+        "Okay. Whatever. Can you make a fake network and put it on the board, please?",
+        "Can you add more PCs?",
+        "No. The whiteboard is still open.",
+        "What's on the board?",
     ],
 )
 def test_other_requests_are_not_view_changes(text):
@@ -62,6 +77,45 @@ async def test_her_spoken_request_pins_the_view_at_once():
         await until(lambda: any(e["kind"] == "stage" for e in out.events()))
         stages = [e for e in out.events() if e["kind"] == "stage"]
         assert stages == [{"kind": "stage", "view": "paper", "pinned": True}]
+
+
+@pytest.mark.asyncio
+async def test_a_view_request_is_answered_with_a_set_line_and_no_model_call(monkeypatch):
+    """Live test 2de450e6: after "back to board" switched, the talker said "I'll remove the
+    three PCs I just added". A view request now has a fixed reply; the model never runs."""
+    import tassel.voice.bot as bot_module
+    from tassel.voice.fakes.llm import FakeLLMService
+
+    calls = []
+
+    class Talker(FakeLLMService):
+        async def process_frame(self, frame, direction):
+            from pipecat.frames.frames import LLMContextFrame
+
+            if isinstance(frame, LLMContextFrame) and any(
+                m.get("role") == "user" for m in frame.context.get_messages()
+            ):
+                calls.append(frame)
+            await super().process_frame(frame, direction)
+
+    monkeypatch.setattr(
+        bot_module,
+        "make_llm",
+        lambda route, settings, scenario: Talker(scenario=scenario, lang=route.lang),
+    )
+    ctx = context(request=OfferRequestData(scenario="dfa-opening"))
+    async with running(ctx) as (bot, out):
+        await until(lambda: load_scenario("dfa-opening").langs["en"].greeting in out.text())
+        await say(bot, "Desk view, please.")
+        await until(lambda: "Here's your paper." in out.text())
+        await say(bot, "Can you switch the board to full screen?")
+        await until(lambda: "Here's the board." in out.text())
+        assert calls == []
+        stages = [e for e in out.events() if e["kind"] == "stage"]
+        assert stages == [
+            {"kind": "stage", "view": "paper", "pinned": True},
+            {"kind": "stage", "view": "board", "pinned": True},
+        ]
 
 
 @pytest.mark.asyncio

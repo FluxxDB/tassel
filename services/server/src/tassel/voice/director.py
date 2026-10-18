@@ -93,36 +93,46 @@ COMPLEX = re.compile(
 
 
 # Her spoken view requests (English; the app's controls work in every language). Switching verbs
-# only: "show me … on the board" asks for a drawing, never a view.
+# only: "show me … on the board" or "put it on the board" asks for a drawing, never a view.
+_PAPER_VIEW = r"(?:camera|paper|desk\s*view|desk|my\s+page)(?:\s+view)?"
+_BOARD_VIEW = r"(?:white\s*board|board)(?:\s+view)?"
+_VIEW = rf"(?:(?P<paper>{_PAPER_VIEW})|(?P<board>{_BOARD_VIEW}))"
+_FULL = r"(?:full[\s-]?screen|maximi[sz]e[ds]?)"
 _SWITCH = (
-    r"(?:switch(?:\s+back)?\s+to|go(?:\s+back)?\s+to|back\s+to|change\s+to|open\s+(?:up\s+)?"
-    r"|bring\s+(?:up|back)|i\s+want|show\s+me\s+(?:my|the)\s+(?=camera|paper|desk|split))"
+    r"(?:switch(?:\s+back)?\s+to|go(?:\s+back)?\s+to|go\s+back|back\s+to|change\s+to|"
+    r"open\s+(?:up\s+)?|bring\s+(?:up|back)|i\s+want|"
+    r"show\s+me\s+(?:my|the)\s+(?=camera|paper|desk|split))"
 )
-_PAPER_VIEW = r"(?:camera|paper|desk\s*view|desk|my\s+page)"
-_BOARD_VIEW = r"(?:white\s*board|board)"
 SPLIT_VIEW = re.compile(
     r"\b(?:side\s+by\s+side|split\s+(?:view|screen)|split\b(?=[^.?!]*\bview))", re.I
 )
-BOARD_FULL = re.compile(
-    rf"\b{_BOARD_VIEW}\s+(?:in\s+)?full[\s-]?screen\b|\bfull[\s-]?screen\s+(?:the\s+)?{_BOARD_VIEW}\b"
-    rf"|\b{_SWITCH}\s+(?:the\s+|my\s+)*{_BOARD_VIEW}\b",
-    re.I,
+_VIEW_REQUESTS = (
+    # "the board to full screen", "desk view full screen", "make the camera full screen".
+    re.compile(rf"\b{_VIEW}\b[^.?!]{{0,25}}?\b{_FULL}", re.I),
+    re.compile(rf"\b{_FULL}\s+(?:the\s+|my\s+)*{_VIEW}\b", re.I),
+    # "go back to the camera", "go back desk view", "switch to the board".
+    re.compile(rf"\b{_SWITCH}\s*(?:the\s+|my\s+)*{_VIEW}\b", re.I),
+    # Just a view's name: "Desk view, please.", "The whiteboard, please."
+    re.compile(
+        rf"^\W*(?:(?:okay|ok|no|yes|so|now|and)\b[,.]?\s*)*(?:the\s+|my\s+)?{_VIEW}"
+        r"\s*(?:,?\s*(?:please|now))?\W*$",
+        re.I,
+    ),
 )
-PAPER_FULL = re.compile(rf"\b{_SWITCH}\s+(?:the\s+|my\s+)*{_PAPER_VIEW}\b", re.I)
 
 
 def view_request(text) -> Literal["paper", "board", "split"] | None:
     """The view she asks the app for, or None: "back to the camera" is her paper full screen,
     "the board with the camera view" the board (her desk camera floats over it), "side by side"
     the split view. Questions about a view ("where's the camera view?") aren't requests."""
-    if re.match(r"^\W*where\b", text, re.I):
+    if re.match(r"^\W*(?:where|what|which|why|is|are|does|do)\b", text, re.I):
         return None
     if SPLIT_VIEW.search(text):
         return "split"
-    if BOARD_FULL.search(text):
-        return "board"
-    if PAPER_FULL.search(text):
-        return "paper"
+    for pattern in _VIEW_REQUESTS:
+        found = pattern.search(text)
+        if found:
+            return "paper" if found.group("paper") else "board"
     return None
 
 

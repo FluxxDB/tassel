@@ -197,10 +197,23 @@ class _RoutedService(Pipeline):
         await super().process_frame(frame, direction)
 
 
-VIEW_NAMES = {
-    "paper": "her paper full screen",
-    "board": "the board full screen",
-    "split": "her paper and the board side by side",
+# What Ada says when the app switches the view she asked for.
+VIEW_ACKS = {
+    "paper": {
+        "en": "Here's your paper.",
+        "es": "Aquí está tu hoja.",
+        "ko": "종이를 보여 드릴게요.",
+    },
+    "board": {
+        "en": "Here's the board.",
+        "es": "Aquí está la pizarra.",
+        "ko": "칠판을 보여 드릴게요.",
+    },
+    "split": {
+        "en": "Here they are side by side.",
+        "es": "Aquí los tienes lado a lado.",
+        "ko": "종이와 칠판을 나란히 보여 드릴게요.",
+    },
 }
 
 
@@ -215,8 +228,9 @@ class _TurnContext(FrameProcessor):
         self.page_revision = 0
         self.seen_revision = 0
         self.confusions = 0
-        # Her spoken view requests: the app pins them (build_bot sets this).
+        # Her spoken view requests: the app pins them (build_bot sets this and lang).
         self.on_view = None
+        self.lang = lambda: "en"
         self.on_stage_turn = None
         self.decision = None
         self.coordinator = None
@@ -391,13 +405,14 @@ class _TurnContext(FrameProcessor):
                     }
                 )
                 if view is not None:
-                    messages.append(
-                        {
-                            "role": "system",
-                            "content": f"[app note] The app now shows her {VIEW_NAMES[view]}, as "
-                            "she asked. Acknowledge it in a few words; don't describe the switch.",
-                        }
-                    )
+                    # A set line, no model call: the talker once answered "back to board" with
+                    # a stale "I'll remove the three PCs" (2de450e6).
+                    if self.coordinator:
+                        await self.coordinator.cancel()
+                    await self.push_frame(LLMFullResponseStartFrame(), direction)
+                    await self.push_frame(LLMTextFrame(VIEW_ACKS[view][self.lang()]), direction)
+                    await self.push_frame(LLMFullResponseEndFrame(), direction)
+                    return
                 if not self.decision.needs_vision:
                     self.pending_image = None
                 if (
@@ -777,6 +792,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         await events.send(StageEvent(view=view, pinned=True))
 
     turn_context.on_view = pin_view
+    turn_context.lang = lambda: ctx.lang
     beats = BeatTagProcessor(
         events=events,
         lang=lambda: ctx.lang,
