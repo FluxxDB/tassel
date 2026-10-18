@@ -1,0 +1,120 @@
+{
+  "name": "diagram-details",
+  "title": "Diagram details: every zone, label, count, edge and host count she asks for",
+  "description": "Detailed drawing requests on real providers: zones with labels and per-zone devices, a VLSM plan with host counts, a flowchart, a tree, and edits that add to or replace part of a diagram. The board checks name each detail she asked for (labels, icon counts per group, edges between named nodes, usable hosts per zone), so a diagram that skips half the request fails.",
+  "default": false,
+  "stage": { "view": "board" },
+  "turns": [
+    {
+      "student": "Draw an office network with three zones: Sales, Engineering and Guest Wi-Fi. Each zone has its own switch and two PCs. Every zone switch connects to a Core Switch, and the Core Switch connects to a router labeled Edge Router.",
+      "expect": {
+        "route": "thinker",
+        "action": "draw_board",
+        "tags": ["board.diagram"],
+        "board": {
+          "diagrams": 1,
+          "labels": ["Sales", "Engineering", "Guest Wi-Fi", "Core Switch", "Edge Router"],
+          "group_icons": {
+            "Sales": { "switch": 1, "pc": 2 },
+            "Engineering": { "switch": 1, "pc": 2 },
+            "Guest": { "switch": 1, "pc": 2 }
+          },
+          "edges": [{ "from": "Core Switch", "to": "Edge Router" }]
+        }
+      }
+    },
+    {
+      "student": "Add a file server labeled NAS to Engineering and one laptop to Guest Wi-Fi. Keep everything else as it is.",
+      "expect": {
+        "route": "thinker",
+        "action": "draw_board",
+        "tags": ["board.diagram"],
+        "no_tags": ["board.clear"],
+        "board": {
+          "diagrams": 1,
+          "labels": ["NAS", "Sales", "Edge Router"],
+          "group_icons": {
+            "Sales": { "switch": 1, "pc": 2 },
+            "Engineering": { "switch": 1, "pc": 2, "server": 1 },
+            "Guest": { "switch": 1, "pc": 2, "laptop": 1 }
+          },
+          "edges": [{ "from": "Core Switch", "to": "Edge Router" }]
+        }
+      }
+    },
+    {
+      "student": "Now draw a separate VLSM plan for 192.168.10.0/24 as zones: Sales needs 50 hosts, HR needs 20 hosts and IT needs 10 hosts. Write each zone's CIDR under its name.",
+      "expect": {
+        "route": "thinker",
+        "action": "draw_board",
+        "tags": ["board.diagram"],
+        "board": {
+          "diagrams": { "min": 2 },
+          "labels": ["HR", "IT", "192.168.10."],
+          "group_hosts": { "Sales": 50, "HR": 20, "IT": 10 }
+        }
+      }
+    },
+    {
+      "student": "Draw a flowchart for logging in: Start, then Enter password, then a decision Password correct?. If yes, Show dashboard, then End. If no, Show error and go back to Enter password.",
+      "expect": {
+        "route": "thinker",
+        "action": "draw_board",
+        "tags": ["board.diagram"],
+        "board": {
+          "labels": [
+            "Start",
+            "Enter password",
+            "Password correct",
+            "Show dashboard",
+            "Show error",
+            "End"
+          ],
+          "edges": [
+            { "from": "Start", "to": "Enter password" },
+            { "from": "Enter password", "to": "Password correct" },
+            { "from": "Password correct", "to": "Show dashboard" },
+            { "from": "Password correct", "to": "Show error" },
+            { "from": "Show error", "to": "Enter password" },
+            { "from": "Show dashboard", "to": "End" }
+          ]
+        }
+      }
+    },
+    {
+      "student": "Draw a binary search tree with 8 at the root, 3 and 10 as its children, 1 and 6 under 3, and 14 under 10.",
+      "expect": {
+        "route": "thinker",
+        "action": "draw_board",
+        "tags": ["board.diagram"],
+        "board": {
+          "labels": ["8", "3", "10", "1", "6", "14"],
+          "edges": [
+            { "from": "8", "to": "3" },
+            { "from": "8", "to": "10" },
+            { "from": "6", "to": "3" },
+            { "from": "14", "to": "10" }
+          ]
+        }
+      }
+    },
+    {
+      "student": "In the office network, replace the Guest Wi-Fi zone with a DMZ zone that holds a web server. Leave Sales and Engineering exactly as they are.",
+      "expect": {
+        "route": "thinker",
+        "action": "draw_board",
+        "tags": ["board.diagram"],
+        "no_tags": ["board.clear"],
+        "board": {
+          "labels": ["DMZ", "Sales", "Engineering", "NAS", "Edge Router"],
+          "lacks_labels": ["Guest Wi-Fi"],
+          "group_icons": {
+            "DMZ": { "server": { "min": 1 } },
+            "Sales": { "switch": 1, "pc": 2 },
+            "Engineering": { "switch": 1, "pc": 2, "server": 1 }
+          }
+        }
+      }
+    }
+  ]
+}

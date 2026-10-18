@@ -25,7 +25,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from tassel.beats.markup import BoardContext, MarkupStream
 from tassel.beats.processor import FlushSpeechFrame
 from tassel.vision.turn_image import NO_VIEW
-from tassel.voice.action_checker import TargetLanguage, check_tags, talker_allowed
+from tassel.voice.action_checker import (
+    CHECKLIST_REPAIR,
+    TargetLanguage,
+    check_tags,
+    talker_allowed,
+)
 from tassel.voice.director import ERASE, RESTORE, report_usage, rules
 from tassel.voice.erase import (
     CLAIMS_REMOVAL,
@@ -47,11 +52,12 @@ from tassel.voice.erase import (
     share,
 )
 from tassel.voice.history import windowed
-from tassel.voice.illustrator import Illustrator
+from tassel.voice.illustrator import Illustrator, recent_turns
 from tassel.voice.ladder import Ladder
 from tassel.voice.pointer import MarkIntent, Pointer, image_mark_tags, mark_tags
 from tassel.voice.prefetch import Ahead, next_request, next_step
 from tassel.voice.prompts import thinker_system_prompt
+from tassel.voice.requirements import automaton_checklist
 from tassel.voice.settings import VoiceSettings
 from tassel.voice.stage import StageDrawing
 
@@ -211,6 +217,28 @@ def fact_shape(fact: str) -> str:
     return "other"
 
 
+# Below this, the thinker's read of her page gets a second read before she hears an answer.
+PAGE_CHECK_CONFIDENCE = 0.6
+NUMBER = re.compile(r"(?<![\w./:-])\d{2,}(?![\w./:-])")
+
+
+def read_disagreement(first: str, second: str) -> list[str]:
+    """The values two reads of one page disagree on: one read's IP, CIDR or number with no
+    match in the other, where the other read gives a different value of the same shape."""
+
+    def values(text):
+        found = {(f, fact_shape(f)) for f in facts(text)}
+        return found | {(n, "number") for n in NUMBER.findall(text or "")}
+
+    a, b = values(first), values(second)
+    differ = []
+    for value, shape in sorted(a - b):
+        others = sorted(v for v, s in b - a if s == shape)
+        if others:
+            differ.append(f"{value} vs {'/'.join(others)}")
+    return differ
+
+
 def _replace_fact(text: str, fact: str, replacement: str | None) -> str:
     if replacement is not None:
         return text.replace(fact, replacement)
@@ -283,6 +311,10 @@ class TutorCoordinator:
         self.page_caption = ""
         self.illustrator_task = None
         self.diagram_delivered = False
+        # What the drawing still misses of her request: Ada names it, never "Here it is."
+        self.diagram_missing: list[str] = []
+        # What her automaton request asked for that the repaired drawing still missed.
+        self._unfit: list[str] = []
         self.ttl_s = ttl_s
         self.lang = lang
         self.task = None
@@ -334,6 +366,7 @@ class TutorCoordinator:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
         self.diagram_delivered = False
+        self.diagram_missing = []
 
     def forget_notes(self):
         """An explicit reset ends the old task, including its pending follow-up guidance."""
@@ -573,9 +606,9 @@ class TutorCoordinator:
                 # The brief said it would draw but carried nothing to draw (live test: "I'll add
                 # two PCs in each zone", then nothing): the Illustrator draws her request itself.
                 self.log("draw_fallback", text=self.text)
-                # Her words and the brief's own plan: "add the PCs back" alone told the
-                # Illustrator nothing about which PCs (2de450e6).
-                intent = f"{brief.say} (She asked: {self.text})" if brief.say else self.text
+                # The brief's own plan; her words and recent turns reach the Illustrator on
+                # every path ("add the PCs back" alone said nothing about which PCs, 2de450e6).
+                intent = brief.say or self.text
                 brief = brief.model_copy(update={"draw": intent})
             if brief.draw and (
                 decision.action == "draw_board"
@@ -685,16 +718,26 @@ class TutorCoordinator:
 
     async def _draw(self, intent, generation):
         started = time.monotonic()
+        self.diagram_missing = []
         try:
             if self.illustrator is None:
                 self.illustrator = Illustrator(self.thinker.settings, log=self.log)
                 chat = getattr(self.illustrator, "client", None)
                 if chat is not None and hasattr(chat, "on_usage"):
                     chat.on_usage = getattr(self.thinker, "on_usage", None)
-            result = await self.illustrator.draw(intent, deepcopy(self.board), self.lang())
+            # Her words and the last few turns on every path, next to the thinker's plan: the
+            # plan alone ("3 zones: …") dropped half of what she asked for.
+            result = await self.illustrator.draw(
+                intent,
+                deepcopy(self.board),
+                self.lang(),
+                request=self.text,
+                recent=recent_turns(self.messages),
+            )
             if result is None or generation != self.generation:
                 return None
-            item, spec = result
+            item, spec, *rest = result
+            self.diagram_missing = list(rest[0]) if rest else []
             if self.board.diagrams.get(item) == spec:
                 # The same diagram again changes nothing: not "Here it is." (2de450e6).
                 self.log("reject", source="illustrator", reason="unchanged")
@@ -706,6 +749,7 @@ class TutorCoordinator:
                 nodes=len(spec.nodes),
                 groups=len(spec.groups),
                 edges=len(spec.edges),
+                missing=self.diagram_missing,
             )
             return item
         except asyncio.CancelledError:
@@ -1010,11 +1054,78 @@ class TutorCoordinator:
         if self.ahead is not None:
             await asyncio.gather(self.ahead.task, return_exceptions=True)
 
+    async def _double_read(self, brief, messages, effort, generation):
+        """A low-confidence read of her handwriting is checked against a second read of the
+        marked page; when the two disagree on a value, the thinker looks again with both reads
+        before she hears an answer."""
+        if (
+            self.page_image is None
+            or brief.confidence >= PAGE_CHECK_CONFIDENCE
+            or not brief.page.strip()
+        ):
+            return brief
+        started = time.monotonic()
+        try:
+            if self.pointer is None:
+                self.pointer = Pointer(self.thinker.settings, log=self.log)
+                self.pointer.client.on_usage = getattr(self.thinker, "on_usage", None)
+            second = await self.pointer.read_page(self.page_image, self.page_caption)
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            self.log("reject", source="page_check", reason=f"{type(error).__name__}: {error}"[:300])
+            return brief
+        finally:
+            self.log("page_check_duration", ms=(time.monotonic() - started) * 1000)
+        if generation != self.generation:
+            return None
+        disagree = read_disagreement(brief.page, second)
+        self.log(
+            "page_check",
+            confidence=brief.confidence,
+            first=brief.page,
+            second=second,
+            disagree=disagree,
+        )
+        if not disagree:
+            return brief
+        note = (
+            f"[app note] Your read of her page was unsure (confidence {brief.confidence:.2f}) "
+            f"and a second careful read disagrees on {', '.join(disagree)}. You read: "
+            f"{brief.page!r}. The second read: {second!r}. Look at her page image again, decide "
+            "what is actually written, and answer from that; if it is still unclear, say which "
+            "value you can't read and ask her."
+        )
+        resolved = await self._think([*messages, {"role": "system", "content": note}], effort)
+        if generation != self.generation:
+            return None
+        self.log("page_resolved", page=resolved.page, confidence=resolved.confidence)
+        return resolved
+
+    def _automaton_checklist(self, decision):
+        """What her words ask an automaton to have (states, accepting states, alphabet), on a
+        construction turn: never the ladder's copy of her own machine."""
+        if (
+            decision.action != "draw_board"
+            or self.rung[0] is not None
+            or not AUTOMATA.search(self.text)
+        ):
+            return None
+        wanted = automaton_checklist(self.text)
+        if wanted.empty:
+            return None
+        self.log("automaton_checklist", **wanted.model_dump(exclude_none=True))
+        return wanted
+
     async def _brief(self, generation, messages, effort, *, ahead=None):
+        self._unfit = []
         brief = await self._ahead_brief(ahead) if ahead is not None else None
         if brief is None:
             brief = await self._think(messages, effort)
         if generation != self.generation:
+            return None
+        brief = await self._double_read(brief, messages, effort, generation)
+        if brief is None:
             return None
         decision = self.decision or rules(self.text)
         brief = await self._point(brief, decision, generation)
@@ -1023,8 +1134,9 @@ class TutorCoordinator:
         brief = await self._point_image(brief, decision, generation)
         if generation != self.generation:
             return None
+        wanted_machine = self._automaton_checklist(decision)
         checked = await asyncio.to_thread(
-            partial(check_tags, student_text=self.text),
+            partial(check_tags, student_text=self.text, checklist=wanted_machine),
             brief.board + brief.paper + brief.image,
             decision,
             self.board,
@@ -1052,18 +1164,28 @@ class TutorCoordinator:
                 brief = await self._point(brief, decision, generation)
                 brief = await self._point_image(brief, decision, generation)
                 checked = await asyncio.to_thread(
-                    partial(check_tags, student_text=self.text),
+                    partial(check_tags, student_text=self.text, checklist=wanted_machine),
                     brief.board + brief.paper + brief.image,
                     decision,
                     self.board,
                     original_language,
                 )
-            except Exception:
+            except Exception as error:
+                self.log("reject", source="repair", reason=f"{type(error).__name__}: {error}"[:300])
                 checked.tags = []
             if generation != self.generation:
                 return None
+            if checked.repair and checked.repair.startswith(CHECKLIST_REPAIR):
+                # Still not what she asked for after the repair: Ada names what's missing.
+                self._unfit = [checked.repair.removeprefix(CHECKLIST_REPAIR).rstrip(".")]
+                self.log("reject", source="automaton_checklist", reason=checked.repair)
         for tag in checked.rejected:
-            self.log("reject", source="action_checker", text=tag)
+            self.log(
+                "reject",
+                source="action_checker",
+                text=tag,
+                reason=checked.reasons.get(tag) or checked.repair or "rejected",
+            )
         wanted = brief.board + brief.paper
         brief = brief.model_copy(
             update={
@@ -1105,7 +1227,9 @@ class TutorCoordinator:
                 # erase turn's honesty is _honest_erase's.
                 return brief
             self.log("reject", source="honest_tags", reason="drawing lost", text=brief.say)
-            return brief.model_copy(update={"say": f"{brief.say.rstrip()} {NOT_DRAWN[lang]}"})
+            unfit = getattr(self, "_unfit", None)
+            line = could_not_draw(unfit, lang) if unfit else NOT_DRAWN[lang]
+            return brief.model_copy(update={"say": f"{brief.say.rstrip()} {line}"})
         if asked & MARK_VERBS:
             self.log("reject", source="honest_tags", reason="mark lost", text=brief.say)
             return brief.model_copy(update={"say": f"{brief.say.rstrip()} {NOT_MARKED[lang]}"})
@@ -1158,12 +1282,19 @@ class TutorCoordinator:
                 sentences = stream.feed(tag + " Validate.") + stream.flush()
                 actions = [a for sentence in sentences for _, a in sentence.anchors]
                 problems = [p for sentence in sentences for p in sentence.problems]
-                good = bool(re.fullmatch(r"\[\[[^\[\]]+\]\]", tag)) and bool(actions)
-                good = good and not problems
-                good = good and all(a.kind.startswith(location + ".") for a in actions)
-                if location == "board" and paper_only:
-                    good = False
-                if location == "paper":
+                # Why a tag goes, for the log: never only that it went.
+                reason = None
+                if not re.fullmatch(r"\[\[[^\[\]]+\]\]", tag):
+                    reason = "not one [[…]] tag"
+                elif not actions:
+                    reason = "no action parsed"
+                elif problems:
+                    reason = "; ".join(map(str, problems))[:200]
+                elif not all(a.kind.startswith(location + ".") for a in actions):
+                    reason = f"{'/'.join(a.kind for a in actions)} doesn't belong on {location}"
+                elif location == "board" and paper_only:
+                    reason = "her paper turn: no board drawing in its place"
+                if location == "paper" and reason is None:
                     ids = set(re.findall(r"\bm\d+\b", tag))
                     elements = context.paper_elements
                     known = (
@@ -1171,8 +1302,11 @@ class TutorCoordinator:
                         if (elements and elements.detected)
                         else set()
                     )
-                    good = good and ids <= known and context.paper_frame is not None
-                if location == "image":
+                    if context.paper_frame is None:
+                        reason = "no frozen page to mark"
+                    elif not ids <= known:
+                        reason = f"unknown marks {sorted(ids - known)}"
+                if location == "image" and reason is None:
                     # Only markers on her image as the thinker saw it.
                     image = context.image
                     ids = set(re.findall(r"\bm\d+\b", tag))
@@ -1181,12 +1315,15 @@ class TutorCoordinator:
                         if image is not None and image.detected is not None
                         else set()
                     )
-                    good = good and image is not None and ids <= known
-                if good:
+                    if image is None:
+                        reason = "no image of hers on stage"
+                    elif not ids <= known:
+                        reason = f"unknown image marks {sorted(ids - known)}"
+                if reason is None:
                     valid[location].append(tag)
                     context = candidate
                 else:
-                    self.log("reject", source="thinker_tag", text=tag)
+                    self.log("reject", source="thinker_tag", text=tag, reason=reason)
         # Freeze only with marks, and always pin the exact page used for the brief.
         marks = [t for t in valid["paper"] if not re.match(r"\[\[freeze\b", t)]
         valid["paper"] = ["[[freeze]]", *marks] if marks else []
@@ -1217,7 +1354,11 @@ class TutorCoordinator:
         if brief and self.illustrator_task and self.illustrator_task.done():
             tag = await self.diagram_result()
             if tag:
-                brief = brief.model_copy(update={"board": [tag, *brief.board]})
+                update = {"board": [tag, *brief.board]}
+                if self.diagram_missing:
+                    missing = could_not_fit(self.diagram_missing, self.lang())
+                    update["say"] = f"{brief.say.rstrip()} {missing}"
+                brief = brief.model_copy(update=update)
             else:
                 # Never leave "I'll draw it" standing when nothing was drawn.
                 brief = brief.model_copy(update={"say": f"{brief.say} {NOT_DRAWN[self.lang()]}"})
@@ -1501,6 +1642,35 @@ NOT_DRAWN = {
     "ko": "그 그림을 칠판에 그리지 못했어요. 다른 말로 다시 말해 주시겠어요?",
 }
 
+# A drawing that arrives complete; one that still misses part of her request names what.
+HERE_IT_IS = {"en": "Here it is.", "es": "Aquí está.", "ko": "여기 있어요."}
+COULD_NOT_FIT = {
+    "en": "I drew what I could, but I couldn't fit: {items}.",
+    "es": "Dibujé lo que pude, pero no logré incluir: {items}.",
+    "ko": "그릴 수 있는 만큼 그렸지만, 이건 넣지 못했어요: {items}.",
+}
+
+
+def could_not_fit(missing: list[str], lang: str) -> str:
+    items = "; ".join(m.rstrip(". ") for m in missing[:4])
+    return COULD_NOT_FIT[lang].format(items=items)
+
+
+COULD_NOT_DRAW = {
+    "en": "I couldn't draw it the way you asked: {items}.",
+    "es": "No pude dibujarlo como pediste: {items}.",
+    "ko": "말한 대로 그리지 못했어요: {items}.",
+}
+
+
+def could_not_draw(missing: list[str], lang: str) -> str:
+    return COULD_NOT_DRAW[lang].format(items="; ".join(m.rstrip(". ") for m in missing[:4]))
+
+
+def arrived(missing: list[str], lang: str) -> str:
+    return could_not_fit(missing, lang) if missing else HERE_IT_IS[lang]
+
+
 # Said in place of a trace narration when no trace reached the board or her paper.
 NOT_TRACED = {
     "en": "I couldn't get that trace up for you to see. Could you ask me to trace it again?",
@@ -1683,9 +1853,10 @@ class ThinkerOutput(FrameProcessor):
                         await self.push_frame(FlushSpeechFrame())
                         tag = await self.coordinator.diagram_result()
                         if tag:
-                            words = {"en": "Here it is.", "es": "Aquí está.", "ko": "여기 있어요."}[
-                                self.coordinator.lang()
-                            ]
+                            # Never "Here it is." over a partial drawing: what's missing, named.
+                            words = arrived(
+                                self.coordinator.diagram_missing, self.coordinator.lang()
+                            )
                             late = brief.model_copy(
                                 update={"board": [tag], "paper": [], "draw": None, "say": words}
                             )

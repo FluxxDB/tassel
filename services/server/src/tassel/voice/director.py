@@ -467,6 +467,22 @@ def report_usage(on_usage, model, response):
     )
 
 
+def fallback_reason(error: BaseException, budget_s: float) -> str:
+    """Why the director fell back to rules, in words: never only an exception type, and never a
+    provider's own message (it can carry account details)."""
+    if isinstance(error, TimeoutError):
+        return f"no decision within {budget_s:g} s"
+    status = getattr(error, "status_code", None)
+    if status is not None:
+        return f"provider HTTP {status} ({type(error).__name__})"
+    errors = getattr(error, "errors", None)
+    if callable(errors):
+        first = (errors() or [{}])[0]
+        where = ".".join(str(p) for p in first.get("loc", ())) or "reply"
+        return f"invalid decision at {where}: {first.get('msg', '')}"[:200]
+    return f"{type(error).__name__} calling the director"
+
+
 class Director:
     def __init__(self, *, client=None, budget_s=0.8, log=None, on_usage=None, script=None):
         self.client, self.budget_s, self.log = client, budget_s, log
@@ -573,9 +589,10 @@ class Director:
                     source = "model"
             except Exception as error:
                 # No provider details in the transcript; rules preserve the turn.
-                logger.warning("Director fell back to rules ({})", type(error).__name__)
+                reason = fallback_reason(error, self.budget_s)
+                logger.warning("Director fell back to rules ({})", reason)
                 if self.log:
-                    self.log("director_fallback", reason=type(error).__name__)
+                    self.log("director_fallback", reason=reason)
         decision = guard(text, decision, image=image)
         if self.log:
             self.log(

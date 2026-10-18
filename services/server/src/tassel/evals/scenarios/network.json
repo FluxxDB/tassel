@@ -13,7 +13,13 @@
         "board": {
           "diagrams": 1,
           "groups": { "min": 3 },
-          "icons": { "router": { "min": 1 }, "switch": { "min": 3 } }
+          "icons": { "router": { "min": 1 }, "switch": { "min": 3 } },
+          "labels": ["Sales", "Engineering", "Guest"],
+          "group_icons": {
+            "Sales": { "switch": { "min": 1 } },
+            "Engineering": { "switch": { "min": 1 } },
+            "Guest": { "switch": { "min": 1 } }
+          }
         }
       }
     },
@@ -24,7 +30,11 @@
         "action": "draw_board",
         "tags": ["board.diagram"],
         "no_tags": ["board.clear"],
-        "board": { "diagrams": 1, "icons": { "pc": { "min": 6 }, "router": { "min": 1 } } }
+        "board": {
+          "diagrams": 1,
+          "icons": { "pc": { "min": 6 }, "router": { "min": 1 } },
+          "group_icons": { "Sales": { "pc": 2 }, "Engineering": { "pc": 2 }, "Guest": { "pc": 2 } }
+        }
       }
     },
     {

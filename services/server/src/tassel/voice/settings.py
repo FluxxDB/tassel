@@ -92,7 +92,7 @@ class VoiceSettings(BaseSettings):
     # Live on the owner's network turns (2026-10-18): Qwen on Cerebras drew the same valid
     # diagram in 0.8-1.3 s where luna took 4.0-4.5 s.
     illustrator_provider: Literal["openai", "openrouter"] = "openrouter"
-    illustrator_timeout_s: float = 6.0
+    illustrator_timeout_s: float = 15.0
     pointer_model: str = "gpt-6-luna"
     pointer_provider: Literal["openai", "openrouter"] = "openai"
     pointer_timeout_s: float = Field(2.5, gt=0)
