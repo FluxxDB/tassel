@@ -163,3 +163,29 @@ def test_the_contract_never_loads_pipecat():
     probe = "import sys, tassel.voice.messages; print([m for m in sys.modules if 'pipecat' in m])"
     result = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True)
     assert (result.returncode, result.stdout.strip()) == (0, "[]"), result.stderr
+
+
+def test_old_stage_state_defaults_to_unpinned():
+    event = CLIENT_EVENTS.validate_python(
+        {"kind": "stage-state", "view": "paper", "frozen": False, "page_revision": 0}
+    )
+    assert event.pinned is None
+
+
+@pytest.mark.parametrize("side", ["split", None, 1])
+def test_invalid_stage_hint(side):
+    with pytest.raises(ValidationError):
+        SERVER_EVENTS.validate_python({"kind": "stage-hint", "side": side})
+
+
+def test_invalid_pin():
+    with pytest.raises(ValidationError):
+        CLIENT_EVENTS.validate_python(
+            {
+                "kind": "stage-state",
+                "view": "paper",
+                "pinned": "desk",
+                "frozen": False,
+                "page_revision": 0,
+            }
+        )

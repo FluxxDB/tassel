@@ -93,6 +93,11 @@ class StageEvent(_Message):
         return data
 
 
+class StageHintEvent(_Message):
+    kind: Literal["stage-hint"] = "stage-hint"
+    side: Literal["paper", "board"]
+
+
 class LanguageEvent(_Message):
     kind: Literal["language"] = "language"
     lang: Lang
@@ -142,6 +147,7 @@ class TurnMetricsEvent(_Message):
 class StageStateEvent(_Message):
     kind: Literal["stage-state"] = "stage-state"
     view: Literal["paper", "board", "split"]
+    pinned: Literal["paper", "board", "split"] | None = None
     frozen: bool
     page_revision: int = Field(ge=0)
 
@@ -185,6 +191,7 @@ ServerEvent = Annotated[
     | BackchannelEvent
     | TitleEvent
     | StageEvent
+    | StageHintEvent
     | LanguageEvent
     | VadEvent
     | BeatEvent
