@@ -86,3 +86,34 @@ def test_the_talker_never_claims_board_or_view_changes():
     rules = TALKER_RULES.lower()
     assert "never say something is on the board" in rules
     assert "never say you switched" in rules
+
+
+@pytest.mark.asyncio
+async def test_tutor_notes_never_carry_her_last_words_or_tags():
+    """Live test 2de450e6: on "Back to board" the talker said "I'll remove the three PCs I just
+    added" again and re-sent [[undo]], both read from the tutor notes' copy of the last brief."""
+    from tassel.beats.markup import MarkupStream
+    from tassel.voice.thinker import NOTE_PREFIX
+
+    said = "I'll remove the three PCs I just added."
+    board = BoardContext()
+    board.begin_turn()
+    stream = MarkupStream(board)
+    stream.feed("[[dfa a start=q0 accept=q1 q0-0-q1]] Done.")
+    stream.flush()
+    board.end_turn()
+    c = TutorCoordinator(
+        Thinker(brief().model_copy(update={"say": said, "board": ["[[undo]]"]})), board
+    )
+    context = LLMContext([{"role": "user", "content": "Can you undo that?"}])
+    await c.prepare(context, "Can you undo that?", decision=DRAW)
+    await c.result()
+    notes = [
+        m["content"]
+        for m in context.get_messages()
+        if isinstance(m.get("content"), str) and m["content"].startswith(NOTE_PREFIX)
+    ]
+    assert len(notes) == 1
+    assert said not in notes[0] and "[[" not in notes[0]
+    assert "already done" in notes[0].lower() and "board" in notes[0].lower()
+    await c.close()
