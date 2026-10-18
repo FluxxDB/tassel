@@ -70,7 +70,9 @@ class ScreenSession:
     async def fresh(self, since: datetime) -> ScreenFrame | None:
         epoch = self.epoch
         try:
-            async with asyncio.timeout(2):
+            # The renderer permits an eight-second upload. Allow capture, dispatch and
+            # encoding overhead too; never abandon a valid in-flight upload at two seconds.
+            async with asyncio.timeout(12):
                 while self.active and epoch == self.epoch:
                     self.changed.clear()
                     frame = self.frame

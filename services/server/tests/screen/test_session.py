@@ -100,3 +100,26 @@ async def test_turn_caption_uses_actual_frame_dimensions_and_clears_stale_ground
     page = await context._turn_page()
     assert page.image is None
     assert context.screen_frame_id is None
+
+
+@pytest.mark.asyncio
+async def test_screen_wait_accepts_a_frame_delayed_within_the_upload_budget():
+    import asyncio
+    from datetime import UTC, datetime
+
+    from tassel.screen.session import ScreenFrame
+
+    screen = ScreenSession()
+    screen.control(source="display", epoch=1, active=True)
+    since = datetime.now(UTC)
+
+    async def delayed_upload():
+        await asyncio.sleep(2.1)
+        screen.put(ScreenFrame("slow-upload", "display", 1, 0, datetime.now(UTC), b"jpeg"))
+
+    upload = asyncio.create_task(delayed_upload())
+    try:
+        frame = await screen.fresh(since)
+        assert frame is not None and frame.id == "slow-upload"
+    finally:
+        await upload

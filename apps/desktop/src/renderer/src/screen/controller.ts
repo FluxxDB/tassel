@@ -20,7 +20,6 @@ export async function requestScreenTurn(): Promise<boolean> {
 export function acceptScreenMarks(value: unknown) {
   receiveMarks?.(value);
 }
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /** Mounted once beside VoiceSession. Hiding the window never unmounts this controller. */
 export function useScreenController(sessionId: string, app?: AppConfig) {
@@ -247,8 +246,6 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
       try {
         await controlQueue;
         const mask = await bridge.capture(true);
-        // Let capture deliver a frame after native ink has been hidden.
-        await sleep(160);
         if (disposed || !session.accepts(identity) || get().status !== 'sharing') return;
         const frame = canvasFrame(Math.min(1920, video.videoWidth));
         if (!frame) return;

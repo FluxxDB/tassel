@@ -55,7 +55,7 @@ Reviewed implementation against `docs/superpowers/plans/2026-10-18-screenshare-o
 
 ## Hardware acceptance still required
 
-Automated checks use fakes and never open the owner's screen, camera, microphone or paid providers. Actual macOS permission prompts, full-screen Spaces behavior, mixed-DPI/rotated monitors and clean capture exclusion need owner-run validation. The current fallback hides desktop ink briefly for a requested frame and masks the HUD region; validate the actual captured image and latency on each target platform. The capture-exclusion guarantee and the proposed 150 ms audio-cutoff target are not claimed from fake tests.
+Automated checks use fakes and never open the owner's screen, camera, microphone or paid providers. Actual macOS permission prompts, full-screen Spaces behavior, mixed-DPI/rotated monitors and clean capture exclusion need owner-run validation. Capture keeps desktop ink visible, relies on native capture exclusion and masks the HUD region; validate the actual captured image and latency on each target platform. The capture-exclusion guarantee and the proposed 150 ms audio-cutoff target are not claimed from fake tests.
 
 The first release intentionally selects a whole display. Moving-window tracking, DOM extraction, continuous uploads, persistent document annotations and a floating editable whiteboard remain outside this version. Digital drawings use a dedicated frame-bound tool; speech-word synchronization for these tool marks can be refined after hardware acceptance.
 
@@ -149,3 +149,25 @@ ink, repeated transitions and landscape/portrait projection checks. Synthetic ti
 173 ms capture and 14 ms JPEG encoding; the fake upload was 0 ms and is not a network benchmark.
 Build, desktop typechecks, tracked-code Biome, Ruff, locale consistency, API regeneration
 comparison, test-area registration and diff whitespace checks passed.
+
+
+## Missing screen and capture flicker follow-up (2026-10-18)
+
+Reproduced a frame arriving after 2.1 seconds being discarded by the server's two-second
+fresh-frame wait, even though the renderer allows an eight-second upload. The server now
+waits up to 12 seconds for a fresh frame, allowing dispatch/capture/encoding overhead.
+Epoch/source freshness checks and reset cancellation remain in effect; old frames are not
+used as a fallback.
+
+Native capture IPC now only reads the HUD mask. It never hides or re-shows the ink window,
+and the renderer no longer waits 160 ms for ink to disappear. Existing native content
+protection remains enabled; student strokes are still explicitly composited into the JPEG.
+Electron documents platform-specific capture exclusion behavior in its
+[BrowserWindow API](https://www.electronjs.org/docs/latest/api/browser-window#winsetcontentprotectionenable).
+
+Both regressions failed before the fix and pass after it. Validation: 16 server screen tests,
+15 desktop screen unit tests, build, typechecks, Biome, Ruff and native Electron acceptance.
+The native acceptance test watches the ink window's actual hide event during capture, and
+a separate unit test exercises the live JPEG HTTP upload branch using synthetic devices and
+mocked HTTP rather than bypassing uploads in fake mode. Real Wi-Fi/provider and desktop
+capture behavior still require an owner retest; no real devices or paid providers were used.

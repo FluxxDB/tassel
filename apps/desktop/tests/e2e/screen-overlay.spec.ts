@@ -150,9 +150,23 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
     await expect(ink.locator('polyline')).toHaveCount(1);
     await hud.getByRole('button', { name: 'Resume', exact: true }).click();
     await expect(ink.locator('polyline')).toHaveCount(1);
+    await app.evaluate(({ BrowserWindow }) => {
+      const inkWindow = BrowserWindow.getAllWindows().find((w) =>
+        w.webContents.getURL().endsWith('#overlay-ink'),
+      );
+      inkWindow?.setTitle('capture-stayed-visible');
+      inkWindow?.once('hide', () => inkWindow.setTitle('capture-hid-ink'));
+    });
     await hud.getByRole('button', { name: 'Look again', exact: true }).click();
     await expect.poll(() => timings.some((value) => value.delivered === true)).toBe(true);
     await expect(ink.locator('polyline')).toHaveCount(1);
+    expect(
+      await app.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows()
+          .find((w) => w.webContents.getURL().endsWith('#overlay-ink'))
+          ?.getTitle(),
+      ),
+    ).toBe('capture-stayed-visible');
     await hud.getByRole('button', { name: 'Reset annotations', exact: true }).click();
     await expect(ink.locator('polyline')).toHaveCount(0);
     await expect(ink.getByTestId('screen-drawing')).not.toHaveClass(/is-drawing/);

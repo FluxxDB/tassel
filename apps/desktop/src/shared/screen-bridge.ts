@@ -59,7 +59,7 @@ export interface ScreenBridge {
   onStroke(listener: (points: ScreenPoint[]) => void): () => void;
   ready(): void;
   onArrived?(listener: () => void): () => void;
-  /** Hide annotations for a clean frame on platforms without capture exclusion. */
+  /** Read the HUD mask without changing native annotation visibility. */
   capture(clean: boolean): Promise<{ x: number; y: number; width: number; height: number } | null>;
 }
 export const SCREEN_IPC = {

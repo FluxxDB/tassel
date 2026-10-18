@@ -70,8 +70,6 @@ export function registerScreenOverlay(
     wasMaximized = false;
   };
   let closing = false;
-  let capturing = false;
-  let captureTimer: ReturnType<typeof setTimeout> | undefined;
   let ready = new Map<number, () => void>();
   const trusted = (event: IpcMainEvent | IpcMainInvokeEvent) =>
     event.senderFrame?.url &&
@@ -110,7 +108,6 @@ export function registerScreenOverlay(
     closing = true;
     restore();
     clearGrant();
-    clearTimeout(captureTimer);
     const oldHud = hud,
       oldInk = ink;
     hud = null;
@@ -332,24 +329,9 @@ export function registerScreenOverlay(
     if (version === transitionVersion) restore();
   });
   handle(SCREEN_IPC.close, close);
-  handle(SCREEN_IPC.capture, (value) => {
-    const wasCapturing = capturing;
-    capturing = value === true;
-    clearTimeout(captureTimer);
-    if (capturing) {
-      hideAlive(ink);
-      // Fail safe if capture is cancelled while the annotation window is hidden.
-      captureTimer = setTimeout(() => {
-        capturing = false;
-        if (collapsed && ink && !ink.isDestroyed()) {
-          ink.showInactive();
-          hud?.moveTop();
-        }
-      }, 1500);
-    } else if (wasCapturing && collapsed && ink && !ink.isDestroyed()) {
-      ink.showInactive();
-      hud?.moveTop();
-    }
+  handle(SCREEN_IPC.capture, () => {
+    // Native content protection is configured once when windows are created. Never hide
+    // visible ink to capture a frame: upload latency must not change its presentation.
     if (!selected || !hud?.isVisible()) return null;
     const h = hud.getBounds(),
       d = selected.bounds;

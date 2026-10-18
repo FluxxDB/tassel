@@ -5,7 +5,10 @@ import { DEFAULT_AVATAR } from '../../../src/renderer/src/avatar/catalog';
 import { useAvatar } from '../../../src/renderer/src/avatar/store';
 import { useStageStore } from '../../../src/renderer/src/features/session/stage-store';
 import { useLiveVoice } from '../../../src/renderer/src/features/voice/live-voice';
-import { useScreenController } from '../../../src/renderer/src/screen/controller';
+import {
+  requestScreenTurn,
+  useScreenController,
+} from '../../../src/renderer/src/screen/controller';
 import { screenActions, useScreen } from '../../../src/renderer/src/screen/store';
 import type { AppConfig } from '../../../src/shared/bridge';
 import type { OverlayIntent, ScreenBridge, ScreenPoint } from '../../../src/shared/screen-bridge';
@@ -30,7 +33,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   useLiveVoice.getState().clear();
 });
-function harness() {
+function harness(app = config) {
   let intent: (value: OverlayIntent) => void = () => {};
   let stroke: (points: ScreenPoint[]) => void = () => {};
   const track = { stop: vi.fn(), addEventListener: vi.fn() };
@@ -56,6 +59,7 @@ function harness() {
     restore: vi.fn(async () => {}),
     close: vi.fn(async () => {}),
     publish: vi.fn(),
+    capture: vi.fn(async () => null),
     onIntent: (next: typeof intent) => {
       intent = next;
       return () => {};
@@ -65,7 +69,7 @@ function harness() {
       return () => {};
     },
   } as unknown as ScreenBridge;
-  vi.stubGlobal('tassel', { screen: bridge });
+  vi.stubGlobal('tassel', { screen: bridge, getToken: async () => 'synthetic-test-token' });
   const interrupt = vi.fn();
   useLiveVoice.setState({
     client: {
@@ -76,7 +80,7 @@ function harness() {
       interrupt,
     },
   });
-  const hook = renderHook(() => useScreenController('session', config));
+  const hook = renderHook(() => useScreenController('session', app));
   return {
     hook,
     bridge,
@@ -163,4 +167,47 @@ it('pause and resume preserve speech and student ink', async () => {
   expect(useScreen.getState().marks).toHaveLength(1);
   expect(h.interrupt).toHaveBeenCalledTimes(interruptions);
   h.hook.unmount();
+});
+
+it('uploads a JPEG for a server-requested screen turn through the live HTTP path', async () => {
+  vi.spyOn(HTMLVideoElement.prototype, 'videoWidth', 'get').mockReturnValue(1280);
+  vi.spyOn(HTMLVideoElement.prototype, 'videoHeight', 'get').mockReturnValue(720);
+  vi.spyOn(HTMLVideoElement.prototype, 'readyState', 'get').mockReturnValue(4);
+  const context = {
+    drawImage: vi.fn(),
+    fillRect: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    stroke: vi.fn(),
+  };
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+    context as unknown as CanvasRenderingContext2D,
+  );
+  vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) =>
+    callback(new Blob(['synthetic jpeg'], { type: 'image/jpeg' })),
+  );
+  const fetch = vi.fn(async (url: string, init: RequestInit) => {
+    const body = url.endsWith('/control') ? JSON.parse(String(init.body)) : {};
+    return new Response(JSON.stringify(body), { status: url.includes('/frame?') ? 201 : 200 });
+  });
+  vi.stubGlobal('fetch', fetch);
+  const h = harness({ ...config, tutorMode: 'live' });
+  try {
+    await act(async () => screenActions()?.start('test'));
+    await act(async () => {
+      expect(await requestScreenTurn()).toBe(true);
+    });
+    const upload = fetch.mock.calls.find(([url]) => url.includes('/screen/frame?'));
+    if (!upload) throw new Error('No screen JPEG was uploaded');
+    const query = new URL(upload[0]).searchParams;
+    expect(query.get('source')).toMatch(/^test:/);
+    expect(query.get('frame_id')).toBeTruthy();
+    expect((upload[1].body as Blob).type).toBe('image/jpeg');
+    expect(h.bridge.capture).toHaveBeenCalled();
+  } finally {
+    h.hook.unmount();
+  }
 });
