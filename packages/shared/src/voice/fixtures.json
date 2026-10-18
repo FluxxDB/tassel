@@ -10,6 +10,8 @@
     "ice_servers": "/v1/voice/ice-servers"
   },
   "server": [
+    { "kind": "stage-hint", "side": "paper" },
+    { "kind": "stage-hint", "side": "board" },
     { "kind": "board-snapshot" },
     { "kind": "actions", "actions": [{ "kind": "board.clear" }] },
     { "kind": "route", "lang": "en", "stt": "flux", "llm": "openrouter", "tts": "elevenlabs" },
@@ -72,6 +74,28 @@
     }
   ],
   "client": [
+    {
+      "kind": "stage-state",
+      "view": "paper",
+      "pinned": "paper",
+      "frozen": false,
+      "page_revision": 1
+    },
+    {
+      "kind": "stage-state",
+      "view": "board",
+      "pinned": "board",
+      "frozen": false,
+      "page_revision": 2
+    },
+    {
+      "kind": "stage-state",
+      "view": "split",
+      "pinned": "split",
+      "frozen": true,
+      "page_revision": 3
+    },
+    { "kind": "stage-state", "view": "paper", "pinned": null, "frozen": false, "page_revision": 0 },
     { "kind": "ptt", "enabled": true, "held": true },
     { "kind": "sensitivity", "level": "high" },
     {

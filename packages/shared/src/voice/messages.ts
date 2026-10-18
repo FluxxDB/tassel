@@ -49,6 +49,8 @@ export type ServerEvent =
   | BackchannelEvent
   | { kind: 'title'; title: string; subject: string | null }
   | { kind: 'stage'; view: 'paper' | 'board' | 'split' }
+  /** Ada drew on a hidden side: pulse that control once; keep the pinned view. */
+  | { kind: 'stage-hint'; side: 'paper' | 'board' }
   | { kind: 'language'; lang: Lang }
   | { kind: 'vad'; speaking: boolean }
   /** Her turn began: the app uploads her paper as it is now (trigger "turn"). */
@@ -67,6 +69,8 @@ export interface ClientMetrics {
   sensitivity: Sensitivity;
 }
 export interface StageState {
+  /** Omitted by older clients; the server treats omission as null. */
+  pinned?: 'paper' | 'board' | 'split' | null;
   view: 'paper' | 'board' | 'split';
   frozen: boolean;
   page_revision: number;
@@ -207,6 +211,8 @@ const SERVER_EVENT_READERS: {
       ? { kind: 'title', title: e.title, subject: e.subject }
       : null,
   stage: (e) => (isView(e.view) ? { kind: 'stage', view: e.view } : null),
+  'stage-hint': (e) =>
+    e.side === 'paper' || e.side === 'board' ? { kind: 'stage-hint', side: e.side } : null,
   language: (e) => (isLang(e.lang) ? { kind: 'language', lang: e.lang } : null),
   vad: (e) => (isBoolean(e.speaking) ? { kind: 'vad', speaking: e.speaking } : null),
   'paper-frame': () => ({ kind: 'paper-frame' }),

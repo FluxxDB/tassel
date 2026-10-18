@@ -74,6 +74,7 @@ from tassel.voice.messages import (
     RouteEvent,
     SensitivityEvent,
     StageEvent,
+    StageHintEvent,
     StageStateEvent,
     SttKind,
     is_note,
@@ -82,6 +83,7 @@ from tassel.voice.prompts import language_switch_note, system_prompt
 from tassel.voice.providers import llm_tools_supported, make_llm, make_stt, make_tts, stt_kind
 from tassel.voice.routes import VoiceRoute, route_for
 from tassel.voice.settings import VoiceSettings, resolve_mode
+from tassel.voice.stage import StageManager
 from tassel.voice.thinker import ThinkerOutput, TutorCoordinator, make_thinker
 from tassel.voice.tools import TALKER_TOOLS, TOOLS
 from tassel.voice.transcripts import DevTranscript
@@ -199,7 +201,7 @@ class _TurnContext(FrameProcessor):
         self.page_revision = 0
         self.seen_revision = 0
         self.confusions = 0
-        self.on_focus = None
+        self.on_stage_turn = None
         self.decision = None
         self.coordinator = None
         self._last_user = None
@@ -330,8 +332,8 @@ class _TurnContext(FrameProcessor):
                         )
                     self.decision = escalated
                 self.focus = self.decision.focus
-                if self.on_focus and self.focus != "none":
-                    await self.on_focus(self.focus)
+                if self.on_stage_turn:
+                    await self.on_stage_turn(self.decision)
                 messages[:] = [
                     m
                     for m in messages
@@ -628,6 +630,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         ),
     )
     turn_context = _TurnContext(ctx.session_id, ctx.turn_image)
+
     async def refresh_memory():
         if isinstance(llm, FakeLLMService):
             return
@@ -696,10 +699,21 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         ),
     )
 
-    async def follow_focus(view):
-        await events.send(StageEvent(view=view))
+    stage = StageManager(lang=lambda: ctx.lang, log=transcript.record)
 
-    turn_context.on_focus = follow_focus
+    async def send_stage(result):
+        if isinstance(result, StageHintEvent):
+            await events.send(result)
+        elif result is not None:
+            await events.send(StageEvent(view=result))
+
+    async def stage_turn(decision):
+        await send_stage(stage.on_turn(decision, time.monotonic()))
+
+    async def stage_brief(brief, decision):
+        await send_stage(stage.on_brief(brief, decision, time.monotonic()))
+
+    turn_context.on_stage_turn = stage_turn
     beats = BeatTagProcessor(
         events=events,
         lang=lambda: ctx.lang,
@@ -713,7 +727,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     if thinker is not None:
         thinker.on_usage = transcript.meter.llm
     turn_context.coordinator = TutorCoordinator(
-        thinker, ctx.board, transcript=transcript, lang=lambda: ctx.lang
+        thinker, ctx.board, transcript=transcript, lang=lambda: ctx.lang, on_brief=stage_brief
     )
     reasoning = [ThinkerOutput(turn_context.coordinator)]
     worker = PipelineWorker(
@@ -877,6 +891,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
             logger.warning("Dropped invalid Tassel client event")
             return
         if isinstance(event, StageStateEvent):
+            stage.on_state(event, time.monotonic())
             turn_context.focus = event.view
             turn_context.frozen = event.frozen
             turn_context.page_revision = event.page_revision

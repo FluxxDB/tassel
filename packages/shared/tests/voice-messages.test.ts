@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import fixtures from '../src/voice/fixtures.json';
 import {
   ICE_SERVERS_PATH,
   parseServerEvent,
+  type StageState,
   silenceBudget,
   VOICE_BUDGETS,
   voiceOfferPath,
@@ -41,6 +42,9 @@ describe('parseServerEvent', () => {
     { tassel: { kind: 'title', title: 'Strings that start with 010' } },
     { tassel: { kind: 'title', title: 7, subject: null } },
     { tassel: { kind: 'stage', view: 'desk' } },
+    { tassel: { kind: 'stage-hint', side: 'split' } },
+    { tassel: { kind: 'stage-hint' } },
+    { tassel: { kind: 'stage-hint', side: null } },
     { tassel: { kind: 'language', lang: 'fr' } },
     { tassel: { kind: 'route', lang: 'en', stt: 'whisper', llm: 'fake', tts: 'fake' } },
     { tassel: { kind: 'backchannel', text: null } },
@@ -96,4 +100,14 @@ describe('the contract constants', () => {
   it('keeps a session id inside its path segment', () => {
     expect(voiceOfferPath('a/b?c')).toBe('/v1/sessions/a%2Fb%3Fc/voice/offer');
   });
+});
+
+it('keeps optional nullable pins aligned with the shared client fixtures', () => {
+  expectTypeOf<StageState['pinned']>().toEqualTypeOf<
+    'paper' | 'board' | 'split' | null | undefined
+  >();
+  const states = fixtures.client.filter((event) => event.kind === 'stage-state');
+  expect(states.map((event) => event.pinned)).toEqual(['paper', 'board', 'split', null]);
+  const legacy: StageState = { view: 'paper', frozen: false, page_revision: 0 };
+  expect(legacy.pinned ?? null).toBeNull();
 });

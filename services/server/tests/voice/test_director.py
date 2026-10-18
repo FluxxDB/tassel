@@ -85,7 +85,7 @@ async def test_bot_gate_board_context_stage_and_no_speech_start_capture():
     gate = _TurnContext(uuid4(), capture)
     gate.director = Director()
     gate.request_frame = AsyncMock()
-    gate.on_focus = AsyncMock()
+    gate.on_stage_turn = AsyncMock()
     gate.push_frame = AsyncMock()
     parse_command("dfa ex start=q0 accept=q0 q0-0-q0", gate.board)
     await gate.speech_started()
@@ -96,7 +96,7 @@ async def test_bot_gate_board_context_stage_and_no_speech_start_capture():
     capture.assert_not_called()
     assert "image_url" not in str(context.get_messages())
     assert "q0" in str(context.get_messages())
-    gate.on_focus.assert_awaited_once_with("board")
+    gate.on_stage_turn.assert_awaited_once_with(gate.decision)
 
 
 @pytest.mark.asyncio

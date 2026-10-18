@@ -31,6 +31,7 @@ from tassel.voice.illustrator import Illustrator
 from tassel.voice.pointer import MarkIntent, Pointer, mark_tags
 from tassel.voice.prompts import thinker_system_prompt
 from tassel.voice.settings import VoiceSettings
+from tassel.voice.stage import StageDrawing
 
 
 class GuidanceBrief(BaseModel):
@@ -153,8 +154,10 @@ class TutorCoordinator:
         lang=lambda: "en",
         illustrator=None,
         pointer=None,
+        on_brief=None,
     ):
         self.thinker, self.board, self.transcript = thinker, board, transcript
+        self.on_brief = on_brief
         self.illustrator = illustrator
         self.pointer = pointer
         self.page_image = None
@@ -607,6 +610,8 @@ class TutorCoordinator:
             tag = await self.diagram_result()
             if tag:
                 brief = brief.model_copy(update={"board": [tag, *brief.board]})
+        if brief and self.on_brief:
+            await self.on_brief(brief, self.decision or rules(self.text))
         self._notes_context()
         return brief
 
@@ -720,6 +725,20 @@ class ThinkerOutput(FrameProcessor):
                     if not checked.tags or structural:
                         self.coordinator.log("reject", source="talker_tag", text=tag)
                         continue
+                    if self.coordinator.on_brief:
+                        drawing = StageDrawing(
+                            board=[tag]
+                            if any(k.startswith("board.") for k in checked.kinds)
+                            else [],
+                            paper=[tag]
+                            if any(k.startswith("paper.") for k in checked.kinds)
+                            else [],
+                        )
+                        await self.coordinator.on_brief(drawing, decision)
+                        await self.push_frame(
+                            LLMTextFrame(compose(drawing) + (" " if drawing.say.strip() else ""))
+                        )
+                        continue
                 await self.push_frame(LLMTextFrame(tag))
 
     async def process_frame(self, frame, direction):
@@ -748,7 +767,14 @@ class ThinkerOutput(FrameProcessor):
                             words = {"en": "Here it is.", "es": "Aquí está.", "ko": "여기 있어요."}[
                                 self.coordinator.lang()
                             ]
-                            await self.push_frame(LLMTextFrame(tag + words))
+                            late = brief.model_copy(
+                                update={"board": [tag], "paper": [], "draw": None, "say": words}
+                            )
+                            if self.coordinator.on_brief:
+                                await self.coordinator.on_brief(
+                                    late, self.coordinator.decision or rules(self.coordinator.text)
+                                )
+                            await self.push_frame(LLMTextFrame(compose(late)))
                 elif pending and generation == self.coordinator.generation:
                     failure = {
                         "en": "I couldn't finish checking that. Could you ask me again?",

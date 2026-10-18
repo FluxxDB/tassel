@@ -154,9 +154,9 @@ async def test_typed_reply_stage_memory_and_resume():
                 for m in bot.context.get_messages()
             )
         )
-        # The scripted director shows the split; the LLM's own stage request adds none.
+        # A focus suggestion with no visual need leaves the current paper view alone.
         stages = [e for e in out.events() if e["kind"] == "stage"]
-        assert stages == [{"kind": "stage", "view": "split"}]
+        assert stages == []
     saved, lang = ctx.memory.recall(ctx.session_id)
     assert lang == "en" and any(m.get("role") == "user" for m in saved)
     assert not any(m["role"] == "system" for m in saved)
@@ -493,7 +493,7 @@ async def test_fake_session_draws_through_the_director_and_thinker(monkeypatch):
         assert "[[" not in out.text()
 
 
-async def test_scripted_decision_shows_the_split_view():
+async def test_scripted_focus_without_visual_need_does_not_switch():
     ctx = context(request=OfferRequestData(scenario="dfa-opening"))
     async with running(ctx) as (bot, out):
         await until(lambda: load_scenario("dfa-opening").langs["en"].greeting in out.text())
@@ -502,7 +502,7 @@ async def test_scripted_decision_shows_the_split_view():
         )
         await until(lambda: "1010" in out.text())
         stages = [e["view"] for e in out.events() if e["kind"] == "stage"]
-        assert stages[-1:] == ["split"]
+        assert stages == []
 
 
 @pytest.mark.parametrize("prefix", ["", "[[stage paper]]", "Look at your paper"])
@@ -538,7 +538,7 @@ async def test_stage_only_reply_continues_but_spoken_reply_does_not(prefix, monk
     async with running(context()) as (bot, out):
         await until(lambda: SCRIPT.langs["en"].greeting in out.text())
         await say(bot, "What's on my paper?")
-        await until(lambda: {"kind": "stage", "view": "paper"} in out.events())
+        # Paper is already visible; no redundant stage event is sent.
         if prefix == "Look at your paper":
             await until(lambda: prefix in out.text())
             await asyncio.sleep(0.2)
@@ -546,6 +546,7 @@ async def test_stage_only_reply_continues_but_spoken_reply_does_not(prefix, monk
         else:
             await until(lambda: "I see your automaton." in out.text())
             assert bot.llm.calls == 3
+        assert not [e for e in out.events() if e["kind"] == "stage"]
 
 
 async def test_saved_board_restores_once_after_client_ready():

@@ -286,6 +286,7 @@ class Director:
                                 "role": "system",
                                 "content": (
                                     "Direct this tutor turn; return only the schema. "
+                                    "Focus is a suggestion that the stage manager applies. "
                                     "Default focus is the "
                                     "current stage. Paper/camera requests mean mark_paper, "
                                     "board requests "
