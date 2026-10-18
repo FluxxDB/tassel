@@ -36,7 +36,8 @@ export function AvatarCustomizer({
       description={t('avatar.description')}
       className="avatar-customizer isolate max-w-[860px]"
     >
-      {open && <Editor onClose={() => onOpenChange(false)} />}
+      {/* Sheet owns unmounting after its exit animation; keep the editor intact until then. */}
+      <Editor onClose={() => onOpenChange(false)} />
     </Sheet>
   );
 }

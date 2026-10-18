@@ -90,3 +90,18 @@ pnpm --filter @tassel/desktop e2e tests/e2e/avatar.spec.ts
   speaking state and its reduced-motion/static rest behavior, and covers the
   full save/reload/session flow. All four outfit screenshots and the rainbow
   save screenshot were reviewed. No real devices or providers used.
+
+## Save-close flash fix
+
+The editor was conditionally removed as soon as `open` became false, while
+Radix retained the outer Sheet for its 120 ms exit animation. That left a
+collapsed white dialog briefly visible. The editor now stays mounted under
+Sheet's presence lifecycle, so content and shell exit together. No timeout or
+shared dialog changes were needed.
+
+A new Electron regression failed before the fix because the celebration was
+absent during `sheet-out`. Afterward it confirms content and full dialog size
+at exit, complete unmount, and a fresh usable editor on reopen. All three avatar
+Electron tests passed, along with seven avatar unit tests, TypeScript, focused
+Biome checks and desktop build. Tests used the existing team2 port/database and
+fake providers/devices.

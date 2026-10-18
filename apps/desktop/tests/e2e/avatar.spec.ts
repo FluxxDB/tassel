@@ -99,3 +99,45 @@ test('outfits stay aligned and speaking animates only while the tutor speaks', a
     await app.close();
   }
 });
+
+test('save keeps the full editor visible throughout the closing animation', async () => {
+  const { app, page } = await launchApp();
+  try {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.getByRole('button', { name: 'Customize tutor' }).click();
+    await settle(page);
+    const before = await page
+      .getByRole('dialog')
+      .evaluate((dialog) => dialog.getBoundingClientRect().height);
+    const exitFrame = page.evaluate(
+      () =>
+        new Promise<{ editorPresent: boolean; height: number }>((resolve, reject) => {
+          const dialog = document.querySelector('[role="dialog"]');
+          if (!dialog) return reject(new Error('Missing editor dialog'));
+          const timeout = setTimeout(
+            () => reject(new Error('No closing animation observed')),
+            6000,
+          );
+          dialog.addEventListener('animationstart', (event) => {
+            if ((event as AnimationEvent).animationName !== 'sheet-out' || event.target !== dialog)
+              return;
+            clearTimeout(timeout);
+            resolve({
+              editorPresent: !!dialog.querySelector('[data-testid="avatar-celebration"]'),
+              height: dialog.getBoundingClientRect().height,
+            });
+          });
+        }),
+    );
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    const exit = await exitFrame;
+    expect(exit.editorPresent).toBe(true);
+    expect(Math.abs(exit.height - before)).toBeLessThan(3);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Customize tutor' }).click();
+    await expect(page.getByTestId('avatar-preview')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Save changes', exact: true })).toBeEnabled();
+  } finally {
+    await app.close();
+  }
+});
