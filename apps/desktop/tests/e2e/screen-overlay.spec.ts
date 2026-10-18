@@ -158,6 +158,73 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
       .toBe(true);
     await page.getByRole('button', { name: 'Share screen', exact: true }).click();
     await expect(hud.getByTestId('screen-overlay')).toBeVisible();
+    // Exercise tutor geometry in real SVG layout, including non-square and portrait displays.
+    for (const [width, height] of [
+      [1280, 720],
+      [1920, 1080],
+      [720, 1280],
+    ]) {
+      await app.evaluate(
+        ({ BrowserWindow }, size) => {
+          const window = BrowserWindow.getAllWindows().find((w) =>
+            w.webContents.getURL().endsWith('#overlay-ink'),
+          );
+          if (!window) throw new Error('Missing ink window');
+          window.setContentSize(size.width, size.height);
+          window.webContents.send('screen:state', {
+            sequence: 100000 + (size.width === 1280 ? 1 : size.width === 1920 ? 2 : 3),
+            status: 'sharing',
+            caption: '',
+            tutorState: 'listening',
+            micOn: true,
+            draw: false,
+            avatar: {},
+            notice: '',
+            marks: [
+              {
+                id: 'circle',
+                author: 'tutor',
+                kind: 'circle',
+                points: [
+                  { x: 0.6, y: 0.5 },
+                  { x: 0.9, y: 0.7 },
+                ],
+              },
+              {
+                id: 'underline',
+                author: 'tutor',
+                kind: 'underline',
+                points: [
+                  { x: 0.6, y: 0.72 },
+                  { x: 0.9, y: 0.72 },
+                ],
+              },
+            ],
+          });
+        },
+        { width, height },
+      );
+      await expect(ink.locator('ellipse')).toHaveCount(1);
+      const geometry = await ink.evaluate(() => {
+        const ellipse = document.querySelector('ellipse')?.getBoundingClientRect();
+        const line = document.querySelector('polyline')?.getBoundingClientRect();
+        if (!ellipse || !line) throw new Error('Missing marks');
+        return {
+          width: innerWidth,
+          height: innerHeight,
+          circle: { x: ellipse.x, y: ellipse.y, width: ellipse.width, height: ellipse.height },
+          line: { x: line.x, y: line.y, width: line.width },
+        };
+      });
+      expect(geometry.circle.x).toBeCloseTo(geometry.width * 0.6, 1);
+      expect(geometry.circle.y).toBeCloseTo(geometry.height * 0.5, 1);
+      expect(geometry.circle.width).toBeCloseTo(geometry.width * 0.3, 1);
+      expect(geometry.circle.height).toBeCloseTo(geometry.height * 0.2, 1);
+      expect(geometry.line.x).toBeCloseTo(geometry.width * 0.6, 1);
+      expect(geometry.line.y).toBeCloseTo(geometry.height * 0.72, 1);
+      expect(geometry.line.width).toBeCloseTo(geometry.width * 0.3, 1);
+    }
+    await ink.screenshot({ path: join(dir, 'screen-tutor-geometry.png') });
     await hud.getByRole('button', { name: 'Stop sharing', exact: true }).click();
     await expect.poll(() => app.windows().length).toBe(1);
     await expect(page.getByRole('button', { name: 'Share screen', exact: true })).toHaveAttribute(

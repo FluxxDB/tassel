@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tassel.auth import current_learner
@@ -41,6 +41,17 @@ class ScreenDrawing(BaseModel):
     frame_id: str = Field(max_length=80)
     kind: Literal["pointer", "circle", "underline", "arrow"]
     points: list[ScreenPoint] = Field(min_length=1, max_length=2)
+
+    @model_validator(mode="after")
+    def shape_geometry(self):
+        expected = 1 if self.kind == "pointer" else 2
+        if len(self.points) != expected:
+            raise ValueError(f"{self.kind} requires {expected} points")
+        if expected == 2:
+            a, b = self.points
+            if a == b or (self.kind == "circle" and (a.x == b.x or a.y == b.y)):
+                raise ValueError("Shape must have nonzero extent")
+        return self
 
 
 async def owned(request, learner, db, session_id):

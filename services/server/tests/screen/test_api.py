@@ -90,3 +90,38 @@ async def test_owned_explicit_sharing_is_required_and_reset_rejects_old_frames(m
                 base + "/control", json={"source": "display", "epoch": "3", "active": True}
             )
         ).status_code == 422
+
+
+@pytest.mark.parametrize("kind", ["circle", "underline", "arrow"])
+def test_screen_shapes_require_two_distinct_points(kind):
+    from pydantic import ValidationError
+
+    from tassel.screen.api import ScreenDrawing
+
+    for points in [[{"x": 0.7, "y": 0.6}], [{"x": 0.7, "y": 0.6}] * 2]:
+        with pytest.raises(ValidationError):
+            ScreenDrawing(frame_id="current", kind=kind, points=points)
+
+
+def test_pointer_requires_one_point_and_circle_requires_area():
+    from pydantic import ValidationError
+
+    from tassel.screen.api import ScreenDrawing
+
+    with pytest.raises(ValidationError):
+        ScreenDrawing(frame_id="current", kind="pointer", points=[{"x": 0.2, "y": 0.3}] * 2)
+    with pytest.raises(ValidationError):
+        ScreenDrawing(
+            frame_id="current", kind="circle", points=[{"x": 0.2, "y": 0.3}, {"x": 0.8, "y": 0.3}]
+        )
+
+
+def test_screen_tool_defines_image_coordinates_and_shape_geometry():
+    from tassel.voice.tools import DRAW_SCREEN
+
+    schema = DRAW_SCREEN.to_default_dict()
+    points = schema["parameters"]["properties"]["points"]["description"]
+    assert "opposite corners" in points
+    assert "underline" in points and "below" in points
+    assert "pointer" in points and "one" in points
+    assert "width" in schema["description"] and "height" in schema["description"]

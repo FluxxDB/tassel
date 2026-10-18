@@ -58,3 +58,16 @@ Reviewed implementation against `docs/superpowers/plans/2026-10-18-screenshare-o
 Automated checks use fakes and never open the owner's screen, camera, microphone or paid providers. Actual macOS permission prompts, full-screen Spaces behavior, mixed-DPI/rotated monitors and clean capture exclusion need owner-run validation. The current fallback hides desktop ink briefly for a requested frame and masks the HUD region; validate the actual captured image and latency on each target platform. The capture-exclusion guarantee and the proposed 150 ms audio-cutoff target are not claimed from fake tests.
 
 The first release intentionally selects a whole display. Moving-window tracking, DOM extraction, continuous uploads, persistent document annotations and a floating editable whiteboard remain outside this version. Digital drawings use a dedicated frame-bound tool; speech-word synchronization for these tool marks can be refined after hardware acceptance.
+
+## Annotation bug review (2026-10-18)
+
+The screen tool now defines full-image normalization using the actual JPEG dimensions,
+including browser chrome and margins. Circles take opposite bounding-box corners;
+underlines take endpoints below the text. Incomplete and zero-area shapes are rejected.
+A drawing must reference a fresh frame delivered for the current user turn, and image-free
+provider retries no longer advertise `draw_screen`.
+
+Real Electron acceptance now verifies tutor ellipse and underline positions in landscape
+and portrait viewports. This confirms the renderer's normalized projection, independently
+of model localization. Synthetic tests cannot establish how accurately the live model
+locates a particular question on the owner's display; that still needs a live retest.

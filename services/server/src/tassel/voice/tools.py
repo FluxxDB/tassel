@@ -22,12 +22,21 @@ TALKER_TOOLS = ToolsSchema(standard_tools=[SET_LANGUAGE])
 DRAW_SCREEN = FunctionSchema(
     name="draw_screen",
     description="Point at the student's currently shared digital assignment. "
-    "Use normalized image coordinates (0 to 1) and the exact frame_id "
+    "Use coordinates of the ENTIRE attached image: x = pixel_x / image width, "
+    "y = pixel_y / image height (0 to 1, origin top-left, y increases downward). "
+    "Do not use coordinates relative to the question, a crop, a window, or a square image. "
+    "Use the exact frame_id "
     "from its caption. Never guess a frame ID.",
     properties={
         "frame_id": {"type": "string"},
         "kind": {"type": "string", "enum": ["pointer", "circle", "underline", "arrow"]},
         "points": {
+            "description": "pointer: exactly one point at the target. "
+            "circle: exactly two opposite corners (top-left and bottom-right) of the "
+            "target's bounding box, NOT center and radius. "
+            "underline: exactly two endpoints of a line just below the text, "
+            "left to right at the same y. arrow: exactly two points, tail then tip. "
+            "Locate the target in the current image before drawing; omit the call if uncertain.",
             "type": "array",
             "minItems": 1,
             "maxItems": 2,

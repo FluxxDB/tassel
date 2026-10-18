@@ -67,3 +67,36 @@ async def test_duplicate_reset_retries_failed_cancellation_instead_of_acknowledg
     await screen.reset(source="display", epoch=1, active=True)
     assert screen.matches("display", 1)
     assert calls == 2
+
+
+@pytest.mark.asyncio
+async def test_turn_caption_uses_actual_frame_dimensions_and_clears_stale_grounding():
+    from datetime import UTC, datetime
+    from io import BytesIO
+
+    from PIL import Image
+
+    from tassel.screen.session import ScreenFrame
+    from tassel.voice.bot import _TurnContext
+
+    context = _TurnContext()
+    context.screen = ScreenSession()
+    context.screen.control(source="display", epoch=1, active=True)
+    jpeg = BytesIO()
+    Image.new("RGB", (1600, 900), "white").save(jpeg, format="JPEG")
+
+    async def frame():
+        context.screen.put(
+            ScreenFrame("current", "display", 1, 0, datetime.now(UTC), jpeg.getvalue())
+        )
+
+    context.request_frame = frame
+    page = await context._turn_page()
+    assert "1600x900" in page.caption
+    assert "x=pixel_x/1600, y=pixel_y/900" in page.caption
+    assert context.screen_frame_id == "current"
+    await context.screen.reset(source="display", epoch=2, active=True)
+    context.request_frame = None
+    page = await context._turn_page()
+    assert page.image is None
+    assert context.screen_frame_id is None
