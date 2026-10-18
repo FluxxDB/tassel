@@ -124,6 +124,9 @@ export function mapRtvi(
         case 'paper-frame':
           events.push({ type: 'paper-request' });
           break;
+        case 'board-snapshot':
+          events.push({ type: 'board-snapshot' });
+          break;
         case 'stage':
           events.push({ type: 'stage', mode: event.view });
           break;

@@ -52,6 +52,11 @@ export interface BoardEngine {
     fit(): void;
     adaAction(): void;
   };
+  /**
+   * The whole board as it is now, Ada's items and the student's, as a PNG about `maxSide` px on
+   * its long side; null when the board is empty.
+   */
+  snapshot?(maxSide: number): Promise<Blob | null>;
   /** Her edits, one per quiet moment. Returns the unsubscribe. */
   onStudentEdit(listener: (edit: StudentBoardEdit) => void): () => void;
   dispose(): void;

@@ -2,13 +2,16 @@
 // and view requests go to the stage store. Her title shows in the title strip at once (R4). The
 // app never saves a title: the server writes the live tutor's (P2-R4), and the scripted tutor's
 // are display-only, naming only an untitled session (spec §5.1). Her board, paper and stage
-// actions go to the dispatcher, now or, in a beat, as the beat player hears her words (P5).
-import { useEffect } from 'react';
+// actions go to the dispatcher, now or, in a beat, as the beat player hears her words (P5). The
+// server's board-snapshot request sends the board as it is now, for Ada's board turn.
+import { useEffect, useRef } from 'react';
 import { beatPlayer } from '../board/beats/player';
 import { dispatchActions } from '../board/dispatch';
+import { sendBoardSnapshot } from '../board/snapshot';
 import { useCurrentSession } from '../features/session/current-session';
 import { useStageStore } from '../features/session/stage-store';
 import { useVoiceDebug } from '../features/voice/voice-debug';
+import { useApi } from '../lib/api';
 import { requestTurnFrame } from '../paper/turn-frame';
 import type { TutorClient } from './types';
 
@@ -22,6 +25,10 @@ export function useTutorSession(
   ready: boolean,
 ): void {
   const { nameIfUntitled, patchLocal } = useCurrentSession();
+  // Read when a snapshot is asked for, so a new API client never reconnects the tutor.
+  const apiClient = useApi();
+  const api = useRef(apiClient);
+  api.current = apiClient;
 
   useEffect(() => {
     if (!ready || !client) return;
@@ -76,6 +83,9 @@ export function useTutorSession(
           break;
         case 'paper-request':
           void requestTurnFrame();
+          break;
+        case 'board-snapshot':
+          void sendBoardSnapshot(api.current, sessionId);
           break;
       }
     });

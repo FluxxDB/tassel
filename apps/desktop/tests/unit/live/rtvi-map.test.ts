@@ -162,6 +162,10 @@ describe('mapRtvi', () => {
     const { events } = run([{ kind: 'server', data: { tassel: { kind: 'paper-frame' } } }]);
     expect(events).toEqual([{ type: 'paper-request' }]);
   });
+  it("the server's board-snapshot request asks the app for her board as it is now", () => {
+    const { events } = run([{ kind: 'server', data: { tassel: { kind: 'board-snapshot' } } }]);
+    expect(events).toEqual([{ type: 'board-snapshot' }]);
+  });
   it('vad ducks only while Ada speaks and always unducks when speech ends', () => {
     const vad = (speaking: boolean): RtviInput => ({
       kind: 'server',

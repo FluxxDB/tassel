@@ -473,3 +473,47 @@ it.each(['metaKey', 'ctrlKey'] as const)(
     expect(editor.getCamera()).toEqual(fitted);
   },
 );
+
+describe("the board's snapshot (the server's board-snapshot request)", () => {
+  it('is nothing for an empty board, and never exports', async () => {
+    const { editor, engine } = board(SPLIT_1440);
+    const toImage = vi.spyOn(editor, 'toImage');
+    await expect(engine.snapshot?.(1280)).resolves.toBeNull();
+    expect(toImage).not.toHaveBeenCalled();
+  });
+
+  it("exports every shape on the page, Ada's and the student's, as a PNG on the board's background", async () => {
+    const { editor, engine } = board(SPLIT_1440);
+    engine.render(sceneAfter(draw(CORRECT)), { fix: fallbackLayout(CORRECT) });
+    editor.createShape({ type: 'geo', x: 1200, y: 900, props: { w: 80, h: 40 } });
+    const png = new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: 'image/png' });
+    const toImage = vi
+      .spyOn(editor, 'toImage')
+      .mockResolvedValue({ blob: png, width: 1, height: 1 });
+
+    await expect(engine.snapshot?.(1280)).resolves.toBe(png);
+    expect(toImage).toHaveBeenCalledTimes(1);
+    const [ids, opts] = toImage.mock.calls[0] as Parameters<Editor['toImage']>;
+    expect(new Set<unknown>(ids)).toEqual(editor.getCurrentPageShapeIds());
+    expect(ids.length).toBe(editor.getCurrentPageShapes().length);
+    expect(editor.getCurrentPageShapes().some((shape) => shape.type === 'geo')).toBe(true);
+    expect(opts).toMatchObject({ format: 'png', background: true, pixelRatio: 1 });
+    // About 1280 px on its long side, padding included.
+    const bounds = editor.getCurrentPageBounds();
+    if (!bounds || opts?.scale === undefined || typeof opts.padding !== 'number')
+      throw new Error('no scale');
+    const long = (Math.max(bounds.w, bounds.h) + 2 * opts.padding) * opts.scale;
+    expect(long).toBeCloseTo(1280, 0);
+  });
+
+  it('never blows a small board up past twice its size', async () => {
+    const { editor, engine } = board(SPLIT_1440);
+    editor.createShape({ type: 'geo', x: 0, y: 0, props: { w: 40, h: 20 } });
+    const png = new Blob([new Uint8Array([1])], { type: 'image/png' });
+    const toImage = vi
+      .spyOn(editor, 'toImage')
+      .mockResolvedValue({ blob: png, width: 1, height: 1 });
+    await engine.snapshot?.(1280);
+    expect(toImage.mock.calls[0]?.[1]?.scale).toBe(2);
+  });
+});

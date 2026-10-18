@@ -77,6 +77,14 @@ export const useBoardStore: UseBoundStore<StoreApi<BoardState>> = create<BoardSt
   }),
 );
 
+/**
+ * The board as a PNG about `maxSide` px on its long side, from the engine that draws it (mounted
+ * while the board panel is hidden too); null when no engine is attached or the board is empty.
+ */
+export async function exportBoardPng(maxSide: number): Promise<Blob | null> {
+  return (await engine?.snapshot?.(maxSide)) ?? null;
+}
+
 /** Applies one of Ada's board actions, which dispatchActions has checked. */
 export function applyBoardAction(action: BoardAction): void {
   useBoardStore.getState().apply(action);
