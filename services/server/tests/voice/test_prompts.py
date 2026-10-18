@@ -59,3 +59,30 @@ def test_tools():
 
 def test_custom_tutor_name():
     assert "Mina" in system_prompt("en", tutor_name="Mina")
+
+
+def test_the_board_examples_are_complete_and_every_tag_in_them_reads_cleanly():
+    """Three worked examples (a board DFA built step by step, a highlight, a paper circle on m3)
+    and the exact edge syntax: every tag in them parses, with nothing dropped."""
+    import re
+
+    from tassel.beats.markup import BoardContext, MarkupStream
+
+    prompt = system_prompt("en")
+    assert "[[edge ITEM FROM TO SYMS]]" in prompt
+    examples = prompt[prompt.index("Examples:") :]
+    assert examples.count("Student:") == 3
+    stream = MarkupStream(BoardContext(specs={}))
+    sentences = []
+    for line in examples.splitlines():
+        if line.startswith("Ada:"):
+            sentences += stream.feed(line.removeprefix("Ada:") + " ")
+            sentences += stream.flush()
+    tags = re.findall(r"\[\[([^\]]+)\]\]", examples)
+    kinds = [action.kind for s in sentences for _, action in s.anchors]
+    assert len(kinds) == len(tags) >= 6
+    assert not [p for s in sentences for p in s.problems]
+    assert {"board.automaton", "board.reveal", "board.addTransition", "board.highlight"} <= set(
+        kinds
+    )
+    assert "paper.mark" in kinds or any(k.startswith("paper") for k in kinds)

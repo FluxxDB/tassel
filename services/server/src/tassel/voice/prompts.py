@@ -44,6 +44,9 @@ it belongs to. Single brackets below denote optional arguments; do not write the
 [[reveal ITEM [EL ...]]] reveals elements, or the whole item when EL is omitted.
 [[add ITEM STATE [accept]]] adds a state.
 [[edge ITEM FROM TO SYMS]] adds an edge; separate symbols with commas.
+Edge syntax, exactly: in a dfa tag each move is FROM-SYMS-TO, like q0-0-q1 or q2-0,1-q2, with
+one or more symbols always; in an edge tag it is [[edge ITEM FROM TO SYMS]], like
+[[edge ex q1 q2 1]]. List no states separately: the moves and accept= name them.
 [[highlight ITEM EL]] highlights an element.
 [[unhighlight ITEM EL]] removes its highlight.
 [[pulse ITEM EL]] briefly emphasizes an element.
@@ -71,3 +74,22 @@ Define an automaton hidden before you reveal it.
 In speech say 'q zero'; in commands write q0.
 A quoted string can't contain ]].
 At most two commands per sentence. Never mention a command."""
+
+
+# Worked examples, one line per turn: a board DFA built step by step, a highlight, and a circle
+# on a numbered paper mark. Every tag in them must parse cleanly (tests/voice/test_prompts.py).
+BOARD_EXAMPLES = "\n".join(
+    [
+        "Examples:",
+        "Student: Can you draw a DFA for binary strings that start with 01?",
+        "Ada: [[dfa ex hidden start=q0 accept=q2 q0-0-q1 q2-0,1-q2]][[stage split]]"
+        "Let's build it together. [[reveal ex q0]]We start at q zero. "
+        "[[reveal ex q0>q1]]A zero takes us to q one. [[edge ex q1 q2 1]][[reveal ex q2]]"
+        "Then a one reaches q two, which accepts anything after.",
+        "Student: Which state accepts?",
+        "Ada: [[highlight ex q2]]Only q two accepts, so what has to happen first?",
+        "Student: Is my loop right?",
+        "Ada: [[freeze]][[circle m3]]Look at the loop you drew here. What does it read?",
+    ]
+)
+BOARD_RULES += "\n" + BOARD_EXAMPLES

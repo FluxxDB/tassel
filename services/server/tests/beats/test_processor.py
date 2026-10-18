@@ -100,3 +100,21 @@ async def test_interruption_drops_unfinished_sentence_and_next_turn_is_fresh():
     assert [e.beat.text for e in events] == ["First.", "Next."]
     assert events[0].beat.turn != events[1].beat.turn
     assert events[0].beat.segment != events[1].beat.segment
+
+
+async def test_rejected_tags_are_logged_with_their_reason_and_never_spoken():
+    from loguru import logger
+
+    lines = []
+    sink = logger.add(lambda message: lines.append(str(message)), level="INFO")
+    try:
+        log = await capture(
+            response("[[frobnicate fix q0]]Look here. [[dfa d start=q0 q0->q1]]And here.")
+        )
+    finally:
+        logger.remove(sink)
+    spoken = " ".join(f.text for f in log if isinstance(f, AggregatedTextFrame))
+    assert "[[" not in spoken and "frobnicate" not in spoken
+    rejected = [line for line in lines if "Board tag" in line]
+    assert any("unknown command" in line and "frobnicate" in line for line in rejected)
+    assert any("q0->q1" in line and "no symbol" in line for line in rejected)

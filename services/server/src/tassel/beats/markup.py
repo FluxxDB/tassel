@@ -156,8 +156,11 @@ class MarkupStream:
                 return
 
     def _tag(self, raw: str) -> "_Tag":
+        notes: list[str] = []
         try:
-            return _Tag(raw, _command(raw[2:-2], self._ctx), None)
+            action = _command(raw[2:-2], self._ctx, notes)
+            # Read, but with parts dropped: they're logged with the sentence's problems.
+            return _Tag(raw, action, f"{_short(raw)}: {'; '.join(notes)}" if notes else None)
         except _UnknownVerb:
             return _Tag(raw, None, f"unknown command {_short(raw)}")
         except MarkupError as error:
@@ -373,14 +376,24 @@ def _args(command: str) -> list[_Arg]:
     ]
 
 
-def _command(command: str, ctx: BoardContext) -> BeatAction:
+def _command(command: str, ctx: BoardContext, notes: list[str] | None = None) -> BeatAction:
+    notes = [] if notes is None else notes
+    verb = command.strip().split(" ", 1)[0].lower()
+    if verb in ("dfa", "nfa"):
+        command = _tidy_moves(command)
     args = _args(command)
     if not args:
         raise MarkupError("an empty tag")
     verb = args[0].text.lower()
     rest = args[1:]
     if verb in ("dfa", "nfa"):
-        return _automaton(verb, rest, ctx)
+        return _automaton(verb, rest, ctx, notes)
+    if verb == "edge" and len(rest) == 2 and not rest[1].quoted:
+        # One move for the edge: [[edge ITEM FROM-SYMS->TO]].
+        found = _MOVE.fullmatch(_tidy_moves(rest[1].text))
+        if found is not None and found.group(3):
+            start, _, symbols, end = found.groups()
+            return _add_edge([rest[0].text, start, end, symbols], ctx)
     if verb == "reveal":
         item, *els = _between(rest, 1, None, "reveal ITEM [EL…]")
         return _make(BoardReveal, item=item, els=[_element(el) for el in els] or None)
@@ -432,7 +445,29 @@ def _command(command: str, ctx: BoardContext) -> BeatAction:
     raise _UnknownVerb(f"no command {verb}")
 
 
-def _automaton(kind: str, args: list[_Arg], ctx: BoardContext) -> BeatAction:
+# A move: FROM-SYMS-TO, or FROM-SYMS->TO; SYMS may hold commas. FROM->TO has no symbols.
+_MOVE = re.compile(r"(?<![\w'-])([\w']+)-(?:(>)|([^\s>]*?)(?:->|-(?=[\w'])))([\w']+)")
+_STATE = re.compile(r"[\w']+")
+
+
+def _tidy_moves(command: str) -> str:
+    """Closes up the spacing models write in moves and lists, outside quoted strings:
+    "q0 -0-> q1" to "q0-0->q1", and "q0, q1" or "accept=q1, q2" to "q0,q1" and "accept=q1,q2"."""
+    parts = command.split('"')
+    for i in range(0, len(parts), 2):
+        part = re.sub(r"\s*-\s*>\s*", "->", parts[i])
+        part = re.sub(r"(?<=\w)\s+-(?=\S)", "-", part)
+        parts[i] = re.sub(r",\s+", ",", part)
+    return '"'.join(parts)
+
+
+def _automaton(
+    kind: str, args: list[_Arg], ctx: BoardContext, notes: list[str] | None = None
+) -> BeatAction:
+    """[[dfa ITEM [hidden] [title=…] start=S accept=S,… [S,S,…] MOVE …]], read tolerantly where
+    it's unambiguous: moves with -> arrows, commas between moves, an optional state list. What
+    can't be read for sure (a move with no symbol, "...") is dropped and noted."""
+    notes = [] if notes is None else notes
     if not args:
         raise MarkupError(f"{kind} needs an item")
     item = args[0].text
@@ -440,7 +475,7 @@ def _automaton(kind: str, args: list[_Arg], ctx: BoardContext) -> BeatAction:
     title: str | None = None
     start: str | None = None
     accept: list[str] = []
-    moves: list[dict[str, Any]] = []
+    loose: list[str] = []
     for arg in args[1:]:
         key, equals, value = arg.text.partition("=")
         if arg.text == "hidden" and not arg.quoted:
@@ -450,16 +485,34 @@ def _automaton(kind: str, args: list[_Arg], ctx: BoardContext) -> BeatAction:
         elif equals and key == "start":
             start = value
         elif equals and key == "accept":
-            accept = value.split(",")
+            accept = [state for state in value.split(",") if state]
         elif not equals and not arg.quoted:
-            moves.append(_move(arg.text))
+            loose.append(arg.text)
         else:
             raise MarkupError(f"{kind} can't read {arg.text!r}")
     if start is None:
         raise MarkupError(f"{kind} needs start=STATE")
-    # Spec order: the start state, then each state as its first move names it, then the rest.
+    text = " ".join(loose)
+    moves: list[dict[str, Any]] = []
+    for found in _MOVE.finditer(text):
+        source, arrow, symbols, target = found.groups()
+        if arrow or not symbols or not symbols.strip(","):
+            notes.append(f"dropped {source}->{target}: no symbol")
+            continue
+        moves.append({"from": source, "to": target, "symbols": _symbols(symbols.strip(","))})
+    listed: list[str] = []
+    for token in re.split(r"[\s,]+", _MOVE.sub(" ", text)):
+        if not token:
+            continue
+        if _STATE.fullmatch(token):
+            listed.append(token)
+        elif token.strip(".…") == "":
+            notes.append(f"ignored {token}")
+        else:
+            notes.append(f"can't read {token!r}")
+    # Spec order: the start state, the states listed, then each as its first move names it.
     order = list(
-        dict.fromkeys([start, *(m[end] for m in moves for end in ("from", "to")), *accept])
+        dict.fromkeys([start, *listed, *(m[end] for m in moves for end in ("from", "to")), *accept])
     )
     spec = {
         "kind": kind,

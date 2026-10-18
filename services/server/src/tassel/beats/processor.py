@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from uuid import uuid4
 
+from loguru import logger
 from pipecat.frames.frames import (
     AggregatedTextFrame,
     InterruptionFrame,
@@ -34,6 +35,9 @@ class BeatTagProcessor(FrameProcessor):
 
     async def _emit(self, sentences: list[Sentence]):
         for sentence in sentences:
+            # A tag that's refused, or read with parts dropped, is logged, never captioned.
+            for problem in sentence.problems:
+                logger.info("Board tag rejected: {}", problem)
             frame = AggregatedTextFrame(
                 text=sentence.clean, aggregated_by="sentence", raw_text=sentence.tagged
             )

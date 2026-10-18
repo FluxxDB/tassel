@@ -383,3 +383,69 @@ class TestParseCommand:
 
         assert parse_command("trace run fix " + "01" * 32, ctx).input == "01" * 32
         assert parse_command("trace run fix " + "01" * 32 + "0", ctx) is None
+
+
+# What Qwen 3.8 actually wrote with Ada's persona, asked to draw a DFA for strings that start
+# with 010 (main's live run, 2026-10-17): commas, a state list, arrows, an edge with no symbol,
+# and an ellipsis. The tolerant reading keeps everything unambiguous and says what it dropped.
+QWEN_DFA = (
+    "dfa dfa1 hidden start=q0 accept=q5 q0, q1, q2, q3, q4, q5, q6 q0-0->q1, q1-1->q2, "
+    "q2-0->q3, q3-1->q4, q4->q5, q0-1->q6, ..."
+)
+
+
+class TestTolerantTags:
+    def moves(self, action) -> list[tuple[str, str, list[str]]]:
+        return [(m.from_, m.to, list(m.symbols)) for m in action.spec.transitions]
+
+    def test_the_real_qwen_dfa_draws_what_it_can_and_names_what_it_dropped(self):
+        sentences = read(f"[[{QWEN_DFA}]] [[reveal dfa1]]Here it is.")
+        [sentence] = sentences
+        [(_, automaton), (_, reveal)] = sentence.anchors
+        assert automaton.kind == "board.automaton" and automaton.reveal == "none"
+        assert [s.id for s in automaton.spec.states] == [f"q{i}" for i in range(7)]
+        assert [s.id for s in automaton.spec.states if s.accept] == ["q5"]
+        assert self.moves(automaton) == [
+            ("q0", "q1", ["0"]),
+            ("q1", "q2", ["1"]),
+            ("q2", "q3", ["0"]),
+            ("q3", "q4", ["1"]),
+            ("q0", "q6", ["1"]),
+        ]
+        assert reveal.kind == "board.reveal" and reveal.item == "dfa1"
+        problems = " ".join(sentence.problems)
+        assert "q4->q5" in problems and "no symbol" in problems
+        assert "..." in problems
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "dfa d start=q0 accept=q2 q0-0-q1 q1-1-q2",
+            "dfa d start=q0 accept=q2 q0-0->q1 q1-1->q2",
+            "dfa d start=q0 accept=q2 q0-0->q1, q1-1->q2",
+            "dfa d start=q0 accept=q2 q0 -0-> q1 q1 -1-> q2",
+            "dfa d start=q0 accept=q2 q0, q1, q2 q0-0->q1 q1-1->q2",
+        ],
+    )
+    def test_spacing_commas_arrows_and_a_state_list_read_the_same(self, command):
+        action = parse_command(command, BoardContext(specs={}))
+        assert action is not None
+        assert self.moves(action) == [("q0", "q1", ["0"]), ("q1", "q2", ["1"])]
+        assert [s.id for s in action.spec.states] == ["q0", "q1", "q2"]
+
+    def test_symbol_lists_and_accept_lists_take_spaces_after_commas(self):
+        action = parse_command(
+            "dfa d start=q0 accept=q1, q2 q0-0, 1->q1 q1-0,1-q2", BoardContext(specs={})
+        )
+        assert self.moves(action) == [("q0", "q1", ["0", "1"]), ("q1", "q2", ["0", "1"])]
+        assert [s.id for s in action.spec.states if s.accept] == ["q1", "q2"]
+
+    def test_an_edge_written_as_one_move_reads(self):
+        ctx = BoardContext(specs={})
+        parse_command("dfa d hidden start=q0 accept=q1 q0-0-q1", ctx)
+        edge = parse_command("edge d q1-0,1->q1", ctx)
+        assert edge is not None and edge.kind == "board.addTransition"
+        assert (edge.from_, edge.to, list(edge.symbols)) == ("q1", "q1", ["0", "1"])
+
+    def test_a_dfa_without_start_is_still_refused(self):
+        assert parse_command("dfa d accept=q1 q0-0->q1", BoardContext(specs={})) is None
