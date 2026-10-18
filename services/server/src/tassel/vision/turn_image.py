@@ -8,7 +8,7 @@ Internal helpers take an already-authorized session id; HTTP ownership lives in 
 
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 
 import anyio
@@ -27,7 +27,7 @@ from tassel.frames import repo
 from tassel.frames.objects import ObjectStore
 from tassel.frames.tables import Frame
 from tassel.vision.marks import draw_marks, find_candidates
-from tassel.vision.page import encode_jpeg, flatten_page
+from tassel.vision.page import encode_jpeg, enhance_for_llm, flatten_page
 
 
 @dataclass(frozen=True)
@@ -84,8 +84,10 @@ def _page_view(jpeg: bytes, row: Frame) -> PageView | None:
                 box=PixelBox(x=label.x, y=label.y, w=label.w, h=label.h),
             )
         )
+    # Detect against faithful pixels; enhance only the model copy and draw crisp tags last.
+    model_page = replace(page, rgb=enhance_for_llm(page.rgb))
     return PageView(
-        marked_jpeg=encode_jpeg(draw_marks(page, candidates)),
+        marked_jpeg=encode_jpeg(draw_marks(model_page, candidates)),
         page_jpeg=encode_jpeg(page.rgb),
         elements=tuple(elements),
         frame_id=row.id,
