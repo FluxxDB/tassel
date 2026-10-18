@@ -1,0 +1,17 @@
+{
+  "name": "title-dfa",
+  "title": "Auto title: a DFA session named from its first exchange",
+  "description": "Two talker turns on one topic: the titler names the session after the first, and keeps the name through the second (T).",
+  "default": false,
+  "stage": { "view": "board" },
+  "turns": [
+    {
+      "student": "I'm working on a DFA for binary strings that start with 010. What does the start state need to do?",
+      "expect": { "route": "talker", "tags": [] }
+    },
+    {
+      "student": "And why does this DFA need a dead state at all?",
+      "expect": { "route": "talker", "tags": [] }
+    }
+  ]
+}
