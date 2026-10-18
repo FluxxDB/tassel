@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { ApiClient, Session } from '@tassel/shared/api';
 import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { type ReactNode, StrictMode } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRoute } from '../../src/renderer/src/app/route-store';
@@ -309,4 +309,41 @@ describe('the session screen with its tutor', () => {
     );
     warn.mockRestore();
   });
+});
+
+it('extracts once when leaving a live session, including pagehide followed by unmount', async () => {
+  const POST = vi.fn(async () => ({ response: new Response(null, { status: 204 }) }));
+  const api = { POST } as unknown as ApiClient;
+  const { client } = scriptedTutor();
+  const live = { ...client, voice: {} as NonNullable<TutorClient['voice']> };
+  const { unmount } = renderHook(() => useTutorSession(SESSION.id, live, true), {
+    wrapper: ({ children }) => <ApiProvider client={api}>{children}</ApiProvider>,
+  });
+  window.dispatchEvent(new Event('pagehide'));
+  unmount();
+  await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+  expect(POST).toHaveBeenCalledWith('/v1/sessions/{session_id}/memory', {
+    params: { path: { session_id: SESSION.id } },
+    keepalive: true,
+  });
+});
+
+it('does not extract on StrictMode replay and extracts once on actual unmount', async () => {
+  const POST = vi.fn(async () => ({ response: new Response(null, { status: 204 }) }));
+  const api = { POST } as unknown as ApiClient;
+  const { client } = scriptedTutor();
+  const live = { ...client, voice: {} as NonNullable<TutorClient['voice']> };
+  const { unmount } = renderHook(() => useTutorSession(SESSION.id, live, true), {
+    wrapper: ({ children }) => (
+      <StrictMode>
+        <ApiProvider client={api}>{children}</ApiProvider>
+      </StrictMode>
+    ),
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(POST).not.toHaveBeenCalled();
+  unmount();
+  await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
 });

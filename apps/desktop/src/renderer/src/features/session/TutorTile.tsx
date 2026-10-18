@@ -1,13 +1,15 @@
 // Ada's tile: a small, live presence that floats over the stage, 212×176 on blush in its top right
-// corner until she moves it. Her state is always named on it; the iris ring shows only while she
-// speaks, and never alone, breathing unless motion is reduced.
+// corner until she moves it. Her avatar and name are the student's choice. Her state is always
+// named on it; the iris ring shows only while she speaks, and never alone, breathing unless motion
+// is reduced.
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Avatar } from '../../avatar/Avatar';
+import { useAvatar } from '../../avatar/store';
 import { FloatingTile } from '../../components/FloatingTile';
 import { useReducedMotion } from '../../components/use-reduced-motion';
 import { cn } from '../../lib/cn';
 import { useLiveVoice } from '../voice/live-voice';
-import { AvatarPlaceholder } from './AvatarPlaceholder';
 import { useStageStore } from './stage-store';
 import './tiles.css';
 
@@ -19,6 +21,7 @@ export function TutorTile({ inset, bottomClearance }: { inset: number; bottomCle
   const client = useLiveVoice((store) => store.client);
   const reducedMotion = useReducedMotion();
   const captionId = useId();
+  const avatar = useAvatar((store) => store.profile);
   // The live tutor's connection, until she's there: then her state, as with the scripted tutor.
   const status =
     live &&
@@ -48,15 +51,22 @@ export function TutorTile({ inset, bottomClearance }: { inset: number; bottomCle
         )}
       >
         {/* 156px at the default size, centered 6px from the top: it scales with the tile. */}
-        <AvatarPlaceholder className="absolute top-[3.4%] left-1/2 aspect-square h-[88.6%] -translate-x-1/2" />
+        <Avatar
+          speaking={speaking && status === null}
+          profile={avatar}
+          className="absolute top-[3.4%] left-1/2 aspect-square h-[88.6%] -translate-x-1/2"
+        />
         <figcaption
           id={captionId}
           className="absolute bottom-2.5 left-2.5 flex h-[27px] items-center gap-1.5 rounded-pill bg-paper px-2.5"
         >
           {status === null ? (
             <>
-              <span className="text-[13px] leading-4 font-w520 text-ink">
-                {t('session.tutorName')}
+              <span
+                title={avatar.name}
+                className="max-w-[88px] truncate text-[13px] leading-4 font-w520 text-ink"
+              >
+                {avatar.name}
               </span>
               <span className="mono text-[11px] leading-[14px] text-iris-ink">
                 {t(`session.tutorState.${state}`)}

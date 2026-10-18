@@ -1,0 +1,194 @@
+{
+  "version": 1,
+  "fetchedAt": "2026-10-18T03:22:03.201619+00:00",
+  "synthesisEnabled": false,
+  "sourceUrl": "https://api.elevenlabs.io/v1/shared-voices",
+  "missing": [
+    {
+      "language": "es",
+      "accent": "castilian"
+    }
+  ],
+  "voices": [
+    {
+      "id": "pqWHDiU3kG9H0RxCmqXX",
+      "name": "Linda - Warm & Expressive",
+      "language": "en",
+      "accent": "american",
+      "previewUrl": "https://api.us.elevenlabs.io/v1/voices/pqWHDiU3kG9H0RxCmqXX/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJjdXN0b20iLCJ3b3Jrc3BhY2VfaWQiOiJjODNkZWU4YmQwMTY0NTJhOWEzNzE2ZjhhMmQ4MzA4NSIsImZpbGVuYW1lIjoiZTc0MDFiZTgtYWQzMS00MTM2LTlkNDAtM2VhYjIwMjY1NjJjLm1wMyIsInRpbWVzdGFtcCI6MTc5MjI5MjQwMDAwMDAwMH0%3D",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    },
+    {
+      "id": "tJsRxZVX6zwpQ9Si2fvd",
+      "name": "Carolin - The Social Queen",
+      "language": "en",
+      "accent": "american",
+      "previewUrl": "https://storage.googleapis.com/eleven-public-prod/database/workspace/df56af25e4f3408f8740ec0866c67bc8/voices/tJsRxZVX6zwpQ9Si2fvd/2512dfb4-6e9e-4a83-abdc-19866b1b62aa.mp3",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    },
+    {
+      "id": "cVOjvbxC2c4mOyGcx3AH",
+      "name": "Jessica - Engaging, textured, grounded",
+      "language": "en",
+      "accent": "american",
+      "previewUrl": "https://storage.googleapis.com/eleven-public-prod/database/workspace/32e878957e684e57a7a6cf9beec8b828/voices/cVOjvbxC2c4mOyGcx3AH/1dc15474-7da6-445f-b749-721d6ef4f5e6.mp3",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    },
+    {
+      "id": "xYkjVyGTu2UHiLKQR1gQ",
+      "name": "Imani Speaks - Friendly, Pleasant",
+      "language": "en",
+      "accent": "british",
+      "previewUrl": "https://api.us.elevenlabs.io/v1/voices/xYkjVyGTu2UHiLKQR1gQ/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJjdXN0b20iLCJ3b3Jrc3BhY2VfaWQiOiI0OWRkMWIwODk2Mzk0Mzc2YTVhNjc2NmMyMTYyNWM5YyIsImZpbGVuYW1lIjoiNTM4YzZhMjAtOGE1OS00NmUyLWEzNzQtM2VlODdmMDI0ODRkLm1wMyIsInRpbWVzdGFtcCI6MTc5MjI5MjQwMDAwMDAwMH0%3D",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    },
+    {
+      "id": "zEXibJmDaq68dpHxQzRH",
+      "name": "A.M - Ugandan female",
+      "language": "en",
+      "accent": "british",
+      "previewUrl": "https://storage.googleapis.com/eleven-public-prod/database/workspace/92383f73e9744038b828e99a65004e59/voices/zEXibJmDaq68dpHxQzRH/e40f0731-53a4-4443-9c89-761762e3f1cf.mp3",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    },
+    {
+      "id": "tUxvnIoZrrcsUY1wdYot",
+      "name": "Melania - Friendly & quietly confident",
+      "language": "en",
+      "accent": "british",
+      "previewUrl": "https://api.us.elevenlabs.io/v1/voices/tUxvnIoZrrcsUY1wdYot/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJjdXN0b20iLCJ3b3Jrc3BhY2VfaWQiOiJiNWFmMzYxYWYyNzA0ZDlhODE1ZmU1MDRiN2I1MGFjOCIsImZpbGVuYW1lIjoiYmMwOTkxYTQtMjc2Ny00ZDgyLWFmYTktNzY4NTZjMTFiNjAxLm1wMyIsInRpbWVzdGFtcCI6MTc5MjI5MjQwMDAwMDAwMH0%3D",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    },
+    {
+      "id": "ql1brKcEMYebkPHXLRba",
+      "name": "Lipsa - Confident",
+      "language": "en",
+      "accent": "indian",
+      "previewUrl": "https://storage.googleapis.com/eleven-public-prod/database/workspace/fcf4490c069c4734b9e7bdeda76ce281/voices/ql1brKcEMYebkPHXLRba/45e8ba66-0d7c-42eb-ad4a-c55592452f31.mp3",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    },
+    {
+      "id": "mjwSAUFsaHgYR1XrWn2h",
+      "name": "Rhea - Animated & Angry Character",
+      "language": "en",
+      "accent": "indian",
+      "previewUrl": "https://storage.googleapis.com/eleven-public-prod/database/workspace/ed9b05e6324c457685490352e9a1ec90/voices/mjwSAUFsaHgYR1XrWn2h/yQlveKGK61bbVlust6gt.mp3",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    },
+    {
+      "id": "HRHWid3VII5ccDBYZ32Y",
+      "name": "Halle - Dramatic Romance Storyteller",
+      "language": "en",
+      "accent": "indian",
+      "previewUrl": "https://storage.googleapis.com/eleven-public-prod/database/workspace/ed9b05e6324c457685490352e9a1ec90/voices/HRHWid3VII5ccDBYZ32Y/prYjXzkzTslqxhgsb6iv.mp3",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    },
+    {
+      "id": "2oKmj8Mq72d27JWiLtSX",
+      "name": "Naomy - Calm & Friendly",
+      "language": "en",
+      "accent": "australian",
+      "previewUrl": "https://storage.googleapis.com/eleven-public-prod/database/workspace/3a1e16a48d24400187c068240ff5230e/voices/2oKmj8Mq72d27JWiLtSX/0b5eb7dc-fffc-4f7b-a9ff-59f8d83f07ea.mp3",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    },
+    {
+      "id": "bd1dl59tj1cpybqNFJQB",
+      "name": "Sabrina - Warm",
+      "language": "en",
+      "accent": "australian",
+      "previewUrl": "https://api.us.elevenlabs.io/v1/voices/bd1dl59tj1cpybqNFJQB/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJjdXN0b20iLCJ3b3Jrc3BhY2VfaWQiOiIyYTZhMzI2MTU1Y2M0ZDAyOWVlYThhY2FkOTViMmIwMyIsImZpbGVuYW1lIjoiMGY3MWU1MGQtZTdlYi00N2I1LWEzMTUtN2VjNjBmZGE1MWQ3Lm1wMyIsInRpbWVzdGFtcCI6MTc5MjI5MjQwMDAwMDAwMH0%3D",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    },
+    {
+      "id": "7AT99iuMA9sXzwoSxG9H",
+      "name": "Gabby - Soft Young Australian",
+      "language": "en",
+      "accent": "australian",
+      "previewUrl": "https://storage.googleapis.com/eleven-public-prod/database/workspace/371ba83efcc04113ab6e30e5b2d4b632/voices/7AT99iuMA9sXzwoSxG9H/cXSaMTktkbgGNdTw3ZPu.mp3",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    },
+    {
+      "id": "KVJNlB9xei0FCE8ekWnI",
+      "name": "Ingrid - Natural & Soft",
+      "language": "es",
+      "accent": "mexican",
+      "previewUrl": "https://storage.googleapis.com/eleven-public-prod/database/workspace/3e7e1d59e1a542858a7363ee4d7e197d/voices/KVJNlB9xei0FCE8ekWnI/6fe4702b-4db0-4708-a5b8-c6553b0cc85b.mp3",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    },
+    {
+      "id": "akOBlaKhFd59YlK6xz9u",
+      "name": "Lucia - Warm Conversational",
+      "language": "es",
+      "accent": "mexican",
+      "previewUrl": "https://storage.googleapis.com/eleven-public-prod/database/workspace/4e60535e4ab34b0e8bf3eebf4522a8ba/voices/akOBlaKhFd59YlK6xz9u/38145d09-88c6-40a8-8269-df1afb27ad3e.mp3",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    },
+    {
+      "id": "fuVibWsnIUtzBVjB2PCa",
+      "name": "Ximena - Gentle and Immersive",
+      "language": "es",
+      "accent": "mexican",
+      "previewUrl": "https://api.us.elevenlabs.io/v1/voices/fuVibWsnIUtzBVjB2PCa/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJjdXN0b20iLCJ3b3Jrc3BhY2VfaWQiOiIxZGEwNmVhNjc5YTU0OTc1YWQ5NmEyMjIxZmU2NTMwZCIsImZpbGVuYW1lIjoiNmMwMWQwNGEtYmRmOC00MTM2LTg5MjQtODRiZWRjZGJhZmI1Lm1wMyIsInRpbWVzdGFtcCI6MTc5MjI5MjQwMDAwMDAwMH0%3D",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    },
+    {
+      "id": "UvgKIGQwdeBJcpRJvb3P",
+      "name": "Sophia - Calm, mid/low tone female",
+      "language": "ko",
+      "accent": "seoul",
+      "previewUrl": "https://storage.googleapis.com/eleven-public-prod/database/workspace/30a0d09251c042699dea53ea8c18a65f/voices/UvgKIGQwdeBJcpRJvb3P/3c1fae3f-6c68-4070-a11b-e259087331fd.mp3",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    },
+    {
+      "id": "Mwr1G7n3SF7eQxbSp4At",
+      "name": "Yeonjin - Professional, Familiar",
+      "language": "ko",
+      "accent": "seoul",
+      "previewUrl": "https://storage.googleapis.com/eleven-public-prod/database/workspace/577183fbed4c4ad0aa70407aa559cf69/voices/Mwr1G7n3SF7eQxbSp4At/2e3c5196-4e1b-4b53-bed1-1b387de9626e.mp3",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    },
+    {
+      "id": "vJ170fCwESgE1tjW39So",
+      "name": "Sena - Friendly Cheerful",
+      "language": "ko",
+      "accent": "standard",
+      "previewUrl": "https://api.us.elevenlabs.io/v1/voices/vJ170fCwESgE1tjW39So/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJjdXN0b20iLCJ3b3Jrc3BhY2VfaWQiOiI0OTc1ZGFhNjVkN2I0NDVjYTlkYzFlMjExZWVmNzBhYSIsImZpbGVuYW1lIjoiMmU2NTY4YjAtZjJhZS00ZTU3LTgzOTktZDE1YjU2NTYyOGYxLm1wMyIsInRpbWVzdGFtcCI6MTc5MjI5MjQwMDAwMDAwMH0%3D",
+      "source": "elevenlabs-public-library",
+      "accountAvailability": "library-only",
+      "listeningVerified": false
+    }
+  ]
+}

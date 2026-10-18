@@ -6,10 +6,12 @@ from typing import Any, get_args
 
 from sqlalchemy import (
     CHAR,
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     MetaData,
     String,
     Text,
@@ -94,3 +96,26 @@ Index(
     TutoringSession.created_at.desc(),
 )
 Index("ix_sessions_learner_id_subject", TutoringSession.learner_id, TutoringSession.subject)
+
+
+class LearnerMemory(Base):
+    __tablename__ = "learner_memory"
+
+    learner_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("learners.id", ondelete="CASCADE"), primary_key=True
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    content: Mapped[str] = mapped_column(Text, server_default="")
+    revision: Mapped[int] = mapped_column(Integer, server_default="0")
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class MemoryExtraction(Base):
+    """A transcript snapshot is extracted at most once, including repeated leave requests."""
+
+    __tablename__ = "memory_extractions"
+
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("sessions.id", ondelete="CASCADE"), primary_key=True
+    )
+    digest: Mapped[str] = mapped_column(CHAR(64), primary_key=True)

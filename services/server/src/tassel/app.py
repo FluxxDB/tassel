@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from tassel import __version__
-from tassel.api import devices, health, sessions
+from tassel.api import devices, health, memory, sessions
 from tassel.config import Settings
 from tassel.frames import api as frames
 from tassel.frames.objects import make_object_store
@@ -86,6 +86,7 @@ def create_app(
         health.router,
         devices.router,
         sessions.router,
+        memory.router,
         frames.router,
         voice_api.router,
         vision.router,

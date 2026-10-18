@@ -195,6 +195,7 @@ class _TurnContext(FrameProcessor):
         self.coordinator = None
         self._last_user = None
         self.on_language = None
+        self.refresh_memory: Callable[[], Awaitable[None]] | None = None
         self._session_id = session_id
         self._turn_image = turn_image
         # When this turn began (her speech start), once the app has been asked for its frame.
@@ -242,6 +243,8 @@ class _TurnContext(FrameProcessor):
         if isinstance(frame, _LanguageChange):
             await self.on_language(frame.lang)
         elif isinstance(frame, LLMContextFrame):
+            if self.refresh_memory is not None:
+                await self.refresh_memory()
             messages = frame.context.get_messages()
             user = next((m for m in reversed(messages) if m.get("role") == "user"), None)
             if (
@@ -442,6 +445,7 @@ class _RouteMonitor(FrameProcessor):
         super().__init__()
         self.bot = None
         self.on_language = None
+        self.refresh_memory: Callable[[], Awaitable[None]] | None = None
         self.last_provider = None
         self._history = deque()
         self._history_offset = 0
@@ -579,6 +583,25 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         ),
     )
     turn_context = _TurnContext(ctx.session_id, ctx.turn_image)
+    async def refresh_memory():
+        if isinstance(llm, FakeLLMService):
+            return
+        from tassel.learner_memory import memory_instruction, read_memory
+
+        notes = ""
+        try:
+            async with ctx.sessions() as db:
+                notes = memory_instruction(await read_memory(db, ctx.learner_id))
+        except Exception as error:
+            logger.warning("Memory unavailable: {}", type(error).__name__)
+        # The current setting is checked before every reply, including the initial greeting.
+        await turn_context.push_frame(
+            LLMUpdateSettingsFrame(
+                delta=llm.Settings(system_instruction=system_prompt(ctx.lang) + notes)
+            )
+        )
+
+    turn_context.refresh_memory = refresh_memory
     monitor = _RouteMonitor()
     events = ServerEvents()
     # One board per bot, shared with the page-image seam, so [[freeze]] and paper marks resolve
