@@ -1,130 +1,144 @@
 # Tassel
 
-A live AI tutor for the desktop. Tassel watches the student's paper (macOS Desk View) or screen, talks with her in real time, and explains by drawing on a shared board and over her own work, in English, Spanish and Korean. See `PRODUCT.md` for the product and `docs/superpowers/specs/2026-10-17-tassel-design.md` for the design.
+**A live AI tutor that sees your paper, talks it through with you and draws on your work.**
 
-The integrated app includes live voice, paper/webcam capture, screen tutoring with a collapsible overlay, board drawing, and tutor appearance, memory and personality controls.
+Tassel is a desktop study companion. Ada, your tutor, watches your worksheet through your Mac's Desk View camera (or your screen when you share it), talks with you in real time, and explains by drawing on a shared whiteboard and directly over your own handwriting. She works in English, Spanish and Korean.
 
-## One app, one launcher
+[gettassel.study](https://gettassel.study)
 
-On Windows, run **`Start-Tassel.cmd`** from this checkout. On any platform, `pnpm start` uses the same tracked startup logic. Choose Paper/webcam, Screen, voice, board and tutor settings inside the app; there are no feature-specific launchers. `--check` prints a safe startup summary without opening the app or contacting providers.
+![Ada watches a handwritten DFA and draws the correct machine on the whiteboard](docs/images/01-hero.png)
 
-The launcher starts the code in the checkout containing it and shares local profile/backend settings across Git worktrees through the primary checkout's ignored `.local/start.json`. Existing avatar appearance and primary development sessions are retained. It does not start the older `.local/live-test` clone; that clone's provider settings may be referenced by path during migration, without copying keys.
+## Why
 
-Close an existing Tassel instance before restarting onto another branch. A branch must merge the feature code to contain that feature; startup never switches branches behind your back. See [the startup contract](docs/startup.md) for cross-branch integration and configuration.
+Stanford researchers found that girls tutored by women showed [greater interest in STEM](https://nssa.stanford.edu/studies/impact-tutor-gender-match-girls-stem-interest-engagement-and-performance). Tassel makes that kind of mentorship available to anyone: a woman tutor you customize, in your own language, who works from what's actually on your desk. Our focus is women in STEM, including women returning to the field and re-certifying a degree across a language barrier.
 
-## Same setup for every collaborator
+## What it does
 
-Everyone runs the same backend, in Docker, on macOS and Windows alike. **Docker Desktop is required** (on Windows, the WSL 2 backend).
+- **Sees your work.** Paper through macOS Desk View or a webcam, or your screen through a translucent overlay bar. A change detector sends a frame only when you pause writing.
+- **Talks in real time.** Streaming speech in and out, with interruptions in both directions and live captions.
+- **Draws on your work.** Ada circles, numbers and annotates your own handwriting, and draws automata, network diagrams and concept sketches on a shared tldraw whiteboard.
+- **Teaches like a tutor.** Ada steps in at natural pauses. She asks you to find the mistake first, then shows your own work back with a failing input, and gives the answer only when you need it.
+- **Checks with real algorithms.** DFA answers are verified by determinization and counterexample search, and networking diagrams by subnet checks. Ada doesn't guess.
+- **Is yours.** Choose Ada's look, voice, name and personality. She keeps notes on how you learn, which you can read, edit or delete.
+- **Speaks your language.** English, Spanish and Korean, from the menus to the voice.
 
-| Where | What |
+| Marks on your paper | Diagrams on the board | Your tutor, your way |
+|---|---|---|
+| ![](docs/images/02-marks-on-paper.png) | ![](docs/images/04-diagrams.png) | ![](docs/images/06-customize.png) |
+
+## How it works
+
+```mermaid
+flowchart LR
+  subgraph Desktop["Desktop app (Electron + React)"]
+    Cam["Desk View / webcam / screen"] --> Det["Change detector<br/>(OpenCV.js worker)"]
+    Mic["Microphone"]
+    Board["Whiteboard (tldraw)<br/>+ paper marks"]
+    Avatar["Ada avatar + captions"]
+  end
+  subgraph Server["Server (FastAPI + Pipecat)"]
+    STT["Deepgram Flux STT"] --> Director
+    Director{"Director"} -->|simple turn| Talker["Talker<br/>Qwen 3.8 on Cerebras"]
+    Director -->|needs thought| Thinker["Thinker<br/>GPT-6 Luna"]
+    Thinker --> Sub["Subagents: illustrator,<br/>pointer, verifiers"]
+    Thinker -->|guidance brief| Talker
+    Gate["Vision gate + deep reader"] --> Thinker
+    Talker --> Beats["Beat processor +<br/>action checker"] --> TTS["ElevenLabs TTS"]
+  end
+  subgraph Vultr["Vultr"]
+    PG[("Managed PostgreSQL<br/>+ pgvector")]
+    S3[("Object Storage")]
+  end
+  Mic -- WebRTC --> STT
+  Det -- frames --> Gate
+  TTS -- WebRTC --> Avatar
+  Beats -- board and paper actions --> Board
+  Server --- PG
+  Server --- S3
+```
+
+**A fast talker and a smart thinker.** A single model was either quick and shallow or smart and slow, so the tutor is a team of agents:
+
+| Agent | Model | Job |
+|---|---|---|
+| Director | rules + small model | Picks each turn's view (paper, board, split), whether vision is needed, the action and the route. Its deterministic rules also serve as the fallback, so Ada never goes silent. |
+| Talker | Qwen 3.8 27B on Cerebras (OpenRouter) | Speaks every turn, about 250–450 ms to first token. Says a natural bridge line while the thinker works. |
+| Thinker | GPT-6 Luna | Background orchestrator. Returns a schema-validated guidance brief: what's on the page, the diagnosis, a teaching plan, the line to say, and the board drawings and paper marks to make. Thinks the next step ahead while Ada speaks. Board constructions use GPT-6 Astra. |
+| Illustrator | Qwen on Cerebras or GPT-6 Luna | Turns a request into a validated diagram spec, with one automatic repair pass. |
+| Pointer | GPT-6 Luna | Resolves "circle my subnet mask" to a region of the page, then snaps it onto the actual pencil strokes with an OpenCV ink mask. |
+| Vision gate | GPT-6 Luna | Scores new frames (complete? worth checking? stuck?) at most every 5 s. |
+| Deep reader | Claude Opus 5.5 | Transcribes handwriting into structured data with per-item confidence. Low-confidence reads are confirmed with the student. |
+| Titler | Qwen (OpenRouter) | Names each session and tags its subject from the first real exchange. |
+
+**Speech, drawing and animation stay in sync.** Agents put actions in their streamed text as tags (`[[circle m3]]`, `[[trace 0101]]`). A beat processor turns them into timed beats before the speech reaches text-to-speech, so a circle appears as Ada says "this state right here." An action checker dry-runs every command first, and the spoken line is rewritten so Ada never describes a drawing that didn't happen.
+
+**Memory.** Each learner has one bounded, editable memory document, updated once at the end of a session, plus a personality description only the student writes. Both feed every agent's context.
+
+## Tech stack
+
+| Layer | What we used |
 |---|---|
-| Docker (`docker-compose.yml`) | `db` (Postgres 17 + pgvector, 127.0.0.1:54329), `s3` (Versity, 127.0.0.1:7070) and `server` (FastAPI + Pipecat, `services/server/Dockerfile`, Python 3.12 on Linux, 127.0.0.1:8787) |
-| The host | Electron, the Desk View helper, the camera and the microphone; tests (pytest, and the E2E server on 8799, via uv) |
+| Desktop | Electron 44, React, TypeScript, Tailwind v4, tldraw, OpenCV.js, a Swift Desk View helper |
+| Server | Python 3.12, FastAPI, Pipecat (WebRTC), SQLAlchemy (async), Alembic, `automata-lib`, OpenCV |
+| AI | OpenAI (GPT-6 Luna and Astra), OpenRouter (Qwen 3.8 on Cerebras), Anthropic (Claude Opus 5.5), Deepgram Flux, ElevenLabs |
+| Data | PostgreSQL 17 with pgvector, S3-compatible object storage |
+| Infrastructure | Vultr Managed PostgreSQL and Vultr Object Storage, with Docker for an identical backend on every machine |
+| Website | Next.js (`apps/web`), at [gettassel.study](https://gettassel.study) |
 
-`pnpm dev`, `pnpm live` and `pnpm start` (`Start-Tassel.cmd`) all start it the same way, `docker compose up -d --wait --build db s3 server`, then open the app against http://127.0.0.1:8787. The server's container creates and migrates its database, and reloads when `services/server/src` changes; after a new migration, `docker compose restart server`. Ending the run stops the server container; `db` and `s3` keep running.
+## Getting started
 
-- **Canonical names:** port 8787, database `tassel`, bucket `tassel-frames`.
-- **Overrides:** `.local/start.json` (`port`, `databaseUrl`, `s3Bucket`, for `pnpm start`) or `TASSEL_PORT`, `TASSEL_DATABASE_URL`, `TASSEL_S3_BUCKET`. The host port follows the override; inside Docker the server still listens on 8787 and reaches `db` and `s3` by name. Existing databases and buckets keep their data.
-- **Provider keys:** the file `TASSEL_VOICE_ENV_FILE` names (else `services/server/.env`), mounted read-only; the server reads it. It's never in the image or the container's environment. With no file, the server runs its fake providers.
-- **Debugging:** `pnpm dev --host-server` (or `TASSEL_HOST_SERVER=1`, or `pnpm start --host-server`) runs the server with uv on the host, as before.
+You need macOS (the primary target) or Windows, with:
 
-## What you need
-
-macOS (the primary target) or Windows, with:
-
-- **Node 22.18 or later.** `.node-version` names 22.
-- **pnpm 12.** The `packageManager` field pins 12.6.0; `corepack enable` gives you that version.
-- **Docker Desktop**, for the backend: Postgres, local S3 and the server. On Windows, use the WSL 2 backend.
-- **[uv](https://docs.astral.sh/uv/)**, for the tests, `pnpm check` and `--host-server` (it installs Python 3.12 on first use).
-
-## Set up
+- **Node 22.18 or later**
+- **pnpm 12** (`corepack enable` gives you the pinned 12.6.0)
+- **Docker Desktop** (on Windows, the WSL 2 backend)
+- **[uv](https://docs.astral.sh/uv/)**, for the server tests, `pnpm check` and `--host-server`
 
 ```sh
 pnpm install
+pnpm start
 ```
 
-`pnpm install` also downloads Electron 44.9.0 into `apps/desktop/node_modules/electron/dist` and copies the fonts into `packages/shared`. Electron stays pinned to exactly 44.9.0: macOS ties its camera and microphone grants to that build.
+On Windows, `Start-Tassel.cmd` does the same as `pnpm start`. It starts the backend in Docker (Postgres, S3 and the server on http://127.0.0.1:8787, migrated), then opens the app. Choose Paper, Screen, voice, board and tutor settings inside the app; there's one launcher for everything. `pnpm start --check` prints a startup summary without opening anything. See [the startup contract](docs/startup.md) for profiles, worktrees and overrides.
 
-## Run it
+**Provider keys** go in the file `TASSEL_VOICE_ENV_FILE` names (else `services/server/.env`). It's mounted read-only into the server container, never baked into the image. With no keys, the server runs fake providers and the app plays a scripted demo tutor, so you can try the whole interface offline.
 
-```sh
-pnpm dev
-```
+**Paper without a Desk View camera:** `TASSEL_PAPER_SOURCE=fake-clip pnpm dev` plays a generated clip of a DFA being drawn.
 
-`pnpm dev` (`scripts/dev.mjs`) runs, in order:
-1. it starts the backend in Docker (`docker compose up -d --wait --build db s3 server`): Postgres and local S3 on 127.0.0.1:54329 and 127.0.0.1:7070, and the server, which migrates the dev database, on http://127.0.0.1:8787;
-2. on macOS, it builds the Desk View helper (`node scripts/native.mjs build`), with a warning if Swift is missing;
-3. once the server answers, it opens the app with the fake tutor.
-
-Logs from both carry `[server]` and `[app]` prefixes. Ctrl+C stops both (the server's container stops; `db` and `s3` stay up), and so does either one exiting.
-
-## Paper view
-
-A paper session shows her paper live on the session stage, and uploads a frame each time she finishes writing (a change detector in a worker, with OpenCV finding the page).
-
-- **Where it comes from.** On macOS, the Desk View camera through a small helper (`native/deskview-helper`, which Electron starts). Plain `pnpm dev` and builds use the real source. If there's no Desk View camera, camera access is denied, or the helper is missing, the paper panel says so and offers what she can do; it never plays a demo instead.
-- **The demo clip.** `TASSEL_PAPER_SOURCE=fake-clip pnpm dev` plays a generated clip of a DFA being drawn (`.cache/paper-clips`), with real capture refused. Add `TASSEL_PAPER_DEBUG=1` for the detector's numbers and its heatmap.
-- **The real camera.** macOS ties the camera grant to the app that's responsible for the process. Started from a terminal, that's the terminal. `node scripts/camera.mjs` builds the app and the helper, starts the local stack if it isn't running, and launches Tassel through LaunchServices, so Electron's own camera grant applies. It passes only desktop settings (with `TASSEL_PAPER_SOURCE=auto` by default), excludes server credentials and the fake-capture guard, and exits when you quit Tassel. The app's output goes to `.cache/camera/app.log`.
-- **Frames** are stored with their session in local S3 (bucket `tassel-frames`) until the session is deleted. A real camera frame is never committed: `pnpm check` refuses image and video files.
-
-### Owner checklists (at the Mac)
-
-**Camera spec.** With the camera free and Desk View set up: `TASSEL_E2E_CAMERA=1 pnpm --filter @tassel/desktop e2e:camera` (build first: `pnpm --filter @tassel/desktop build`). It launches through LaunchServices, starts a paper session, expects video at least 1280 wide with 30 frames in 3 s, deletes the session (and its frames), quits, and checks the helper is gone. It takes no screenshot. Afterwards, no new file under `apps/desktop/test-results/` should be an image.
-
-**Live session.** `node scripts/camera.mjs`, then New session → Paper:
-1. her paper shows live, and the title strip reads "Desk View · Live" beside a red dot;
-2. writing, then pausing about 2 s, uploads a frame (with `TASSEL_PAPER_DEBUG=1`, the pill's "sent" count goes up);
-3. the dock's Camera button shows "Camera is off" and the dot turns grey, and on again it's live;
-4. minimize Tassel for 10 s, then restore it: still live;
-5. End session: the camera light goes off within a couple of seconds.
-
-**Unverified links.** With camera access turned off for Electron in System Settings, the denied card's "Open System Settings" should open Privacy & Security → Camera. On a Mac without a Desk View camera, "Open Desk View setup" should bring up the Desk View app. Note both results.
-
-**Window capture.** `TASSEL_PAPER_SOURCE=window-capture node scripts/camera.mjs`: pick the Desk View window in the system picker; expect live video under "Your paper · Desk View window", an upload in the debug pill, and the dot grey after End.
-
-## Test and check
+## Commands
 
 | Command | What it does |
 |---|---|
-| `pnpm test` | Unit tests for every package, then the server's tests (pytest, on the `tassel_test` database) |
-| `pnpm e2e` | Builds the desktop app, then runs its Playwright E2E specs against a server on port 8799 and the `tassel_e2e` database. Screenshots land in `apps/desktop/test-results/screens/` |
-| `pnpm check` | Biome, every typecheck, `check:i18n` (en, es and ko catalogs complete and consistent), `check:api` (the generated API client matches the server) and ruff |
-| `pnpm gen:api` | Regenerates `packages/shared/src/api/openapi.json` and `schema.d.ts` from the server |
+| `pnpm start` | Shared startup: the current checkout, saved profile, Docker backend and the app |
+| `pnpm dev` | The Docker backend, then the app with the fake tutor. `--host-server` runs the server with uv on the host |
+| `pnpm live` | The owner's live run on macOS, with provider keys |
+| `pnpm test` | Every package's unit tests (Vitest), then the server's tests (pytest) |
+| `pnpm test:changed` | Only the tests your change needs. `--dry-run` shows the plan |
+| `pnpm e2e` | Builds the app and runs the Playwright E2E specs on the fake camera |
+| `pnpm check` | Biome, typechecks, the en/es/ko catalog check, the API client check and ruff |
+| `pnpm gen:api` | Regenerates the typed API client after a server API change |
 
-`pnpm test` and `pnpm e2e` need Postgres up, and `pnpm e2e` local S3 too: `docker compose up -d db s3`, or a running `pnpm dev`. E2E always plays the generated clip as a fake camera, and refuses any launch that could reach a real camera or screen (`tests/e2e/capture-guard.ts`). To run E2E next to another checkout's run, give each its own `TASSEL_E2E_PORT` and `TASSEL_E2E_DATABASE_URL`.
+`pnpm test` and `pnpm e2e` need `docker compose up -d db s3` (or a running `pnpm dev`). [CLAUDE.md](CLAUDE.md) explains which tests to run when.
 
-## Layout
+## Repository layout
 
 | Path | What's there |
 |---|---|
-| `apps/desktop` | The Electron app: `src/main` (window, the `app://tassel` protocol, IPC, the device token store), `src/preload` (the `window.tassel` bridge) and `src/renderer` (React: the library, the new session sheet, the session screen, the fake tutor) |
-| `services/server` | The FastAPI server: device auth, the sessions API, Postgres via SQLAlchemy and Alembic |
-| `packages/shared` | Shared by both: design tokens and fonts, the en/es/ko catalogs, and the typed API client |
-| `docs` | The design system, research, specs, plans and records |
-| `native/deskview-helper` | The Desk View helper (Swift, macOS): the camera's frames over a local WebSocket |
+| `apps/desktop` | The Electron app: `src/main` (window, protocol, IPC, device token), `src/preload` (the `window.tassel` bridge), `src/renderer` (React: library, sessions, board, paper capture, voice, avatar, settings, the scripted demo tutor) |
+| `apps/web` | The landing page (Next.js) |
+| `services/server` | The FastAPI server: `voice/` (Pipecat bot, director, talker, thinker, illustrator, pointer, ladder), `vision/` (gate, deep reader, preprocessing), `domains/` (DFA and network verifiers), `beats/`, `board/`, `chat/`, `frames/`, storage and migrations |
+| `packages/shared` | Design tokens and fonts, the en/es/ko catalogs, the beat format and the typed API client |
 | `packages/paper-synth` | Synthetic paper clips for tests and the demo |
-| `scripts` | `dev.mjs`, `camera.mjs` (the real camera through LaunchServices), `native.mjs` (builds and tests the helper), `check-api.mjs` and `check-no-frames.mjs` |
+| `native/deskview-helper` | The Desk View helper (Swift, macOS) |
+| `docs` | Product, design system, specs, plans, research and [development details](docs/development.md) |
+| `scripts` | Startup, the Docker backend, the camera launcher, test selection and checks |
 
-## Settings
+## Platforms
 
-The desktop app reads these environment variables:
+macOS is the primary target. Windows works too, but has no Desk View: Paper sessions use an ordinary webcam, and new sessions default to screen share. See [Windows setup](docs/windows-local-setup.md).
 
-| Variable | Default | Use |
-|---|---|---|
-| `TASSEL_SERVER_URL` | `http://127.0.0.1:8787` | The server: https, or http on `127.0.0.1` or `localhost` (all the renderer's CSP allows) |
-| `TASSEL_UI_LANG` | the system language, else `en` | `en`, `es` or `ko` |
-| `TASSEL_TUTOR` | `fake` | `fake`, or `live` (P2) |
-| `TASSEL_FAKE_SCRIPT` | `dfa-opening` | The fake tutor's script |
-| `TASSEL_FAKE_SPEED` | `1` | How many times faster the script plays |
-| `TASSEL_TOKEN_STORE` | `safe` (`file` under `pnpm dev` and E2E) | `file` keeps the device token as plaintext JSON, so unattended runs never prompt for the keychain |
-| `TASSEL_USER_DATA` | Electron's default | Where the app keeps its data, such as the device token |
-| `TASSEL_PAPER_SOURCE` | `auto` | `auto` (Desk View on macOS), `deskview-helper`, `window-capture`; in dev and E2E also `fake-clip` and `screen` |
-| `TASSEL_PAPER_DEBUG` | off | `1` shows the detector's numbers and the heatmap toggle |
-| `TASSEL_PAPER_PARAMS` | `{}` | JSON overrides of the change detector's values, for tuning |
-| `TASSEL_FAKE_CLIP`, `TASSEL_HELPER_CLIP`, `TASSEL_DESKVIEW_HELPER`, `TASSEL_FAKE_DISPLAY`, `TASSEL_FAKE_CAMERA_ACCESS`, `TASSEL_REQUIRE_FAKE_CAPTURE`, `TASSEL_HELPER_TAG` | unset | Dev and test switches for paper; a packaged app ignores them |
+## More
 
-The server reads `TASSEL_DATABASE_URL`, `TASSEL_HOST`, `TASSEL_PORT` and the object store's `TASSEL_OBJECT_STORE` and `TASSEL_S3_*`.
-
-## Windows
-
-Desk View is macOS only. On Windows the new session sheet disables "Paper · Desk View", says why, and starts from screen share instead. A dev run with `TASSEL_PAPER_SOURCE=fake-clip` enables Paper there, on the demo clip. Owner item, open until a Windows PC is available: `pnpm test`, then `pnpm e2e paper-fake-clip`, on Windows.
+- [PRODUCT.md](PRODUCT.md): who Tassel is for and the principles behind it
+- [The design](docs/superpowers/specs/2026-10-17-tassel-design.md) and [the two-tier tutor](docs/superpowers/specs/2026-10-17-two-tier-tutor.md)
+- [Development details](docs/development.md): paper capture, camera checklists and environment variables
