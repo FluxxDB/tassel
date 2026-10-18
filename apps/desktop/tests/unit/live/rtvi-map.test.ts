@@ -1,3 +1,4 @@
+import beatFixtures from '@tassel/shared/beats/fixtures.json';
 import { describe, expect, it } from 'vitest';
 import {
   initialMapState,
@@ -184,5 +185,61 @@ describe('mapRtvi', () => {
     { tassel: { kind: 'constructor' } },
   ])('garbage server data maps to nothing (%j)', (data) => {
     expect(run([{ kind: 'server', data }]).events).toEqual([]);
+  });
+  describe('live beats (P5 Task 14)', () => {
+    const beat = beatFixtures.beats[0];
+    it('a beat server event becomes a beat tutor event', () => {
+      const { events } = run([{ kind: 'server', data: { tassel: { kind: 'beat', beat } } }]);
+      expect(events).toEqual([{ type: 'beat', beat }]);
+    });
+    it('an invalid beat maps to nothing', () => {
+      for (const bad of [
+        null,
+        {},
+        'beat',
+        (beatFixtures.invalidBeats.find((b) => b.problem === 'bad version') as { data: unknown })
+          .data,
+      ]) {
+        expect(
+          run([{ kind: 'server', data: { tassel: { kind: 'beat', beat: bad } } }]).events,
+        ).toEqual([]);
+      }
+      expect(run([{ kind: 'server', data: { tassel: { kind: 'beat' } } }]).events).toEqual([]);
+    });
+    it('word events carry their segment and index', () => {
+      const { events } = run([
+        { kind: 'bot-started' },
+        output('s1', 'new', ''),
+        output('s1', 'in-progress', 'We start'),
+        output('s1', 'in-progress', 'We start at q'),
+        output('s1', 'completed', 'We start at q zero.'),
+      ]);
+      expect(events.filter((e) => e.type === 'word')).toEqual([
+        { type: 'word', text: 'We', lang: 'en', segment: 's1', index: 0 },
+        { type: 'word', text: 'start', lang: 'en', segment: 's1', index: 1 },
+        { type: 'word', text: 'at', lang: 'en', segment: 's1', index: 2 },
+        { type: 'word', text: 'q', lang: 'en', segment: 's1', index: 3 },
+        { type: 'word', text: 'zero.', lang: 'en', segment: 's1', index: 4 },
+      ]);
+    });
+    it('the index starts at 0 in each segment', () => {
+      const { events } = run([
+        ...whole.slice(0, -2),
+        output('s2', 'completed', 'What are we'),
+        output('s3', 'new', ''),
+        output('s3', 'completed', null, 'Next one.'),
+      ]);
+      const words = events.filter((e) => e.type === 'word');
+      expect(words.map((e) => [e.segment, e.index, e.text])).toEqual([
+        ['s1', 0, 'Hi,'],
+        ['s1', 1, "I'm"],
+        ['s1', 2, 'Ada.'],
+        ['s2', 0, 'What'],
+        ['s2', 1, 'are'],
+        ['s2', 2, 'we'],
+        ['s3', 0, 'Next'],
+        ['s3', 1, 'one.'],
+      ]);
+    });
   });
 });

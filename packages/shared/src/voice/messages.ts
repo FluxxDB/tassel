@@ -2,6 +2,7 @@
 // messages. services/server/src/tassel/voice/messages.py mirrors it, and ./fixtures.json holds
 // the examples both sides' tests check, with the scripted student lines the fakes speak.
 // Wire keys are snake_case, like the REST API's.
+import { type BeatDoc, parseBeatDoc } from '../beats/doc';
 import type { Lang } from '../i18n';
 
 /**
@@ -46,7 +47,9 @@ export type ServerEvent =
   | { kind: 'title'; title: string; subject: string | null }
   | { kind: 'stage'; view: 'paper' | 'board' | 'split' }
   | { kind: 'language'; lang: Lang }
-  | { kind: 'vad'; speaking: boolean };
+  | { kind: 'vad'; speaking: boolean }
+  /** One sentence of Ada's with its board and paper actions, sent before its words (P5). */
+  | { kind: 'beat'; beat: BeatDoc };
 
 /**
  * What the app measured, in milliseconds: Ada's first audio after a turn, or how soon she yielded
@@ -193,4 +196,9 @@ const SERVER_EVENT_READERS: {
   stage: (e) => (isView(e.view) ? { kind: 'stage', view: e.view } : null),
   language: (e) => (isLang(e.lang) ? { kind: 'language', lang: e.lang } : null),
   vad: (e) => (isBoolean(e.speaking) ? { kind: 'vad', speaking: e.speaking } : null),
+  // parseBeatDoc checks the document; one it can't read (a null doc) rejects the event.
+  beat: (e) => {
+    const { doc } = parseBeatDoc(e.beat);
+    return doc ? { kind: 'beat', beat: doc } : null;
+  },
 };
