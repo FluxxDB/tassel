@@ -33,11 +33,10 @@ const FALLBACK = "Tell me more about what you're trying.";
 const WITH_IMAGE = 'Here is my paper so far.';
 const TEXT_ONLY = 'Please answer in text only.';
 
-/** What the sidebar exposes (claude/chat-ui); the board lists these so both sides agree. */
+/** What the sidebar exposes (claude/chat-ui): its lines are the log's `li`s, by `data-role`. */
 const SIDEBAR = '[data-testid="chat-sidebar"]';
-const LINE = '[data-testid="chat-line"]';
-const COMPOSER_NAME = 'Message Ada';
-const VOICE_TOGGLE_NAME = 'Voice';
+const LINE = '[data-testid="chat-log"] li';
+const COMPOSER_NAME = 'Message to Ada';
 
 /** One RTVI message over the data channel, either way. */
 interface Wire {
@@ -245,7 +244,7 @@ test('typed lines, an image, a text-only reply and an action row, saved for the 
     await expect(page.getByRole('region', { name: "Ada's board" })).toBeVisible({
       timeout: 15_000,
     });
-    const actionRow = lines.filter({ has: page.locator('[data-role="action"]') });
+    const actionRow = sidebar.locator('li[data-role="action"] [data-testid="chat-action"]');
     await expect(actionRow.first()).toBeVisible({ timeout: 15_000 });
     await expect
       .poll(
@@ -263,24 +262,28 @@ test('typed lines, an image, a text-only reply and an action row, saved for the 
     await settle(page);
     await snap(page, 'chat-live-conversation');
 
-    // 3. An image: a generated PNG uploads, shows in the composer, and goes with the line.
+    // 3. An image: a generated PNG shows in the composer, uploads on send, and goes with the
+    // line, which shows it too.
     const pngDir = join(__dirname, '..', '..', 'test-results', 'chat');
     mkdirSync(pngDir, { recursive: true });
     const pngPath = join(pngDir, 'synthetic.png');
     writeFileSync(pngPath, syntheticPng(320, 200));
+    await sidebar.getByTestId('chat-file-input').setInputFiles(pngPath);
+    const chip = sidebar.getByRole('button', { name: 'Remove image 1' });
+    await expect(chip).toBeVisible();
+    await expect(sidebar.locator('form img[alt="Image 1"]')).toHaveCount(1);
     const uploaded = page.waitForResponse(
       (response) =>
         new URL(response.url()).pathname === `/v1/sessions/${id}/attachments` &&
         response.request().method() === 'POST',
     );
-    await sidebar.locator('input[type="file"]').setInputFiles(pngPath);
+    await composer.fill(WITH_IMAGE);
+    await composer.press('Enter');
     const upload = await uploaded;
     expect(upload.status()).toBe(201);
     const attachment = (await upload.json()) as { id: string; w: number; h: number };
     expect(attachment).toMatchObject({ w: 320, h: 200 });
-    await expect(sidebar.locator('img')).toHaveCount(1);
-    await composer.fill(WITH_IMAGE);
-    await composer.press('Enter');
+    await expect(chip).toHaveCount(0);
     await expect
       .poll(async () => (await studentMessagesSent(page)).at(-1))
       .toMatchObject({ text: WITH_IMAGE, attachment_ids: [attachment.id], voice: true });
@@ -297,11 +300,23 @@ test('typed lines, an image, a text-only reply and an action row, saved for the 
     expect(served.status).toBe(200);
     expect(served.headers.get('content-type')).toMatch(/^image\/(png|jpeg)/);
     expect((await served.arrayBuffer()).byteLength).toBeGreaterThan(0);
-    await expect(sidebar).toContainText(FALLBACK, { timeout: 15_000 });
+    // Her reply: with an image the fake director sends the turn to the thinker, which has no
+    // scripted brief for these words, so its words are the thinker's own; it's a typed reply.
+    await expect
+      .poll(
+        async () => {
+          const events = await messageEvents(page);
+          const echo = events.findIndex((e) => e.role === 'student' && e.text === WITH_IMAGE);
+          return events.slice(echo + 1).find((e) => e.role === 'tutor' && e.final);
+        },
+        { timeout: 20_000 },
+      )
+      .toMatchObject({ source: 'typed' });
     await expect(tile).toContainText('Listening', { timeout: 20_000 });
 
     // 4. Voice off: the reply is text only, message events but no TTS and no bot output.
-    await sidebar.getByRole('switch', { name: VOICE_TOGGLE_NAME }).click();
+    await sidebar.getByTestId('chat-voice').click();
+    await expect(sidebar.getByTestId('chat-voice')).toContainText('Text replies only');
     const before = (await wireOf(page)).length;
     await composer.fill(TEXT_ONLY);
     await composer.press('Enter');
@@ -311,13 +326,13 @@ test('typed lines, an image, a text-only reply and an action row, saved for the 
     await expect
       .poll(
         async () =>
-          (await messageEvents(page))
-            .filter((e) => e.role === 'tutor' && e.final && e.text.includes(FALLBACK))
-            .at(1),
+          (await messageEvents(page)).find(
+            (e) => e.role === 'tutor' && e.final && e.text.includes(FALLBACK),
+          ),
         { timeout: 15_000 },
       )
       .toMatchObject({ source: 'typed', interrupted: false });
-    await expect(lines.filter({ hasText: FALLBACK })).toHaveCount(2);
+    await expect(lines.filter({ hasText: FALLBACK })).toHaveCount(1);
     const after = (await wireOf(page)).slice(before);
     // RTVI still reports the LLM's text (bot-llm-*); nothing is spoken: no TTS, no bot-output.
     const spoken = after.filter(
@@ -359,7 +374,7 @@ test('typed lines, an image, a text-only reply and an action row, saved for the 
       1,
     );
     await expect(reopened.locator(LINE).filter({ hasText: DRAW_ASK })).toHaveCount(1);
-    await expect(reopened.locator('[data-role="action"]').first()).toBeVisible();
+    await expect(reopened.locator('li[data-role="action"]').first()).toBeVisible();
     await settle(page);
     await snap(page, 'chat-live-history');
   } finally {
