@@ -210,6 +210,7 @@ export function registerScreenOverlay(
       frame: false,
       transparent: true,
       resizable: false,
+      ...(kind === 'ink' ? { thickFrame: false } : {}),
       hasShadow: false,
       skipTaskbar: true,
       ...(process.platform === 'darwin' ? { type: 'panel' as const } : {}),
@@ -234,7 +235,7 @@ export function registerScreenOverlay(
         const y = Math.round(Math.max(a.y, Math.min(a.y + a.height - b.height, b.y)));
         if (x !== b.x || y !== b.y) window.setPosition(x, y);
       });
-    if (kind === 'ink') window.setIgnoreMouseEvents(true, { forward: true });
+    if (kind === 'ink') window.setIgnoreMouseEvents(!last?.draw, { forward: true });
     const prepared = new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
         ready.delete(window.webContents.id);
@@ -291,6 +292,9 @@ export function registerScreenOverlay(
       collapsed = true;
       hud.setBounds(small);
       ink?.showInactive();
+      // Windows can constrain a hidden window to the work area on its first show.
+      // Restore the whole display, including the taskbar strip, before positioning ink.
+      if (ink && !ink.isDestroyed()) ink.setBounds(selected.bounds);
       hud.showInactive();
       owner.hide();
       // Keep the original owner geometry for the reverse transition.
@@ -352,13 +356,17 @@ export function registerScreenOverlay(
   ipcMain.on(SCREEN_IPC.publish, (event, state: OverlayState) => {
     if (!isOwner(event) || !validOverlayState(state) || (last && state.sequence <= last.sequence))
       return;
+    const wasDrawing = last?.draw;
     last = state;
-    if (ink && !ink.isDestroyed()) ink.setIgnoreMouseEvents(!state.draw, { forward: true });
+    if (ink && !ink.isDestroyed() && wasDrawing !== state.draw)
+      ink.setIgnoreMouseEvents(!state.draw, { forward: true });
     if (state.draw && collapsed) {
       if (!globalShortcut.isRegistered('Escape'))
         globalShortcut.register('Escape', () => emit('escape'));
-      if (ink && !ink.isDestroyed()) ink.focus();
-      if (hud && !hud.isDestroyed()) hud.moveTop();
+      if (!wasDrawing) {
+        if (ink && !ink.isDestroyed()) ink.focus();
+        if (hud && !hud.isDestroyed()) hud.moveTop();
+      }
     } else globalShortcut.unregister('Escape');
     for (const window of [hud, ink])
       if (window && !window.isDestroyed()) window.webContents.send(SCREEN_IPC.state, state);

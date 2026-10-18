@@ -98,13 +98,32 @@ export function Dock({ onEnd, boardRef }: DockProps) {
       </IconButton>
 
       <IconButton
-        label={t('session.dock.share')}
+        label={t(sharing ? 'screen.stop' : 'session.dock.share')}
         pressed={sharing}
-        onClick={() => void (sharing ? screenActions()?.collapse() : screenActions()?.choose())}
-        title={t('session.dock.share')}
+        onClick={() => void (sharing ? screenActions()?.stop() : screenActions()?.choose())}
+        title={t(sharing ? 'screen.stop' : 'session.dock.share')}
       >
         <Screen />
       </IconButton>
+      {sharing && (
+        <IconButton
+          label={t('screen.collapse')}
+          title={t('screen.collapse')}
+          onClick={() => void screenActions()?.collapse()}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            aria-hidden="true"
+          >
+            <path d="M5 18h14" />
+          </svg>
+        </IconButton>
+      )}
       <IconButton
         ref={boardRef}
         label={board}

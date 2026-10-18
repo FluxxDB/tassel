@@ -35,6 +35,8 @@ export const AREAS = [
       `${D}/src/shared/screen-bridge.ts`,
       `${R}/screen/**`,
       `${R}/overlay/**`,
+      `${R}/board/tldraw/**`,
+      `${R}/board/engine.ts`,
     ],
     server: [`${SRC}/screen/**`],
     unit: [`${UNIT}/screen/**`],

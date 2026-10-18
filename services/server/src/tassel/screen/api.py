@@ -40,15 +40,23 @@ class ScreenPoint(BaseModel):
     y: float = Field(ge=0, le=1)
 
 
-class ScreenDrawing(BaseModel):
+class ScreenPrimitive(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    frame_id: str = Field(max_length=80)
     kind: Literal["pointer", "circle", "underline", "arrow", "rectangle", "text", "freehand"]
     points: list[ScreenPoint] = Field(min_length=1, max_length=512)
     text: str | None = Field(default=None, max_length=500)
+    color: Literal["violet", "red", "blue", "green", "orange", "black", "white"] = "violet"
 
     @model_validator(mode="after")
     def shape_geometry(self):
+        if getattr(self, "target", None) and self.kind in (
+            "pointer",
+            "circle",
+            "underline",
+            "rectangle",
+        ):
+            # The dedicated pointer supplies the geometry; the talker need not guess coordinates.
+            return self
         if self.kind == "freehand":
             if len(self.points) < 2:
                 raise ValueError("freehand requires at least two points")
@@ -63,6 +71,44 @@ class ScreenDrawing(BaseModel):
             if a == b or (self.kind in ("circle", "rectangle") and (a.x == b.x or a.y == b.y)):
                 raise ValueError("Shape must have nonzero extent")
         return self
+
+
+class ScreenDrawing(ScreenPrimitive):
+    points: list[ScreenPoint] = Field(default_factory=list, max_length=512)
+    frame_id: str = Field(min_length=1, max_length=80)
+    target: str | None = Field(default=None, min_length=1, max_length=500)
+
+
+class ScreenIllustration(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    frame_id: str = Field(min_length=1, max_length=80)
+    strokes: list[ScreenPrimitive] = Field(min_length=1, max_length=100)
+
+
+class ScreenObject(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(min_length=1, max_length=100)
+    kind: str = Field(min_length=1, max_length=30)
+    author: Literal["student", "tutor"]
+    points: list[ScreenPoint] = Field(min_length=1, max_length=2)
+    color: str = Field(max_length=20)
+    text: str | None = Field(default=None, max_length=500)
+
+
+class ScreenObjects(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    source: str = Field(min_length=1, max_length=200)
+    epoch: int = Field(ge=1)
+    version: int = Field(ge=1)
+    objects: list[ScreenObject] = Field(max_length=300)
+
+
+class ScreenResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    source: str = Field(min_length=1, max_length=200)
+    epoch: int = Field(ge=1)
+    request_id: str = Field(min_length=1, max_length=80)
+    ok: bool
 
 
 async def owned(request, learner, db, session_id):
@@ -143,4 +189,48 @@ async def upload(
         raise HTTPException(429, "Screen frames arrived too quickly")
     if not screen.put(ScreenFrame(frame_id, source, epoch, revision, captured_at, bytes(data))):
         raise HTTPException(409, "Obsolete screen frame")
+    return ScreenAck(epoch=screen.epoch, active=screen.active)
+
+
+@router.post("/objects")
+async def objects(
+    session_id: uuid.UUID,
+    body: ScreenObjects,
+    request: Request,
+    learner: Learner = Depends(current_learner),
+    db: AsyncSession = Depends(get_db),
+) -> ScreenAck:
+    screen = await owned(request, learner, db, session_id)
+    if sum(len(obj.points) for obj in body.objects) > 32768:
+        raise HTTPException(413, "Too many drawing points")
+    async with screen.lock:
+        if (
+            screen.source != body.source
+            or screen.epoch != body.epoch
+            or body.version <= screen.object_version
+        ):
+            raise HTTPException(409, "Obsolete screen objects")
+        screen.objects = [obj.model_dump(exclude_none=True) for obj in body.objects]
+        screen.object_version = body.version
+        ids = {obj["id"] for obj in screen.objects}
+        screen.board_items = {
+            key: value for key, value in screen.board_items.items() if f"board:{key}" in ids
+        }
+    return ScreenAck(epoch=screen.epoch, active=screen.active)
+
+
+@router.post("/result")
+async def result(
+    session_id: uuid.UUID,
+    body: ScreenResult,
+    request: Request,
+    learner: Learner = Depends(current_learner),
+    db: AsyncSession = Depends(get_db),
+) -> ScreenAck:
+    screen = await owned(request, learner, db, session_id)
+    if screen.source != body.source or screen.epoch != body.epoch:
+        raise HTTPException(409, "Obsolete screen result")
+    pending = screen.pending.get(body.request_id)
+    if pending is not None and not pending.done():
+        pending.set_result(body.ok)
     return ScreenAck(epoch=screen.epoch, active=screen.active)

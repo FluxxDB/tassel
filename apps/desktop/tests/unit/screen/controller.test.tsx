@@ -6,6 +6,7 @@ import { useAvatar } from '../../../src/renderer/src/avatar/store';
 import { useStageStore } from '../../../src/renderer/src/features/session/stage-store';
 import { useLiveVoice } from '../../../src/renderer/src/features/voice/live-voice';
 import {
+  acceptScreenMarks,
   requestScreenTurn,
   useScreenController,
 } from '../../../src/renderer/src/screen/controller';
@@ -207,6 +208,63 @@ it('uploads a JPEG for a server-requested screen turn through the live HTTP path
     expect(query.get('frame_id')).toBeTruthy();
     expect((upload[1].body as Blob).type).toBe('image/jpeg');
     expect(h.bridge.capture).toHaveBeenCalled();
+    const identity = {
+      source: query.get('source'),
+      epoch: Number(query.get('epoch')),
+      revision: Number(query.get('revision')),
+    };
+    const circle = {
+      id: 'circle',
+      author: 'tutor',
+      kind: 'circle',
+      points: [
+        { x: 0.5, y: 0.3 },
+        { x: 0.7, y: 0.5 },
+      ],
+    };
+    await act(async () =>
+      acceptScreenMarks({
+        ...identity,
+        frame_id: query.get('frame_id'),
+        request_id: 'new-circle',
+        marks: [circle],
+      }),
+    );
+    expect(useScreen.getState().marks).toHaveLength(1);
+    expect(
+      fetch.mock.calls.some(
+        ([url, init]) => url.endsWith('/result') && JSON.parse(String(init.body)).ok,
+      ),
+    ).toBe(true);
+    await act(async () => screenActions()?.pause());
+    // Removal requires neither a current frame nor a current viewport revision.
+    await act(async () =>
+      acceptScreenMarks({
+        ...identity,
+        request_id: 'remove-circle',
+        edit: { operation: 'remove', ids: ['circle'] },
+      }),
+    );
+    expect(useScreen.getState().marks).toHaveLength(0);
+    const removal = fetch.mock.calls.filter(([url]) => url.endsWith('/result')).at(-1);
+    expect(JSON.parse(String(removal?.[1].body))).toMatchObject({
+      request_id: 'remove-circle',
+      ok: true,
+    });
+    await act(async () =>
+      acceptScreenMarks({
+        ...identity,
+        frame_id: query.get('frame_id'),
+        request_id: 'stale-circle',
+        marks: [circle],
+      }),
+    );
+    expect(useScreen.getState().marks).toHaveLength(0);
+    const rejected = fetch.mock.calls.filter(([url]) => url.endsWith('/result')).at(-1);
+    expect(JSON.parse(String(rejected?.[1].body))).toMatchObject({
+      request_id: 'stale-circle',
+      ok: false,
+    });
   } finally {
     h.hook.unmount();
   }

@@ -63,10 +63,18 @@ def _without_images(context: LLMContext) -> LLMContext:
         t.name == "draw_screen" for t in tools.standard_tools
     ):
         tools = ToolsSchema(
-            standard_tools=[t for t in tools.standard_tools if t.name != "draw_screen"],
+            standard_tools=[
+                t
+                for t in tools.standard_tools
+                if t.name not in {"draw_screen", "draw_screen_illustration", "draw_screen_board"}
+            ],
             custom_tools=tools.custom_tools,
         )
-        if isinstance(choice, dict) and choice.get("function", {}).get("name") == "draw_screen":
+        if isinstance(choice, dict) and choice.get("function", {}).get("name") in {
+            "draw_screen",
+            "draw_screen_illustration",
+            "draw_screen_board",
+        }:
             choice = "auto"
     return LLMContext(messages, tools=tools, tool_choice=choice)
 

@@ -49,9 +49,11 @@ export function TldrawCanvas({
   lang,
   onEngine,
   stage,
+  overlay = false,
 }: {
   /** The session's language, which Ada's board speaks. */
   lang: Lang;
+  overlay?: boolean;
   onEngine(engine: BoardEngine | null): void;
   /** Where the stage lays things over the board, for the camera's fit (P5-R9). */
   stage(): StageGeometry | null;
@@ -70,7 +72,7 @@ export function TldrawCanvas({
   return (
     <BoardLang value={lang}>
       <Tldraw
-        className="board-tldraw"
+        className={`board-tldraw${overlay ? ' screen-tldraw' : ''}`}
         licenseKey={LICENSE_KEY}
         hideUi
         autoFocus={false}
@@ -93,6 +95,7 @@ export function TldrawCanvas({
           editor.registerExternalContentHandler('url', ignore);
           const made = createTldrawEngine(editor, {
             lang: current.current,
+            overlay,
             t: (key, opts) => i18n.t(key, opts),
             reducedMotion: prefersReducedMotion,
             stage: () => stageNow.current(),

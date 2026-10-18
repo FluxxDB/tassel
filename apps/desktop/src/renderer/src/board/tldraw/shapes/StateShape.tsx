@@ -3,6 +3,7 @@
 import { type JSX, useContext } from 'react';
 import { BaseBoxShapeUtil, Circle2d, HTMLContainer, type RecordProps, T } from 'tldraw';
 import { BoardLang } from '../board-lang';
+import { screenShapeStyle } from '../screen';
 import { StateFigure } from './figures';
 import type { StateShape } from './types';
 
@@ -46,7 +47,7 @@ export class StateShapeUtil extends BaseBoxShapeUtil<StateShape> {
 
   override component(shape: StateShape): JSX.Element {
     return (
-      <HTMLContainer>
+      <HTMLContainer style={screenShapeStyle(shape)}>
         <State shape={shape} />
       </HTMLContainer>
     );

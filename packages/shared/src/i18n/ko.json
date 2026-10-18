@@ -511,7 +511,7 @@
     "reset": "Reset annotations",
     "resetHint": "Clear annotations and interrupt {tutorName} (Ctrl/Cmd+Shift+Backspace)",
     "restore": "Open Tassel",
-    "collapse": "Collapse to bar",
+    "collapse": "오버레이로 최소화",
     "draw": "Draw",
     "drawHint": "Draw on your screen · Escape to finish",
     "undo": "Undo ink",

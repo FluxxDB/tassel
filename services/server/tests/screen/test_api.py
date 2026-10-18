@@ -168,3 +168,58 @@ def test_extended_screen_shapes(kind, points, text):
     from tassel.screen.api import ScreenDrawing
 
     assert ScreenDrawing(frame_id="current", kind=kind, points=points, text=text).kind == kind
+
+
+@pytest.mark.asyncio
+async def test_objects_and_results_require_current_owned_screen(monkeypatch):
+    import asyncio
+
+    learner = SimpleNamespace(id=uuid4())
+    session_id = uuid4()
+    app = FastAPI()
+    app.state.screens = ScreenSessions()
+    app.include_router(router)
+    app.dependency_overrides[current_learner] = lambda: learner
+    app.dependency_overrides[get_db] = lambda: None
+
+    async def owned(db, learner_id, sid):
+        return SimpleNamespace(id=sid) if sid == session_id else None
+
+    monkeypatch.setattr(sessions_repo, "get_for", owned)
+    screen = app.state.screens.get(learner.id, session_id)
+    screen.control(source="display", epoch=4, active=False)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://localhost"
+    ) as client:
+        base = f"/sessions/{session_id}/screen"
+        body = {
+            "source": "display",
+            "epoch": 4,
+            "version": 1,
+            "objects": [
+                {
+                    "id": "circle",
+                    "kind": "circle",
+                    "author": "tutor",
+                    "color": "violet",
+                    "points": [{"x": 0.2, "y": 0.3}, {"x": 0.4, "y": 0.5}],
+                }
+            ],
+        }
+        assert (await client.post(base + "/objects", json=body)).status_code == 200
+        assert screen.objects[0]["id"] == "circle"
+        assert (await client.post(base + "/objects", json=body)).status_code == 409
+        assert (
+            await client.post(base + "/objects", json={**body, "epoch": 3, "version": 2})
+        ).status_code == 409
+        assert (
+            await client.post(f"/sessions/{uuid4()}/screen/objects", json=body)
+        ).status_code == 404
+        screen = app.state.screens.get(learner.id, session_id)
+        future = asyncio.get_running_loop().create_future()
+        screen.pending["request"] = future
+        result = {"source": "display", "epoch": 4, "request_id": "request", "ok": True}
+        assert (await client.post(base + "/result", json={**result, "epoch": 3})).status_code == 409
+        assert not future.done()
+        assert (await client.post(base + "/result", json=result)).status_code == 200
+        assert await future

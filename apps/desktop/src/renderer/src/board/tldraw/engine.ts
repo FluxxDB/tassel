@@ -35,6 +35,7 @@ import {
 import { effectsOf } from './effects';
 import { createTextMeasure } from './measure';
 import { planSync, type SyncPlan } from './plan-sync';
+import { screenDesired } from './screen';
 
 /** Page units around the board's shapes in its snapshot. */
 const SNAPSHOT_PADDING = 32;
@@ -52,6 +53,7 @@ export interface TldrawEngine extends BoardEngine {
 export function createTldrawEngine(
   editor: Editor,
   opts: {
+    overlay?: boolean;
     lang: Lang;
     t: Translate;
     reducedMotion?: () => boolean;
@@ -86,7 +88,7 @@ export function createTldrawEngine(
    * (data-fit: clear, no-captions or plain), so specs can tell.
    */
   const frame = (item: string | null, animate: boolean): boolean => {
-    if (!drawn) return false;
+    if (opts.overlay || !drawn) return false;
     const boxes = placeItems(drawn.scene, drawn.layouts, text());
     // Her notes with it, so none is cut off at the panel's edge.
     const bounds = focusBox(drawn.scene, boxes, item);
@@ -108,11 +110,30 @@ export function createTldrawEngine(
     },
     () => editor.stopCameraAnimation(),
   );
-  const stopGestures = bindCameraGestures(editor, control, reduced);
+  const stopGestures = opts.overlay ? () => {} : bindCameraGestures(editor, control, reduced);
+  if (opts.overlay) {
+    editor.setCamera({ x: 0, y: 0, z: 1 });
+    editor.setCameraOptions({ isLocked: true, wheelBehavior: 'none' });
+  }
+  let screenShown: Desired = NO_SHAPES;
+  let screenFrame: Parameters<NonNullable<BoardEngine['screen']>> | null = null;
+  const syncScreenCamera = () => {
+    if (!screenFrame) return;
+    const viewport = screenFrame[1];
+    const bounds = editor.getViewportScreenBounds();
+    const zoom =
+      bounds.w > 0 && bounds.h > 0
+        ? Math.min(bounds.w / viewport.width, bounds.h / viewport.height)
+        : 1;
+    editor.setCamera({ x: 0, y: 0, z: zoom }, { force: true });
+  };
+  // The parent's ResizeObserver may run before tldraw updates its own viewport record.
+  // Reconcile against the editor's measurement as well, rather than retaining the old zoom.
+  if (opts.overlay) editor.on('resize', syncScreenCamera);
 
   /** Fits Ada's focus again when it, or the box it fits, has changed. */
   const followFocus = () => {
-    if (!drawn) return;
+    if (opts.overlay || !drawn) return;
     const item = drawn.scene.focus;
     const boxes = placeItems(drawn.scene, drawn.layouts, text());
     // Her notes with it, so none is cut off at the panel's edge.
@@ -123,7 +144,8 @@ export function createTldrawEngine(
   };
 
   const stopWatching = onSettledResize(opts.container ?? editor.getContainer(), () => {
-    control.refit();
+    if (opts.overlay) syncScreenCamera();
+    else control.refit();
   });
 
   const render = (scene: BoardScene, layouts: Readonly<Record<string, BoardLayout>>) => {
@@ -134,7 +156,63 @@ export function createTldrawEngine(
     followFocus();
   };
 
+  const screen: NonNullable<BoardEngine['screen']> = (marks, viewport, board) => {
+    if (
+      ![viewport.width, viewport.height].every(Number.isFinite) ||
+      !(viewport.width > 0 && viewport.height > 0)
+    )
+      return;
+    screenFrame = [marks, viewport, board];
+    const next = screenDesired(marks, viewport.width, viewport.height);
+    if (board) {
+      const desired = desiredBoard(board.scene, board.layouts, text(), lang);
+      const boxes = placeItems(board.scene, board.layouts, text());
+      for (const shape of desired.shapes.values()) {
+        const box = boxes[shape.meta.item];
+        const region = Object.hasOwn(board.placements, shape.meta.item)
+          ? board.placements[shape.meta.item]
+          : undefined;
+        if (!box || !region) continue;
+        // Scale each complete whiteboard item through tldraw's native shape scale. No camera fit.
+        const scale = Math.min(
+          (region.w * viewport.width) / box.w,
+          (region.h * viewport.height) / box.h,
+        );
+        next.shapes.set(shape.id, {
+          ...shape,
+          x: region.x * viewport.width + (shape.x - box.x) * scale,
+          y: region.y * viewport.height + (shape.y - box.y) * scale,
+          meta: { ...shape.meta, screenScale: scale, screenColor: region.color ?? 'violet' },
+          props:
+            shape.type === 'arrow'
+              ? {
+                  ...shape.props,
+                  scale,
+                  start: scalePoint(shape.props.start, scale),
+                  end: scalePoint(shape.props.end, scale),
+                  bend: Number(shape.props.bend ?? 0) * scale,
+                  color: region.color ?? 'violet',
+                  labelColor: region.color ?? 'violet',
+                }
+              : {
+                  ...shape.props,
+                  w: Number(shape.props.w) * scale,
+                  h: Number(shape.props.h) * scale,
+                },
+        });
+      }
+      for (const [id, binding] of desired.bindings) {
+        if (next.shapes.has(binding.arrow) && next.shapes.has(binding.to))
+          next.bindings.set(id, binding);
+      }
+    }
+    apply(editor, planSync(screenShown, next));
+    screenShown = next;
+    syncScreenCamera();
+  };
+
   return {
+    screen,
     render,
     camera: {
       adaAction: control.adaAction,
@@ -150,6 +228,7 @@ export function createTldrawEngine(
       if (next === lang) return;
       lang = next;
       if (drawn) render(drawn.scene, drawn.layouts);
+      if (screenFrame) screen(...screenFrame);
     },
     async play(effect: BoardEffect) {
       if (reduced()) return;
@@ -211,6 +290,7 @@ export function createTldrawEngine(
     },
     dispose() {
       stopWatching();
+      if (opts.overlay) editor.off('resize', syncScreenCamera);
       stopGestures();
       effects.stop();
       measure.dispose();
@@ -338,4 +418,9 @@ function bindingCreate(binding: DesiredBinding): TLBindingCreate {
 function centerOf(editor: Editor, id: string): Pt | null {
   const bounds = editor.getShapePageBounds(id as TLShapeId);
   return bounds ? { x: bounds.center.x, y: bounds.center.y } : null;
+}
+
+function scalePoint(value: unknown, scale: number) {
+  const p = value as { x: number; y: number };
+  return { x: p.x * scale, y: p.y * scale };
 }

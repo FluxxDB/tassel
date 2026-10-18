@@ -1,7 +1,9 @@
 // What the rest of the app knows of a board engine (P5-R1's thin wrapper): it draws Ada's scene,
 // plays her effects, moves the camera, and reports the student's own edits. board/tldraw/ is the
 // one engine; another (Excalidraw, say) would implement this and nothing else. No tldraw here.
+
 import type { AutomatonSpec } from '@tassel/shared/beats';
+import type { ScreenBoard, ScreenMark } from '../../../shared/screen-bridge';
 import type { BoardLayout } from './layout/types';
 import type { BoardEffect, BoardScene } from './scene/types';
 
@@ -42,6 +44,12 @@ export interface StageGeometry {
 }
 
 export interface BoardEngine {
+  /** Fixed screen-space canvas; coordinates are relative to the selected display, not desktop origin. */
+  screen?(
+    marks: readonly ScreenMark[],
+    viewport: { width: number; height: number },
+    board?: ScreenBoard,
+  ): void;
   /** Draws `scene`, changing only what changed since the last call. */
   render(scene: BoardScene, layouts: Readonly<Record<string, BoardLayout>>): void;
   /** Plays an effect; resolves when it ends, at once under reduced motion. */

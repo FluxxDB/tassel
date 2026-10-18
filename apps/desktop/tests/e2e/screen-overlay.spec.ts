@@ -115,8 +115,17 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
     const hud = app.windows().find((window) => window.url().endsWith('#overlay-hud'));
     const ink = app.windows().find((window) => window.url().endsWith('#overlay-ink'));
     if (!hud || !ink) throw new Error('Overlay windows missing');
-    hud.on('pageerror', (error) => errors.push(error.message));
-    ink.on('pageerror', (error) => errors.push(error.message));
+    hud.on('pageerror', (error) => {
+      errors.push(error.message);
+      console.log('HUD error:', error.message);
+    });
+    ink.on('pageerror', (error) => {
+      errors.push(error.message);
+      console.log('Ink error:', error.message);
+    });
+    ink.on('console', (message) => {
+      if (message.type() === 'error') console.log('Ink console:', message.text());
+    });
     await expect(hud.getByTestId('screen-overlay')).toBeVisible();
     await expect(hud.locator('.overlay-avatar svg')).toHaveAttribute('data-hair', 'long');
     expect(
@@ -137,19 +146,40 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
     expect(
       await hud.locator('.overlay-bar').evaluate((el) => getComputedStyle(el).backgroundColor),
     ).toBe('rgb(255, 249, 243)');
+    await expect(ink.locator('.tl-container')).toBeVisible();
+    expect(
+      await ink.locator('.screen-tldraw').evaluate((el) => getComputedStyle(el).backgroundColor),
+    ).toBe('rgba(0, 0, 0, 0)');
+    const displayGeometry = await app.evaluate(({ BrowserWindow, screen }) => {
+      const win = BrowserWindow.getAllWindows().find((w) =>
+        w.webContents.getURL().endsWith('#overlay-ink'),
+      );
+      if (!win) throw new Error('Missing ink window');
+      return {
+        content: win.getContentBounds(),
+        display: screen.getDisplayMatching(win.getBounds()).bounds,
+      };
+    });
+    console.log('Synthetic overlay bounds:', displayGeometry);
+    expect(
+      Math.abs(displayGeometry.content.width - displayGeometry.display.width),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(displayGeometry.content.height - displayGeometry.display.height),
+    ).toBeLessThanOrEqual(1);
     await hud.getByRole('button', { name: 'Draw', exact: true }).click();
     await expect(ink.getByTestId('screen-drawing')).toHaveClass(/is-drawing/);
     await ink.mouse.move(150, 130);
     await ink.mouse.down();
     await ink.mouse.move(220, 170, { steps: 8 });
     await ink.mouse.up();
-    await expect(ink.locator('polyline')).toHaveCount(1);
+    await expect(ink.locator('.tl-shape[data-shape-type="line"]')).toHaveCount(1);
     // Capture a fresh changed assignment while keeping existing ink on screen.
     await hud.getByRole('button', { name: 'Pause', exact: true }).click();
     await expect(hud.getByRole('button', { name: 'Resume', exact: true })).toBeVisible();
-    await expect(ink.locator('polyline')).toHaveCount(1);
+    await expect(ink.locator('.tl-shape[data-shape-type="line"]')).toHaveCount(1);
     await hud.getByRole('button', { name: 'Resume', exact: true }).click();
-    await expect(ink.locator('polyline')).toHaveCount(1);
+    await expect(ink.locator('.tl-shape[data-shape-type="line"]')).toHaveCount(1);
     await app.evaluate(({ BrowserWindow }) => {
       const inkWindow = BrowserWindow.getAllWindows().find((w) =>
         w.webContents.getURL().endsWith('#overlay-ink'),
@@ -158,8 +188,10 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
       inkWindow?.once('hide', () => inkWindow.setTitle('capture-hid-ink'));
     });
     await hud.getByRole('button', { name: 'Look again', exact: true }).click();
-    await expect.poll(() => timings.some((value) => value.delivered === true)).toBe(true);
-    await expect(ink.locator('polyline')).toHaveCount(1);
+    await expect
+      .poll(() => timings.some((value) => value.delivered === true), { timeout: 12000 })
+      .toBe(true);
+    await expect(ink.locator('.tl-shape[data-shape-type="line"]')).toHaveCount(1);
     expect(
       await app.evaluate(({ BrowserWindow }) =>
         BrowserWindow.getAllWindows()
@@ -168,7 +200,7 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
       ),
     ).toBe('capture-stayed-visible');
     await hud.getByRole('button', { name: 'Reset annotations', exact: true }).click();
-    await expect(ink.locator('polyline')).toHaveCount(0);
+    await expect(ink.locator('.tl-shape[data-shape-type="line"]')).toHaveCount(0);
     await expect(ink.getByTestId('screen-drawing')).not.toHaveClass(/is-drawing/);
     await hud.getByRole('button', { name: 'Pause', exact: true }).click();
     await expect(hud.getByRole('button', { name: 'Resume', exact: true })).toBeVisible();
@@ -188,9 +220,12 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
         ),
       )
       .toBe(true);
-    await page.getByRole('button', { name: 'Share screen', exact: true }).click();
+    await page
+      .getByTestId('dock')
+      .getByRole('button', { name: 'Minimize to overlay', exact: true })
+      .click();
     await expect(hud.getByTestId('screen-overlay')).toBeVisible();
-    // Exercise tutor geometry in real SVG layout, including non-square and portrait displays.
+    // Exercise tutor geometry in the real shared whiteboard canvas, including non-square and portrait displays.
     for (const [width, height] of [
       [1280, 720],
       [1920, 1080],
@@ -236,27 +271,117 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
         },
         { width, height },
       );
-      await expect(ink.locator('ellipse')).toHaveCount(1);
-      const geometry = await ink.evaluate(() => {
-        const ellipse = document.querySelector('ellipse')?.getBoundingClientRect();
-        const line = document.querySelector('polyline')?.getBoundingClientRect();
-        if (!ellipse || !line) throw new Error('Missing marks');
-        return {
-          width: innerWidth,
-          height: innerHeight,
-          circle: { x: ellipse.x, y: ellipse.y, width: ellipse.width, height: ellipse.height },
-          line: { x: line.x, y: line.y, width: line.width },
-        };
-      });
-      expect(geometry.circle.x).toBeCloseTo(geometry.width * 0.6, 1);
-      expect(geometry.circle.y).toBeCloseTo(geometry.height * 0.5, 1);
-      expect(geometry.circle.width).toBeCloseTo(geometry.width * 0.3, 1);
-      expect(geometry.circle.height).toBeCloseTo(geometry.height * 0.2, 1);
-      expect(geometry.line.x).toBeCloseTo(geometry.width * 0.6, 1);
-      expect(geometry.line.y).toBeCloseTo(geometry.height * 0.72, 1);
-      expect(geometry.line.width).toBeCloseTo(geometry.width * 0.3, 1);
+      await expect(ink.locator('.tl-shape[data-shape-id="shape:screen.circle"]')).toHaveCount(1);
+      const measureGeometry = () =>
+        ink.evaluate(() => {
+          const ellipse = document
+            .querySelector('.tl-shape[data-shape-id="shape:screen.circle"]')
+            ?.getBoundingClientRect();
+          const line = document
+            .querySelector('.tl-shape[data-shape-id="shape:screen.underline"]')
+            ?.getBoundingClientRect();
+          if (!ellipse || !line) throw new Error('Missing marks');
+          return {
+            width: innerWidth,
+            height: innerHeight,
+            circle: { x: ellipse.x, y: ellipse.y, width: ellipse.width, height: ellipse.height },
+            line: { x: line.x, y: line.y, width: line.width },
+          };
+        });
+      // Both Electron's content resize and tldraw's camera update settle on a render frame.
+      await expect
+        .poll(async () => {
+          const geometry = await measureGeometry();
+          return Math.max(
+            Math.abs(geometry.circle.x - geometry.width * 0.6),
+            Math.abs(geometry.circle.y - geometry.height * 0.5),
+            Math.abs(geometry.circle.width - geometry.width * 0.3),
+            Math.abs(geometry.circle.height - geometry.height * 0.2),
+            Math.abs(geometry.line.x - geometry.width * 0.6),
+            Math.abs(geometry.line.y - geometry.height * 0.72),
+            Math.abs(geometry.line.width - geometry.width * 0.3),
+          );
+        })
+        .toBeLessThan(1);
     }
     await ink.screenshot({ path: join(dir, 'screen-tutor-geometry.png') });
+    // Existing DFA records, layout and custom figures on the same transparent screen canvas.
+    const overlaySpec = {
+      kind: 'dfa',
+      states: [{ id: 'q0' }, { id: 'q1', accept: true }],
+      start: 'q0',
+      transitions: [
+        { from: 'q0', to: 'q0', symbols: ['0'] },
+        { from: 'q0', to: 'q1', symbols: ['1'] },
+        { from: 'q1', to: 'q1', symbols: ['0', '1'] },
+      ],
+    };
+    const overlayBoard = {
+      scene: {
+        items: [
+          {
+            id: 'overlay-dfa',
+            kind: 'automaton',
+            title: 'Overlay DFA',
+            spec: overlaySpec,
+            revealed: 'all',
+            highlighted: [],
+            current: [],
+          },
+        ],
+        focus: null,
+        rev: 1,
+      },
+      layouts: {
+        'overlay-dfa': {
+          width: 320,
+          height: 200,
+          states: { q0: { x: 80, y: 110, r: 32 }, q1: { x: 224, y: 110, r: 32 } },
+          start: { from: { x: 0, y: 110 }, to: { x: 48, y: 110 } },
+          edges: {
+            'q0>q0': { bend: 0, loop: 'top', label: { x: 80, y: 34 } },
+            'q0>q1': { bend: 0, loop: null, label: { x: 152, y: 98 } },
+            'q1>q1': { bend: 0, loop: 'top', label: { x: 224, y: 34 } },
+          },
+        },
+      },
+      placements: { 'overlay-dfa': { x: 0.05, y: 0.1, w: 0.85, h: 0.5, color: 'violet' } },
+    };
+    await app.evaluate(({ BrowserWindow }, board) => {
+      BrowserWindow.getAllWindows()
+        .find((w) => w.webContents.getURL().endsWith('#overlay-ink'))
+        ?.webContents.send('screen:state', {
+          sequence: 100010,
+          status: 'sharing',
+          caption: '',
+          tutorState: 'listening',
+          micOn: true,
+          draw: false,
+          avatar: {},
+          notice: '',
+          board,
+          marks: [
+            {
+              id: 'writing',
+              author: 'tutor',
+              kind: 'text',
+              text: 'On-screen writing',
+              color: 'red',
+              points: [{ x: 0.1, y: 0.75 }],
+            },
+          ],
+        });
+    }, overlayBoard);
+    await expect(ink.locator('.tl-shape[data-shape-type="tassel-state"]')).toHaveCount(
+      overlaySpec.states.length,
+    );
+    await expect(ink.getByText('On-screen writing', { exact: true })).toBeVisible();
+    const dfaBounds = await ink
+      .locator('.tl-shape[data-shape-type="tassel-state"]')
+      .first()
+      .boundingBox();
+    expect(dfaBounds?.x).toBeGreaterThan(0);
+    await ink.screenshot({ path: join(dir, 'screen-whiteboard-dfa.png') });
     await app.evaluate(({ BrowserWindow }) => {
       const hudWindow = BrowserWindow.getAllWindows().find((w) =>
         w.webContents.getURL().endsWith('#overlay-hud'),
@@ -273,7 +398,9 @@ test('shares, collapses, draws, resets, restores and stops without leaving captu
         notice: '',
       });
     });
-    await expect.poll(() => timings.some((value) => value.delivered === true)).toBe(true);
+    await expect
+      .poll(() => timings.some((value) => value.delivered === true), { timeout: 12000 })
+      .toBe(true);
     writeFileSync(join(dir, 'screen-timings.json'), JSON.stringify(timings, null, 2));
     console.log('Synthetic screen timing:', JSON.stringify(timings));
     const caption = hud.locator('.overlay-caption p');

@@ -511,7 +511,7 @@
     "reset": "Reset annotations",
     "resetHint": "Clear annotations and interrupt {tutorName} (Ctrl/Cmd+Shift+Backspace)",
     "restore": "Open Tassel",
-    "collapse": "Collapse to bar",
+    "collapse": "Minimize to overlay",
     "draw": "Draw",
     "drawHint": "Draw on your screen · Escape to finish",
     "undo": "Undo ink",

@@ -24,6 +24,10 @@ class ScreenSession:
         self.revision = 0
         self.active = False
         self.frame: ScreenFrame | None = None
+        self.objects: list[dict] = []
+        self.object_version = 0
+        self.board_items: dict[str, dict] = {}
+        self.pending: dict[str, asyncio.Future] = {}
         self.cancel: Callable[[], Awaitable[None]] | None = None
         self.changed = asyncio.Event()
         self.cancel_pending = False
@@ -43,6 +47,13 @@ class ScreenSession:
             return False
         self.source, self.epoch, self.active = source, epoch, active
         self.revision = 0
+        self.objects = []
+        self.board_items = {}
+        self.object_version = 0
+        for future in self.pending.values():
+            if not future.done():
+                future.set_result(False)
+        self.pending.clear()
         self.frame = None
         self.updated_at = datetime.now(UTC)
         self.changed.set()

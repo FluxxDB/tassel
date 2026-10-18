@@ -129,17 +129,10 @@ html[data-overlay] #root {
   position: absolute;
   inset: 0;
 }
-.screen-ink {
-  color: var(--color-iris-ink);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  pointer-events: none;
-}
+.screen-ink,
 .screen-ink * {
-  vector-effect: non-scaling-stroke;
+  /* biome-ignore lint/complexity/noImportantStyles: The transparent engine must never intercept desktop or parent drawing input. */
+  pointer-events: none !important;
 }
 .screen-drawing.is-drawing {
   cursor: crosshair;

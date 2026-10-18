@@ -35,12 +35,13 @@ export function paintStudentInk(
   height: number,
 ) {
   context.save();
-  context.strokeStyle = '#7952b8';
+
   context.lineWidth = Math.max(2, width / 500);
   context.lineCap = 'round';
   context.lineJoin = 'round';
   for (const mark of marks) {
     if (mark.author !== 'student' || !mark.points.length) continue;
+    context.strokeStyle = mark.color === 'violet' || !mark.color ? '#7d4fc4' : mark.color;
     context.beginPath();
     mark.points.forEach((point, i) => {
       if (i === 0) context.moveTo(point.x * width, point.y * height);
