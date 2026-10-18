@@ -1,8 +1,10 @@
 // Ada's board in a live conversation (P5 Task 14): the live tutor on the E2E server's fake
-// providers (tone TTS) plays the dfa-board scenario. Asked "Can you show me the answer?", her
-// tagged reply defines `fix` hidden, splits the stage, and reveals q0 then q0 > q1 as her words
-// are heard. The server strips the tags before TTS and sends each sentence's beat before its
-// words (Task 13); the app keys every word to its beat by segment and index (P5-R7).
+// providers (tone TTS) plays the dfa-board scenario. Asked "Can you show me the answer?", the
+// scenario's scripted director splits the stage and sends the turn to the thinker; the talker
+// bridges, and the thinker's scripted brief, vetted by the action checker as a live brief is,
+// defines `fix` hidden and reveals q0 then q0 > q1. The server strips the tags before TTS and
+// sends each sentence's beat before its words (Task 13); the app keys every word to its beat by
+// segment and index (P5-R7).
 //
 // The checks read the board store's description list, which needs no tldraw and holds past a
 // build's license window (P5-R6), so they run with or without a key; the screenshot shows

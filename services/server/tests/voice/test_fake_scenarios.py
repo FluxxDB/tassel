@@ -23,6 +23,7 @@ def test_every_scenario_loads():
         "dfa-board",
         "barge-in",
         "ptt",
+        "talker-tags",
     }
     for path in SCENARIOS_DIR.glob("*.json"):
         scenario = load_scenario(path.stem)

@@ -258,9 +258,11 @@ def report_usage(on_usage, model, response):
 
 
 class Director:
-    def __init__(self, *, client=None, budget_s=0.8, log=None, on_usage=None):
+    def __init__(self, *, client=None, budget_s=0.8, log=None, on_usage=None, script=None):
         self.client, self.budget_s, self.log = client, budget_s, log
         self.on_usage = on_usage
+        # Fake providers only: the scenario's decision for these words, or None for the rules.
+        self.script = script
 
     async def decide(
         self, text, history, *, focus="none", board_items=None, frozen=False, page_changed=False
@@ -269,7 +271,10 @@ class Director:
         source = "rules"
         decision = rules(text, focus=focus, page_changed=page_changed)
         sure = certain(text)
-        if sure is not None:
+        scripted = self.script(text) if self.script is not None else None
+        if scripted is not None:
+            decision, source = scripted, "script"
+        elif sure is not None:
             decision, source = sure, "rules-certain"
         elif self.client is not None:
             try:
@@ -362,7 +367,7 @@ class Director:
             await self.client.close()
 
 
-def make_director(settings, *, log=None, on_usage=None):
+def make_director(settings, *, log=None, on_usage=None, script=None):
     client = None
     if (
         settings.providers != "fake"
@@ -375,4 +380,4 @@ def make_director(settings, *, log=None, on_usage=None):
             max_retries=0,
             timeout=0.8,
         )
-    return Director(client=client, log=log, on_usage=on_usage)
+    return Director(client=client, log=log, on_usage=on_usage, script=script)

@@ -53,7 +53,8 @@ from tassel.vision.turn_image import NO_VIEW, TurnPage
 from tassel.voice.director import CONFUSED, Director, escalate, make_director
 from tassel.voice.events import ServerEvents, VadForwarder
 from tassel.voice.fakes.llm import FakeLLMService
-from tassel.voice.fakes.scenario import load_scenario
+from tassel.voice.fakes.scenario import load_scenario, scripted_turn
+from tassel.voice.fakes.thinker import scripted_thinker
 from tassel.voice.memory import ConversationMemory
 from tassel.voice.messages import (
     CLIENT_EVENTS,
@@ -610,10 +611,17 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     )
     turn_context.board = ctx.board
     turn_context.focus = "paper" if ctx.turn_image else "none"
+    # Fake providers follow the scenario's scripted decisions and briefs where it has them.
+    fake_llm = resolve_mode("llm", ctx.settings) == "fake"
     turn_context.director = make_director(
         ctx.settings,
         log=lambda event, **data: transcript.record(event, data),
         on_usage=transcript.meter.llm,
+        script=(
+            (lambda text: (turn := scripted_turn(scenario, ctx.lang, text)) and turn.decision)
+            if fake_llm
+            else None
+        ),
     )
 
     async def follow_focus(view):
@@ -624,6 +632,8 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
         events=events, lang=lambda: ctx.lang, board=ctx.board, transcript=transcript
     )
     thinker = make_thinker(ctx.settings)
+    if thinker is None and fake_llm:
+        thinker = scripted_thinker(scenario, lambda: ctx.lang)
     if thinker is not None:
         thinker.on_usage = transcript.meter.llm
     turn_context.coordinator = TutorCoordinator(

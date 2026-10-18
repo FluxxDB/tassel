@@ -147,15 +147,16 @@ async def test_typed_reply_stage_memory_and_resume():
         await say(bot, SCRIPT.langs["en"].student[0])
         await until(lambda: SCRIPT.langs["en"].turns[0].say in out.text())
         await say(bot, SCRIPT.langs["en"].student[1])
-        # The scripted LLM's stage request no longer overrides the director.
         await until(lambda: SCRIPT.langs["en"].turns[1].say in out.text())
-        assert {"kind": "stage", "view": "split"} not in out.events()
         await until(
             lambda: any(
                 m.get("role") == "tool" and m.get("content") != "IN_PROGRESS"
                 for m in bot.context.get_messages()
             )
         )
+        # The scripted director shows the split; the LLM's own stage request adds none.
+        stages = [e for e in out.events() if e["kind"] == "stage"]
+        assert stages == [{"kind": "stage", "view": "split"}]
     saved, lang = ctx.memory.recall(ctx.session_id)
     assert lang == "en" and any(m.get("role") == "user" for m in saved)
     assert not any(m["role"] == "system" for m in saved)
@@ -435,9 +436,9 @@ async def test_unapproved_talker_tags_never_reach_board_or_tts(monkeypatch):
             yield frame
 
     monkeypatch.setattr(FakeTTSService, "run_tts", recording)
-    ctx = context(request=OfferRequestData(scenario="dfa-board"))
+    ctx = context(request=OfferRequestData(scenario="talker-tags"))
     async with running(ctx) as (bot, out):
-        await until(lambda: load_scenario("dfa-board").langs["en"].greeting in out.text())
+        await until(lambda: load_scenario("talker-tags").langs["en"].greeting in out.text())
         await say(bot, "Can you show me the answer?")
         await until(lambda: "A zero takes us to q one." in out.text())
         beats = [e["beat"] for e in out.events() if e["kind"] == "beat"]
@@ -446,7 +447,7 @@ async def test_unapproved_talker_tags_never_reach_board_or_tts(monkeypatch):
         assert "[[" not in out.text()
         import re
 
-        expected = re.sub(r"\[\[.*?\]\]", "", load_scenario("dfa-board").langs["en"].turns[0].say)
+        expected = re.sub(r"\[\[.*?\]\]", "", load_scenario("talker-tags").langs["en"].turns[0].say)
         await asyncio.sleep(0.2)
         assert any(
             str(m.get("content", "")).strip() == expected
@@ -458,6 +459,46 @@ async def test_unapproved_talker_tags_never_reach_board_or_tts(monkeypatch):
         assert progress
         assert all(str(f.segment_id) in segments for f in progress)
         assert all("[[" not in f.accumulated_text for f in progress)
+
+
+async def test_fake_session_draws_through_the_director_and_thinker(monkeypatch):
+    from tassel.voice.fakes.tts import FakeTTSService
+
+    heard = []
+    original = FakeTTSService.run_tts
+
+    async def recording(self, text, context_id):
+        heard.append(text)
+        async for frame in original(self, text, context_id):
+            yield frame
+
+    monkeypatch.setattr(FakeTTSService, "run_tts", recording)
+    ctx = context(request=OfferRequestData(scenario="dfa-board"))
+    async with running(ctx) as (bot, out):
+        await until(lambda: load_scenario("dfa-board").langs["en"].greeting in out.text())
+        await say(bot, "Can you show me the answer?")
+        await until(lambda: "A zero takes us to q one." in out.text())
+        events = out.events()
+        # The director's split, then the brief's drawing, checked and delivered as beats.
+        assert {"kind": "stage", "view": "split"} in [
+            {k: e[k] for k in ("kind", "view")} for e in events if e["kind"] == "stage"
+        ]
+        beats = [e["beat"] for e in events if e["kind"] == "beat"]
+        assert any(b["markers"] for b in beats)
+        assert all("[[" not in text for text in heard)
+        assert "[[" not in out.text()
+
+
+async def test_scripted_decision_shows_the_split_view():
+    ctx = context(request=OfferRequestData(scenario="dfa-opening"))
+    async with running(ctx) as (bot, out):
+        await until(lambda: load_scenario("dfa-opening").langs["en"].greeting in out.text())
+        await say(
+            bot, "I think that's it. If it starts with a 1, I just wait on q0 until I see a 0."
+        )
+        await until(lambda: "1010" in out.text())
+        stages = [e["view"] for e in out.events() if e["kind"] == "stage"]
+        assert stages[-1:] == ["split"]
 
 
 @pytest.mark.parametrize("prefix", ["", "[[stage paper]]", "Look at your paper"])
