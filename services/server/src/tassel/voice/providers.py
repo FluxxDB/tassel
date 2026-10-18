@@ -6,7 +6,7 @@ from copy import deepcopy
 
 import httpx
 from loguru import logger
-from openai import APIConnectionError, APIError, AsyncOpenAI
+from openai import NOT_GIVEN, APIConnectionError, APIError, AsyncOpenAI
 from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.services.deepgram.flux.stt import DeepgramFluxSTTService
 from pipecat.services.deepgram.stt import DeepgramSTTService
@@ -150,6 +150,19 @@ def _credit_refusal(error: APIError) -> bool:
     )
 
 
+def _use_openai(settings, model: str, extra: dict) -> None:
+    """Point the settings at OpenAI. Its reasoning models (gpt-6-*, o-series) reject max_tokens
+    and any non-default temperature, so the cap goes in max_completion_tokens, which every
+    current OpenAI chat model accepts."""
+    cap = settings.max_tokens
+    settings.model = model
+    settings.extra = dict(extra)
+    if isinstance(cap, int):
+        settings.max_completion_tokens = cap
+    settings.max_tokens = NOT_GIVEN
+    settings.temperature = NOT_GIVEN
+
+
 class LiveLLMService(OpenRouterLLMService):
     """One OpenAI-compatible service preserves context, tools and metrics across fallback.
 
@@ -173,8 +186,7 @@ class LiveLLMService(OpenRouterLLMService):
         settings = openrouter_settings(s)
         settings.system_instruction = system_instruction
         if not use_router:
-            settings.model = self._openai_model
-            settings.extra = dict(self._openai_extra)
+            _use_openai(settings, self._openai_model, self._openai_extra)
         key = router_key if use_router else s.openai_api_key
         super().__init__(
             api_key=key.get_secret_value(),
@@ -257,8 +269,7 @@ class LiveLLMService(OpenRouterLLMService):
                     old_client = self._client
                     self._client, self._fallback_client = self._fallback_client, None
                     self.active_provider = "openai"
-                    self._settings.model = self._openai_model
-                    self._settings.extra = dict(self._openai_extra)
+                    _use_openai(self._settings, self._openai_model, self._openai_extra)
                     self._sync_model_name_to_metrics()
                     await old_client.close()
                     continue

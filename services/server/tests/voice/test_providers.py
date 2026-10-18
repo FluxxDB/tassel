@@ -381,6 +381,11 @@ async def test_openai_model_and_reasoning_from_environment(monkeypatch):
     )
     assert calls[0]["model"] == "gpt-6-astra"
     assert calls[0]["reasoning_effort"] == "low"
+    # OpenAI's reasoning models reject max_tokens and any non-default temperature (HTTP 400),
+    # which left Ada silent in the owner's live test.
+    assert "max_tokens" not in calls[0]
+    assert calls[0]["max_completion_tokens"] == VoiceSettings().llm_max_tokens
+    assert "temperature" not in calls[0]
 
 
 @pytest.mark.parametrize("effort", ["minimal", "bogus"])
