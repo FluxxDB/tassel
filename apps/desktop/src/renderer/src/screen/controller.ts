@@ -4,6 +4,7 @@ import type { OverlayIntent, ScreenIdentity, ScreenMark } from '../../../shared/
 import { validPoints } from '../../../shared/screen-bridge';
 import { useAvatar } from '../avatar/store';
 import { beatPlayer } from '../board/beats/player';
+import { useChatStore } from '../features/chat/chat-store';
 import { useStageStore } from '../features/session/stage-store';
 import { useLiveVoice } from '../features/voice/live-voice';
 import { viewportChanged } from './geometry';
@@ -74,6 +75,8 @@ export function useScreenController(sessionId: string, app?: AppConfig) {
       const client = useLiveVoice.getState().client;
       client?.interrupt?.(identity.epoch);
       beatPlayer.reset();
+      // Her line in progress stops where it was, in the chat as in the captions.
+      useChatStore.getState().interruptCurrent();
       useStageStore.setState((state) => ({
         tutorState: 'listening',
         caption:

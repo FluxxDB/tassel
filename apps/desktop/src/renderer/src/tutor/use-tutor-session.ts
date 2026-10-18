@@ -3,12 +3,14 @@
 // app never saves a title: the server writes the live tutor's (P2-R4), and the scripted tutor's
 // are display-only, naming only an untitled session (spec §5.1). Her board, paper and stage
 // actions go to the dispatcher, now or, in a beat, as the beat player hears her words (P5). The
-// server's board-snapshot request sends the board as it is now, for Ada's board turn. Ending a
+// server's board-snapshot request sends the board as it is now, for Ada's board turn. The
+// conversation's lines go to the chat sidebar's store. Ending a
 // live session hands it to learner memory.
 import { useEffect, useRef } from 'react';
 import { beatPlayer } from '../board/beats/player';
 import { dispatchActions } from '../board/dispatch';
 import { sendBoardSnapshot } from '../board/snapshot';
+import { useChatStore } from '../features/chat/chat-store';
 import { useCurrentSession } from '../features/session/current-session';
 import { useStageStore } from '../features/session/stage-store';
 import { useVoiceDebug } from '../features/voice/voice-debug';
@@ -109,6 +111,9 @@ export function useTutorSession(
           break;
         case 'board-snapshot':
           void sendBoardSnapshot(api.current, sessionId);
+          break;
+        case 'message':
+          useChatStore.getState().receive(event.message);
           break;
       }
     });

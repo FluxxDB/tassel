@@ -140,6 +140,11 @@ export function mapRtvi(
         case 'beat':
           events.push({ type: 'beat', beat: event.beat });
           break;
+        case 'message': {
+          const { kind: _kind, ...message } = event;
+          events.push({ type: 'message', message });
+          break;
+        }
         case 'language':
           state.lang = event.lang;
           events.push({ type: 'language', lang: event.lang });

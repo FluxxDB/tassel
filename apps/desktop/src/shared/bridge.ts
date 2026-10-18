@@ -13,6 +13,11 @@ export interface AppConfig {
   fakeScript: string;
   fakeSpeed: number;
   /**
+   * TASSEL_CHAT_SIDEBAR=closed: the chat sidebar starts hidden until she shows it (the E2E specs'
+   * default, so they lay out as before it existed). Unset, it opens with a session.
+   */
+  chatSidebar?: 'closed';
+  /**
    * True when this launch couldn't read the stored device token, so the app registers a fresh
    * device: a new learner, and an empty library. The library says so once.
    */

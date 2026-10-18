@@ -36,7 +36,8 @@ export function Captions({ notice }: { notice?: ReactNode }) {
     setOverflowing(el ? el.scrollHeight > el.clientHeight + 1 : false);
   }, [previous, current, on]);
   return (
-    <div className="pointer-events-none absolute bottom-[118px] left-1/2 z-20 flex w-[min(880px,calc(100%-144px))] -translate-x-1/2 flex-col gap-2">
+    // Centred on main, or on what the overlaying chat sidebar leaves of it (--chat-cover).
+    <div className="pointer-events-none absolute bottom-[118px] left-[calc((100%-var(--chat-cover,0px))/2)] z-20 flex w-[min(880px,calc(100%-var(--chat-cover,0px)-144px))] -translate-x-1/2 flex-col gap-2">
       {notice}
       {on && (
         <div

@@ -91,6 +91,8 @@ export function createTutorClient(cfg: AppConfig, deps?: LiveDeps): TutorClient 
   return new Client(compileScript(script, cfg.fakeScript), {
     speed: cfg.fakeSpeed,
     lang: cfg.uiLanguage,
+    // The app's fake tutor plays the chat sidebar's messages too.
+    chat: true,
   });
 }
 

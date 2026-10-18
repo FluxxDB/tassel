@@ -15,6 +15,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): EnvConfig {
     tutorMode: env.TASSEL_TUTOR === 'fake' ? 'fake' : 'live',
     fakeScript: env.TASSEL_FAKE_SCRIPT || 'dfa-opening',
     fakeSpeed: positiveNumber(env.TASSEL_FAKE_SPEED) ?? 1,
+    ...(env.TASSEL_CHAT_SIDEBAR === 'closed' && { chatSidebar: 'closed' as const }),
   };
 }
 
