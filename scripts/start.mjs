@@ -49,7 +49,11 @@ export function buildStartup({
     TASSEL_S3_BUCKET: local.s3Bucket ?? 'tassel-t2-avatar-dev',
     TASSEL_USER_DATA: userData,
     TASSEL_TUTOR: 'live',
-    TASSEL_PROVIDERS: 'live',
+    // Voice is live; optional vision follows its own configured providers/available keys.
+    TASSEL_PROVIDERS: 'auto',
+    TASSEL_STT_PROVIDER: 'live',
+    TASSEL_LLM_PROVIDER: 'live',
+    TASSEL_TITLES_PROVIDER: 'live',
     TASSEL_TTS_PROVIDER: 'live',
     TASSEL_VOICE_ENV_FILE: voiceEnvFile,
     TASSEL_REQUIRE_FAKE_CAPTURE: '0',

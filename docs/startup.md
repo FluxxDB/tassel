@@ -19,7 +19,7 @@ Defaults preserve this machine's existing primary avatar development profile and
 
 To use another existing installation, configure `userData`, `port`, `databaseUrl`, `s3Bucket`, `voiceEnvFile` or `toolsDir` in `.local/start.json`. Relative paths resolve from the primary checkout. Do not delete profiles or reset databases. Changing the profile or database intentionally changes which saved learner/session data is visible.
 
-Normal launch uses live voice/provider configuration rather than silently forcing fake TTS or a feature demo. Missing credentials are reported by the existing provider validation. Agent/CI checks continue to use explicit fake-device/provider fixtures; they do not run live startup.
+Normal launch explicitly uses live STT, conversation, TTS and titles. Optional vision uses the existing automatic selection: configured OpenAI/Anthropic services are used when their keys are available; without those keys, live paper analysis is unavailable, but does not block app startup. Missing credentials are reported by the existing provider validation. Agent/CI checks continue to use explicit fake-device/provider fixtures; they do not run live startup.
 
 `Start-Tassel.cmd --check` (or `pnpm start --check`) prints the checkout, shared settings/profile paths, server, database name and capture configuration. It does not initialize providers, read key contents, migrate databases or open devices. Close the running app/server before starting a different branch against the same shared profile/backend; an occupied backend port fails clearly instead of attaching to potentially stale code.
 
