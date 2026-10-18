@@ -52,7 +52,8 @@ export function buildStartup({
     // Voice is live; optional vision follows its own configured providers/available keys.
     TASSEL_PROVIDERS: 'auto',
     TASSEL_STT_PROVIDER: 'live',
-    TASSEL_LLM_PROVIDER: 'live',
+    // LLM uses named providers (openrouter/openai), not the STT/TTS 'live' mode.
+    // Leave it to server settings so an explicit .env provider is preserved.
     TASSEL_TITLES_PROVIDER: 'live',
     TASSEL_TTS_PROVIDER: 'live',
     TASSEL_VOICE_ENV_FILE: voiceEnvFile,

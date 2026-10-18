@@ -88,8 +88,8 @@ test('explicit local configuration wins without putting secrets in the report', 
 test('live voice does not force optional vision services to require additional keys', () => {
   const { env } = buildStartup({ root, platform: 'win32', env: {}, exists });
   assert.equal(env.TASSEL_PROVIDERS, 'auto');
-  for (const name of ['STT', 'LLM', 'TTS', 'TITLES'])
-    assert.equal(env[`TASSEL_${name}_PROVIDER`], 'live');
+  for (const name of ['STT', 'TTS', 'TITLES']) assert.equal(env[`TASSEL_${name}_PROVIDER`], 'live');
+  assert.equal(env.TASSEL_LLM_PROVIDER, undefined);
   assert.equal(env.TASSEL_GATE_PROVIDER, undefined);
   assert.equal(env.TASSEL_DEEPCHECK_PROVIDER, undefined);
 });
