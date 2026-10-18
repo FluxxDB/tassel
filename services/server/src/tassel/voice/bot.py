@@ -60,6 +60,8 @@ from tassel.frames.jpeg import jpeg_dimensions
 from tassel.models import Lang, SessionPatch
 from tassel.screen.api import ScreenDrawing, ScreenIllustration
 from tassel.screen.drawing import checked_board, checked_edit, deliver, grounded_points
+from tassel.screen.grounding import ScreenMarks, ground
+from tassel.screen.history import retire_screen_tools
 from tassel.screen.session import ScreenSession
 from tassel.storage import sessions_repo
 from tassel.vision.turn_image import NO_VIEW, TurnPage
@@ -434,6 +436,12 @@ class _TurnContext(FrameProcessor):
             ):
                 self.screen_frame_id = None
                 previous_user, self._last_user = self._last_user, user
+                if self.screen and self.screen.source and self.screen.source != "paper":
+                    # Earlier screen tool calls name stale frames, and a failed one there is
+                    # what she replayed on an unrelated later turn (the Hypershot tile).
+                    retired = retire_screen_tools(messages)
+                    if retired and self.transcript:
+                        self.transcript.record("screen_tools_retired", {"calls": retired})
                 typed = (
                     self.typed if self.typed is not None and self.typed.message is user else None
                 )
@@ -1261,6 +1269,8 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
             and frame.epoch == screen.epoch
         )
 
+    screen_marks = ScreenMarks()
+
     async def draw_screen(params):
         screen = ctx.screen
         try:
@@ -1279,14 +1289,19 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
                     )
                     turn_context.coordinator.pointer.client.on_usage = transcript.meter.llm
                 started = time.monotonic()
-                box = await turn_context.coordinator.pointer.resolve_screen(
-                    drawing.target, frame.image
+                # Set-of-Mark on the delivered frame, as on paper and her images: the pointer
+                # picks a numbered marker (or a box), never a guess on a bare screenshot.
+                view = await screen_marks.view_for(frame.id, frame.image)
+                box = await ground(
+                    turn_context.coordinator.pointer, drawing.kind, drawing.target, view
                 )
                 transcript.record(
                     "screen_pointer",
                     {
                         "duration_ms": round((time.monotonic() - started) * 1000),
                         "resolved": box is not None,
+                        "markers": len(view.elements),
+                        "image": [view.width, view.height],
                     },
                 )
                 if box is None or not current_screen(drawing.frame_id) or screen.frame is not frame:
