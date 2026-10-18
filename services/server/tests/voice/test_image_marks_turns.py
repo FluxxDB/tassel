@@ -78,6 +78,10 @@ def test_a_draw_request_sent_with_an_image_is_about_that_image():
     assert rules("Draw the diagram on the board", image=True).action == "draw_board"
 
 
+def test_the_big_picture_is_not_her_image():
+    assert rules("Can you explain the big picture here?").refers_to != "image"
+
+
 def test_her_paper_wins_over_a_photo_on_it():
     assert rules("Circle the photo on my paper").action == "mark_paper"
 

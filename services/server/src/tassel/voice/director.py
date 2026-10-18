@@ -42,7 +42,7 @@ PAPER = re.compile(
 )
 # An image she sent in the chat: "my screenshot", "the picture I sent", "on my image".
 IMAGE = re.compile(
-    r"\b(?:screen\s?shots?|images?|pictures?|photos?|pics?|attachments?|"
+    r"\b(?:screen\s?shots?|images?|(?<!big )pictures?|photos?|pics?|attachments?|"
     r"(?:the )?(?:file|one) I (?:sent|attached|uploaded))\b",
     re.I,
 )
