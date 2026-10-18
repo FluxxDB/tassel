@@ -1,10 +1,16 @@
 // One session in the library: a white card on bone that opens the session. The title names it;
-// its subject, type, time and language describe it.
+// its subject, type, time and language describe it. The card is a container: one stretched
+// button opens the session, and its "⋯" menu sits above it, with Rename (the title becomes a
+// field: Enter saves, Escape cancels) and Delete (which the library confirms).
 import type { Session } from '@tassel/shared/api';
 import type { Lang } from '@tassel/shared/i18n';
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Chip } from '../../components/Chip';
+import { IconButton } from '../../components/IconButton';
+import { More } from '../../components/icons';
+import { Menu, MenuItem } from '../../components/Menu';
+import { TitleField } from '../../components/TitleField';
 import { cn } from '../../lib/cn';
 import { firstClickOnly } from '../../lib/first-click';
 import { formatRelative } from './relative-time';
@@ -17,6 +23,10 @@ export interface SessionCardProps {
   showSubject: boolean;
   now: Date;
   onOpen(id: string): void;
+  /** Saves her title (patchSession); rejects if it couldn't be saved. */
+  onRename?(id: string, title: string): Promise<void>;
+  /** Asks to delete the session; the library confirms first. */
+  onDelete?(session: Session): void;
 }
 
 // Shared with the skeleton, so the loading grid has the real cards' size.
@@ -25,39 +35,86 @@ const CARD = 'flex h-full w-full flex-col gap-4 rounded-card bg-paper p-5';
 /** The cards' grid, minmax(280px, 1fr): four columns at 1440 and three at 1024. */
 export const CARD_GRID = 'grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4';
 
-export function SessionCard({ session, dated, showSubject, now, onOpen }: SessionCardProps) {
+export function SessionCard({
+  session,
+  dated,
+  showSubject,
+  now,
+  onOpen,
+  onRename,
+  onDelete,
+}: SessionCardProps) {
   const { t, i18n } = useTranslation();
   const id = useId();
   const lang = i18n.language as Lang;
+  const [renaming, setRenaming] = useState(false);
   const untitled = session.title === null;
+  const title = session.title ?? t('session.untitled');
   const time = new Date(session[dated]);
   return (
-    <button
-      type="button"
-      // The second click of a double click on End lands here once the library shows: ignore it.
-      onClick={firstClickOnly(() => onOpen(session.id))}
-      aria-labelledby={`${id}-title`}
-      aria-describedby={`${id}-about`}
+    <div
+      data-testid="session-card"
       className={cn(
         CARD,
-        'text-left transition-shadow duration-[120ms] hover:shadow-[0_0_0_1px_var(--color-hairline)] active:shadow-[0_0_0_1px_var(--color-smoke)]',
+        'group relative transition-shadow duration-[120ms] has-[>button:first-child:hover]:shadow-[0_0_0_1px_var(--color-hairline)] has-[>button:first-child:active]:shadow-[0_0_0_1px_var(--color-smoke)]',
       )}
     >
+      <button
+        type="button"
+        // The second click of a double click on End lands here once the library shows: ignore it.
+        onClick={firstClickOnly(() => onOpen(session.id))}
+        aria-labelledby={`${id}-title`}
+        aria-describedby={`${id}-about`}
+        className="absolute inset-0 rounded-card"
+      />
       {/*
         Two lines at Korean leading (2 × 1.6em) are reserved for every title, so every card in
         the grid is the same height, whatever the session's language.
       */}
-      <span
-        id={`${id}-title`}
-        lang={untitled ? undefined : session.language}
-        className={cn(
-          'line-clamp-2 min-h-[3.2em] text-[17px] leading-[1.35] font-w520 wrap-anywhere ko:leading-[1.6] ko:break-keep',
-          untitled ? 'text-smoke-text' : 'text-ink',
+      <div className="pointer-events-none relative flex min-h-[3.2em] items-start gap-2 text-[17px] leading-[1.35] ko:leading-[1.6]">
+        {renaming && onRename ? (
+          <TitleField
+            initial={session.title ?? ''}
+            lang={session.language}
+            label={t('library.card.renameLabel')}
+            onSave={(next) => onRename(session.id, next)}
+            onDone={() => setRenaming(false)}
+            className="pointer-events-auto -mx-1.5 -my-0.5 min-w-0 flex-1 px-1.5 py-0.5 text-[17px] font-w520"
+          />
+        ) : (
+          <span
+            id={`${id}-title`}
+            lang={untitled ? undefined : session.language}
+            className={cn(
+              'line-clamp-2 min-w-0 flex-1 font-w520 wrap-anywhere ko:break-keep',
+              untitled ? 'text-smoke-text' : 'text-ink',
+            )}
+          >
+            {title}
+          </span>
         )}
-      >
-        {session.title ?? t('session.untitled')}
-      </span>
-      <span id={`${id}-about`} className="mt-auto flex flex-col gap-2.5">
+        {(onRename || onDelete) && (
+          <Menu
+            trigger={
+              <IconButton
+                label={t('library.card.menu', { title })}
+                title={t('library.card.menuShort')}
+                className="pointer-events-auto -mt-1.5 -mr-2 size-8 text-smoke-text hover:text-ink data-[state=open]:bg-ink/[0.06] data-[state=open]:text-ink [&>svg]:size-5"
+              >
+                <More />
+              </IconButton>
+            }
+          >
+            {onRename && (
+              <MenuItem onSelect={() => setRenaming(true)}>{t('library.card.rename')}</MenuItem>
+            )}
+            {onDelete && (
+              <MenuItem onSelect={() => onDelete(session)}>{t('library.card.delete')}</MenuItem>
+            )}
+          </Menu>
+        )}
+      </div>
+      <span id={`${id}-about`} className="pointer-events-none relative mt-auto flex flex-col gap-2.5">
         <span className="flex min-w-0 items-center gap-1.5">
           {showSubject && session.subject !== null && (
             <Chip tone="bone" lang={session.language} title={session.subject}>
@@ -78,7 +135,7 @@ export function SessionCard({ session, dated, showSubject, now, onOpen }: Sessio
           </span>
         </span>
       </span>
-    </button>
+    </div>
   );
 }
 

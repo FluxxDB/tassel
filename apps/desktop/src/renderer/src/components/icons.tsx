@@ -179,3 +179,33 @@ export const Undo = icon('Undo', <path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0
 
 /** An arrow down onto a tray: a file saved to the desk. */
 export const Download = icon('Download', <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />);
+
+/** Settings: a cog with eight short teeth. */
+export const Gear = icon(
+  'Gear',
+  <>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6M18.4 18.4l-1.6-1.6M7.2 7.2 5.6 5.6" />
+    <circle cx="12" cy="12" r="6.8" />
+  </>,
+);
+
+/** A menu of more actions: three dots. */
+export const More = icon(
+  'More',
+  <>
+    <circle cx="6" cy="12" r="1" fill="currentColor" />
+    <circle cx="12" cy="12" r="1" fill="currentColor" />
+    <circle cx="18" cy="12" r="1" fill="currentColor" />
+  </>,
+);
+
+export const ChevronDown = icon('ChevronDown', <path d="m7 10 5 5 5-5" />);
+
+export const Check = icon('Check', <path d="m5 12.5 4.5 4.5L19 7.5" />);
+
+/** Push-to-talk: a raised hand, held while she talks. */
+export const Hand = icon(
+  'Hand',
+  <path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12M11 11.5V5a1.5 1.5 0 0 1 3 0v6.5M14 11.5V6.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-.5a6 6 0 0 1-4.6-2.2L3.6 16.9a1.5 1.5 0 0 1 2.3-1.9L8 17" />,
+);

@@ -4,6 +4,7 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { app } from 'electron';
+import type { SavedSettings } from '../../shared/bridge';
 import type { CameraAccess, PaperConfig, PaperSourceKind } from '../../shared/paper-bridge';
 
 export interface PaperSettings {
@@ -42,12 +43,21 @@ const PACKAGED_SOURCES: readonly (PaperSourceKind | 'auto')[] = [
 ];
 const FAKE_CAMERA_ACCESS: readonly CameraAccess[] = ['granted', 'denied', 'not-determined'];
 
+/**
+ * `saved` is the source she chose in Settings → Camera & paper (main/settings.ts). It applies
+ * only when TASSEL_PAPER_SOURCE is unset and the run doesn't require fake capture, so dev runs
+ * and E2E keep the source they pin.
+ */
 export function readPaperSettings(
   env: NodeJS.ProcessEnv = process.env,
   packaged: boolean = app.isPackaged,
   exists: (path: string) => boolean = existsSync,
+  saved: SavedSettings = {},
 ): PaperSettings {
-  const source = paperSource(env.TASSEL_PAPER_SOURCE, packaged ? PACKAGED_SOURCES : SOURCES);
+  const requested =
+    env.TASSEL_PAPER_SOURCE ||
+    (env.TASSEL_REQUIRE_FAKE_CAPTURE === '1' ? undefined : saved.paperSource);
+  const source = paperSource(requested, packaged ? PACKAGED_SOURCES : SOURCES);
   if (packaged) {
     return {
       config: { source, debug: false, helperClip: false, fakeClip: false, params: {} },

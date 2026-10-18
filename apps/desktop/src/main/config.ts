@@ -1,17 +1,24 @@
 // The app's runtime configuration, read from TASSEL_* environment variables.
 import { type Lang, SUPPORTED_LANGS } from '@tassel/shared/i18n';
 import { app } from 'electron';
-import type { AppConfig } from '../shared/bridge';
+import type { AppConfig, SavedSettings } from '../shared/bridge';
 
 const DEFAULT_SERVER_URL = 'http://127.0.0.1:8787';
 
 /** The launch settings from the environment: everything in AppConfig but the token store's answer. */
 export type EnvConfig = Omit<AppConfig, 'tokenReset'>;
 
-export function readConfig(env: NodeJS.ProcessEnv = process.env): EnvConfig {
+/**
+ * `saved` is what Settings saved (main/settings.ts): its UI language applies unless
+ * TASSEL_UI_LANG names one, as dev runs and E2E do.
+ */
+export function readConfig(
+  env: NodeJS.ProcessEnv = process.env,
+  saved: SavedSettings = {},
+): EnvConfig {
   return {
     serverUrl: serverUrl(env.TASSEL_SERVER_URL),
-    uiLanguage: uiLanguage(env.TASSEL_UI_LANG),
+    uiLanguage: uiLanguage(env.TASSEL_UI_LANG || saved.uiLanguage),
     tutorMode: env.TASSEL_TUTOR === 'fake' ? 'fake' : 'live',
     fakeScript: env.TASSEL_FAKE_SCRIPT || 'dfa-opening',
     fakeSpeed: positiveNumber(env.TASSEL_FAKE_SPEED) ?? 1,

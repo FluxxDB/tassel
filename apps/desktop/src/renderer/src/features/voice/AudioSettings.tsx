@@ -1,11 +1,11 @@
 import * as Popover from '@radix-ui/react-popover';
 import * as Select from '@radix-ui/react-select';
-import * as Switch from '@radix-ui/react-switch';
 import type { Sensitivity } from '@tassel/shared/voice';
 import { type ReactNode, useEffect, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Close } from '../../components/icons';
-import { SegmentedControl } from '../../components/SegmentedControl';
+import { Segmented } from '../../components/Segmented';
+import { SettingSwitch } from '../../components/SettingSwitch';
 import { useAudioPrefs } from './audio-prefs';
 import { resolveDevice, useAudioDevices } from './devices';
 
@@ -52,7 +52,8 @@ export function AudioSettings({
   );
 }
 
-function AudioSettingsPanel() {
+/** Devices, presenter mode, push-to-talk and interruptions: the popover's, and Settings'. */
+export function AudioSettingsPanel() {
   const { t } = useTranslation();
   const prefs = useAudioPrefs();
   const { inputs, outputs, ready, error, refresh } = useAudioDevices();
@@ -164,8 +165,8 @@ function AudioSettingsPanel() {
         onChange={(pushToTalk) => prefs.set({ pushToTalk })}
       />
       <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium">{t('voice.settings.sensitivityLabel')}</span>
-        <SegmentedControl<Sensitivity>
+        <span className="text-sm font-w520">{t('voice.settings.sensitivityLabel')}</span>
+        <Segmented<Sensitivity>
           label={t('voice.settings.sensitivityLabel')}
           describedBy={sensitivityHint}
           value={prefs.sensitivity}
@@ -174,7 +175,7 @@ function AudioSettingsPanel() {
             label: t(`voice.settings.sensitivity.${value}`),
           }))}
           onChange={(sensitivity) => prefs.set({ sensitivity })}
-          className="w-full justify-between"
+          fill
         />
         <p id={sensitivityHint} className="text-xs leading-relaxed text-smoke-text">
           {t('voice.settings.sensitivityHint')}
@@ -202,7 +203,7 @@ function DeviceSelect({
   const id = useId();
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <label htmlFor={id} className="text-sm font-medium">
+      <label htmlFor={id} className="text-sm font-w520">
         {label}
       </label>
       <Select.Root value={value} onValueChange={onChange} disabled={disabled}>
@@ -234,41 +235,6 @@ function DeviceSelect({
           </Select.Content>
         </Select.Portal>
       </Select.Root>
-    </div>
-  );
-}
-function SettingSwitch({
-  label,
-  hint,
-  checked,
-  onChange,
-}: {
-  label: string;
-  hint: string;
-  checked: boolean;
-  onChange(on: boolean): void;
-}) {
-  const id = useId();
-  const hintId = useId();
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-4">
-        <label htmlFor={id} className="text-sm font-medium">
-          {label}
-        </label>
-        <Switch.Root
-          id={id}
-          checked={checked}
-          onCheckedChange={onChange}
-          aria-describedby={hintId}
-          className="h-6 w-10 shrink-0 rounded-pill border border-hairline bg-bone p-0.5 data-[state=checked]:border-ink data-[state=checked]:bg-ink"
-        >
-          <Switch.Thumb className="block size-[18px] rounded-pill bg-smoke transition-transform duration-150 data-[state=checked]:translate-x-4 data-[state=checked]:bg-paper motion-reduce:transition-none" />
-        </Switch.Root>
-      </div>
-      <p id={hintId} className="text-xs leading-relaxed text-smoke-text">
-        {hint}
-      </p>
     </div>
   );
 }

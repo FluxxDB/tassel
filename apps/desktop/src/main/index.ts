@@ -17,6 +17,7 @@ import { applyUserDataOverride, downloadDir, readConfig, tokenStoreMode } from '
 import { registerDownloads } from './downloads';
 import { registerIpc } from './ipc';
 import { registerScreenOverlay } from './overlay/controller';
+import { readSavedSettings } from './settings';
 import { createCameraAccess } from './paper/camera-access';
 import { readPaperSettings } from './paper/config';
 import { registerDisplayMedia } from './paper/display-media';
@@ -34,8 +35,10 @@ import { createMainWindow, hardenWebContents, isTrustedUrl, restrictPermissions 
 // First, because the single-instance lock lives in userData: E2E runs, each with its own
 // TASSEL_USER_DATA, never block one another.
 applyUserDataOverride();
+// What Settings saved (userData/settings.json), read once per launch.
+const saved = readSavedSettings(app.getPath('userData'));
 // Paper's settings, and the fake camera's switches, which must be in before the app is ready.
-const paper = readPaperSettings();
+const paper = readPaperSettings(process.env, app.isPackaged, existsSync, saved);
 applyPaperSwitches(app.commandLine, paper);
 registerAppScheme();
 app.enableSandbox();
@@ -69,6 +72,7 @@ if (!app.requestSingleInstanceLock()) {
           fetch: (input, init) => net.fetch(input instanceof URL ? input.href : input, init),
           serverUrl: readConfig().serverUrl,
         }),
+        app.getPath('userData'),
       );
       registerVoiceIpc({
         access: createMicAccess({

@@ -1,8 +1,9 @@
+// Settings → Tutor: Ada's look, name and voice per language, on a draft with a live preview.
+// Save stores it (and celebrates); Cancel goes back to what's saved.
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../components/Button';
-import { SegmentedControl } from '../components/SegmentedControl';
-import { Sheet } from '../components/Sheet';
+import { TabList, TabPanel, Tabs } from '../components/Tabs';
 import { Avatar } from './Avatar';
 import {
   ACCESSORIES,
@@ -22,57 +23,20 @@ import {
   VOICE_LANGUAGES,
   VOICES,
 } from './catalog';
-import { MemoryPanel } from './MemoryPanel';
-import { PersonalityPanel } from './PersonalityPanel';
 import { useAvatar } from './store';
 import { type PreviewState, publicPreviewUrl, VoicePreviewPlayer } from './voice-preview';
 import './avatar.css';
 
-export function AvatarCustomizer({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange(open: boolean): void;
-}) {
-  const { t } = useTranslation();
-  const [section, setSection] = useState<'appearance' | 'memory'>('appearance');
-  return (
-    <Sheet
-      open={open}
-      onOpenChange={onOpenChange}
-      title={t('memory.settingsTitle')}
-      description={t('memory.settingsDescription')}
-      className="avatar-customizer isolate max-w-[860px]"
-    >
-      {/* Sheet owns unmounting after its exit animation; keep the editor intact until then. */}
-      <SegmentedControl<'appearance' | 'memory'>
-        label={t('memory.settingsTitle')}
-        value={section}
-        onChange={(next) => {
-          if (open) setSection(next);
-        }}
-        options={[
-          { value: 'appearance', label: t('memory.appearance') },
-          { value: 'memory', label: t('memory.personalizationTitle') },
-        ]}
-      />
-      {section === 'appearance' ? (
-        <Editor open={open} onClose={() => onOpenChange(false)} />
-      ) : (
-        <div className="flex flex-col gap-6">
-          <PersonalityPanel open={open} />
-          <div className="border-t border-hairline pt-6">
-            <MemoryPanel open={open} />
-          </div>
-        </div>
-      )}
-    </Sheet>
-  );
-}
 const SPARKS = Array.from({ length: 24 }, (_, i) => i * 15);
 
-function Editor({ open, onClose }: { open: boolean; onClose(): void }) {
+export interface TutorEditorProps {
+  /** False once the view hides it: a playing preview stops. */
+  open: boolean;
+  /** After Cancel, or once a save's celebration ends. */
+  onDone?(): void;
+}
+
+export function TutorEditor({ open, onDone }: TutorEditorProps) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState(() => ({ ...useAvatar.getState().profile }));
   const [tab, setTab] = useState<'style' | 'body'>('style');
@@ -87,6 +51,10 @@ function Editor({ open, onClose }: { open: boolean; onClose(): void }) {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const saving = useRef(false);
   useEffect(() => () => clearTimeout(timer.current), []);
+  const selectTab = (next: 'style' | 'body') => {
+    player.stop();
+    setTab(next);
+  };
   const update = (key: keyof AvatarProfile, value: string) => {
     player.stop();
     setDraft((current) => ({ ...current, [key]: value }));
@@ -100,7 +68,14 @@ function Editor({ open, onClose }: { open: boolean; onClose(): void }) {
       setError(false);
       setSaved(true);
       const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-      timer.current = setTimeout(onClose, reduced ? 450 : 1200);
+      timer.current = setTimeout(
+        () => {
+          saving.current = false;
+          setSaved(false);
+          onDone?.();
+        },
+        reduced ? 450 : 1200,
+      );
     } catch {
       saving.current = false;
       setError(true);
@@ -186,48 +161,17 @@ function Editor({ open, onClose }: { open: boolean; onClose(): void }) {
               className="mt-2 mb-4 w-full rounded-input border border-hairline bg-paper px-3 py-2 font-normal"
             />
           </label>
-          <div
-            role="tablist"
-            aria-label={t('avatar.tabs')}
-            className="flex gap-2 border-b border-hairline pb-2"
-          >
-            {(['style', 'body'] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                role="tab"
-                aria-selected={tab === value}
-                tabIndex={tab === value ? 0 : -1}
-                aria-controls={`avatar-panel-${value}`}
-                id={`avatar-tab-${value}`}
-                onClick={() => {
-                  player.stop();
-                  setTab(value);
-                }}
-                onKeyDown={(event) => {
-                  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-                  event.preventDefault();
-                  const next =
-                    event.key === 'Home'
-                      ? 'style'
-                      : event.key === 'End'
-                        ? 'body'
-                        : value === 'style'
-                          ? 'body'
-                          : 'style';
-                  player.stop();
-                  setTab(next);
-                  document.getElementById(`avatar-tab-${next}`)?.focus();
-                }}
-                className={`rounded-pill px-4 py-2 text-sm ${tab === value ? 'bg-ink text-paper' : 'bg-transparent text-ink'}`}
-              >
-                {t(`avatar.${value}`)}
-              </button>
-            ))}
-          </div>
-          <div role="tabpanel" id={`avatar-panel-${tab}`} aria-labelledby={`avatar-tab-${tab}`}>
-            {tab === 'style' ? (
-              <>
+          <Tabs value={tab} onChange={selectTab}>
+            <TabList<'style' | 'body'>
+              label={t('avatar.tabs')}
+              value={tab}
+              onChange={selectTab}
+              items={[
+                { value: 'style', label: t('avatar.style') },
+                { value: 'body', label: t('avatar.body') },
+              ]}
+            />
+            <TabPanel value="style">
                 {row('hat', HATS)}
                 <div
                   className="avatar-hat-colors"
@@ -271,9 +215,8 @@ function Editor({ open, onClose }: { open: boolean; onClose(): void }) {
                 {row('outfit', OUTFITS)}
                 {row('outfitColor', OUTFIT_COLORS)}
                 {row('accessory', ACCESSORIES)}
-              </>
-            ) : (
-              <>
+            </TabPanel>
+            <TabPanel value="body">
                 <fieldset className="py-5">
                   <legend className="pt-4 text-sm font-w520">{t('avatar.skin')}</legend>
                   <div className="grid grid-cols-4 gap-3">
@@ -356,9 +299,8 @@ function Editor({ open, onClose }: { open: boolean; onClose(): void }) {
                   <p className="text-[13px] text-smoke-text">{t('avatar.voiceDisabled')}</p>
                   <p className="text-[12px] text-smoke-text">{t('avatar.voiceLibraryNote')}</p>
                 </fieldset>
-              </>
-            )}
-          </div>
+            </TabPanel>
+          </Tabs>
         </div>
       </fieldset>
       <div className="sticky bottom-0 z-30 flex flex-wrap items-center gap-2 border-t border-hairline bg-paper py-4">
@@ -378,7 +320,8 @@ function Editor({ open, onClose }: { open: boolean; onClose(): void }) {
           disabled={saved}
           onClick={() => {
             player.stop();
-            onClose();
+            setDraft({ ...useAvatar.getState().profile });
+            onDone?.();
           }}
         >
           {t('common.cancel')}

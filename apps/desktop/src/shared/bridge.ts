@@ -24,7 +24,28 @@ export interface AppConfig {
   tokenReset: boolean;
 }
 
+/** The paper sources she can save in Settings → Camera & paper (a packaged app's choices). */
+export const SAVED_PAPER_SOURCES = ['auto', 'deskview-helper', 'webcam', 'window-capture'] as const;
+export type SavedPaperSource = (typeof SAVED_PAPER_SOURCES)[number];
+
+/**
+ * The settings the main process reads at launch (userData/settings.json). Unset means the
+ * default: the system's language, and the automatic paper source. A TASSEL_* variable, as dev
+ * runs and E2E set, still wins over either.
+ */
+export interface SavedSettings {
+  uiLanguage?: Lang;
+  paperSource?: SavedPaperSource;
+}
+
+export interface SettingsBridge {
+  get(): Promise<SavedSettings>;
+  /** Saves the given fields (null clears one) and answers with everything saved. */
+  set(patch: { [K in keyof SavedSettings]?: SavedSettings[K] | null }): Promise<SavedSettings>;
+}
+
 export interface TasselBridge {
+  settings: SettingsBridge;
   screen: ScreenBridge;
   voice: VoiceBridge;
   platform: Platform;
@@ -40,6 +61,8 @@ export const IPC = {
   getConfig: 'config:get',
   getToken: 'auth:getToken',
   refreshToken: 'auth:refreshToken',
+  getSettings: 'settings:get',
+  setSettings: 'settings:set',
 } as const;
 
 declare global {
