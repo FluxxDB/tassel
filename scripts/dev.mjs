@@ -15,7 +15,11 @@ import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import spawn from 'cross-spawn';
+import { devVoiceEnv } from './dev-voice-env.mjs';
 import { devPaperEnv } from './paper-env.mjs';
+
+// Owner must explicitly opt into paid TTS; a saved key alone is insufficient.
+process.env.TASSEL_TTS_PROVIDER = devVoiceEnv(process.env).TASSEL_TTS_PROVIDER;
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const serverDir = join(root, 'services', 'server');

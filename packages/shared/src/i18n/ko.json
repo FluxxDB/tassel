@@ -393,7 +393,16 @@
       "sleepy": "졸림",
       "gentle": "다정함",
       "bright": "밝음",
-      "calm": "차분함"
+      "calm": "차분함",
+      "dress": "원피스"
+    },
+    "voiceOff": "끔 · ElevenLabs 오디오 없음",
+    "voiceDisabled": "ElevenLabs가 꺼져 있어요. 선택은 나중을 위해 저장되며 오디오는 생성되지 않아요.",
+    "voiceLibraryNote": "실제 사용 전 계정 접근 권한과 음성 확인이 필요해요. 오디오 미리듣기는 불러오지 않아요.",
+    "voiceLanguages": {
+      "en": "영어 목소리",
+      "es": "스페인어 목소리",
+      "ko": "한국어 목소리"
     }
   }
 }

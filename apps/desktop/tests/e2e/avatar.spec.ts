@@ -58,7 +58,7 @@ test('outfits stay aligned and speaking animates only while the tutor speaks', a
   try {
     await page.getByRole('button', { name: 'Customize tutor' }).click();
     await settle(page);
-    for (const outfit of ['sweater', 'collar', 'hoodie', 'overalls']) {
+    for (const outfit of ['sweater', 'collar', 'hoodie', 'overalls', 'dress']) {
       await expect(page.getByTestId('avatar-preview').locator('svg')).toHaveAttribute(
         'data-outfit',
         outfit,
@@ -67,10 +67,17 @@ test('outfits stay aligned and speaking animates only while the tutor speaks', a
       await page.getByRole('button', { name: 'Next Outfit', exact: true }).click();
     }
     for (let hair = 0; hair < 7; hair++) {
-      for (let outfit = 0; outfit < 4; outfit++) {
-        const body = page.getByTestId('avatar-preview').locator('svg g[clip-path]');
-        await expect(body).toHaveCount(1);
-        await expect(body.locator('path').first()).toHaveAttribute('d', /Q102 168 117 150/);
+      for (let outfit = 0; outfit < 5; outfit++) {
+        const preview = page.getByTestId('avatar-preview');
+        const svg = preview.locator('svg');
+        if ((await svg.getAttribute('data-outfit')) === 'dress') {
+          await expect(svg).toHaveAttribute('viewBox', '0 0 200 300');
+          await expect(preview.getByTestId('dress-layer')).toHaveCount(1);
+        } else {
+          const body = preview.locator('svg g[clip-path]');
+          await expect(body).toHaveCount(1);
+          await expect(body.locator('path').first()).toHaveAttribute('d', /Q102 168 117 150/);
+        }
         await page.getByRole('button', { name: 'Next Outfit', exact: true }).click();
       }
       await page.getByRole('button', { name: 'Next Hair style', exact: true }).click();
@@ -137,6 +144,53 @@ test('save keeps the full editor visible throughout the closing animation', asyn
     await page.getByRole('button', { name: 'Customize tutor' }).click();
     await expect(page.getByTestId('avatar-preview')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Save changes', exact: true })).toBeEnabled();
+  } finally {
+    await app.close();
+  }
+});
+
+test('dress, material contrast and real voice choices stay offline', async () => {
+  const { app, page } = await launchApp();
+  const audioRequests: string[] = [];
+  page.on('request', (request) => {
+    if (/api\.elevenlabs\.io/.test(request.url()) || request.resourceType() === 'media')
+      audioRequests.push(request.url());
+  });
+  try {
+    await page.getByRole('button', { name: 'Customize tutor' }).click();
+    await expect(page.getByLabel('English voice')).toHaveCount(0);
+    await page.getByRole('tab', { name: 'Body', exact: true }).click();
+    await expect(page.getByLabel('English voice')).toHaveValue('off');
+    await page.getByRole('button', { name: 'Skin tone 7', exact: true }).click();
+    const voice = await page
+      .getByLabel('English voice')
+      .locator('option')
+      .nth(1)
+      .getAttribute('value');
+    expect(voice).toBeTruthy();
+    await page.getByLabel('English voice').selectOption(voice || 'off');
+    await snap(page, 'avatar-material-boundaries');
+    await page.getByRole('tab', { name: 'Style', exact: true }).click();
+    for (let step = 0; step < 3; step++) {
+      await page.getByRole('button', { name: 'Next Outfit', exact: true }).click();
+      await page.getByRole('button', { name: 'Next Outfit color', exact: true }).click();
+    }
+    await snap(page, 'avatar-navy-overalls');
+    await page.getByRole('button', { name: 'Next Outfit', exact: true }).click();
+    await page.getByRole('button', { name: 'Previous Hair style', exact: true }).click();
+    await expect(page.getByTestId('dress-layer')).toBeVisible();
+    await snap(page, 'avatar-headscarf-dress');
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.reload();
+    await page.getByRole('button', { name: 'Customize tutor' }).click();
+    await expect(page.getByTestId('avatar-preview').locator('svg')).toHaveAttribute(
+      'data-outfit',
+      'dress',
+    );
+    await page.getByRole('tab', { name: 'Body', exact: true }).click();
+    await expect(page.getByLabel('English voice')).toHaveValue(voice || 'off');
+    expect(audioRequests).toEqual([]);
   } finally {
     await app.close();
   }

@@ -15,6 +15,8 @@ import {
   OUTFIT_COLORS,
   OUTFITS,
   SKINS,
+  VOICE_FIELDS,
+  VOICE_LANGUAGES,
   VOICES,
 } from './catalog';
 import { useAvatar } from './store';
@@ -114,6 +116,7 @@ function Editor({ onClose }: { onClose(): void }) {
             <Avatar
               profile={draft}
               celebrating={saved}
+              expanded
               className="relative z-10 w-full max-w-[300px]"
             />
             {saved && (
@@ -220,24 +223,30 @@ function Editor({ onClose }: { onClose(): void }) {
                   </div>
                 </fieldset>
                 {row('face', FACES)}
+                <fieldset className="mt-4 flex min-w-0 flex-col gap-3">
+                  <legend className="mb-2 text-sm font-w520">{t('avatar.voice')}</legend>
+                  {VOICE_LANGUAGES.map((lang) => (
+                    <label key={lang} className="flex min-w-0 flex-col gap-1 text-[13px]">
+                      {t(`avatar.voiceLanguages.${lang}`)}
+                      <select
+                        value={draft[VOICE_FIELDS[lang]]}
+                        onChange={(event) => update(VOICE_FIELDS[lang], event.target.value)}
+                        className="w-full min-w-0 rounded-input border border-hairline bg-paper p-2 text-ink"
+                      >
+                        <option value="off">{t('avatar.voiceOff')}</option>
+                        {VOICES.filter((voice) => voice.language === lang).map((voice) => (
+                          <option key={voice.id} value={voice.id}>
+                            {voice.name} · {voice.accent}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+                  <p className="text-[13px] text-smoke-text">{t('avatar.voiceDisabled')}</p>
+                  <p className="text-[12px] text-smoke-text">{t('avatar.voiceLibraryNote')}</p>
+                </fieldset>
               </>
             )}
-          </div>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-[13px] text-smoke-text">
-            <label htmlFor="avatar-voice">{t('avatar.voice')}</label>
-            <select
-              id="avatar-voice"
-              value={draft.voice}
-              onChange={(event) => update('voice', event.target.value)}
-              className="rounded-input border border-hairline bg-paper p-2 text-ink"
-            >
-              {VOICES.map((voice) => (
-                <option key={voice} value={voice}>
-                  {t(`avatar.options.${voice}`)}
-                </option>
-              ))}
-            </select>
-            <span>{t('avatar.voicePlaceholder')}</span>
           </div>
         </div>
       </fieldset>

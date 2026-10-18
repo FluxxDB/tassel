@@ -393,7 +393,16 @@
       "sleepy": "Sleepy",
       "gentle": "Gentle",
       "bright": "Bright",
-      "calm": "Calm"
+      "calm": "Calm",
+      "dress": "Dress"
+    },
+    "voiceOff": "Off · no ElevenLabs audio",
+    "voiceDisabled": "ElevenLabs is off. These choices are saved for later and will not generate audio.",
+    "voiceLibraryNote": "Library voices need account access and listening checks before live use. No audio previews are loaded.",
+    "voiceLanguages": {
+      "en": "English voice",
+      "es": "Spanish voice",
+      "ko": "Korean voice"
     }
   }
 }

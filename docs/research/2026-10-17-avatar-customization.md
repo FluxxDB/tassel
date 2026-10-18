@@ -105,3 +105,25 @@ at exit, complete unmount, and a fresh usable editor on reopen. All three avatar
 Electron tests passed, along with seven avatar unit tests, TypeScript, focused
 Biome checks and desktop build. Tests used the existing team2 port/database and
 fake providers/devices.
+
+## Dress, material contrast and prepared voices
+
+Added a dress with visible chest/arms and a skirt in the expanded customization
+preview; session tiles keep a bust view. All five outfits share fixed anchors.
+The headscarf intentionally retains neck coverage, with fabric edge/fold strokes.
+Material-aware boundaries distinguish close hair/skin colors. Overall bib fabric
+switches between dark and light denim so navy and other shirt colors stay distinct.
+
+Body now contains separate English, Spanish and Korean voice selectors populated
+from real ElevenLabs public metadata. All default to off, remain disconnected
+from synthesis, and do not load audio previews. Existing appearances survive
+migration from the old generic voice placeholders. See
+`2026-10-17-elevenlabs-avatar-catalog.md` for the canonical catalog, discovery
+limitations, default fake-TTS dev behavior and future integration instructions.
+
+Validation for this pass: 62 desktop unit tests, nine Node script tests, two
+mocked metadata exporter tests, `pnpm check`, desktop build, and four Electron
+avatar tests passed. The Electron test cycles all 35 hair/outfit combinations,
+checks dress rendering and offline voice persistence, and preserves the closing
+animation regression. Dress, headscarf, near-matching skin/hair and navy-overall
+screenshots were reviewed. E2E still uses port 8863 and team2 database/storage.

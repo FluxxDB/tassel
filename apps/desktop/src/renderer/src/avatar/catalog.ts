@@ -1,3 +1,5 @@
+import voiceCatalog from './voices.json';
+
 export const HAIR = ['ponytail', 'bob', 'long', 'pixie', 'curls', 'buns', 'headscarf'] as const;
 export const HAIR_COLORS = [
   'espresso',
@@ -9,10 +11,13 @@ export const HAIR_COLORS = [
   'plum',
   'blue',
 ] as const;
-export const OUTFITS = ['sweater', 'collar', 'hoodie', 'overalls'] as const;
+export const OUTFITS = ['sweater', 'collar', 'hoodie', 'overalls', 'dress'] as const;
 export const OUTFIT_COLORS = ['lilac', 'sage', 'peach', 'navy', 'cream'] as const;
 export const ACCESSORIES = ['none', 'clip', 'glasses', 'earrings', 'stars'] as const;
-export const VOICES = ['gentle', 'bright', 'calm'] as const;
+export const VOICE_CATALOG = voiceCatalog;
+export const VOICES = voiceCatalog.voices.filter((voice) => !/angry|romance/i.test(voice.name));
+export const VOICE_LANGUAGES = ['en', 'es', 'ko'] as const;
+export const VOICE_FIELDS = { en: 'voiceEn', es: 'voiceEs', ko: 'voiceKo' } as const;
 export const FACES = ['soft', 'happy', 'sideways', 'sleepy'] as const;
 export const SKINS = [
   'porcelain',
@@ -55,7 +60,9 @@ export const COLORS = {
 };
 export interface AvatarProfile {
   name: string;
-  voice: (typeof VOICES)[number];
+  voiceEn: string;
+  voiceEs: string;
+  voiceKo: string;
   hair: (typeof HAIR)[number];
   hairColor: (typeof HAIR_COLORS)[number];
   outfit: (typeof OUTFITS)[number];
@@ -66,7 +73,9 @@ export interface AvatarProfile {
 }
 export const DEFAULT_AVATAR: AvatarProfile = {
   name: 'Ada',
-  voice: 'gentle',
+  voiceEn: 'off',
+  voiceEs: 'off',
+  voiceKo: 'off',
   hair: 'ponytail',
   hairColor: 'chestnut',
   outfit: 'sweater',
@@ -84,7 +93,6 @@ export function readAvatar(value: unknown): AvatarProfile {
   const result = { ...DEFAULT_AVATAR };
   if (!value || typeof value !== 'object') return result;
   const fields = {
-    voice: VOICES,
     hair: HAIR,
     hairColor: HAIR_COLORS,
     outfit: OUTFITS,
@@ -98,6 +106,12 @@ export function readAvatar(value: unknown): AvatarProfile {
     if (typeof choice === 'string' && (options as readonly string[]).includes(choice))
       Reflect.set(result, key, choice);
   }
+  for (const lang of VOICE_LANGUAGES) {
+    const field = VOICE_FIELDS[lang];
+    const choice = Reflect.get(value, field);
+    if (choice === 'off' || VOICES.some((voice) => voice.id === choice && voice.language === lang))
+      result[field] = choice;
+  }
   const name = Reflect.get(value, 'name');
   if (typeof name === 'string' && name.trim())
     result.name =
@@ -108,4 +122,13 @@ export function readAvatar(value: unknown): AvatarProfile {
         .join('')
         .slice(0, 30) || DEFAULT_AVATAR.name;
   return result;
+}
+
+/** Separate adjacent materials without changing a chosen skin or hair color. */
+export function materialBoundary(background: string): string {
+  const hex = background.slice(1);
+  const luminance = [0, 2, 4]
+    .map((i) => Number.parseInt(hex.slice(i, i + 2), 16))
+    .reduce((sum, value, i) => sum + value * [0.2126, 0.7152, 0.0722][i], 0);
+  return luminance < 120 ? '#f1ddc8' : '#49323c';
 }

@@ -80,3 +80,30 @@ it('supports tab arrow keys and reduced-motion save feedback', async () => {
   expect(close).toHaveBeenCalledWith(false);
   vi.unstubAllGlobals();
 });
+
+it('offers a dress and keeps real voices off by default in the Body tab', async () => {
+  await open();
+  expect(screen.queryByLabelText('English voice')).not.toBeInTheDocument();
+  for (let step = 0; step < 4; step++)
+    fireEvent.click(screen.getByRole('button', { name: /^Next Outfit$/ }));
+  expect(screen.getByTestId('avatar-preview').querySelector('svg')).toHaveAttribute(
+    'data-outfit',
+    'dress',
+  );
+  fireEvent.click(screen.getByRole('tab', { name: 'Body' }));
+  expect(screen.getByLabelText('English voice')).toHaveValue('off');
+  expect(screen.getByLabelText('Spanish voice')).toHaveValue('off');
+  expect(screen.getByLabelText('Korean voice')).toHaveValue('off');
+  expect(
+    screen.getByText(
+      'ElevenLabs is off. These choices are saved for later and will not generate audio.',
+    ),
+  ).toBeInTheDocument();
+});
+it('migrates placeholder voices without discarding appearance or enabling speech', () => {
+  const saved = readAvatar({ hair: 'bob', voice: 'gentle', voiceEn: 'unknown-provider-id' });
+  expect(saved.hair).toBe('bob');
+  expect(saved.voiceEn).toBe('off');
+  expect(saved.voiceEs).toBe('off');
+  expect(saved.voiceKo).toBe('off');
+});
