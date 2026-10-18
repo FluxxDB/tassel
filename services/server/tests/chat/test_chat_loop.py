@@ -36,11 +36,12 @@ CHAT_FIELD = next(
     ),
     None,
 )
-if CHAT_FIELD is None:
-    pytest.skip(
-        "needs claude/chat-server's bot wiring: a ChatStore field on BotContext",
-        allow_module_level=True,
-    )
+# A function-level skip, so pytest still collects the test (a module-level skip collects nothing,
+# which pytest reports as exit 5 and test:changed as a failure).
+needs_bot_wiring = pytest.mark.skipif(
+    CHAT_FIELD is None,
+    reason="needs claude/chat-server's bot wiring: a ChatStore field on BotContext",
+)
 
 SCRIPT = load_scenario("dfa-board")
 EN = SCRIPT.langs["en"]
@@ -144,6 +145,7 @@ async def auth(client) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+@needs_bot_wiring
 async def test_typed_turn_with_an_image_voice_off_and_the_history_after(client, app, db_url):
     headers = await auth(client)
     learner_id = uuid.UUID((await client.get("/v1/me", headers=headers)).json()["learner_id"])
@@ -169,7 +171,7 @@ async def test_typed_turn_with_an_image_voice_off_and_the_history_after(client, 
             settings=VoiceSettings(providers="fake", fake_tts="tone"),
             memory=ConversationMemory(),
             sessions=session_factory(engine),
-            **{CHAT_FIELD: chat},
+            **{str(CHAT_FIELD): chat},
         )
         async with running(ctx) as (bot, out):
             # Her greeting is a voice tutor line, streamed then final.
