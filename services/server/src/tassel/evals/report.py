@@ -34,6 +34,8 @@ def report_data(run: RunRecord) -> dict:
                     "prompt_tokens": o.prompt_tokens,
                     "tokens": o.tokens,
                     "finished": o.finished,
+                    "chat": o.chat,
+                    "audio": o.audio,
                 }
             )
         scenarios.append(
