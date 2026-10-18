@@ -296,3 +296,150 @@ test('a double click on End session lands in the library, not in the session und
   await expect(page.getByTestId('stage')).toHaveCount(0);
   await closeApp(app);
 });
+
+/** Board pinned (Paper → Split → Board), once her paper's fake clip is live. */
+async function pinBoard(page: Page): Promise<void> {
+  await expect(
+    page.getByRole('region', { name: 'Your paper · Desk View' }).getByTestId('paper-video'),
+  ).toBeVisible({ timeout: 10_000 });
+  for (let n = 0; n < 3; n += 1) await page.keyboard.press('b');
+  await expect(page.getByRole('region', { name: "Ada's board" })).toBeVisible();
+  await settle(page);
+}
+
+/** A person's drag: press, a few moves, release. */
+async function dragBy(page: Page, from: { x: number; y: number }, dx: number, dy: number) {
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x + dx / 3, from.y + dy / 3, { steps: 4 });
+  await page.mouse.move(from.x + dx, from.y + dy, { steps: 8 });
+  await page.mouse.up();
+}
+
+test('floats her desk camera over the board, and only there', async () => {
+  const { app, page } = await launchApp();
+  await openSession(page);
+  const pip = page.getByRole('group', { name: 'Your desk' });
+  // Not over her paper.
+  await expect(
+    page.getByRole('region', { name: 'Your paper · Desk View' }).getByTestId('paper-video'),
+  ).toBeVisible({ timeout: 10_000 });
+  await expect(pip).toHaveCount(0);
+  await pinBoard(page);
+  await expect(pip).toBeVisible();
+  // 240×150 in the stage's bottom right corner, 14px in and clear of the captions band.
+  expect(await pip.boundingBox()).toEqual({ x: 1170, y: 536, width: 240, height: 150 });
+  // The same live stream as her paper panel, playing.
+  await expect
+    .poll(() =>
+      pip.locator('video').evaluate((v: HTMLVideoElement) => v.readyState >= 2 && !v.paused),
+    )
+    .toBe(true);
+  await expect(pip).toContainText('Your desk');
+  // Ada's tile is still where it always was.
+  expect(await boxOf(page, 'tutor-tile')).toEqual({ x: 1198, y: 74, width: 212, height: 176 });
+  await settle(page);
+  await snap(page, 'tiles-board-pip-1440');
+
+  // A double click pins paper and board side by side, and the picture in picture goes.
+  await pip.dblclick();
+  await expect(page.getByRole('region', { name: 'Your paper · Desk View' })).toBeVisible();
+  await expect(pip).toHaveCount(0);
+  await expect(page.getByText('Pinned · Paper and board')).toBeVisible();
+  // Her paper panel's video still plays: the picture in picture never stopped the stream.
+  await expect
+    .poll(() =>
+      page
+        .getByRole('region', { name: 'Your paper · Desk View' })
+        .locator('video')
+        .evaluate(
+          (v: HTMLVideoElement) =>
+            v.readyState >= 2 && !v.paused && (v.srcObject as MediaStream).active,
+        ),
+    )
+    .toBe(true);
+  await closeApp(app);
+});
+
+test('keeps the camera, captions, dock and tile apart on the board at 1024×680', async () => {
+  const { app, page } = await launchApp();
+  await openSession(page);
+  await setWindowSize(app, page, 1024, 680);
+  await pinBoard(page);
+  // Ada's first lines, so the captions have their height.
+  const captions = page.getByTestId('captions');
+  await expect(captions).toHaveCSS('opacity', '1', { timeout: 10_000 });
+  await settle(page);
+  const boxes = {
+    pip: await page.getByRole('group', { name: 'Your desk' }).boundingBox(),
+    captions: await boxOf(page, 'captions'),
+    dock: await boxOf(page, 'dock'),
+    tile: await boxOf(page, 'tutor-tile'),
+  };
+  if (!boxes.pip) throw new Error("the desk camera isn't on screen");
+  const all = Object.entries(boxes) as [string, Box][];
+  for (const [i, [a, boxA]] of all.entries()) {
+    for (const [b, boxB] of all.slice(i + 1)) {
+      expect(intersects(boxA, boxB), `${a} and ${b} overlap`).toBe(false);
+    }
+  }
+  // Two lines at most: the band the tiles keep clear of is 84px tall.
+  expect(boxes.captions.height).toBeLessThanOrEqual(84);
+  await snap(page, 'tiles-board-pip-1024');
+  await closeApp(app);
+});
+
+test('drags and resizes the tiles, which snap to the nearest free corner', async () => {
+  const { app, page } = await launchApp();
+  await openSession(page);
+  await pinBoard(page);
+  const pip = page.getByRole('group', { name: 'Your desk' });
+  const tile = page.getByRole('group', { name: "Ada's tile" });
+
+  // The camera, dragged most of the way to the top left, lands there 14px in from the stage.
+  const start = await pip.boundingBox();
+  if (!start) throw new Error("the desk camera isn't on screen");
+  await dragBy(page, { x: start.x + 120, y: start.y + 75 }, -900, -380);
+  await settle(page);
+  await expect(pip).toHaveAttribute('data-corner', 'top-left');
+  expect(await pip.boundingBox()).toMatchObject({ x: 30, y: 74, width: 240, height: 150 });
+
+  // Resized from its inner corner (now its bottom right): wider and taller at 1.6:1.
+  await dragBy(page, { x: 30 + 238, y: 74 + 148 }, 80, 50);
+  await settle(page);
+  expect(await pip.boundingBox()).toMatchObject({ x: 30, y: 74, width: 320, height: 200 });
+  await snap(page, 'tiles-dragged-resized');
+
+  // Ada's tile all the way left, to the corner the camera holds: she snaps to the nearest free
+  // one instead, the bottom left, above the captions band.
+  const ada = await tile.boundingBox();
+  if (!ada) throw new Error("Ada's tile isn't on screen");
+  await dragBy(page, { x: ada.x + 100, y: ada.y + 100 }, -1100, 0);
+  await settle(page);
+  await expect(tile).toHaveAttribute('data-corner', 'bottom-left');
+  expect(await tile.boundingBox()).toMatchObject({ x: 30, y: 60 + 736 - 110 - 176 });
+  await snap(page, 'tiles-ada-bottom-left');
+
+  // From the keyboard: right, up to the top right corner again, then a size step larger.
+  await tile.focus();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('Shift+ArrowUp');
+  await settle(page);
+  await expect(tile).toHaveAttribute('data-corner', 'top-right');
+  expect(await tile.boundingBox()).toMatchObject({ x: 1424 - 14 - 228, y: 74, width: 228 });
+  await closeApp(app);
+});
+
+test("breathes Ada's ring while she speaks, and holds it still under reduced motion", async () => {
+  const { app, page } = await launchApp();
+  await openSession(page);
+  const tile = page.getByTestId('tutor-tile');
+  await expect(tile).toContainText('Speaking', { timeout: 10_000 });
+  await expect(tile).toHaveCSS('animation-name', 'tutor-speaking');
+  await snap(page, 'tiles-ada-speaking');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(tile).toHaveCSS('animation-name', 'none');
+  await expect(tile).toHaveCSS('box-shadow', /2px/);
+  await closeApp(app);
+});
