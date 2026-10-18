@@ -1,0 +1,126 @@
+{
+  "note": "Live eval dd-after1 (2026-10-18): the real checklist and drawing for the detailed office request. The drawing has every detail; the checker must find nothing missing.",
+  "checklist": {
+    "item": null,
+    "remove": [],
+    "requirements": [
+      { "kind": "group", "text": "Sales zone", "group": "Sales" },
+      { "kind": "group", "text": "Engineering zone", "group": "Engineering" },
+      { "kind": "group", "text": "Guest Wi-Fi zone", "group": "Guest Wi-Fi" },
+      {
+        "kind": "count",
+        "text": "one switch in Sales",
+        "group": "Sales",
+        "icon": "switch",
+        "n": 1,
+        "exact": true
+      },
+      {
+        "kind": "count",
+        "text": "one switch in Engineering",
+        "group": "Engineering",
+        "icon": "switch",
+        "n": 1,
+        "exact": true
+      },
+      {
+        "kind": "count",
+        "text": "one switch in Guest Wi-Fi",
+        "group": "Guest Wi-Fi",
+        "icon": "switch",
+        "n": 1,
+        "exact": true
+      },
+      {
+        "kind": "count",
+        "text": "two PCs in Sales",
+        "group": "Sales",
+        "icon": "pc",
+        "n": 2,
+        "exact": true
+      },
+      {
+        "kind": "count",
+        "text": "two PCs in Engineering",
+        "group": "Engineering",
+        "icon": "pc",
+        "n": 2,
+        "exact": true
+      },
+      {
+        "kind": "count",
+        "text": "two PCs in Guest Wi-Fi",
+        "group": "Guest Wi-Fi",
+        "icon": "pc",
+        "n": 2,
+        "exact": true
+      },
+      { "kind": "count", "text": "Core Switch", "icon": "switch", "n": 1, "exact": true },
+      { "kind": "count", "text": "Edge Router", "icon": "router", "n": 1, "exact": true },
+      {
+        "kind": "label",
+        "text": "label router Edge Router",
+        "label": "Edge Router",
+        "icon": "router"
+      },
+      {
+        "kind": "edge",
+        "text": "Sales switch connects to Core Switch",
+        "source": { "icon": "switch", "group": "Sales" },
+        "target": { "icon": "switch" }
+      },
+      {
+        "kind": "edge",
+        "text": "Engineering switch connects to Core Switch",
+        "source": { "icon": "switch", "group": "Engineering" },
+        "target": { "icon": "switch" }
+      },
+      {
+        "kind": "edge",
+        "text": "Guest Wi-Fi switch connects to Core Switch",
+        "source": { "icon": "switch", "group": "Guest Wi-Fi" },
+        "target": { "icon": "switch" }
+      },
+      {
+        "kind": "edge",
+        "text": "Core Switch connects to Edge Router",
+        "source": { "icon": "switch" },
+        "target": { "label": "Edge Router", "icon": "router" }
+      }
+    ]
+  },
+  "spec": {
+    "title": "Office Network",
+    "direction": "TB",
+    "groups": [
+      { "id": "sales", "label": "Sales" },
+      { "id": "eng", "label": "Engineering" },
+      { "id": "guest", "label": "Guest Wi-Fi" }
+    ],
+    "nodes": [
+      { "id": "sales_sw", "label": "Sales Switch", "icon": "switch", "group": "sales" },
+      { "id": "sales_pc1", "label": "Sales PC 1", "icon": "pc", "group": "sales" },
+      { "id": "sales_pc2", "label": "Sales PC 2", "icon": "pc", "group": "sales" },
+      { "id": "eng_sw", "label": "Engineering Switch", "icon": "switch", "group": "eng" },
+      { "id": "eng_pc1", "label": "Engineering PC 1", "icon": "pc", "group": "eng" },
+      { "id": "eng_pc2", "label": "Engineering PC 2", "icon": "pc", "group": "eng" },
+      { "id": "guest_sw", "label": "Guest Wi-Fi Switch", "icon": "switch", "group": "guest" },
+      { "id": "guest_pc1", "label": "Guest PC 1", "icon": "pc", "group": "guest" },
+      { "id": "guest_pc2", "label": "Guest PC 2", "icon": "pc", "group": "guest" },
+      { "id": "core_sw", "label": "Core Switch", "icon": "switch" },
+      { "id": "edge_r", "label": "Edge Router", "icon": "router" }
+    ],
+    "edges": [
+      { "from": "sales_pc1", "to": "sales_sw", "directed": false, "style": "solid" },
+      { "from": "sales_pc2", "to": "sales_sw", "directed": false, "style": "solid" },
+      { "from": "eng_pc1", "to": "eng_sw", "directed": false, "style": "solid" },
+      { "from": "eng_pc2", "to": "eng_sw", "directed": false, "style": "solid" },
+      { "from": "guest_pc1", "to": "guest_sw", "directed": false, "style": "solid" },
+      { "from": "guest_pc2", "to": "guest_sw", "directed": false, "style": "solid" },
+      { "from": "sales_sw", "to": "core_sw", "directed": false, "style": "solid" },
+      { "from": "eng_sw", "to": "core_sw", "directed": false, "style": "solid" },
+      { "from": "guest_sw", "to": "core_sw", "directed": false, "style": "solid" },
+      { "from": "core_sw", "to": "edge_r", "directed": false, "style": "solid" }
+    ]
+  }
+}

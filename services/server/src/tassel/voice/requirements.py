@@ -173,8 +173,11 @@ def _check(req: Requirement, spec: DiagramSpec) -> str | None:
     if req.kind == "count":
         n = req.n or 0
         if req.group is None:
+            # Across the whole diagram a count is a floor: "a Core Switch" beside three zone
+            # switches is still one Core Switch (live dd-after1).
             got = sum(1 for node in spec.nodes if req.icon is None or node.icon == req.icon)
-            return _count_problem(got, n, req, "the diagram")
+            floor = req.model_copy(update={"exact": False})
+            return _count_problem(got, n, floor, "the diagram")
         groups = _groups(spec, req.group)
         if not groups:
             return f"no group labeled {req.group!r}"
@@ -193,8 +196,10 @@ def _check(req: Requirement, spec: DiagramSpec) -> str | None:
         if req.source is None or req.target is None:
             return None
         targets = {n.id for n in spec.nodes if _matches(n, req.target, spec)}
-        # "Every switch connects to the Core Switch": the Core Switch isn't one of them.
-        sources = [n for n in spec.nodes if _matches(n, req.source, spec) and n.id not in targets]
+        sources = [n for n in spec.nodes if _matches(n, req.source, spec)]
+        if req.each and req.target.label:
+            # "Every switch connects to the Core Switch": the Core Switch isn't one of them.
+            sources = [n for n in sources if n.id not in targets]
         if not sources:
             return f"no node for {_ends(req.source)}"
         if not targets:

@@ -23,6 +23,8 @@ from tassel.voice.requirements import Checklist, checklist_schema, verify
 
 # Repairs after the first drawing; all of it inside the Illustrator's own time limit.
 REPAIRS = 2
+# The longest one repair may take once a checked drawing is in hand.
+REPAIR_S = 5.0
 # What she and Ada said lately, for "add them to each zone" and "all these subnets".
 RECENT_TURNS = 6
 RECENT_CHARS = 400
@@ -249,7 +251,8 @@ One requirement per concrete detail she asked for; never invent details she didn
 - group: a zone, area or subnet she names (label: its name).
 - count: n devices of one icon in a named group (group: its label). For "each zone" write one
   count per zone she named; group "*" only when she named none; group null for the whole
-  diagram. exact true unless she says "at least" or "more".
+  diagram. exact true unless she says "at least" or "more". One named device ("a Core
+  Switch", "a router labeled Edge Router") is a label, never a count.
 - label: a text she wants shown (a device name, a note, a flowchart step, a tree value);
   group when it sits inside one.
 - edge: a connection, source and target as {label, icon, group}; each true for "every/each X
@@ -332,7 +335,18 @@ class Illustrator:
                     {"role": "user", "content": json.dumps({**context, "must_include": must})},
                 ]
                 for attempt in range(REPAIRS + 1):
-                    content = await self.client.complete(messages)
+                    if attempt and best is not None:
+                        # A repair gets a short leash: a drawing in hand never waits on a stuck
+                        # call to the end of the limit (live dd-after1: 13 s on one repair).
+                        try:
+                            content = await asyncio.wait_for(
+                                self.client.complete(messages), REPAIR_S
+                            )
+                        except TimeoutError:
+                            self.log("illustrator_repair", attempt=attempt, reasons=["repair slow"])
+                            break
+                    else:
+                        content = await self.client.complete(messages)
                     try:
                         drawing = Drawing.model_validate_json(content)
                         # Validate the item id with the exact beat contract too.

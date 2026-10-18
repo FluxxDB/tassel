@@ -154,6 +154,23 @@ def test_an_edit_keeps_every_part_under_its_id_unless_she_removed_it():
     ]
 
 
+def test_the_live_office_checklist_finds_nothing_missing_in_a_complete_drawing():
+    """Live dd-after1: every detail was drawn, and the checker still asked for two repairs (a
+    single named device read as a whole-diagram exact count; a zone switch excluded from its own
+    edge because it was also a switch target), so the 15 s ran out and nothing reached the
+    board."""
+    from pathlib import Path
+
+    data = json.loads((Path(__file__).parent / "fixtures" / "office-checklist.json").read_text())
+    wanted = data["checklist"]
+    reqs = [req(**r) for r in wanted["requirements"]]
+    for r in reqs:
+        for end in ("source", "target"):
+            if r[end] is not None:
+                r[end] = {"label": None, "icon": None, "group": None, **r[end]}
+    assert missing(data["spec"], *reqs) == []
+
+
 def test_checklist_schema_is_strict():
     schema = checklist_schema()
     for node_ in [schema, *schema["$defs"].values()]:
@@ -279,6 +296,30 @@ async def test_two_repairs_then_the_partial_drawing_names_what_it_misses():
     assert drawn.missing == ["two PCs in Sales"]
     assert len(client.requests) == 4  # the checklist, the drawing, two repairs
     assert ("illustrator_unmet", {"item": "net", "missing": ["two PCs in Sales"]}) in events
+
+
+@pytest.mark.asyncio
+async def test_a_stuck_repair_returns_the_checked_drawing_in_hand(monkeypatch):
+    import asyncio
+
+    from tassel.voice import illustrator as module
+
+    monkeypatch.setattr(module, "REPAIR_S", 0.05)
+
+    class Stuck(Client):
+        async def create(self, **request):
+            if len(self.requests) >= 2:
+                await asyncio.Event().wait()
+            return await super().create(**request)
+
+    illustrator = Illustrator(
+        VoiceSettings(illustrator_provider="openrouter"),
+        client=Stuck(checklist=[SALES_TWO_PCS], drawing=[drawing(1)]),
+    )
+    drawn = await asyncio.wait_for(
+        illustrator.draw("sales", BoardContext(), "en", request="two PCs in Sales"), 2
+    )
+    assert drawn.missing == ["two PCs in Sales"]
 
 
 @pytest.mark.asyncio
