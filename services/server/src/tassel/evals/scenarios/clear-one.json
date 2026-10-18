@@ -1,0 +1,43 @@
+{
+  "name": "clear-one",
+  "title": "Clear one item by name",
+  "description": "A board with a DFA and a network diagram; erasing the diagram keeps the DFA (no bare [[clear]]).",
+  "stage": { "view": "split" },
+  "seed_tags": [
+    "[[dfa starts010 start=q0 accept=q3 q0-0-q1 q1-1-q2 q2-0-q3 q3-0,1-q3 q0-1-qd q1-0-qd q2-1-qd qd-0,1-qd]]"
+  ],
+  "seed_actions": [
+    {
+      "kind": "board.diagram",
+      "item": "office",
+      "spec": {
+        "title": "Office network",
+        "direction": "LR",
+        "groups": [{ "id": "sales", "label": "Sales" }, { "id": "eng", "label": "Engineering" }],
+        "nodes": [
+          { "id": "r1", "label": "Router", "icon": "router" },
+          { "id": "s1", "label": "Switch", "icon": "switch", "group": "sales" },
+          { "id": "s2", "label": "Switch", "icon": "switch", "group": "eng" },
+          { "id": "p1", "label": "PC 1", "icon": "pc", "group": "sales" },
+          { "id": "p2", "label": "PC 2", "icon": "pc", "group": "eng" }
+        ],
+        "edges": [
+          { "from": "r1", "to": "s1", "directed": false, "style": "solid" },
+          { "from": "r1", "to": "s2", "directed": false, "style": "solid" },
+          { "from": "s1", "to": "p1", "directed": false, "style": "solid" },
+          { "from": "s2", "to": "p2", "directed": false, "style": "solid" }
+        ]
+      }
+    }
+  ],
+  "turns": [
+    {
+      "student": "Please erase the network diagram but keep the DFA.",
+      "expect": {
+        "tags": ["board.clear"],
+        "no_tags": ["board.automaton", "board.diagram"],
+        "board": { "automata": 1, "diagrams": 0, "has": ["starts010"], "lacks": ["office"] }
+      }
+    }
+  ]
+}

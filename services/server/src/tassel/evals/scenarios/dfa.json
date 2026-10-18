@@ -1,0 +1,36 @@
+{
+  "name": "dfa",
+  "title": "Draw a DFA, trace it, note it",
+  "description": "An automaton through the thinker and the exact verifier, then a trace and a note on it.",
+  "stage": { "view": "split" },
+  "turns": [
+    {
+      "student": "Can you draw a DFA on the board for binary strings that start with 010?",
+      "expect": {
+        "route": "thinker",
+        "action": "draw_board",
+        "tags": ["board.automaton"],
+        "board": { "automata": 1, "diagrams": 0 }
+      }
+    },
+    {
+      "student": "Can you trace 0101 on it, step by step?",
+      "expect": {
+        "route": "thinker",
+        "action": "trace",
+        "tags": ["board.trace"],
+        "no_tags": ["board.automaton", "board.clear"],
+        "board": { "unchanged": true }
+      }
+    },
+    {
+      "student": "Put a note next to the dead state saying why we need it.",
+      "expect": {
+        "route": "thinker",
+        "tags": ["board.note"],
+        "no_tags": ["board.clear"],
+        "board": { "unchanged": true }
+      }
+    }
+  ]
+}

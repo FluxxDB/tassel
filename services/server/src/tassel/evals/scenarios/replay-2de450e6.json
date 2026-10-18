@@ -1,0 +1,200 @@
+{
+  "name": "replay-2de450e6",
+  "title": "Owner live test 2de450e6: underline the IP, fake network, undo, views, add back",
+  "description": "The owner's student lines from this live transcript, in order (nothing else copied); the expectations are the eval's. Runs only by name: about 21 turns.",
+  "default": false,
+  "stage": {
+    "view": "paper"
+  },
+  "turns": [
+    {
+      "student": "Do you see my paper?",
+      "page": "ip-page"
+    },
+    {
+      "student": "Look closely."
+    },
+    {
+      "student": "Draw a line under the IP I wrote.",
+      "expect": {
+        "tags": ["paper.mark:underline"],
+        "marks": [
+          {
+            "type": "underline",
+            "truth": "ip"
+          }
+        ]
+      }
+    },
+    {
+      "student": "Yeah. Underline whatever you see."
+    },
+    {
+      "student": "Yeah. I'm asking you to underline that, please."
+    },
+    {
+      "student": "Okay. Whatever. Can you make a fake network and put it on the board, please?",
+      "expect": {
+        "tags": ["board.diagram"]
+      }
+    },
+    {
+      "student": "Can you add more PCs?",
+      "expect": {
+        "tags": ["board.diagram"]
+      }
+    },
+    {
+      "student": "Can you undo that?",
+      "expect": {
+        "board": {
+          "same_as_turn": 6
+        }
+      }
+    },
+    {
+      "student": "Can you switch the board to full screen, please?",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "board",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "Can you switch the board to full screen?",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "board",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "I'll go back to camera view or desk view.",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "paper",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "please."
+    },
+    {
+      "student": "Go back to the whiteboard.",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "board",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "please. Go back to the whiteboard.",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "board",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "Go back desk view.",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "paper",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "Desk view, please.",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "paper",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "No. You aren't."
+    },
+    {
+      "student": "desk view full screen.",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "paper",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "Back to camera, please.",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "paper",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "back to board.",
+      "expect": {
+        "route": "view",
+        "stage": [
+          {
+            "view": "board",
+            "pinned": true
+          }
+        ],
+        "tags": []
+      }
+    },
+    {
+      "student": "No. Add the PCs back, please.",
+      "expect": {
+        "board": {
+          "same_as_turn": 7
+        }
+      }
+    }
+  ]
+}
