@@ -24,7 +24,7 @@ export function devPaperEnv(env, demoClip) {
 }
 
 /**
- * The `--env` pairs for a camera run: the shell's TASSEL_* settings, with the real paper source
+ * The `--env` pairs for a camera run: only desktop settings, with the real paper source
  * (`auto`), the given server and the plaintext token store as defaults. Never
  * TASSEL_REQUIRE_FAKE_CAPTURE, which would refuse the camera this run is for.
  */
@@ -35,8 +35,7 @@ export function cameraEnv(env, { serverUrl }) {
     TASSEL_TOKEN_STORE: 'file',
   };
   for (const [name, value] of Object.entries(env)) {
-    if (!name.startsWith('TASSEL_') || value === undefined) continue;
-    if (name === 'TASSEL_REQUIRE_FAKE_CAPTURE') continue;
+    if (!DESKTOP_SETTINGS.has(name) || value === undefined) continue;
     pass[name] = value;
   }
   return Object.entries(pass).map(([name, value]) => `${name}=${value}`);
@@ -53,11 +52,73 @@ export function openArgs({ electronApp, env, log, args }) {
     '-a',
     electronApp,
     ...env.flatMap((pair) => ['--env', pair]),
-    '--stdout',
-    log,
-    '--stderr',
-    log,
+    ...(log ? ['--stdout', log, '--stderr', log] : []),
     '--args',
     ...args,
   ];
+}
+
+// Explicitly enumerate the settings consumed by main/config and main/paper/config. Server
+// database, S3 and provider credentials must never reach Electron or open's command line.
+const DESKTOP_SETTINGS = new Set([
+  'TASSEL_SERVER_URL',
+  'TASSEL_TOKEN_STORE',
+  'TASSEL_USER_DATA',
+  'TASSEL_UI_LANG',
+  'TASSEL_TUTOR',
+  'TASSEL_FAKE_SCRIPT',
+  'TASSEL_FAKE_SPEED',
+  'TASSEL_PAPER_SOURCE',
+  'TASSEL_PAPER_DEBUG',
+  'TASSEL_PAPER_PARAMS',
+  'TASSEL_FAKE_CLIP',
+  'TASSEL_HELPER_CLIP',
+  'TASSEL_FAKE_CAMERA_ACCESS',
+  'TASSEL_DESKVIEW_HELPER',
+  'TASSEL_FAKE_DISPLAY',
+]);
+
+/** A minimal OS environment: open adds --env pairs to this inherited environment. */
+export function cameraSubprocessEnv(env) {
+  return Object.fromEntries(
+    Object.entries(env).filter(
+      ([key, value]) =>
+        value !== undefined &&
+        /^(PATH|HOME|USER|LOGNAME|SHELL|TMPDIR|TMP|TEMP|LANG|LC_[A-Z_]+|__CF_USER_TEXT_ENCODING)$/.test(
+          key,
+        ),
+    ),
+  );
+}
+
+/** Pure construction shared by the owner launcher and the opt-in spec. */
+export function cameraLaunch(
+  inherited,
+  { electronApp, mainEntry, serverUrl, tag, log, userData, cdpPort },
+) {
+  const env =
+    userData === undefined
+      ? cameraEnv(inherited, { serverUrl })
+      : [
+          `TASSEL_SERVER_URL=${serverUrl}`,
+          'TASSEL_TOKEN_STORE=file',
+          `TASSEL_USER_DATA=${userData}`,
+          'TASSEL_PAPER_SOURCE=auto',
+        ];
+  env.push(`TASSEL_HELPER_TAG=${tag}`);
+  return {
+    command: 'open',
+    args: openArgs({
+      electronApp,
+      env,
+      log,
+      args: [
+        mainEntry,
+        ...(cdpPort === undefined ? [] : [`--remote-debugging-port=${cdpPort}`]),
+        `--tassel-camera-run=${tag}`,
+      ],
+    }),
+    options: { env: cameraSubprocessEnv(inherited), stdio: 'ignore' },
+    message: '[camera] Launching Tassel through LaunchServices.',
+  };
 }
