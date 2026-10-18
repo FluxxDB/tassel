@@ -26,7 +26,16 @@ from tassel.beats.markup import BoardContext, MarkupStream
 from tassel.beats.processor import FlushSpeechFrame
 from tassel.vision.turn_image import NO_VIEW
 from tassel.voice.action_checker import TargetLanguage, check_tags, talker_allowed
-from tassel.voice.director import ERASE, report_usage, rules
+from tassel.voice.director import ERASE, RESTORE, report_usage, rules
+from tassel.voice.erase import (
+    CLAIMS_REMOVAL,
+    COULD_NOT_ERASE,
+    ERASED,
+    clears_kept,
+    kept_items,
+    pick,
+    removes,
+)
 from tassel.voice.history import windowed
 from tassel.voice.illustrator import Illustrator
 from tassel.voice.pointer import MarkIntent, Pointer, mark_tags
@@ -365,6 +374,12 @@ class TutorCoordinator:
                 brief = brief.model_copy(update={"draw": None})
             if (
                 decision.action == "draw_board"
+                and ERASE.search(self.text)
+                and not RESTORE.search(self.text)
+            ):
+                brief = self._honest_erase(brief, decision)
+            if (
+                decision.action == "draw_board"
                 and not brief.board
                 and not brief.draw
                 and not AUTOMATA.search(self.text)
@@ -394,6 +409,36 @@ class TutorCoordinator:
             return None
         finally:
             self.log("thinker_duration", ms=(time.monotonic() - started) * 1000)
+
+    def _honest_erase(self, brief, decision):
+        """An erase turn takes off what she named and never what she keeps: a brief with no
+        surviving clear or undo gets one picked from her words, or, when they fit no single
+        item, the plain line that Ada couldn't tell, never a claim that it's gone (clear-one)."""
+        kept = kept_items(self.text, self.board)
+        board = []
+        for tag in brief.board:
+            if removes(tag) and clears_kept(tag, kept):
+                self.log("reject", source="erase", text=tag, reason="clears what she keeps")
+            else:
+                board.append(tag)
+        say = brief.say
+        if not any(removes(t) for t in board):
+            picked = pick(self.text, self.board)
+            checked = (
+                check_tags(board + picked, decision, self.board, student_text=self.text)
+                if picked
+                else None
+            )
+            if checked is None or checked.repair or any(t in checked.rejected for t in picked):
+                self.log("reject", source="erase", reason="no single item fits", text=self.text)
+                return brief.model_copy(
+                    update={"board": board, "say": COULD_NOT_ERASE[self.lang()]}
+                )
+            self.log("erase_pick", tags=picked)
+            board = [*board, *picked]
+            if not CLAIMS_REMOVAL.search(say):
+                say = ERASED[self.lang()]
+        return brief.model_copy(update={"board": board, "say": say})
 
     async def _draw(self, intent, generation):
         started = time.monotonic()
