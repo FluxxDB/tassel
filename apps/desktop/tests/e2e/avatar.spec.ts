@@ -4,7 +4,7 @@ import { launchApp, settle, snap } from './fixtures';
 test('customizes the tutor, persists after reload, and uses it in a session', async () => {
   const { app, page } = await launchApp();
   try {
-    await page.getByRole('button', { name: 'Tutor settings' }).click();
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
     await page.getByLabel('Tutor name', { exact: true }).fill('Nova');
@@ -18,9 +18,12 @@ test('customizes the tutor, persists after reload, and uses it in a session', as
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect(page.getByTestId('avatar-celebration')).toBeVisible();
     await snap(page, 'avatar-save');
-    await expect(dialog).not.toBeVisible();
+    await expect(page.getByTestId('avatar-preview')).toBeVisible();
+    // Settings stays open after a save; Escape closes it.
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
     await page.reload();
-    await page.getByRole('button', { name: 'Tutor settings' }).click();
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await expect(page.getByLabel('Tutor name', { exact: true })).toHaveValue('Nova');
     await expect(page.getByTestId('avatar-preview').locator('svg')).toHaveAttribute(
       'data-hair',
@@ -37,6 +40,7 @@ test('customizes the tutor, persists after reload, and uses it in a session', as
     await page.getByRole('button', { name: 'Reset to default' }).click();
     await expect(page.getByLabel('Tutor name', { exact: true })).toHaveValue('Ada');
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.keyboard.press('Escape');
     await page
       .getByRole('banner')
       .getByRole('button', { name: 'New session', exact: true })
@@ -56,7 +60,7 @@ test('customizes the tutor, persists after reload, and uses it in a session', as
 test('outfits stay aligned and speaking animates only while the tutor speaks', async () => {
   const { app, page } = await launchApp({ TASSEL_FAKE_SPEED: '2' });
   try {
-    await page.getByRole('button', { name: 'Tutor settings' }).click();
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await settle(page);
     for (const outfit of ['sweater', 'collar', 'hoodie', 'overalls', 'dress']) {
       await expect(page.getByTestId('avatar-preview').locator('svg')).toHaveAttribute(
@@ -83,6 +87,7 @@ test('outfits stay aligned and speaking animates only while the tutor speaks', a
       await page.getByRole('button', { name: 'Next Hair style', exact: true }).click();
     }
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.keyboard.press('Escape');
     await page
       .getByRole('banner')
       .getByRole('button', { name: 'New session', exact: true })
@@ -107,48 +112,6 @@ test('outfits stay aligned and speaking animates only while the tutor speaks', a
   }
 });
 
-test('save keeps the full editor visible throughout the closing animation', async () => {
-  const { app, page } = await launchApp();
-  try {
-    await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await page.getByRole('button', { name: 'Tutor settings' }).click();
-    await settle(page);
-    const before = await page
-      .getByRole('dialog')
-      .evaluate((dialog) => dialog.getBoundingClientRect().height);
-    const exitFrame = page.evaluate(
-      () =>
-        new Promise<{ editorPresent: boolean; height: number }>((resolve, reject) => {
-          const dialog = document.querySelector('[role="dialog"]');
-          if (!dialog) return reject(new Error('Missing editor dialog'));
-          const timeout = setTimeout(
-            () => reject(new Error('No closing animation observed')),
-            6000,
-          );
-          dialog.addEventListener('animationstart', (event) => {
-            if ((event as AnimationEvent).animationName !== 'sheet-out' || event.target !== dialog)
-              return;
-            clearTimeout(timeout);
-            resolve({
-              editorPresent: !!dialog.querySelector('[data-testid="avatar-celebration"]'),
-              height: dialog.getBoundingClientRect().height,
-            });
-          });
-        }),
-    );
-    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-    const exit = await exitFrame;
-    expect(exit.editorPresent).toBe(true);
-    expect(Math.abs(exit.height - before)).toBeLessThan(3);
-    await expect(page.getByRole('dialog')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Tutor settings' }).click();
-    await expect(page.getByTestId('avatar-preview')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Save changes', exact: true })).toBeEnabled();
-  } finally {
-    await app.close();
-  }
-});
-
 test('dress, material contrast and real voice choices stay offline', async () => {
   const { app, page } = await launchApp();
   const audioRequests: string[] = [];
@@ -157,7 +120,7 @@ test('dress, material contrast and real voice choices stay offline', async () =>
       audioRequests.push(request.url());
   });
   try {
-    await page.getByRole('button', { name: 'Tutor settings' }).click();
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await expect(page.getByLabel('English voice', { exact: true })).toHaveCount(0);
     await page.getByRole('tab', { name: 'Body', exact: true }).click();
     await expect(page.getByLabel('English voice', { exact: true })).toHaveValue('off');
@@ -181,9 +144,12 @@ test('dress, material contrast and real voice choices stay offline', async () =>
     await expect(page.getByTestId('dress-layer')).toBeVisible();
     await snap(page, 'avatar-headscarf-dress');
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await expect(page.getByTestId('avatar-preview')).toBeVisible();
+    // Settings stays open after a save; Escape closes it.
+    await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await page.reload();
-    await page.getByRole('button', { name: 'Tutor settings' }).click();
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await expect(page.getByTestId('avatar-preview').locator('svg')).toHaveAttribute(
       'data-outfit',
       'dress',
@@ -223,7 +189,7 @@ test('hats and centered sideways eyes persist, and previews play only public sam
   await page.route('https://api.us.elevenlabs.io/**', serve);
   await page.route('https://storage.googleapis.com/eleven-public-prod/**', serve);
   try {
-    await page.getByRole('button', { name: 'Tutor settings' }).click();
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
     for (const hat of ['cap', 'beanie', 'headscarf']) {
       await page.getByRole('button', { name: 'Next Hat', exact: true }).click();
       await expect(page.getByTestId('avatar-preview').locator('svg')).toHaveAttribute(
@@ -267,9 +233,12 @@ test('hats and centered sideways eyes persist, and previews play only public sam
     await page.getByRole('tab', { name: 'Style', exact: true }).click();
     await page.getByRole('button', { name: 'Next Hat', exact: true }).click();
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await expect(page.getByTestId('avatar-preview')).toBeVisible();
+    // Settings stays open after a save; Escape closes it.
+    await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await page.reload();
-    await page.getByRole('button', { name: 'Tutor settings' }).click();
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await expect(page.getByTestId('avatar-preview').locator('svg')).toHaveAttribute(
       'data-hat',
       'cap',

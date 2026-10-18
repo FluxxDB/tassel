@@ -1,19 +1,28 @@
-// The session's 52px strip: the wordmark, the title and its chips centered in the free space,
-// and on the right the source, the timer, the session's language and the chat sidebar's toggle. In a live voice session the
+// The session's 52px strip. On the left, a small wordmark, then the title, which she renames in
+// place (a click, a double click or Enter on it), its menu (Rename, and the session's type), and
+// one subject chip. On the right, one status pill (the source, live or not, and the timer), the
+// session's language, the chat sidebar's toggle and the gear. In a live voice session the
 // language opens the language menu, and a title Ada gives the session types on (spec §5.1).
-import type { Session, Source } from '@tassel/shared/api';
+import { patchSession, type Session, type SessionType, type Source } from '@tassel/shared/api';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppFrame } from '../../app/AppFrame';
 import { prefersReducedMotion } from '../../board/motion';
 import { Chip } from '../../components/Chip';
+import { IconButton } from '../../components/IconButton';
+import { ChevronDown } from '../../components/icons';
+import { Menu, MenuItem, MenuLabel, MenuRadioGroup, MenuSeparator } from '../../components/Menu';
+import { TitleField } from '../../components/TitleField';
 import { Wordmark } from '../../components/Wordmark';
+import { useApi } from '../../lib/api';
 import { cn } from '../../lib/cn';
 import { usePaperStore } from '../../paper/paper-store';
 import { usePaperLive } from '../../paper/use-paper-capture';
 import { ChatToggle } from '../chat/ChatToggle';
+import { SettingsButton } from '../settings/SettingsView';
 import { LanguageMenu } from '../voice/LanguageMenu';
 import { useLiveVoice } from '../voice/live-voice';
+import { useCurrentSession } from './current-session';
 import { useElapsed } from './use-elapsed';
 
 export interface TitleStripProps {
@@ -24,16 +33,22 @@ export interface TitleStripProps {
   startedAt: Date;
 }
 
-// A landing spot for focus: never a Tab stop, and no ring, since nothing here is a control.
-const HEADING = 'min-w-0 truncate text-[15px] leading-[22px] font-w520 focus-visible:outline-none';
+const TYPES: readonly SessionType[] = ['homework', 'studying', 'research', 'other'];
+
+// A landing spot for focus: never a Tab stop, and no ring, since the heading isn't a control.
+const HEADING = 'flex min-w-0 text-[15px] leading-[22px] font-w520 focus-visible:outline-none';
 
 export function TitleStrip({ session, failed, startedAt }: TitleStripProps) {
   const { t } = useTranslation();
+  const api = useApi();
+  const { patchLocal } = useCurrentSession();
   // The dot is live red only while her paper is really delivering frames (R29).
   const paperLive = usePaperLive();
   const heading = useRef<HTMLHeadingElement>(null);
+  const titleButton = useRef<HTMLButtonElement>(null);
   const landed = useRef(false);
   const live = useLiveVoice((state) => state.live);
+  const [renaming, setRenaming] = useState(false);
   // The title the session opened with shows at once; one that comes later types on.
   const opening = useRef<string | null | undefined>(undefined);
   if (session && opening.current === undefined) opening.current = session.title;
@@ -45,36 +60,104 @@ export function TitleStrip({ session, failed, startedAt }: TitleStripProps) {
     landed.current = true;
     if (document.activeElement === document.body) heading.current?.focus();
   }, [shown]);
+
+  const rename = async (title: string) => {
+    if (!session) return;
+    // title_source becomes "student": Ada's titler never renames it again.
+    await patchSession(api, session.id, { title });
+    // What she typed is what she sees, typed on no more.
+    opening.current = title;
+    patchLocal({ title });
+  };
+  const setType = async (type: SessionType) => {
+    if (!session || type === session.type) return;
+    try {
+      await patchSession(api, session.id, { type });
+      patchLocal({ type });
+    } catch {
+      // Unsaved: the session keeps its type.
+    }
+  };
+  const doneRenaming = () => {
+    setRenaming(false);
+    // Back on the title, once it's there again.
+    requestAnimationFrame(() => titleButton.current?.focus());
+  };
+  const titleText = session?.title ?? t('session.untitled');
+
   return (
     <AppFrame>
-      <Wordmark />
-      <div className="flex min-w-0 flex-1 items-center justify-center gap-2.5">
+      <Wordmark small />
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
         {session && (
           <>
             <h1
               ref={heading}
               tabIndex={-1}
               lang={session.title === null ? undefined : session.language}
-              aria-label={session.title ?? undefined}
-              className={cn(HEADING, session.title === null ? 'text-smoke-text' : 'text-ink')}
+              aria-label={renaming ? undefined : titleText}
+              className={cn(HEADING, renaming ? 'w-[min(420px,40vw)]' : 'max-w-[min(420px,40vw)]')}
             >
-              {session.title === null ? (
-                t('session.untitled')
+              {renaming ? (
+                <TitleField
+                  initial={session.title ?? ''}
+                  lang={session.language}
+                  label={t('session.title.input')}
+                  onSave={rename}
+                  onDone={doneRenaming}
+                  className="h-8 px-2 text-[15px] font-w520"
+                />
               ) : (
-                <TypedTitle title={session.title} opening={opening.current ?? null} />
+                <button
+                  ref={titleButton}
+                  type="button"
+                  onClick={() => setRenaming(true)}
+                  title={t('session.title.renameHint')}
+                  className={cn(
+                    '-mx-2 min-w-0 truncate rounded-input px-2 py-[5px] text-left transition-[background-color] duration-150 hover:bg-ink/[0.05]',
+                    session.title === null ? 'text-smoke-text' : 'text-ink',
+                  )}
+                >
+                  {session.title === null ? (
+                    t('session.untitled')
+                  ) : (
+                    <TypedTitle title={session.title} opening={opening.current ?? null} />
+                  )}
+                </button>
               )}
             </h1>
+            <Menu
+              align="start"
+              trigger={
+                <IconButton
+                  label={t('session.title.menu')}
+                  title={t('session.title.menu')}
+                  className="size-7 text-smoke-text hover:text-ink data-[state=open]:bg-ink/[0.06] data-[state=open]:text-ink [&>svg]:size-4"
+                >
+                  <ChevronDown />
+                </IconButton>
+              }
+            >
+              <MenuItem onSelect={() => setRenaming(true)}>{t('session.title.rename')}</MenuItem>
+              <MenuSeparator />
+              <MenuLabel>{t('newSession.groups.type')}</MenuLabel>
+              <MenuRadioGroup<SessionType>
+                label={t('newSession.groups.type')}
+                value={session.type}
+                onChange={(type) => void setType(type)}
+                options={TYPES.map((value) => ({ value, label: t(`newSession.type.${value}`) }))}
+              />
+            </Menu>
             {session.subject !== null && (
               // The cap replaces the Chip's own max-w-full (cn settles the two).
               <Chip
                 lang={session.language}
                 title={session.subject}
-                className="max-w-[200px] shrink-0"
+                className="ml-1 max-w-[200px] shrink-0"
               >
                 {session.subject}
               </Chip>
             )}
-            <Chip className="shrink-0">{t(`newSession.type.${session.type}`)}</Chip>
           </>
         )}
         {!session && failed && (
@@ -83,22 +166,55 @@ export function TitleStrip({ session, failed, startedAt }: TitleStripProps) {
           </h1>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-3.5">
-        {session && (
-          <SourceLabel source={session.source} live={session.source === 'paper' && paperLive} />
-        )}
-        <Timer start={startedAt} />
+      <div className="flex shrink-0 items-center gap-2.5">
+        <StatusPill
+          source={session?.source ?? null}
+          live={session?.source === 'paper' && paperLive}
+          start={startedAt}
+        />
         {session && live && <LanguageMenu session={session} />}
         {session && !live && (
-          <Chip tone="ink">
+          <span className="mono flex h-7 items-center rounded-pill bg-paper px-3 text-[11px] leading-[14px] text-ink shadow-[0_0_0_1px_var(--color-hairline)]">
             <span aria-hidden="true">{session.language}</span>
             <span className="sr-only">{t(`newSession.language.${session.language}`)}</span>
-          </Chip>
+          </span>
         )}
-        {/* Rightmost, above where the chat sidebar opens. */}
-        <ChatToggle />
+        <span className="flex items-center gap-0.5">
+          {/* Above where the chat sidebar opens. */}
+          <ChatToggle />
+          <SettingsButton />
+        </span>
       </div>
     </AppFrame>
+  );
+}
+
+/**
+ * The source and the timer in one pill: "Desk View · Live · 04:12". The dot turns live red only
+ * while something is really captured (P3's paper feed); otherwise it stays neutral and the label
+ * doesn't claim "Live".
+ */
+function StatusPill({
+  source,
+  live,
+  start,
+}: {
+  source: Source | null;
+  live: boolean;
+  start: Date;
+}) {
+  return (
+    <span className="mono flex h-7 items-center gap-2 rounded-pill bg-paper px-3 text-[11px] leading-[14px] text-ink shadow-[0_0_0_1px_var(--color-hairline)]">
+      {source && (
+        <>
+          <SourceLabel source={source} live={live} />
+          <span aria-hidden="true" className="text-smoke">
+            ·
+          </span>
+        </>
+      )}
+      <Timer start={start} />
+    </span>
   );
 }
 
@@ -153,7 +269,7 @@ function SourceLabel({ source, live = false }: { source: Source; live?: boolean 
   const webcam = usePaperStore((state) => state.kind === 'webcam');
   const { t } = useTranslation();
   return (
-    <span className="mono flex items-center gap-1.5 text-[11px] leading-[14px] text-ink">
+    <span className="flex items-center gap-1.5">
       <span
         aria-hidden="true"
         className={cn('size-[7px] rounded-pill', live ? 'bg-live' : 'bg-smoke')}
@@ -175,7 +291,7 @@ function Timer({ start }: { start: Date }) {
     <span
       role="timer"
       aria-label={t('session.timer', { elapsed })}
-      className="mono text-[11px] leading-[14px] text-smoke-text"
+      className="text-smoke-text tabular-nums"
     >
       {elapsed}
     </span>

@@ -24,6 +24,13 @@ import { useSessions } from '../../src/renderer/src/features/library/useSessions
 import { initI18n } from '../../src/renderer/src/i18n';
 import { ApiProvider } from '../../src/renderer/src/lib/api';
 
+/** The card a session's open button sits in, which holds its details and its menu. */
+function cardOf(button: HTMLElement): HTMLElement {
+  const card = button.closest<HTMLElement>('[data-testid="session-card"]');
+  if (!card) throw new Error('no card around the button');
+  return card;
+}
+
 const HOUR = 3_600_000;
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * HOUR).toISOString();
 
@@ -111,7 +118,7 @@ describe('LibraryScreen', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(cta).toHaveFocus();
     // There's nothing to sort yet.
-    expect(screen.queryByRole('radiogroup', { name: 'Sort sessions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Sort sessions/ })).not.toBeInTheDocument();
   });
 
   it("opens the new session sheet from the strip's pill too", async () => {
@@ -197,7 +204,8 @@ describe('LibraryScreen', () => {
     await screen.findByRole('button', { name: DFA.title ?? '' });
     expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('radio', { name: 'Topic' }));
+    await user.click(screen.getByRole('button', { name: /^Sort sessions/ }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Topic' }));
 
     await waitFor(() =>
       expect(GET).toHaveBeenLastCalledWith('/v1/sessions', {
@@ -225,7 +233,62 @@ describe('LibraryScreen', () => {
     expect(titleText).toHaveClass('line-clamp-2');
     expect(titleText).toHaveAttribute('lang', 'es');
     // Two lines at Korean leading are reserved for every title, so rows match in any language.
-    expect(titleText).toHaveClass('min-h-[3.2em]');
+    expect(titleText.parentElement).toHaveClass('min-h-[3.2em]');
+  });
+
+  it('renames a session from its card menu: Enter saves her title, Escape cancels', async () => {
+    const { api, GET } = fakeApi();
+    const PATCH = vi.fn(async () => ({
+      data: { ...DFA, title: 'DFA homework', title_source: 'student' },
+      response: new Response(null),
+    }));
+    Object.assign(api, { PATCH });
+    GET.mockResolvedValue(listed([DFA]));
+    const { user } = await renderLibrary(api);
+    await user.click(await screen.findByRole('button', { name: `Options for ${DFA.title}` }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Rename' }));
+    const field = await screen.findByRole('textbox', { name: 'Session title' });
+    await waitFor(() => expect(field).toHaveFocus());
+    expect(field).toHaveValue(DFA.title);
+    // Escape leaves the title as it was.
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('textbox', { name: 'Session title' })).not.toBeInTheDocument();
+    expect(PATCH).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: `Options for ${DFA.title}` }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Rename' }));
+    const again = await screen.findByRole('textbox', { name: 'Session title' });
+    await waitFor(() => expect(again).toHaveFocus());
+    await user.clear(again);
+    await user.type(again, 'DFA homework{Enter}');
+    await waitFor(() => expect(PATCH).toHaveBeenCalledTimes(1));
+    expect(PATCH).toHaveBeenCalledWith('/v1/sessions/{session_id}', {
+      params: { path: { session_id: DFA.id } },
+      body: { title: 'DFA homework' },
+    });
+    // The library reloads, so the card shows the saved name.
+    await waitFor(() => expect(GET).toHaveBeenCalledTimes(2));
+  });
+
+  it('deletes a session from its card menu only after a confirmation', async () => {
+    const { api, GET } = fakeApi();
+    const DELETE = vi.fn(async () => ({ response: new Response(null, { status: 204 }) }));
+    Object.assign(api, { DELETE });
+    GET.mockResolvedValue(listed([DFA, CALCULUS]));
+    const { user } = await renderLibrary(api);
+    await user.click(await screen.findByRole('button', { name: `Options for ${DFA.title}` }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+    const dialog = await screen.findByRole('dialog', { name: `Delete “${DFA.title}”?` });
+    expect(DELETE).not.toHaveBeenCalled();
+    GET.mockResolvedValue(listed([CALCULUS]));
+    await user.click(within(dialog).getByRole('button', { name: 'Delete session' }));
+    await waitFor(() => expect(DELETE).toHaveBeenCalledTimes(1));
+    expect(DELETE).toHaveBeenCalledWith('/v1/sessions/{session_id}', {
+      params: { path: { session_id: DFA.id } },
+    });
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: DFA.title ?? '' })).not.toBeInTheDocument(),
+    );
   });
 
   it('shows each session as a card named by its title, and opens it', async () => {
@@ -239,15 +302,15 @@ describe('LibraryScreen', () => {
       expect(card).toHaveAccessibleDescription(part);
     }
     expect(card).not.toHaveAccessibleDescription(/\bEN\b/);
-    const time = within(card).getByText('2 hours ago');
+    const time = within(cardOf(card)).getByText('2 hours ago');
     expect(time.tagName).toBe('TIME');
     expect(time).toHaveAttribute('datetime', DFA.last_activity_at);
     expect(screen.getByRole('list', { name: 'Your sessions' }).children).toHaveLength(2);
 
     // An untitled session shows the placeholder, in the quieter text color.
     const untitled = screen.getByRole('button', { name: 'Untitled Session' });
-    expect(within(untitled).getByText('Untitled Session')).toHaveClass('text-smoke-text');
-    expect(within(untitled).getByText('Research')).toBeInTheDocument();
+    expect(within(cardOf(untitled)).getByText('Untitled Session')).toHaveClass('text-smoke-text');
+    expect(within(cardOf(untitled)).getByText('Research')).toBeInTheDocument();
 
     await user.click(card);
     expect(useRoute.getState().route).toEqual({ name: 'session', sessionId: DFA.id });
@@ -281,9 +344,14 @@ describe('LibraryScreen', () => {
     GET.mockResolvedValue(listed([reopened]));
     const { user } = await renderLibrary(api);
     const card = await screen.findByRole('button', { name: 'Cell respiration' });
-    expect(within(card).getByText('2 hours ago')).toBeInTheDocument();
-    await user.click(screen.getByRole('radio', { name: 'Date created' }));
-    expect(await within(card).findByText('3 days ago')).toBeInTheDocument();
+    expect(within(cardOf(card)).getByText('2 hours ago')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^Sort sessions/ }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Date created' }));
+    expect(
+      await within(cardOf(screen.getByRole('button', { name: 'Cell respiration' }))).findByText(
+        '3 days ago',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('shows skeleton cards when the first load is slow', async () => {
@@ -390,11 +458,11 @@ describe('LibraryScreen', () => {
     GET.mockResolvedValue(listed([DFA]));
     await renderLibrary(api, {}, 'ko');
     expect(await screen.findByRole('heading', { level: 1, name: '내 세션' })).toBeInTheDocument();
-    expect(screen.getByRole('radiogroup', { name: '세션 정렬' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '세션 정렬: 최근 활동' })).toBeInTheDocument();
     expect(screen.getByRole('searchbox', { name: '세션 검색' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '새 세션' })).toBeInTheDocument();
     expect(
-      within(screen.getByRole('button', { name: DFA.title ?? '' })).getByText('2시간 전'),
+      within(cardOf(screen.getByRole('button', { name: DFA.title ?? '' }))).getByText('2시간 전'),
     ).toBeInTheDocument();
   });
 });

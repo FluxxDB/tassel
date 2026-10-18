@@ -18,7 +18,8 @@
       "label": "세션 정렬",
       "recent": "최근 활동",
       "created": "만든 날짜",
-      "topic": "주제"
+      "topic": "주제",
+      "current": "세션 정렬: {sort}"
     },
     "noTopic": "주제 없음",
     "loading": "세션을 불러오는 중…",
@@ -39,6 +40,20 @@
     "tokenReset": {
       "body": "이 기기에 저장된 ID를 읽지 못해서 Tassel이 처음부터 다시 설정했어요. 이전 세션은 여기에 표시되지 않아요.",
       "dismiss": "확인"
+    },
+    "card": {
+      "menu": "{title} 옵션",
+      "menuShort": "옵션",
+      "rename": "이름 바꾸기",
+      "delete": "삭제",
+      "renameLabel": "세션 제목"
+    },
+    "delete": {
+      "title": "‘{title}’을(를) 삭제할까요?",
+      "body": "보드, 채팅, 종이 이미지도 함께 삭제됩니다. 되돌릴 수 없습니다.",
+      "confirm": "세션 삭제",
+      "deleting": "삭제하는 중…",
+      "failed": "삭제하지 못했습니다. 다시 시도하세요."
     }
   },
   "newSession": {
@@ -65,7 +80,13 @@
       "talk": "대화만"
     },
     "start": "세션 시작",
-    "starting": "시작하는 중…"
+    "starting": "시작하는 중…",
+    "sourceHint": {
+      "paper": "Ada가 Desk View로 종이를 봅니다.",
+      "webcam": "Ada가 카메라로 종이를 봅니다.",
+      "screen": "창을 공유하면 Tassel이 막대로 줄어듭니다.",
+      "talk": "음성과 보드만, 카메라 없이."
+    }
   },
   "session": {
     "untitled": "제목 없는 세션",
@@ -137,7 +158,8 @@
       "boardPinned": "칠판: {view} 고정됨",
       "captions": "자막",
       "end": "세션 종료",
-      "withShortcut": "{label} ({key})"
+      "withShortcut": "{label} ({key})",
+      "pushToTalkHint": "눌러서 말하기: 말하는 동안 Space를 누르고 있으면 주변 소리가 들어가지 않습니다"
     },
     "end": {
       "title": "세션을 종료할까요?",
@@ -216,6 +238,13 @@
         "title": "내 이미지",
         "close": "닫기"
       }
+    },
+    "title": {
+      "rename": "이름 바꾸기",
+      "renameHint": "클릭하거나 Enter를 눌러 이름 바꾸기",
+      "input": "세션 제목",
+      "menu": "세션 옵션",
+      "renameFailed": "이름을 저장하지 못했습니다. 다시 시도하세요."
     }
   },
   "paper": {
@@ -549,24 +578,25 @@
     "previewUnavailable": "미리듣기를 사용할 수 없어요. 오디오는 생성되지 않았어요."
   },
   "memory": {
-    "settingsTitle": "튜터 설정",
-    "settingsDescription": "튜터의 모습과 기억을 설정하세요.",
-    "appearance": "외모 및 음성",
     "title": "기억",
     "enabled": "세션 간 기억 유지",
-    "description": "학습 목표, 선호하는 설명 방식, 진행 중인 주제를 기억해요. 세션을 나갈 때 한 번 업데이트해요. 기억을 끄면 저장된 메모를 사용하거나 업데이트하지 않지만 보관해요. 기억 지우기는 메모를 삭제해요.",
-    "notes": "튜터가 기억하는 내용",
-    "empty": "세션에서 유용한 내용이 여기에 표시돼요. 직접 메모를 추가할 수도 있어요.",
-    "save": "변경 사항 저장",
-    "clear": "기억 지우기",
+    "description": "끄면 Ada는 매 세션을 처음부터 시작합니다. 저장된 내용은 삭제할 때까지 여기에 남습니다.",
+    "notes": "Ada가 기억하는 것",
+    "empty": "아직 없습니다. ‘힌트는 짧게’, ‘스페인어로 설명’ 같은 선호가 세션 후 여기에 나타납니다.",
+    "save": "저장",
+    "clear": "모두 삭제",
     "reload": "메모 새로고침",
     "loading": "기억 불러오는 중…",
     "loadError": "기억을 불러올 수 없어요. 다시 시도해 주세요.",
     "saveError": "저장할 수 없어요. 수정 내용은 유지돼요.",
     "conflict": "기억이 변경되었어요. 보관할 수정 내용을 복사한 후 메모를 새로고침하세요.",
     "saved": "저장됨",
-    "personalizationTitle": "맞춤 설정 및 기억",
-    "savedTitle": "저장된 기억"
+    "edit": "편집",
+    "editHint": "한 줄에 하나씩 적어 주세요.",
+    "deleting": "삭제하는 중…",
+    "deleted": "Ada의 기억을 모두 삭제했습니다.",
+    "confirmTitle": "Ada의 기억을 모두 삭제할까요?",
+    "confirmBody": "다음 세션부터 다시 선호를 배웁니다."
   },
   "screen": {
     "choose": "Share a display",
@@ -612,5 +642,93 @@
     "saveError": "튜터 스타일을 저장할 수 없어요. 수정 내용은 유지돼요.",
     "conflict": "튜터 스타일이 변경되었어요. 보관할 수정 내용을 복사한 후 새로고침하세요.",
     "saved": "튜터 스타일 저장됨"
+  },
+  "settings": {
+    "open": "설정",
+    "title": "설정",
+    "close": "설정 닫기",
+    "closeHint": "설정 닫기 (Esc)",
+    "sections": {
+      "label": "설정 항목",
+      "tutor": "튜터",
+      "personality": "성격",
+      "memory": "기억",
+      "voice": "음성 및 오디오",
+      "defaults": "세션 기본값",
+      "language": "언어",
+      "camera": "카메라 및 종이",
+      "privacy": "개인정보",
+      "about": "정보"
+    },
+    "tutor": {
+      "description": "Ada의 모습과 목소리입니다. 바뀐 내용은 다음 문장부터 적용됩니다."
+    },
+    "personality": {
+      "description": "Ada에게 원하는 말투와 가르치는 방식을 직접 적어 주세요."
+    },
+    "memory": {
+      "description": "Ada는 학습 방식만 기억합니다: 말투, 속도, 언어, 힌트. 공부한 내용은 그 세션에만 남습니다."
+    },
+    "voice": {
+      "description": "마이크와 스피커, 그리고 Ada가 듣는 방식입니다."
+    },
+    "defaults": {
+      "description": "새 세션이 시작되는 방식입니다. 시작할 때 하나씩 바꿀 수도 있어요.",
+      "language": "세션 언어",
+      "languageApp": "앱과 같게",
+      "captions": "자막 켜기",
+      "captionsHint": "나와 Ada가 하는 말을 화면 아래에 보여 줍니다. 독의 자막 버튼으로도 바뀝니다.",
+      "chatGroup": "채팅",
+      "chat": "채팅 사이드바",
+      "chatOpen": "열기",
+      "chatClosed": "닫기",
+      "chatHint": "창 너비가 1120px보다 좁으면 항상 닫힌 채로 시작합니다.",
+      "voiceReplies": "Ada가 답을 소리 내어 말하기",
+      "voiceRepliesHint": "Ada에게 글로 물으면 채팅과 함께 소리로도 답합니다."
+    },
+    "language": {
+      "description": "Tassel 메뉴와 라벨의 언어입니다.",
+      "label": "앱 언어",
+      "hint": "바로 바뀝니다. Ada와 대화하는 언어는 세션마다 따로 정해집니다."
+    },
+    "camera": {
+      "description": "Ada가 종이를 보는 방법입니다. 여기서는 카메라가 켜지지 않습니다.",
+      "label": "종이 보기 방식",
+      "sources": {
+        "auto": "자동",
+        "deskview-helper": "Desk View",
+        "webcam": "카메라",
+        "window-capture": "Desk View 창"
+      },
+      "hints": {
+        "auto": "Desk View가 있으면 그것을, 없으면 카메라를 씁니다.",
+        "deskview-helper": "Mac 카메라가 책상을 내려다봅니다.",
+        "webcam": "종이를 비추는 웹캠이나 휴대폰 카메라입니다.",
+        "window-capture": "Desk View 앱 창을 캡처합니다."
+      },
+      "restart": "다음에 Tassel을 열 때 적용됩니다.",
+      "access": "카메라 접근",
+      "accessHint": "Ada가 종이를 볼 수 없다면 Tassel의 카메라 사용이 허용되어 있는지 확인하세요.",
+      "openSystem": "카메라 설정 열기"
+    },
+    "privacy": {
+      "description": "세션은 삭제하기 전까지 Tassel 서버에 보관됩니다.",
+      "deleteAll": "모든 세션 삭제",
+      "deleteAllHint": "모든 세션과 그 보드, 채팅, 종이 이미지, 그리고 Ada가 기억하는 모든 것을 삭제합니다. 튜터와 설정은 남습니다.",
+      "confirmTitle": "모든 세션을 삭제할까요?",
+      "confirmBody": "모든 세션과 Ada의 기억이 삭제됩니다. 되돌릴 수 없습니다.",
+      "confirm": "모두 삭제",
+      "deleting": "삭제하는 중…",
+      "done": "{count, plural, =0 {삭제할 것이 없었습니다.} other {세션 #개를 삭제했습니다.}}",
+      "failed": "모두 삭제하지 못했습니다. 연결을 확인한 뒤 다시 시도하세요."
+    },
+    "about": {
+      "description": "Tassel은 책상 위의 실시간 튜터입니다.",
+      "tagline": "내 풀이를 보고, 함께 이야기하고, 그 위에 그려 주는 실시간 튜터입니다.",
+      "languages": "언어",
+      "server": "서버",
+      "hosting": "호스팅",
+      "poweredBy": "Vultr 기반"
+    }
   }
 }

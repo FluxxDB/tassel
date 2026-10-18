@@ -1,7 +1,15 @@
 // The learner's sessions for one sort and search, from the server.
 import { listSessions, type Session, type SessionSort } from '@tassel/shared/api';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { create } from 'zustand';
 import { useApi } from '../../lib/api';
+
+/** Bumped when sessions change elsewhere (Settings → Privacy's delete all), so lists reload. */
+const useSessionsVersion = create<{ version: number }>()(() => ({ version: 0 }));
+
+export function invalidateSessions(): void {
+  useSessionsVersion.setState((state) => ({ version: state.version + 1 }));
+}
 
 export const SEARCH_DEBOUNCE_MS = 250;
 
@@ -57,7 +65,9 @@ export function useSessions(sort: SessionSort, q: string): SessionsState {
     [api],
   );
 
-  useEffect(() => load(sort, search), [load, sort, search]);
+  const version = useSessionsVersion((state) => state.version);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new version reloads.
+  useEffect(() => load(sort, search), [load, sort, search, version]);
   // Nothing lands after unmount.
   useEffect(
     () => () => {

@@ -201,3 +201,36 @@ export const Grip = icon(
     <circle cx="15" cy="18" r="1.2" />
   </>,
 );
+
+/** Settings: a cog with six rounded teeth (after Lucide's settings, ISC). */
+export const Gear = icon(
+  'Gear',
+  <>
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+    <circle cx="12" cy="12" r="3" />
+  </>,
+);
+
+/** A menu of more actions: three dots. */
+export const More = icon(
+  'More',
+  <>
+    <circle cx="6" cy="12" r="1" fill="currentColor" />
+    <circle cx="12" cy="12" r="1" fill="currentColor" />
+    <circle cx="18" cy="12" r="1" fill="currentColor" />
+  </>,
+);
+
+export const ChevronDown = icon('ChevronDown', <path d="m7 10 5 5 5-5" />);
+
+export const ChevronLeft = icon('ChevronLeft', <path d="m14.5 6-6 6 6 6" />);
+
+export const ChevronRight = icon('ChevronRight', <path d="m9.5 6 6 6-6 6" />);
+
+export const Check = icon('Check', <path d="m5 12.5 4.5 4.5L19 7.5" />);
+
+/** Push-to-talk: a raised hand, held while she talks. */
+export const Hand = icon(
+  'Hand',
+  <path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12M11 11.5V5a1.5 1.5 0 0 1 3 0v6.5M14 11.5V6.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-.5a6 6 0 0 1-4.6-2.2L3.6 16.9a1.5 1.5 0 0 1 2.3-1.9L8 17" />,
+);

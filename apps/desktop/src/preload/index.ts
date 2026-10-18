@@ -37,6 +37,10 @@ const tassel: TasselBridge = {
     askMicAccess: () => ipcRenderer.invoke(VOICE_IPC.askMicAccess),
     openMicSettings: () => ipcRenderer.invoke(VOICE_IPC.openMicSettings),
   },
+  settings: {
+    get: () => ipcRenderer.invoke(IPC.getSettings),
+    set: (patch) => ipcRenderer.invoke(IPC.setSettings, patch),
+  },
   getConfig: () => ipcRenderer.invoke(IPC.getConfig),
   getToken: () => ipcRenderer.invoke(IPC.getToken),
   refreshToken: () => ipcRenderer.invoke(IPC.refreshToken),

@@ -55,7 +55,7 @@ export const AREAS = [
       `${D}/config/**`,
       `${R}/{main.tsx,i18n.ts}`,
       `${R}/{app,lib,styles}/**`,
-      `${R}/components/{Button,Chip,IconButton,SegmentedControl,Sheet,Wordmark,icons}.tsx`,
+      `${R}/components/{Button,Chip,IconButton,Menu,OptionCards,Segmented,SettingSwitch,Sheet,Tabs,TitleField,Wordmark,icons}.tsx`,
     ],
     unit: [
       `${UNIT}/{api,app-protocol,cn,components,config,downloads,i18n,ipc,route-store,token-store,windows}.test.{ts,tsx}`,
@@ -71,6 +71,13 @@ export const AREAS = [
     e2e: [`${E2E}/{library,new-session}.spec.ts`],
   },
   {
+    name: 'settings',
+    title: 'The Settings view: its sections, and the settings the main process saves',
+    app: [`${R}/features/settings/**`, `${D}/src/main/settings.ts`],
+    unit: [`${UNIT}/settings/**`],
+    e2e: [`${E2E}/settings.spec.ts`],
+  },
+  {
     name: 'session',
     title: 'Session screen: stage, floating tiles, captions, dock, scripted fake tutor',
     app: [
@@ -80,7 +87,7 @@ export const AREAS = [
       `${R}/tutor/scripts/dfa-opening.json`,
     ],
     unit: [
-      `${UNIT}/{fake-client,floating-tile,session-screen,session-tiles,stage-store,tutor-contract,use-elapsed,use-tutor-session}.test.{ts,tsx}`,
+      `${UNIT}/{fake-client,floating-tile,session-screen,session-tiles,stage-store,title-rename,tutor-contract,use-elapsed,use-tutor-session}.test.{ts,tsx}`,
     ],
     e2e: [`${E2E}/{fake-tutor,session-layout}.spec.ts`],
   },
@@ -180,7 +187,7 @@ export const AREAS = [
       `${SRC}/scripts/export_avatar_voices.py`,
     ],
     unit: [`${UNIT}/{avatar,avatar-motion,memory,personality,voice-preview}.test.{ts,tsx}`],
-    e2e: [`${E2E}/{avatar,memory-close}.spec.ts`],
+    e2e: [`${E2E}/avatar.spec.ts`],
     pytest: [
       `${PY}/test_learner_memory.py`,
       `${PY}/test_tutor_personality.py`,

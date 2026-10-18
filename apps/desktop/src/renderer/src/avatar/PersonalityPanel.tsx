@@ -116,7 +116,7 @@ export function PersonalityPanel({ open }: { open: boolean }) {
           {t('personalization.reload')}
         </Button>
       </div>
-      <p role="status" className="min-h-5 text-sm text-smoke-text">
+      <p role="status" className="text-sm text-smoke-text empty:sr-only">
         {status}
       </p>
     </section>

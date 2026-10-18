@@ -6,6 +6,7 @@ import type { AppConfig } from '../../../shared/bridge';
 import type { VoiceConfig } from '../../../shared/voice-bridge';
 import { LibraryScreen } from '../features/library/LibraryScreen';
 import { SessionScreen } from '../features/session/SessionScreen';
+import { SettingsView } from '../features/settings/SettingsView';
 import { ApiProvider } from '../lib/api';
 import type { TutorClient } from '../tutor/types';
 import { useRoute } from './route-store';
@@ -50,6 +51,8 @@ export function App({ api, tokenReset = false, createTutor, config, voiceConfig 
           />
         )}
       </div>
+      {/* Over either screen, which keeps running under it. */}
+      <SettingsView config={config} />
     </ApiProvider>
   );
 }

@@ -59,3 +59,18 @@ FORM: Extension. Signature interaction: Ada's line grows in step with her voice 
 - seed: none (extension of an established surface)
 
 FINISH: an impeccable-finish-reviewer pass on the E2E screenshots (open and closed at 1440x900 and 1024x680, a full conversation), with its material findings fixed.
+
+## Extension: the app shell and Settings (2026-10-18, workstream U)
+
+Extension of the established world, code-led, no concept round.
+
+### Direction contract (shell)
+
+THESIS: Settings is a quiet instrument panel in the app's bone world, not a modal form dump: a full-window view with its own 52px strip, the sections down a left rail (the chosen one on a paper pill with a hairline), each section's controls in paper panels with hairline rows. The strips lead with the work: the session's editable title on the left, its tools on the right. It refuses choice chips, icon-and-heading card grids, coloured side borders and shadows.
+
+OWN-WORLD: Underline tabs (a 2px ink rule on a hairline) for sections; a soft segmented control (paper thumb on a 5% ink track) for short value sets; option cards (paper, hairline, an ink ring and check when chosen) for "How you'll work"; menus as paper cards with bone-highlighted rows for the library sort, a card's "⋯" (Rename, Delete) and the title's menu (Rename, type). One status pill ("source · timer") and a language pill in the same paper-and-hairline style.
+
+FORM: Extension. Signature interaction: the title renames in place (click, double click or Enter; Enter saves, Escape cancels).
+- seed: none (unavailable)
+
+FINISH: an impeccable-finish-reviewer pass on the shell-*.png screenshots (settings.spec.ts), with its material findings fixed.
