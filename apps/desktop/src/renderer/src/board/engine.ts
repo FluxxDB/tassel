@@ -2,7 +2,7 @@
 // plays her effects, moves the camera, and reports the student's own edits. board/tldraw/ is the
 // one engine; another (Excalidraw, say) would implement this and nothing else. No tldraw here.
 import type { AutomatonSpec } from '@tassel/shared/beats';
-import type { AutomatonLayout } from './layout/types';
+import type { BoardLayout } from './layout/types';
 import type { BoardEffect, BoardScene } from './scene/types';
 
 /** What the student changed on the board, after a quiet moment (Task 6; spec §5.4, P5-R13). */
@@ -41,7 +41,7 @@ export interface StageGeometry {
 
 export interface BoardEngine {
   /** Draws `scene`, changing only what changed since the last call. */
-  render(scene: BoardScene, layouts: Readonly<Record<string, AutomatonLayout>>): void;
+  render(scene: BoardScene, layouts: Readonly<Record<string, BoardLayout>>): void;
   /** Plays an effect; resolves when it ends, at once under reduced motion. */
   play(effect: BoardEffect): Promise<void>;
   /** Fits the camera to an item, or to everything for null. */

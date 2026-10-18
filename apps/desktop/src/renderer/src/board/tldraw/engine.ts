@@ -16,9 +16,9 @@ import {
   toRichText,
 } from 'tldraw';
 import type { BoardEngine, StageGeometry, StudentBoardEdit } from '../engine';
-import type { AutomatonLayout } from '../layout/types';
+import type { BoardLayout } from '../layout/types';
 import { prefersReducedMotion } from '../motion';
-import { type BoardText, type Box, placeItems } from '../scene/placement';
+import { type BoardText, focusBox, placeItems } from '../scene/placement';
 import type { BoardEffect, BoardScene } from '../scene/types';
 import { fitCamera, onSettledResize } from './camera';
 import { createCameraControl } from './camera-control';
@@ -70,8 +70,7 @@ export function createTldrawEngine(
 
   /** What Ada's board holds now, and what it was drawn from. */
   let shown: Desired = NO_SHAPES;
-  let drawn: { scene: BoardScene; layouts: Readonly<Record<string, AutomatonLayout>> } | null =
-    null;
+  let drawn: { scene: BoardScene; layouts: Readonly<Record<string, BoardLayout>> } | null = null;
   /** What the camera fitted last: an item (or null for everything) and its box. */
   let fitted: string | null = null;
 
@@ -83,7 +82,8 @@ export function createTldrawEngine(
   const frame = (item: string | null, animate: boolean): boolean => {
     if (!drawn) return false;
     const boxes = placeItems(drawn.scene, drawn.layouts, text());
-    const bounds = item === null ? union(Object.values(boxes)) : boxes[item];
+    // Her notes with it, so none is cut off at the panel's edge.
+    const bounds = focusBox(drawn.scene, boxes, item);
     if (!bounds) return false;
     const key = JSON.stringify([item, bounds]);
     const fit = fitCamera(editor, bounds, {
@@ -109,7 +109,8 @@ export function createTldrawEngine(
     if (!drawn) return;
     const item = drawn.scene.focus;
     const boxes = placeItems(drawn.scene, drawn.layouts, text());
-    const bounds = item === null ? union(Object.values(boxes)) : boxes[item];
+    // Her notes with it, so none is cut off at the panel's edge.
+    const bounds = focusBox(drawn.scene, boxes, item);
     if (bounds && JSON.stringify([item, bounds]) !== fitted) {
       control.refit(() => frame(item, fitted !== null));
     }
@@ -119,7 +120,7 @@ export function createTldrawEngine(
     control.refit();
   });
 
-  const render = (scene: BoardScene, layouts: Readonly<Record<string, AutomatonLayout>>) => {
+  const render = (scene: BoardScene, layouts: Readonly<Record<string, BoardLayout>>) => {
     drawn = { scene, layouts };
     const next = desiredBoard(scene, layouts, text(), lang);
     apply(editor, planSync(shown, next));
@@ -147,8 +148,17 @@ export function createTldrawEngine(
     async play(effect: BoardEffect) {
       if (reduced()) return;
       if (effect.type === 'pulse') {
+        const shape = editor.getShape(adaShapeId(effect.item, effect.el) as TLShapeId);
+        if (shape?.type === 'tassel-node') {
+          // Around a diagram's card: a ring that clears its corners. The overlay adds its 4 px.
+          const bounds = editor.getShapePageBounds(shape);
+          if (!bounds) return;
+          const center = { x: bounds.center.x, y: bounds.center.y };
+          await effects.play({ type: 'pulse', center, r: Math.hypot(bounds.w, bounds.h) / 2 });
+          return;
+        }
         // Around the state's own circle: its page bounds come from a polygon, a little smaller.
-        const state = editor.getShape(adaShapeId(effect.item, effect.el) as TLShapeId);
+        const state = shape;
         if (state?.type !== 'tassel-state') return;
         const r = state.props.w / 2;
         const center = editor.getShapePageTransform(state).applyToPoint({ x: r, y: r });
@@ -305,13 +315,4 @@ function bindingCreate(binding: DesiredBinding): TLBindingCreate {
 function centerOf(editor: Editor, id: string): Pt | null {
   const bounds = editor.getShapePageBounds(id as TLShapeId);
   return bounds ? { x: bounds.center.x, y: bounds.center.y } : null;
-}
-
-function union(boxes: readonly Box[]): Box | undefined {
-  if (boxes.length === 0) return undefined;
-  const x = Math.min(...boxes.map((box) => box.x));
-  const y = Math.min(...boxes.map((box) => box.y));
-  const right = Math.max(...boxes.map((box) => box.x + box.w));
-  const bottom = Math.max(...boxes.map((box) => box.y + box.h));
-  return { x, y, w: right - x, h: bottom - y };
 }

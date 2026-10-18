@@ -8,16 +8,22 @@ import type {
   FromLayoutWorker,
   ToLayoutWorker,
 } from '../../../../src/renderer/src/board/layout/messages';
-import { layoutWithViz } from '../../../../src/renderer/src/board/layout/viz';
-import { CORRECT, WRONG } from '../fixtures';
+import { layoutDiagramWithViz, layoutWithViz } from '../../../../src/renderer/src/board/layout/viz';
+import { diagramSizes } from '../../../../src/renderer/src/board/scene/diagram';
+import { CORRECT, NETWORK, WRONG } from '../fixtures';
 
 /** How a fake worker answers a message; null for never. */
 type Answer = (message: ToLayoutWorker) => Promise<FromLayoutWorker | null>;
 
 /** Graphviz in-process, answering as worker.ts does. */
-const viaViz: Answer = async ({ id, spec }) => {
+const viaViz: Answer = async (message) => {
+  const { id } = message;
   try {
-    return { id, layout: await layoutWithViz(spec) };
+    const layout =
+      'diagram' in message
+        ? await layoutDiagramWithViz(message.diagram, message.sizes)
+        : await layoutWithViz(message.spec);
+    return { id, layout };
   } catch (error) {
     return { id, error: error instanceof Error ? error.message : String(error) };
   }
@@ -105,6 +111,21 @@ describe('the default worker', () => {
 });
 
 describe('createLayoutClient', { timeout: 30_000 }, () => {
+  it('lays a diagram out through the worker, once per spec and sizes', async () => {
+    const { client, workers } = clientWith(viaViz);
+    const sizes = diagramSizes(NETWORK, (text) => ({ w: [...text].length * 8, h: 16 }));
+    const layout = await client.layoutDiagram(NETWORK, sizes);
+    expect(layout).toEqual(await layoutDiagramWithViz(NETWORK, sizes));
+    expect(await client.layoutDiagram(structuredClone(NETWORK), sizes)).toBe(layout);
+    expect(workers[0].sent).toHaveLength(1);
+    expect(workers[0].sent[0]).toMatchObject({ diagram: NETWORK, sizes });
+    // Wider cards are another layout.
+    const wider = { ...sizes, nodes: { ...sizes.nodes, core: { w: 200, h: 74 } } };
+    await client.layoutDiagram(NETWORK, wider);
+    expect(workers[0].sent).toHaveLength(2);
+    client.dispose();
+  });
+
   it('resolves a layout through the worker', async () => {
     const { client, workers } = clientWith(viaViz);
 

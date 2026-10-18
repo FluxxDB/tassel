@@ -30,7 +30,7 @@ import { CORRECT, WRONG } from '../fixtures';
 const ADVANCE = { note: 9, verdict: 8 } as const;
 const LINE = { note: 24, verdict: 20 } as const;
 const measure: MeasureText = (text, style, maxWidth) => {
-  const advance = ADVANCE[style];
+  const advance = ADVANCE[style as keyof typeof ADVANCE] ?? 8;
   const perLine = Math.max(1, Math.floor(maxWidth / advance));
   const lines: number[] = [];
   let line = -1;
@@ -45,7 +45,10 @@ const measure: MeasureText = (text, style, maxWidth) => {
     line = chars;
   }
   lines.push(Math.max(line, 0));
-  return { w: Math.max(...lines) * advance, h: lines.length * LINE[style] };
+  return {
+    w: Math.max(...lines) * advance,
+    h: lines.length * (LINE[style as keyof typeof LINE] ?? 16),
+  };
 };
 
 /** Board copy in `lng`, as the board store gets it: i18next with ICU and the shared catalogs. */

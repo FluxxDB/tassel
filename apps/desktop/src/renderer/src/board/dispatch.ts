@@ -36,7 +36,7 @@ export function dispatchActions(actions: readonly unknown[]): void {
 
 /**
  * True when the action puts something in view, so the stage should show its side: every action
- * but focus, clear, an automaton drawn hidden, a highlight turned off, unmark, paper.clear,
+ * but focus, clear, an automaton or diagram drawn hidden, a highlight turned off, unmark, paper.clear,
  * paper.live and stage.
  */
 export function isShowing(action: BeatAction): boolean {
@@ -49,6 +49,7 @@ export function isShowing(action: BeatAction): boolean {
     case 'stage':
       return false;
     case 'board.automaton':
+    case 'board.diagram':
       return action.reveal !== 'none';
     case 'board.highlight':
       return action.on;

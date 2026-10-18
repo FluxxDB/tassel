@@ -1,5 +1,6 @@
 // Where each item of the scene goes on the board, and how big it is. Items stack in one column at
-// x 0, in scene order, ITEM_GAP apart; a note by an item sits beside it instead. An item whose
+// x 0, in scene order, ITEM_GAP apart; a note by an item sits beside it instead: right of it while
+// the row stays within NOTE_ROW_MAX, else below it, or left of it once something is below it. An item whose
 // size isn't known yet (an automaton waiting for its layout) holds back every item after it, so
 // nothing jumps when a layout arrives.
 //
@@ -7,7 +8,7 @@
 // verdict row wrap, in the session's language, so their sizes come through `BoardText`. The
 // constants below are the metrics Task 5's shapes draw with; a shape that set its text another
 // way would no longer match its box.
-import type { AutomatonLayout } from '../layout/types';
+import { automatonLayoutOf, type BoardLayout, isDiagramLayout } from '../layout/types';
 import type { BoardItem, BoardScene, TraceItem } from './types';
 
 export interface Box {
@@ -23,6 +24,11 @@ export const ITEM_GAP = 64;
 export const NOTE_OFFSET = 32;
 /** Between notes stacked beside one item. */
 export const NOTE_STACK_GAP = 16;
+/**
+ * How far right a note beside an item may reach: past it, the board grows too wide for the
+ * camera to fit it readably in a split panel, so the note goes below or left of its item.
+ */
+export const NOTE_ROW_MAX = 960;
 /** An automaton's title row, above its layout. */
 export const TITLE_ROW = 28;
 
@@ -48,8 +54,18 @@ export const VERDICT_ROW = Object.freeze({ top: 16, padX: 18, padY: 10, gap: 12,
 /** A note: the 'note' style in an ink box at most 320 px wide, with 10 × 16 padding. */
 export const NOTE_BOX = Object.freeze({ maxWidth: 320, padX: 16, padY: 10 });
 
-/** How the board sets its text: 'note' is Geist 17/400; 'verdict' is Geist 15. */
-export type BoardTextStyle = 'note' | 'verdict';
+/**
+ * How the board sets its text: 'note' is Geist 17/400; 'verdict' is Geist 15; a diagram's node
+ * label is Geist 14/500 and its sublabel Geist Mono 12; a group's label is Geist Mono 12 uppercase
+ * and its sublabel Geist Mono 12 (diagram.ts's NODE_CARD and GROUP_LABEL).
+ */
+export type BoardTextStyle =
+  | 'note'
+  | 'verdict'
+  | 'nodeLabel'
+  | 'nodeSub'
+  | 'groupLabel'
+  | 'groupSub';
 
 /**
  * How big `text` is when the board sets it in `style` and wraps it at `maxWidth` px, keeping words
@@ -73,40 +89,108 @@ export interface BoardText {
 
 export function placeItems(
   scene: BoardScene,
-  layouts: Readonly<Record<string, AutomatonLayout>>,
+  layouts: Readonly<Record<string, BoardLayout>>,
   text: BoardText,
 ): Record<string, Box> {
   const boxes: Record<string, Box> = {};
-  /** Where the next note beside an item goes. */
-  const besideNext = new Map<string, number>();
+  /** The side each item's notes take, chosen by its first, and where the next one goes there. */
+  const beside = new Map<string, { side: 'right' | 'below' | 'left'; next: number }>();
+  /** Where the next note left of an item goes, once its notes can't go below it any more. */
+  const leftNext = new Map<string, number>();
   let y = 0;
+  /** The item at the column's end, its notes below it included: only it has room below. */
+  let last: string | null = null;
   for (const item of scene.items) {
     const size = itemSize(item, layouts, text);
     if (!size) break;
     const anchor = item.kind === 'note' && item.near ? boxes[item.near.item] : undefined;
     if (item.kind === 'note' && item.near && anchor) {
-      const top = besideNext.get(item.near.item) ?? anchor.y;
-      boxes[item.id] = { x: anchor.x + anchor.w + NOTE_OFFSET, y: top, ...size };
-      besideNext.set(item.near.item, top + size.h + NOTE_STACK_GAP);
+      const of = item.near.item;
+      let spot = beside.get(of);
+      if (!spot) {
+        const side =
+          anchor.x + anchor.w + NOTE_OFFSET + size.w <= NOTE_ROW_MAX
+            ? 'right'
+            : last === of
+              ? 'below'
+              : 'left';
+        spot = { side, next: side === 'below' ? anchor.y + anchor.h + NOTE_STACK_GAP : anchor.y };
+        beside.set(of, spot);
+      }
+      if (spot.side === 'right') {
+        boxes[item.id] = { x: anchor.x + anchor.w + NOTE_OFFSET, y: spot.next, ...size };
+        spot.next += size.h + NOTE_STACK_GAP;
+      } else if (spot.side === 'below' && last === of) {
+        boxes[item.id] = { x: anchor.x, y: spot.next, ...size };
+        spot.next += size.h + NOTE_STACK_GAP;
+        // The column goes on below the note.
+        y = Math.max(y, spot.next - NOTE_STACK_GAP + ITEM_GAP);
+      } else {
+        const top = leftNext.get(of) ?? anchor.y;
+        boxes[item.id] = { x: anchor.x - NOTE_OFFSET - size.w, y: top, ...size };
+        leftNext.set(of, top + size.h + NOTE_STACK_GAP);
+      }
       continue;
     }
     // Everything else goes in the column, a note whose item is gone too.
     boxes[item.id] = { x: 0, y, ...size };
     y += size.h + ITEM_GAP;
+    last = item.id;
   }
   return boxes;
+}
+
+/**
+ * The box the camera fits for `focus` (P5-R9): the item with the notes that go with it, so none
+ * is cut off at the panel's edge. Those are the notes beside it and the notes that follow it in
+ * the column, up to the next item. For no focus, everything placed. Undefined when there's
+ * nothing placed to fit.
+ */
+export function focusBox(
+  scene: BoardScene,
+  boxes: Readonly<Record<string, Box>>,
+  focus: string | null,
+): Box | undefined {
+  if (focus === null) return union(Object.values(boxes));
+  const own = boxes[focus];
+  if (!own) return undefined;
+  const parts = [own];
+  for (const item of scene.items) {
+    if (item.kind === 'note' && item.near?.item === focus && boxes[item.id])
+      parts.push(boxes[item.id]);
+  }
+  const at = scene.items.findIndex((item) => item.id === focus);
+  for (const item of scene.items.slice(at + 1)) {
+    if (item.kind !== 'note') break;
+    // A note beside another item is that item's; it doesn't end the run.
+    if (item.near && boxes[item.near.item]) continue;
+    if (boxes[item.id]) parts.push(boxes[item.id]);
+  }
+  return union(parts);
+}
+
+function union(boxes: readonly Box[]): Box | undefined {
+  if (boxes.length === 0) return undefined;
+  const x = Math.min(...boxes.map((box) => box.x));
+  const y = Math.min(...boxes.map((box) => box.y));
+  const right = Math.max(...boxes.map((box) => box.x + box.w));
+  const bottom = Math.max(...boxes.map((box) => box.y + box.h));
+  return { x, y, w: right - x, h: bottom - y };
 }
 
 /** An item's size, or null while it waits for its layout. */
 export function itemSize(
   item: BoardItem,
-  layouts: Readonly<Record<string, AutomatonLayout>>,
+  layouts: Readonly<Record<string, BoardLayout>>,
   text: BoardText,
 ): { w: number; h: number } | null {
   switch (item.kind) {
-    case 'automaton': {
-      const layout: AutomatonLayout | undefined = layouts[item.id];
-      if (!layout) return null;
+    case 'automaton':
+    case 'diagram': {
+      // A layout of the other kind is one an item of the same id had before: it waits too.
+      const layout = layouts[item.id];
+      const fits = item.kind === 'diagram' ? isDiagramLayout(layout) : automatonLayoutOf(layout);
+      if (!layout || !fits) return null;
       return { w: layout.width, h: layout.height + (item.title === null ? 0 : TITLE_ROW) };
     }
     case 'trace':

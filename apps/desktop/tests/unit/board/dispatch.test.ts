@@ -5,6 +5,7 @@ import { applyBoardAction } from '../../../src/renderer/src/board/board-store';
 import { dispatchActions, isShowing } from '../../../src/renderer/src/board/dispatch';
 import { applyPaperAction } from '../../../src/renderer/src/board/marks/marks-store';
 import { useStageStore } from '../../../src/renderer/src/features/session/stage-store';
+import { FLOW } from './fixtures';
 
 // The stage store is real; the board's and the paper's sinks are spies, whatever later tasks
 // put behind them.
@@ -165,6 +166,7 @@ describe('isShowing', () => {
     { kind: 'board.clear', item: 'fix' },
     { ...(AUTOMATON as Extract<BeatAction, { kind: 'board.automaton' }>), reveal: 'none' },
     { kind: 'board.highlight', item: 'wrong', el: 'state:q0', on: false },
+    { kind: 'board.diagram', item: 'net', spec: FLOW, reveal: 'none' },
     { kind: 'paper.unmark', id: 'm1' },
     { kind: 'paper.clear' },
     { kind: 'paper.live' },
@@ -172,6 +174,7 @@ describe('isShowing', () => {
   ];
   const SHOWING: BeatAction[] = [
     AUTOMATON,
+    { kind: 'board.diagram', item: 'net', spec: FLOW },
     { kind: 'board.addState', item: 'fix', id: 'qd' },
     { kind: 'board.addTransition', item: 'fix', from: 'q1', to: 'qd', symbols: ['0'] },
     { kind: 'board.reveal', item: 'fix' },
