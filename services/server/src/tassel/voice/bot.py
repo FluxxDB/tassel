@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from uuid import UUID
 
@@ -17,6 +18,8 @@ from pipecat.frames.frames import (
     LLMRunFrame,
     LLMUpdateSettingsFrame,
     StartFrame,
+    UserStartedSpeakingFrame,
+    VADUserStartedSpeakingFrame,
 )
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.worker import PipelineParams, PipelineWorker
@@ -59,6 +62,18 @@ from tassel.voice.settings import VoiceSettings, resolve_mode
 from tassel.voice.tools import TOOLS
 from tassel.voice.turns import PushToTalkFrame, TurnTuning, make_turn_strategies, make_vad
 
+TurnImage = Callable[[UUID], Awaitable[tuple[bytes, str] | None]]
+"""The per-turn seam: a session's latest page image and its caption for the model, or None."""
+
+# How long a student turn waits for its page image before Ada answers without one. Fetching
+# starts when she starts speaking, so a spoken turn usually finds it ready.
+TURN_IMAGE_WAIT_S = 0.8
+
+
+def _image_url(image: bytes) -> str:
+    mime = "image/jpeg" if image.startswith(b"\xff\xd8") else "image/png"
+    return f"data:{mime};base64," + base64.b64encode(image).decode()
+
 
 @dataclass
 class BotContext:
@@ -70,6 +85,8 @@ class BotContext:
     settings: VoiceSettings
     memory: ConversationMemory
     sessions: async_sessionmaker[AsyncSession]
+    # The latest stored page of her paper for a student turn (vision-lite), or None without one.
+    turn_image: TurnImage | None = None
 
 
 @dataclass
@@ -141,11 +158,37 @@ class _RoutedService(Pipeline):
 
 
 class _TurnContext(FrameProcessor):
-    def __init__(self):
+    def __init__(self, session_id: UUID | None = None, turn_image: TurnImage | None = None):
         super().__init__()
         self.pending_image = None
         self._last_user = None
         self.on_language = None
+        self._session_id = session_id
+        self._turn_image = turn_image
+        self._fetching: asyncio.Task | None = None
+
+    def _fetch(self) -> asyncio.Task | None:
+        """Starts fetching this turn's page image, once per turn."""
+        if self._turn_image is None or self._session_id is None:
+            return None
+        if self._fetching is None:
+            self._fetching = asyncio.create_task(self._turn_image(self._session_id))
+        return self._fetching
+
+    async def _latest_image(self) -> tuple[bytes, str] | None:
+        """The page image for the turn now reaching the model. A missing frame, a slow store
+        or an error means no image, never a failed turn."""
+        task = self._fetch()
+        self._fetching = None
+        if task is None:
+            return None
+        try:
+            return await asyncio.wait_for(asyncio.shield(task), TURN_IMAGE_WAIT_S)
+        except Exception as error:  # noqa: BLE001 - any failure leaves the turn imageless
+            if isinstance(error, TimeoutError):
+                task.cancel()
+            logger.info("No page image for this turn: {}", type(error).__name__)
+            return None
 
     def add_turn_image(self, png_bytes: bytes, caption: str):
         # The vision producer owns flattening/numbering. Replace any unconsumed
@@ -156,6 +199,8 @@ class _TurnContext(FrameProcessor):
         await super().process_frame(frame, direction)
         if isinstance(frame, _LanguageChange):
             await self.on_language(frame.lang)
+        elif isinstance(frame, (UserStartedSpeakingFrame, VADUserStartedSpeakingFrame)):
+            self._fetch()
         elif isinstance(frame, LLMContextFrame):
             messages = frame.context.get_messages()
             user = next((m for m in reversed(messages) if m.get("role") == "user"), None)
@@ -166,6 +211,9 @@ class _TurnContext(FrameProcessor):
                 and not is_note(user["content"])
             ):
                 self._last_user = user
+                latest = await self._latest_image()
+                if latest is not None:
+                    self.pending_image = latest
                 # Keep a single latest paper image in the live context as well.
                 for message in messages:
                     if isinstance(message.get("content"), list):
@@ -179,9 +227,7 @@ class _TurnContext(FrameProcessor):
                         {"type": "text", "text": caption},
                         {
                             "type": "image_url",
-                            "image_url": {
-                                "url": "data:image/png;base64," + base64.b64encode(png).decode()
-                            },
+                            "image_url": {"url": _image_url(png)},
                         },
                     ]
                     self.pending_image = None
@@ -291,7 +337,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
             user_turn_strategies=make_turn_strategies(kind, tuning, ctx.lang, on_ignored),
         ),
     )
-    turn_context = _TurnContext()
+    turn_context = _TurnContext(ctx.session_id, ctx.turn_image)
     monitor = _RouteMonitor()
     worker = PipelineWorker(
         Pipeline([input, stt, user, turn_context, llm, tts, monitor, output, assistant]),

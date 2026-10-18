@@ -29,6 +29,7 @@ async def voice_client(db_url, *, settings=None, start_bot=None):
                 settings=app.state.voice_settings,
                 sessions=app.state.session_factory,
                 start_bot=start_bot,
+                turn_images=app.state.voice.turn_images,
             )
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
@@ -117,6 +118,8 @@ async def test_offer_answers_and_starts_a_bot(db_url):
             ctx = contexts[0]
             assert ctx.session_id == UUID(row["id"]) and ctx.lang == "en" and ctx.titled is False
             assert ctx.request.sensitivity == "normal" and ctx.request.ptt is False
+            # The glue: the bot gets the session's page-image seam.
+            assert ctx.turn_image is not None
             assert app.state.voice.live_bot(ctx.learner_id).pc_ids == {answer["pc_id"]}
 
 
@@ -323,3 +326,13 @@ async def test_real_handler_restart_keeps_bot_and_aliases(db_url):
                 assert bot.pc_ids == {first["pc_id"], second["pc_id"]}
                 assert app.state.voice.live_bot(contexts[0].learner_id) is bot
                 assert len(contexts) == 1
+
+
+async def test_each_bot_gets_the_page_image_seam_on_the_apps_store_and_db(app, client):
+    """The glue: bots read the latest stored page through vision-lite's turn_image_for."""
+    import uuid
+
+    turn_image = app.state.voice.turn_image_for_bot()
+    assert turn_image is not None
+    # No frames for this session: no image, never an error.
+    assert await turn_image(uuid.uuid4()) is None

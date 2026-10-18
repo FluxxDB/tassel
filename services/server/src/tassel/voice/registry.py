@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from tassel.storage.tables import TutoringSession
 from tassel.voice.api import IcePatch, OfferAnswer, OfferBody
-from tassel.voice.bot import BotContext, run_bot
+from tassel.voice.bot import BotContext, TurnImage, run_bot
 from tassel.voice.memory import ConversationMemory
 from tassel.voice.messages import OfferRequestData
 from tassel.voice.providers import require_session_providers
@@ -49,13 +49,19 @@ class VoiceRegistry:
         sessions: async_sessionmaker[AsyncSession],
         memory: ConversationMemory | None = None,
         start_bot: Callable[[SmallWebRTCConnection, BotContext], Awaitable[None]] = run_bot,
+        turn_images: Callable[[], TurnImage] | None = None,
     ):
         self.settings, self.sessions = settings, sessions
+        # Makes each bot its page-image seam (vision-lite), with its own board context.
+        self.turn_images = turn_images
         self.memory = memory if memory is not None else ConversationMemory()
         self._start_bot = start_bot
         self._bots: dict[UUID, LiveBot] = {}
         self._locks: WeakValueDictionary[UUID, asyncio.Lock] = WeakValueDictionary()
         self._closing = False
+
+    def turn_image_for_bot(self) -> TurnImage | None:
+        return self.turn_images() if self.turn_images else None
 
     def _lock(self, learner_id):
         lock = self._locks.get(learner_id)
@@ -149,6 +155,7 @@ class VoiceRegistry:
                     settings=self.settings,
                     memory=self.memory,
                     sessions=self.sessions,
+                    turn_image=self.turn_image_for_bot(),
                 )
                 task = asyncio.create_task(
                     self._run(connection, ctx, handler), name=f"voice-{session.id}"

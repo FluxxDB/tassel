@@ -336,3 +336,60 @@ async def test_scripted_crash_saves_memory():
     messages, lang = ctx.memory.recall(ctx.session_id)
     assert lang == "en"
     assert any(m.get("content") == "/drop" for m in messages)
+
+
+JPEG = b"\xff\xd8\xff\xe0page"
+
+
+async def test_each_student_turn_carries_the_latest_page_image():
+    asked = []
+
+    async def turn_image(session_id):
+        asked.append(session_id)
+        return JPEG + str(len(asked)).encode(), "Student's flattened paper."
+
+    ctx = context(turn_image=turn_image)
+    async with running(ctx) as (bot, out):
+        await until(lambda: SCRIPT.langs["en"].greeting in out.text())
+        await say(bot, SCRIPT.langs["en"].student[0])
+        await until(lambda: SCRIPT.langs["en"].turns[0].say in out.text())
+        await say(bot, "Something else")
+        await until(lambda: SCRIPT.langs["en"].fallback in out.text())
+    assert asked and set(asked) == {ctx.session_id}
+    users = [m for m in bot.context.get_messages() if m["role"] == "user"]
+    images = [
+        b["image_url"]["url"]
+        for m in users
+        if isinstance(m["content"], list)
+        for b in m["content"]
+        if b["type"] == "image_url"
+    ]
+    # One image in the context: the latest turn's, a JPEG labelled as one.
+    assert len(images) == 1
+    assert images[0].startswith("data:image/jpeg;base64,")
+    assert any(
+        b.get("text") == "Student's flattened paper."
+        for b in users[-1]["content"]
+        if isinstance(users[-1]["content"], list)
+    )
+
+
+@pytest.mark.parametrize("outcome", ["none", "error", "slow"])
+async def test_a_turn_without_a_page_image_still_gets_its_reply(outcome, monkeypatch):
+    from tassel.voice import bot as bot_module
+
+    monkeypatch.setattr(bot_module, "TURN_IMAGE_WAIT_S", 0.05)
+
+    async def turn_image(session_id):
+        if outcome == "error":
+            raise RuntimeError("no frames table yet")
+        if outcome == "slow":
+            await asyncio.sleep(5)
+        return None
+
+    async with running(context(turn_image=turn_image)) as (bot, out):
+        await until(lambda: SCRIPT.langs["en"].greeting in out.text())
+        await say(bot, SCRIPT.langs["en"].student[0])
+        await until(lambda: SCRIPT.langs["en"].turns[0].say in out.text())
+        users = [m for m in bot.context.get_messages() if m["role"] == "user"]
+        assert users[-1]["content"] == SCRIPT.langs["en"].student[0]

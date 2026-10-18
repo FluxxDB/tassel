@@ -18,6 +18,8 @@ from tassel.voice.settings import VoiceConfigError, VoiceSettings, check_voice_s
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    from tassel.beats.markup import BoardContext
+    from tassel.vision.turn_image import make_turn_image_for
     from tassel.voice.registry import VoiceRegistry
 
     voice_settings = app.state.voice_settings or VoiceSettings.load()
@@ -29,7 +31,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.engine = engine
     app.state.session_factory = session_factory(engine)
     try:
-        app.state.voice = VoiceRegistry(settings=voice_settings, sessions=app.state.session_factory)
+        app.state.voice = VoiceRegistry(
+            settings=voice_settings,
+            sessions=app.state.session_factory,
+            # Each student turn sees her latest stored page (vision-lite); one board per bot.
+            turn_images=lambda: make_turn_image_for(
+                app.state.session_factory, app.state.object_store, context=BoardContext()
+            ),
+        )
         try:
             yield
         finally:
