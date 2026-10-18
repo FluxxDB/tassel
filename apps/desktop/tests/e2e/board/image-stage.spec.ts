@@ -38,9 +38,7 @@ async function boxOf(page: Page, selector: string): Promise<Box> {
 const markOf = (page: Page, testId: string) => boxOf(page, `[data-testid="${testId}"]`);
 
 function overlaps(a: Box, b: Box): boolean {
-  return (
-    a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
-  );
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 }
 
 /** Where a detected box of the image lands on screen, through the image's fit. */
