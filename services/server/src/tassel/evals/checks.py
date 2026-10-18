@@ -30,6 +30,8 @@ class Observation:
     actions: list[dict] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
     rejects: list[dict] = field(default_factory=list)
+    # The titler's name for the session, when this turn produced one.
+    title: dict | None = None
     decision: dict | None = None
     view_request: str | None = None
     board_before: dict = field(default_factory=lambda: {"automata": {}, "diagrams": {}})

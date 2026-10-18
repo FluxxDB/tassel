@@ -92,6 +92,7 @@ from tassel.voice.messages import (
     StageStateEvent,
     SttKind,
     StudentMessageEvent,
+    TitleEvent,
     is_note,
 )
 from tassel.voice.prompts import language_switch_note, system_prompt
@@ -100,6 +101,7 @@ from tassel.voice.routes import VoiceRoute, route_for
 from tassel.voice.settings import VoiceSettings, resolve_mode
 from tassel.voice.stage import StageManager
 from tassel.voice.thinker import Thinker, ThinkerOutput, TutorCoordinator, make_thinker
+from tassel.voice.titler import Namer, SessionName, make_titler
 from tassel.voice.tools import SCREEN_TOOLS, TALKER_TOOLS, TOOLS
 from tassel.voice.transcripts import DevTranscript
 from tassel.voice.turns import PushToTalkFrame, TurnTuning, make_turn_strategies, make_vad
@@ -141,6 +143,10 @@ class BotContext:
     chat: ChatStore | None = None
     # The session's last saved chat seq, which this bot's lines follow.
     chat_seq: int = 0
+    # The session's name as stored, and who gave it: the titler never touches the student's.
+    title: str | None = None
+    subject: str | None = None
+    title_source: str | None = None
 
 
 @dataclass
@@ -297,6 +303,8 @@ class _TurnContext(FrameProcessor):
         self.decision = None
         self.coordinator = None
         self._last_user = None
+        # The student's words of the turn being answered, for the titler; taken once.
+        self.last_student: str | None = None
         self.on_language = None
         self.refresh_memory: Callable[[bool], Awaitable[None]] | None = None
         self._session_id = session_id
@@ -430,6 +438,7 @@ class _TurnContext(FrameProcessor):
                         if not is_note(content):
                             fragments.insert(0, content)
                 student_text = " ".join(fragments) or user["content"]
+                self.last_student = student_text
                 ink_image = None
                 note = None
                 history = []
@@ -751,24 +760,38 @@ class _ChatFrames(BaseObserver):
     """Feeds the chat log what reaches the output: each of Ada's sentences as it's heard (or
     shown, when she types), each response's end, and every interruption."""
 
-    def __init__(self, chat: ChatLog, output: FrameProcessor):
+    def __init__(
+        self,
+        chat: ChatLog,
+        output: FrameProcessor,
+        on_exchange: Callable[[str], Awaitable[None]] | None = None,
+    ):
         super().__init__()
         self.chat, self.output = chat, output
+        # Each response's text, handed to the titler as it ends.
+        self.on_exchange = on_exchange
+        self._reply: list[str] = []
 
     async def on_push_frame(self, data: FramePushed):
         frame = data.frame
         if isinstance(frame, InterruptionFrame):
             if data.first_push:
+                self._reply.clear()
                 await self.chat.interrupted()
             return
         if data.source is not self.output or data.direction != FrameDirection.DOWNSTREAM:
             return
         if isinstance(frame, TextOnlyFrame):
+            self._reply.append(frame.clean)
             await self.chat.heard(frame.clean, frame.source_id)
         elif isinstance(frame, AggregatedTextFrame) and not isinstance(frame, TTSTextFrame):
+            self._reply.append(frame.text)
             await self.chat.heard(frame.text, frame.id)
         elif isinstance(frame, LLMFullResponseEndFrame):
+            reply, self._reply = " ".join(self._reply), []
             await self.chat.ended()
+            if self.on_exchange is not None:
+                await self.on_exchange(reply)
 
 
 class _RouteMonitor(FrameProcessor):
@@ -1126,7 +1149,49 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     worker.add_observer(transcript)
     worker.add_observer(VadForwarder(worker))
     worker.add_observer(_SpeechStarts(turn_context))
-    worker.add_observer(_ChatFrames(chat_log, output))
+
+    # The titler (T): names the session after the first substantive exchange, off the
+    # pipeline's path, and never over the student's own name.
+    async def save_name(name):
+        if ctx.sessions is None:
+            return True
+        try:
+            async with ctx.sessions() as db:
+                row = await sessions_repo.name_by_ai(
+                    db, ctx.learner_id, ctx.session_id, name.title, name.subject
+                )
+        except Exception as error:  # noqa: BLE001 - the name still shows for this session
+            logger.warning("Couldn't save the session's name: {}", type(error).__name__)
+            return True
+        return row is not None
+
+    async def emit_name(name):
+        await events.send(TitleEvent(title=name.title, subject=name.subject))
+
+    def record(event, **data):
+        transcript.record(event, data)
+
+    namer = Namer(
+        make_titler(
+            ctx.settings,
+            scenario.title if fake_llm else None,
+            on_usage=transcript.meter.llm,
+            log=record,
+        ),
+        lang=lambda: ctx.lang,
+        save=save_name,
+        emit=emit_name,
+        current=SessionName(title=ctx.title, subject=ctx.subject) if ctx.title else None,
+        source=ctx.title_source,
+        log=record,
+    )
+
+    async def exchange(reply):
+        student, turn_context.last_student = turn_context.last_student, None
+        if student:
+            namer.schedule(student, reply)
+
+    worker.add_observer(_ChatFrames(chat_log, output, on_exchange=exchange))
     language_lock = asyncio.Lock()
 
     async def apply_language(lang):
@@ -1371,6 +1436,7 @@ def build_bot(input: FrameProcessor, output: FrameProcessor, ctx: BotContext) ->
     bot.log_sink = log_sink
     bot.transcript = transcript
     bot.chat_log = chat_log
+    bot.namer = namer
     return bot
 
 
@@ -1408,6 +1474,8 @@ async def run_bot(connection, ctx: BotContext) -> None:
                     bot.transcript.record_cost()
                 if getattr(bot, "chat_log", None) is not None:
                     await bot.chat_log.close()
+                if getattr(bot, "namer", None) is not None:
+                    await bot.namer.close()
         finally:
             try:
                 await history.close()

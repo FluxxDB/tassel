@@ -87,6 +87,13 @@ class _NoMemory:
             return SimpleNamespace(enabled=True, content=self.memory, revision=1)
         return None
 
+    # The titler's name: "saved", so it shows in the eval's events.
+    async def scalar(self, *args, **kwargs):
+        return self
+
+    async def commit(self):
+        return None
+
 
 def _seeded_db(memory: str | None):
     @asynccontextmanager
@@ -422,6 +429,14 @@ class PipelineSession:
             stage=stage,
             actions=actions,
             tags=[e["text"] for e in log if e["event"] == "tags"],
+            title=next(
+                (
+                    {"title": e["title"], "subject": e.get("subject")}
+                    for e in events
+                    if e["kind"] == "title"
+                ),
+                None,
+            ),
             rejects=[
                 {k: v for k, v in e.items() if k not in ("event", "at")}
                 for e in log
